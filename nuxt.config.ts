@@ -2,8 +2,13 @@
 export default defineNuxtConfig({
   compatibilityDate: '2025-07-15',
   devtools: { enabled: true },
-  modules: ['@nuxt/ui'],
+  modules: ['@nuxt/ui', '@nuxt/eslint', '@nuxtjs/google-fonts'],
   css: ['@/assets/css/main.css'],
+  googleFonts: {
+    families: {
+      'Prompt': [400, 500, 600, 700],
+    },
+  },
   app: {
     head: {
       title: 'Saijai Phareab',
