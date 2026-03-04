@@ -1,0 +1,455 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../app/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ============================
+// ENUMS
+// ============================
+
+enum Role {
+  USER
+  EMPLOYEE
+  ADMIN
+}
+
+enum OrderType {
+  PACKAGE
+  STOREFRONT
+}
+
+enum OrderStatus {
+  RECEIVED
+  PENDING
+  CHECKING
+  PROCESSING
+  PENDING_REVIEW
+  COMPLETED
+  CANCELLED
+}
+
+enum PackageStatus {
+  PENDING
+  ACTIVE
+  EXPIRED
+}
+
+enum BasketStatus {
+  AVAILABLE
+  IN_USE
+}
+
+enum PackageType {
+  MAIN
+  ADDON
+}
+
+enum PaymentStatus {
+  PENDING
+  VERIFIED
+  FAILED
+}
+
+// ============================
+// AUTHENTICATION (Better Auth)
+// ห้ามแก้ไข Session, Account, Verification
+// ============================
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  name          String?
+  emailVerified Boolean   @default(false)
+  imageId       String?
+  image         Image?    @relation("UserImage", fields: [imageId], references: [id])
+  role          Role      @default(USER)
+  phoneNumber   String?
+  lineUserId    String?   @unique
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  deletedAt     DateTime?
+  deletedById   String?
+  deletedBy     User?     @relation("DeletedByUser", fields: [deletedById], references: [id])
+  deletedUsers  User[]    @relation("DeletedByUser")
+
+  // Better Auth relations
+  sessions Session[]
+  accounts Account[]
+
+  // Business relations
+  customerOrders      Order[]              @relation("OrderCustomer")
+  employeeOrders      Order[]              @relation("OrderEmployee")
+  userPackages        UserPackage[]        @relation("UserPackageOwner")
+  paymentTransactions PaymentTransaction[] @relation("PaymentUser")
+  verifiedPayments    PaymentTransaction[] @relation("PaymentVerifier")
+  userAddresses       UserAddress[]
+
+  // Soft delete relations (ผู้ที่ทำการลบ)
+  deletedPackages           Package[]            @relation("PackageDeletedBy")
+  deletedPackageBonuses     PackageBonus[]       @relation("PackageBonusDeletedBy")
+  deletedUserPackages       UserPackage[]        @relation("UserPackageDeletedBy")
+  deletedStorefrontServices StorefrontService[]  @relation("StorefrontServiceDeletedBy")
+  deletedStorefrontItems    StorefrontItem[]     @relation("StorefrontItemDeletedBy")
+  deletedStorefrontPrices   StorefrontPrice[]    @relation("StorefrontPriceDeletedBy")
+  deletedBaskets            Basket[]             @relation("BasketDeletedBy")
+  deletedImages             Image[]              @relation("ImageDeletedBy")
+  deletedOrders             Order[]              @relation("OrderDeletedBy")
+  deletedOrderItems         OrderItem[]          @relation("OrderItemDeletedBy")
+  deletedPaymentTx          PaymentTransaction[] @relation("PaymentTxDeletedBy")
+  deletedUserAddresses      UserAddress[]        @relation("UserAddressDeletedBy")
+
+  @@map("user")
+}
+
+model Session {
+  id        String   @id
+  expiresAt DateTime
+  token     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  ipAddress String?
+  userAgent String?
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([token])
+  @@index([userId])
+  @@map("session")
+}
+
+model Account {
+  id                    String    @id
+  accountId             String
+  providerId            String
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@index([userId])
+  @@map("account")
+}
+
+model Verification {
+  id         String   @id
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([identifier])
+  @@map("verification")
+}
+
+// ============================
+// IMAGES (Cloudinary)
+// ============================
+
+model Image {
+  id          String    @id @default(cuid())
+  assetId     String?
+  publicId    String?
+  url         String?
+  secureUrl   String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+  deletedById String?
+  deletedBy   User?     @relation("ImageDeletedBy", fields: [deletedById], references: [id])
+
+  // Reverse relations
+  users        User[]               @relation("UserImage")
+  orderItems   OrderItem[]          @relation("OrderItemImage")
+  orders       Order[]              @relation("OrderImage")
+  slipPayments PaymentTransaction[] @relation("PaymentSlipImage")
+
+  @@map("image")
+}
+
+// ============================
+// PACKAGE & SUBSCRIPTION
+// ============================
+
+model Package {
+  id           String      @id @default(cuid())
+  name         String
+  description  String?
+  packageType  PackageType @default(MAIN)
+  price        Decimal
+  credits      Int?
+  validityDays Int?
+  isActive     Boolean     @default(true)
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+  deletedAt    DateTime?
+  deletedById  String?
+  deletedBy    User?       @relation("PackageDeletedBy", fields: [deletedById], references: [id])
+
+  // Relations
+  packageBonuses PackageBonus[]
+  userPackages   UserPackage[]
+
+  @@map("package")
+}
+
+model PackageBonus {
+  id                String          @id @default(cuid())
+  packageId         String
+  package           Package         @relation(fields: [packageId], references: [id])
+  storefrontPriceId String
+  storefrontPrice   StorefrontPrice @relation(fields: [storefrontPriceId], references: [id])
+  quantity          Int
+  description       String?
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+  deletedAt         DateTime?
+  deletedById       String?
+  deletedBy         User?           @relation("PackageBonusDeletedBy", fields: [deletedById], references: [id])
+
+  @@index([packageId])
+  @@map("package_bonus")
+}
+
+model UserPackage {
+  id                  String        @id @default(cuid())
+  userId              String
+  user                User          @relation("UserPackageOwner", fields: [userId], references: [id])
+  packageId           String
+  package             Package       @relation(fields: [packageId], references: [id])
+  parentUserPackageId String?
+  parentUserPackage   UserPackage?  @relation("UserPackageAddon", fields: [parentUserPackageId], references: [id])
+  addonPackages       UserPackage[] @relation("UserPackageAddon")
+  startDate           DateTime?
+  endDate             DateTime?
+  status              PackageStatus @default(PENDING)
+  creditRemain        Int?
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
+  deletedAt           DateTime?
+  deletedById         String?
+  deletedBy           User?         @relation("UserPackageDeletedBy", fields: [deletedById], references: [id])
+
+  // Relations
+  orders              Order[]
+  paymentTransactions PaymentTransaction[]
+
+  @@index([userId])
+  @@index([packageId])
+  @@map("user_package")
+}
+
+// ============================
+// STOREFRONT (SERVICES / ITEMS)
+// ============================
+
+model StorefrontService {
+  id          String    @id @default(cuid())
+  name        String
+  description String?
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+  deletedById String?
+  deletedBy   User?     @relation("StorefrontServiceDeletedBy", fields: [deletedById], references: [id])
+
+  // Relations
+  storefrontPrices StorefrontPrice[]
+
+  @@map("storefront_service")
+}
+
+model StorefrontItem {
+  id          String    @id @default(cuid())
+  name        String
+  description String?
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+  deletedById String?
+  deletedBy   User?     @relation("StorefrontItemDeletedBy", fields: [deletedById], references: [id])
+
+  // Relations
+  storefrontPrices StorefrontPrice[]
+
+  @@map("storefront_item")
+}
+
+model StorefrontPrice {
+  id                  String            @id @default(cuid())
+  storefrontServiceId String
+  storefrontService   StorefrontService @relation(fields: [storefrontServiceId], references: [id])
+  storefrontItemId    String
+  storefrontItem      StorefrontItem    @relation(fields: [storefrontItemId], references: [id])
+  price               Decimal
+  isActive            Boolean           @default(true)
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
+  deletedAt           DateTime?
+  deletedById         String?
+  deletedBy           User?             @relation("StorefrontPriceDeletedBy", fields: [deletedById], references: [id])
+
+  // Relations
+  packageBonuses PackageBonus[]
+  orderItems     OrderItem[]
+
+  @@unique([storefrontServiceId, storefrontItemId])
+  @@map("storefront_price")
+}
+
+// ============================
+// BASKET (QR CODE)
+// ============================
+
+model Basket {
+  id          String       @id @default(cuid())
+  qrCode      String?
+  label       String?
+  status      BasketStatus @default(AVAILABLE)
+  isActivated Boolean      @default(true)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  deletedAt   DateTime?
+  deletedById String?
+  deletedBy   User?        @relation("BasketDeletedBy", fields: [deletedById], references: [id])
+
+  // Relations
+  orders Order[]
+
+  @@map("basket")
+}
+
+// ============================
+// ORDERS
+// ============================
+
+model Order {
+  id                      String       @id @default(cuid())
+  customerId              String
+  customer                User         @relation("OrderCustomer", fields: [customerId], references: [id])
+  employeeId              String?
+  employee                User?        @relation("OrderEmployee", fields: [employeeId], references: [id])
+  orderType               OrderType
+  currentStatus           OrderStatus  @default(PENDING)
+  isWalkIn                Boolean      @default(false)
+  walkInName              String?
+  walkInPhone             String?
+  userPackageId           String?
+  userPackage             UserPackage? @relation(fields: [userPackageId], references: [id])
+  creditUsed              Int?
+  hangerCharge            Json?         // { count: number, pricePerUnit: number, total: number }
+  totalAmount             Decimal?
+  basketId                String?
+  basket                  Basket?      @relation(fields: [basketId], references: [id])
+  note                    String?
+  usedBonuses             Json?         // [{ packageBonusId, quantity, description }]
+  deliveryAddressSnapshot Json?         // { contactName, contactPhone, addressLine, subDistrict, district, province, postalCode, latitude, longitude }
+  imageId                 String?
+  image                   Image?       @relation("OrderImage", fields: [imageId], references: [id])
+  createdAt               DateTime     @default(now())
+  updatedAt               DateTime     @updatedAt
+  deletedAt               DateTime?
+  deletedById             String?
+  deletedBy               User?        @relation("OrderDeletedBy", fields: [deletedById], references: [id])
+
+  // Relations
+  orderItems OrderItem[]
+
+  @@index([customerId])
+  @@index([employeeId])
+  @@index([currentStatus])
+  @@index([createdAt])
+  @@map("order")
+}
+
+model OrderItem {
+  id                String          @id @default(cuid())
+  orderId           String
+  order             Order           @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  storefrontPriceId String
+  storefrontPrice   StorefrontPrice @relation(fields: [storefrontPriceId], references: [id])
+  isPackageIncluded Boolean         @default(false)
+  quantity          Int
+  unitPrice         Decimal
+  totalPrice        Decimal
+  imageId           String?
+  image             Image?          @relation("OrderItemImage", fields: [imageId], references: [id])
+  notes             String?
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+  deletedAt         DateTime?
+  deletedById       String?
+  deletedBy         User?           @relation("OrderItemDeletedBy", fields: [deletedById], references: [id])
+
+  @@index([orderId])
+  @@index([storefrontPriceId])
+  @@map("order_item")
+}
+
+// ============================
+// PAYMENT
+// ============================
+
+model PaymentTransaction {
+  id            String        @id @default(cuid())
+  userId        String
+  user          User          @relation("PaymentUser", fields: [userId], references: [id])
+  userPackageId String
+  userPackage   UserPackage   @relation(fields: [userPackageId], references: [id])
+  amount        Decimal
+  slipImageId   String?
+  slipImage     Image?        @relation("PaymentSlipImage", fields: [slipImageId], references: [id])
+  status        PaymentStatus @default(PENDING)
+  verifiedById  String?
+  verifiedBy    User?         @relation("PaymentVerifier", fields: [verifiedById], references: [id])
+  verifiedAt    DateTime?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  deletedAt     DateTime?
+  deletedById   String?
+  deletedBy     User?         @relation("PaymentTxDeletedBy", fields: [deletedById], references: [id])
+
+  @@unique([userPackageId])
+  @@index([status, createdAt])
+  @@map("payment_transaction")
+}
+
+// ============================
+// USER ADDRESS
+// ============================
+
+model UserAddress {
+  id          String    @id @default(cuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id])
+  address     String?
+  subdistrict String?
+  district    String?
+  province    String?
+  postalCode  String?
+  latitude    Decimal?
+  longitude   Decimal?
+  isDefault   Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+  deletedById String?
+  deletedBy   User?     @relation("UserAddressDeletedBy", fields: [deletedById], references: [id])
+
+  @@index([userId])
+  @@index([userId, isDefault])
+  @@map("user_address")
+}

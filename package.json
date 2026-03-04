@@ -10,17 +10,27 @@
     "postinstall": "nuxt prepare"
   },
   "dependencies": {
+    "@better-auth/prisma-adapter": "^1.5.3",
     "@nuxt/eslint": "1.15.2",
     "@nuxt/image": "^2.0.0",
     "@nuxt/ui": "^4.5.1",
     "@nuxtjs/google-fonts": "3.2.0",
+    "@prisma/adapter-pg": "^7.4.2",
+    "@prisma/client": "^7.4.2",
+    "better-auth": "^1.5.3",
     "cloudinary": "^2.9.0",
+    "cuid": "^3.0.0",
     "nuxt": "^4.3.1",
+    "pg": "^8.19.0",
     "tailwindcss": "^4.2.1",
     "vue": "^3.5.29",
     "vue-router": "^4.6.4"
   },
   "devDependencies": {
-    "@types/node": "^25.3.3"
+    "@types/node": "^25.3.3",
+    "@types/pg": "^8.18.0",
+    "dotenv": "^17.3.1",
+    "prisma": "^7.4.2",
+    "tsx": "^4.21.0"
   }
 }
