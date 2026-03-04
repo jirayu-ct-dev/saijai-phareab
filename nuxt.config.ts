@@ -2,11 +2,17 @@
 export default defineNuxtConfig({
   compatibilityDate: '2025-07-15',
   devtools: { enabled: true },
-  modules: ['@nuxt/ui', '@nuxt/eslint', '@nuxtjs/google-fonts'],
+  modules: ['@nuxt/ui', '@nuxt/eslint', '@nuxtjs/google-fonts', '@nuxt/image'],
   css: ['@/assets/css/main.css'],
   googleFonts: {
     families: {
       'Prompt': [400, 500, 600, 700],
+    },
+  },
+  image: {
+    provider: 'cloudinary',
+    cloudinary: {
+      baseURL: `https://res.cloudinary.com/${process.env.CLOUDINARY_NAME}/image/upload`,
     },
   },
   app: {
