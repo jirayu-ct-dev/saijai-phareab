@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { authClient } from "~/utils/auth-client";
+const { loginWithLine } = useUser();
 
 const sessionRef = authClient.useSession();
 const session = computed(() => sessionRef.value.data);
@@ -72,7 +73,8 @@ async function handleSignOut() {
                 <div class="text-center">
                     <div
                         class="w-16 h-16 bg-green-100 dark:bg-green-900 rounded-full flex items-center justify-center mx-auto mb-4">
-                        <span class="text-3xl">✅</span>
+                        <span v-if="!session.user.image" class="text-3xl">✅</span>
+                        <img v-else class="w-16 h-16 rounded-full mx-auto mb-4" :src="session.user.image" alt="">
                     </div>
                     <h2 class="text-2xl font-bold text-gray-800 dark:text-gray-100">เข้าสู่ระบบแล้ว!</h2>
                 </div>
@@ -119,6 +121,12 @@ async function handleSignOut() {
                 </div>
 
                 <form class="space-y-4" @submit.prevent="isSignUp ? handleSignUp() : handleSignIn()">
+
+                    <button type="button" @click="loginWithLine"
+                        class="w-full py-3 bg-blue-500 hover:bg-blue-600 text-white font-semibold rounded-lg transition-colors">
+                        เข้าสู่ระบบด้วย LINE
+                    </button>
+
                     <!-- Name (เฉพาะ Sign Up) -->
                     <div v-if="isSignUp">
                         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">ชื่อ</label>

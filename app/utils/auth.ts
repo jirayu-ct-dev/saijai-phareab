@@ -13,4 +13,10 @@ export const auth = betterAuth({
     emailAndPassword: {
         enabled: true,
     },
+    socialProviders: {
+        line: {
+            clientId: process.env.LINE_LIFF_CLIENT_ID as string,
+            clientSecret: process.env.LINE_LIFF_CLIENT_SECRET as string,
+        }
+    }
 });

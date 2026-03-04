@@ -15,6 +15,15 @@ export default defineNuxtConfig({
       baseURL: `https://res.cloudinary.com/${process.env.CLOUDINARY_NAME}/image/upload`,
     },
   },
+  vite: {
+    server: {
+      allowedHosts: ['.ngrok-free.app'],
+      hmr: {
+        protocol: 'wss',
+        clientPort: 443
+      }
+    },
+  },
   app: {
     head: {
       title: 'Saijai Phareab',

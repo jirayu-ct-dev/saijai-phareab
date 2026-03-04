@@ -65,10 +65,10 @@ model User {
   name          String?
   emailVerified Boolean   @default(false)
   imageId       String?
-  image         Image?    @relation("UserImage", fields: [imageId], references: [id])
+  profileImage  Image?    @relation("UserImage", fields: [imageId], references: [id])
+  image         String? // <- Better Auth ต้องการฟิลด์นี้เป็น String สำหรับเก็บ URL รูปจาก LINE
   role          Role      @default(USER)
   phoneNumber   String?
-  lineUserId    String?   @unique
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
   deletedAt     DateTime?
@@ -350,13 +350,13 @@ model Order {
   userPackageId           String?
   userPackage             UserPackage? @relation(fields: [userPackageId], references: [id])
   creditUsed              Int?
-  hangerCharge            Json?         // { count: number, pricePerUnit: number, total: number }
+  hangerCharge            Json? // { count: number, pricePerUnit: number, total: number }
   totalAmount             Decimal?
   basketId                String?
   basket                  Basket?      @relation(fields: [basketId], references: [id])
   note                    String?
-  usedBonuses             Json?         // [{ packageBonusId, quantity, description }]
-  deliveryAddressSnapshot Json?         // { contactName, contactPhone, addressLine, subDistrict, district, province, postalCode, latitude, longitude }
+  usedBonuses             Json? // [{ packageBonusId, quantity, description }]
+  deliveryAddressSnapshot Json? // { contactName, contactPhone, addressLine, subDistrict, district, province, postalCode, latitude, longitude }
   imageId                 String?
   image                   Image?       @relation("OrderImage", fields: [imageId], references: [id])
   createdAt               DateTime     @default(now())

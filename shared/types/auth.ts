@@ -9,13 +9,13 @@ export interface User extends Timestamps, SoftDeletable {
     email: string;
     name: string | null;
     emailVerified: boolean;
+    image: string | null;
     imageId: string | null;
     role: Role;
     phoneNumber: string | null;
-    lineUserId: string | null;
 
     // Relations (optional - populated when included)
-    image?: Image | null;
+    profileImage?: Image | null;
     sessions?: Session[];
     accounts?: Account[];
     userPackages?: UserPackage[];
