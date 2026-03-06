@@ -2,7 +2,7 @@
 import { authClient } from "~/utils/auth-client";
 const notify = useNotify();
 
-const { login, register, loginWithLine } = useUser();
+const { login, loginWithLine } = useUser();
 
 const sessionRef = authClient.useSession();
 const session = computed(() => sessionRef.value.data);
@@ -12,26 +12,12 @@ const isPending = computed(() => sessionRef.value.isPending);
 const { handleLiffAutoLogin } = useLiffAuth();
 
 // Form state
-const isSignUp = ref(false);
 const loading = ref(false);
 
 const form = reactive({
-    name: "",
     email: "",
     password: "",
 });
-
-async function handleSignUp() {
-    loading.value = true;
-
-    try {
-        await register(form.name, form.email, form.password);
-    } catch (error: any) {
-        notify.error(error.message || "สมัครสมาชิกไม่สำเร็จ");
-    } finally {
-        loading.value = false;
-    }
-}
 
 async function handleSignIn() {
     loading.value = true;
@@ -92,29 +78,20 @@ async function handleSignOut() {
             </div>
         </div>
 
-        <!-- ฟอร์ม Login / Sign Up -->
+        <!-- ฟอร์ม Login -->
         <div v-else class="w-full max-w-md">
             <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-8 space-y-6">
                 <div class="text-center">
-                    <h1 class="text-2xl font-bold text-gray-800 dark:text-gray-100">
-                        {{ isSignUp ? "สมัครสมาชิก" : "เข้าสู่ระบบ" }}
-                    </h1>
+                    <h1 class="text-2xl font-bold text-gray-800 dark:text-gray-100">เข้าสู่ระบบ</h1>
                     <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Saijai Phareab</p>
                 </div>
 
-                <form class="space-y-4" @submit.prevent="isSignUp ? handleSignUp() : handleSignIn()">
+                <form class="space-y-4" @submit.prevent="handleSignIn">
 
                     <button type="button" @click="loginWithLine"
                         class="w-full py-3 bg-blue-500 hover:bg-blue-600 text-white font-semibold rounded-lg transition-colors">
                         เข้าสู่ระบบด้วย LINE
                     </button>
-
-                    <!-- Name (เฉพาะ Sign Up) -->
-                    <div v-if="isSignUp">
-                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">ชื่อ</label>
-                        <input v-model="form.name" type="text" placeholder="ชื่อ-นามสกุล" required
-                            class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition" />
-                    </div>
 
                     <!-- Email -->
                     <div>
@@ -135,17 +112,15 @@ async function handleSignOut() {
                     <button type="submit" :disabled="loading"
                         class="w-full py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-semibold rounded-lg transition-colors">
                         <span v-if="loading">กำลังดำเนินการ...</span>
-                        <span v-else>{{ isSignUp ? "สมัครสมาชิก" : "เข้าสู่ระบบ" }}</span>
+                        <span v-else>เข้าสู่ระบบ</span>
                     </button>
                 </form>
 
-                <!-- Toggle Sign Up / Sign In -->
                 <p class="text-center text-sm text-gray-500 dark:text-gray-400">
-                    {{ isSignUp ? "มีบัญชีอยู่แล้ว?" : "ยังไม่มีบัญชี?" }}
-                    <button class="text-blue-600 dark:text-blue-400 font-semibold hover:underline ml-1"
-                        @click="isSignUp = !isSignUp">
-                        {{ isSignUp ? "เข้าสู่ระบบ" : "สมัครสมาชิก" }}
-                    </button>
+                    ยังไม่มีบัญชี?
+                    <NuxtLink to="/auth/register" class="text-blue-600 dark:text-blue-400 font-semibold hover:underline ml-1">
+                        สมัครสมาชิก
+                    </NuxtLink>
                 </p>
             </div>
         </div>
