@@ -18,10 +18,6 @@ export default defineNuxtConfig({
   vite: {
     server: {
       allowedHosts: ['.ngrok-free.app'],
-      hmr: {
-        protocol: 'wss',
-        clientPort: 443
-      }
     },
   },
   app: {
@@ -40,4 +36,9 @@ export default defineNuxtConfig({
       ],
     },
   },
+  runtimeConfig: {
+    public: {
+      liffId: process.env.NUXT_PUBLIC_LIFF_ID
+    }
+  }
 })

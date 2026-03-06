@@ -1,16 +1,19 @@
 <script setup lang="ts">
 import { authClient } from "~/utils/auth-client";
-const { loginWithLine } = useUser();
+const notify = useNotify();
+
+const { login, register, loginWithLine } = useUser();
 
 const sessionRef = authClient.useSession();
 const session = computed(() => sessionRef.value.data);
 const isPending = computed(() => sessionRef.value.isPending);
 
+// ดึง Logic ของ LIFF มาจาก Composable
+const { handleLiffAutoLogin } = useLiffAuth();
+
 // Form state
 const isSignUp = ref(false);
 const loading = ref(false);
-const errorMsg = ref("");
-const successMsg = ref("");
 
 const form = reactive({
     name: "",
@@ -20,46 +23,35 @@ const form = reactive({
 
 async function handleSignUp() {
     loading.value = true;
-    errorMsg.value = "";
-    successMsg.value = "";
 
-    const { error } = await authClient.signUp.email({
-        name: form.name,
-        email: form.email,
-        password: form.password,
-    });
-
-    loading.value = false;
-
-    if (error) {
-        errorMsg.value = error.message || "สมัครสมาชิกไม่สำเร็จ";
-    } else {
-        successMsg.value = "สมัครสมาชิกสำเร็จ! กำลังเข้าสู่ระบบ...";
+    try {
+        await register(form.name, form.email, form.password);
+    } catch (error: any) {
+        notify.error(error.message || "สมัครสมาชิกไม่สำเร็จ");
+    } finally {
+        loading.value = false;
     }
 }
 
 async function handleSignIn() {
     loading.value = true;
-    errorMsg.value = "";
-    successMsg.value = "";
 
-    const { error } = await authClient.signIn.email({
-        email: form.email,
-        password: form.password,
-    });
-
-    loading.value = false;
-
-    if (error) {
-        errorMsg.value = error.message || "เข้าสู่ระบบไม่สำเร็จ";
-    } else {
-        successMsg.value = "เข้าสู่ระบบสำเร็จ!";
+    try {
+        await login(form.email, form.password);
+    } catch (error: any) {
+        notify.error(error.message || "เข้าสู่ระบบไม่สำเร็จ");
+    } finally {
+        loading.value = false;
     }
 }
 
+onMounted(async () => {
+    if (session.value) return;
+    await handleLiffAutoLogin();
+})
+
 async function handleSignOut() {
     await authClient.signOut();
-    successMsg.value = "";
 }
 </script>
 
@@ -110,16 +102,6 @@ async function handleSignOut() {
                     <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Saijai Phareab</p>
                 </div>
 
-                <!-- Error / Success Messages -->
-                <div v-if="errorMsg"
-                    class="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 px-4 py-3 rounded-lg text-sm">
-                    {{ errorMsg }}
-                </div>
-                <div v-if="successMsg"
-                    class="bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-800 text-green-700 dark:text-green-300 px-4 py-3 rounded-lg text-sm">
-                    {{ successMsg }}
-                </div>
-
                 <form class="space-y-4" @submit.prevent="isSignUp ? handleSignUp() : handleSignIn()">
 
                     <button type="button" @click="loginWithLine"
@@ -161,7 +143,7 @@ async function handleSignOut() {
                 <p class="text-center text-sm text-gray-500 dark:text-gray-400">
                     {{ isSignUp ? "มีบัญชีอยู่แล้ว?" : "ยังไม่มีบัญชี?" }}
                     <button class="text-blue-600 dark:text-blue-400 font-semibold hover:underline ml-1"
-                        @click="isSignUp = !isSignUp; errorMsg = ''; successMsg = ''">
+                        @click="isSignUp = !isSignUp">
                         {{ isSignUp ? "เข้าสู่ระบบ" : "สมัครสมาชิก" }}
                     </button>
                 </p>

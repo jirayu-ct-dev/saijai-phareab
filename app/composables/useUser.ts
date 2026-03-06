@@ -1,4 +1,5 @@
 export const useUser = () => {
+    const notify = useNotify()
     const user = useState<User | null>('user', () => null);
     const { start, finish } = useLoadingIndicator()
 
@@ -27,7 +28,7 @@ export const useUser = () => {
         }
     }
 
-    const login = async (email: string, password: string): Promise<void> => {
+    const login = async (email: string, password: string) => {
         start()
         try {
             const { data, error } = await authClient.signIn.email({
@@ -43,14 +44,20 @@ export const useUser = () => {
                 throw new Error('ไม่พบข้อมูลผู้ใช้')
             }
 
+            notify.success("เข้าสู่ระบบสำเร็จ!")
             await getCurrentUser()
+        }
+        catch (error: any) {
+            console.error(error)
+            notify.error(error.message || 'เกิดข้อผิดพลาดในการเข้าสู่ระบบ')
+            throw error // โยน error ดั้งเดิมออกไป ถ้าหน้าบ้านไม่ได้ใช้งาน
         }
         finally {
             finish()
         }
     }
 
-    const register = async (name: string, email: string, password: string): Promise<void> => {
+    const register = async (name: string, email: string, password: string) => {
         start()
         try {
             const { data, error } = await authClient.signUp.email({
@@ -69,15 +76,19 @@ export const useUser = () => {
 
             await getCurrentUser()
         }
+        catch (error: any) {
+            console.error(error)
+            throw new Error(error.message || 'เกิดข้อผิดพลาดในการสมัครสมาชิก')
+        }
         finally {
             finish()
         }
     }
 
-    const loginWithLine = async (): Promise<void> => {
+    const loginWithLine = async () => {
         start()
         try {
-            const { error } = await authClient.signIn.social({
+            const { data, error } = await authClient.signIn.social({
                 provider: "line",
                 callbackURL: "/"
             })
@@ -85,6 +96,47 @@ export const useUser = () => {
             if (error) {
                 throw new Error(error.message || 'เข้าสู่ระบบด้วย LINE ไม่สำเร็จ')
             }
+
+            if (!data) {
+                throw new Error('ไม่พบข้อมูลผู้ใช้')
+            }
+
+            await getCurrentUser()
+        }
+        catch (error: any) {
+            console.error(error)
+            throw new Error(error.message || 'เกิดข้อผิดพลาดในการเข้าสู่ระบบด้วย LINE')
+        }
+        finally {
+            finish()
+        }
+    }
+
+    const loginWithLineIdToken = async (accessToken: string, idToken: string) => {
+        start()
+        try {
+            const { data, error } = await authClient.signIn.social({
+                provider: "line",
+                idToken: {
+                    token: idToken,
+                    accessToken: accessToken
+                },
+                errorCallbackURL: "/login" // ถ้ามีผิดพลาด
+            })
+
+            if (error) {
+                throw new Error(error.message || 'เข้าสู่ระบบด้วย LINE ไม่สำเร็จ')
+            }
+
+            if (!data) {
+                throw new Error('ไม่พบข้อมูลผู้ใช้')
+            }
+
+            await getCurrentUser()
+        }
+        catch (error: any) {
+            console.error(error)
+            throw new Error(error.message || 'เกิดข้อผิดพลาดในการเข้าสู่ระบบด้วย LINE')
         }
         finally {
             finish()
@@ -97,8 +149,9 @@ export const useUser = () => {
             await authClient.signOut()
             user.value = null
         }
-        catch (error) {
+        catch (error: any) {
             console.error(error)
+            throw new Error(error.message || 'ออกจากระบบไม่สำเร็จ')
         }
         finally {
             finish()
@@ -111,6 +164,7 @@ export const useUser = () => {
         login,
         register,
         loginWithLine,
+        loginWithLineIdToken,
         logout
     }
 }
