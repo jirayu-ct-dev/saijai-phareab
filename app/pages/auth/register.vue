@@ -102,17 +102,6 @@ watchEffect(() => {
                     </div>
                     
 
-                    <!-- Terms and Conditions
-                    <div class="flex items-start mt-2">
-                        <div class="flex items-center h-5">
-                            <input id="terms" v-model="form.acceptTerms" type="checkbox" required
-                                class="w-4 h-4 border border-gray-300 rounded bg-gray-50 focus:ring-3 focus:ring-blue-300 dark:bg-gray-700 dark:border-gray-600 dark:focus:ring-blue-600 dark:ring-offset-gray-800" />
-                        </div>
-                        <label for="terms" class="ml-2 text-sm font-medium text-gray-500 dark:text-gray-300">
-                            ฉันยอมรับ <a href="#" class="text-blue-600 hover:underline dark:text-blue-400">เงื่อนไขการให้บริการ</a> และ <a href="#" class="text-blue-600 hover:underline dark:text-blue-400">นโยบายความเป็นส่วนตัว</a>
-                        </label>
-                    </div> -->
-
                     <!-- Submit -->
                     <button type="submit" :disabled="loading || (form.password !== form.confirmPassword && form.confirmPassword !== '')"
                         class="w-full py-3.5 mt-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 disabled:cursor-not-allowed disabled:opacity-70 text-white font-semibold rounded-lg transition-all shadow-sm">
