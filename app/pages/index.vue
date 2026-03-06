@@ -11,11 +11,7 @@ import Login from './auth/login.vue';
       description="สะดวก รวดเร็ว และปลอดภัยด้วยทีมงานมืออาชีพ บริการรับ-ส่งผ้าถึงหน้าบ้าน พร้อมอัปเดตสถานะการซักรีดแบบเรียลไทม์"
       orientation="horizontal" :links="[
       ]">
-<<<<<<< HEAD
       <img src="/logo-saijai-phareab.png" alt="SaiJai-Phareab laundry service"
-=======
-      <img src="" alt="SaiJai-Phareab laundry service"
->>>>>>> b0b5ea359715bca10d22ec8a191abbdf9e1e2ffc
         class="w-full max-w-sm lg:max-w-md mx-auto p-6 hidden lg:inline" />
     </UPageHero>
 
