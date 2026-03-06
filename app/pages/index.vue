@@ -1,5 +1,10 @@
 <script setup lang="ts">
-// Landing Page
+
+definePageMeta({
+    layout: 'default'
+})
+
+
 </script>
 
 <template>
