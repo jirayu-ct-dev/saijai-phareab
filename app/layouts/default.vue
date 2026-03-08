@@ -189,13 +189,13 @@ const itemsDropdown = computed<DropdownMenuItem[][]>(() => [
                     <div>
                         <h3 class="font-semibold text-sm mb-4">ติดตามเรา</h3>
                         <div class="flex gap-2">
-                            <UButton color="neutral" variant="ghost" size="sm" to="#" aria-label="Facebook">
+                            <UButton color="neutral" variant="ghost" size="sm" to="#" aria-label="Facebook" class="text-[#4267B2]">
                                 <UIcon name="i-simple-icons-facebook" class="size-5" />
                             </UButton>
-                            <UButton color="neutral" variant="ghost" size="sm" to="#" aria-label="Instagram">
+                            <UButton color="neutral" variant="ghost" size="sm" to="#" aria-label="Instagram" class="text-[#E1306C]">
                                 <UIcon name="i-simple-icons-instagram" class="size-5" />
                             </UButton>
-                            <UButton color="neutral" variant="ghost" size="sm" to="#" aria-label="LINE">
+                            <UButton color="neutral" variant="ghost" size="sm" to="#" aria-label="LINE" class="text-[#06C755]">
                                 <UIcon name="i-simple-icons-line" class="size-5" />
                             </UButton>
                         </div>
