@@ -1,11 +1,8 @@
 <script setup lang="ts">
-import { authClient } from '~/utils/auth-client';
 import type { NavigationMenuItem, DropdownMenuItem } from '@nuxt/ui'
 
 const { addLineFriend } = useLiffAuth()
-const { logout, user } = useUser()
-const sessionRef = authClient.useSession();
-const session = computed(() => sessionRef.value.data);
+const { logout, user, session, userAvatar } = useUser()
 const open = ref(false)
 
 const menu = computed<NavigationMenuItem[]>(() => [
@@ -38,12 +35,8 @@ const menu = computed<NavigationMenuItem[]>(() => [
 const itemsDropdown = computed<DropdownMenuItem[][]>(() => [
     [
         {
-            label: session.value?.user.name || '',
-            avatar: {
-                as: { img: 'img' },
-                src: session.value?.user.image || '',
-                loading: 'lazy'
-            },
+            label: user.value?.name || 'ผู้ใช้งาน',
+            avatar: userAvatar.value,
             type: 'label'
         }
     ],
@@ -96,14 +89,7 @@ const itemsDropdown = computed<DropdownMenuItem[][]>(() => [
 
         <!-- Logo & Brand -->
         <template #title>
-            <div class="flex items-center gap-2">
-                <img src="/logo-saijai-phareab.png" class="h-15" alt="SaiJai-Phareab" />
-                <div>
-                    <p class="font-semibold"><span class="text-primary">ใส่ใจ </span>ผ้าเรียบ</p>
-                    <p class="text-[0.7rem] font-medium text-gray-500 tracking-widest dark:text-gray-300">LAUNDRY
-                        SERVICE</p>
-                </div>
-            </div>
+            <AppLogo label="LAUNDRY SERVICE" to="/" />
         </template>
 
         <!-- Right Side Actions -->
@@ -121,8 +107,7 @@ const itemsDropdown = computed<DropdownMenuItem[][]>(() => [
                 <div v-if="session" class="flex gap-3 items-center px-4">
                     <UDropdownMenu :items="itemsDropdown">
                         <div class="cursor-pointer flex items-center gap-1">
-                            <UAvatar :as="{ img: 'img' }" :src="session.user.image || ''" :alt="session.user.name"
-                                loading="lazy" />
+                            <UAvatar v-bind="userAvatar" />
                             <UIcon name="i-lucide-chevron-down" class="size-4 text-muted" />
                         </div>
                     </UDropdownMenu>
@@ -142,9 +127,7 @@ const itemsDropdown = computed<DropdownMenuItem[][]>(() => [
 
             <template v-if="session">
                 <USeparator class="my-4" />
-                <UUser :name="session.user.name || 'ผู้ใช้งาน'"
-                    :avatar="{ as: { img: 'img' }, src: session.user.image || '', alt: session.user.name, loading: 'lazy' }"
-                    class="mb-4" />
+                <UUser :name="user?.name || 'ผู้ใช้งาน'" :avatar="userAvatar" class="mb-4" />
 
                 <div class="flex flex-col gap-1">
                     <template v-for="(group, groupIndex) in itemsDropdown.slice(1)" :key="groupIndex">
@@ -189,13 +172,16 @@ const itemsDropdown = computed<DropdownMenuItem[][]>(() => [
                     <div>
                         <h3 class="font-semibold text-sm mb-4">ติดตามเรา</h3>
                         <div class="flex gap-2">
-                            <UButton color="neutral" variant="ghost" size="sm" to="#" aria-label="Facebook" class="text-[#4267B2]">
+                            <UButton color="neutral" variant="ghost" size="sm" to="#" aria-label="Facebook"
+                                class="text-[#4267B2]">
                                 <UIcon name="i-simple-icons-facebook" class="size-5" />
                             </UButton>
-                            <UButton color="neutral" variant="ghost" size="sm" to="#" aria-label="Instagram" class="text-[#E1306C]">
+                            <UButton color="neutral" variant="ghost" size="sm" to="#" aria-label="Instagram"
+                                class="text-[#E1306C]">
                                 <UIcon name="i-simple-icons-instagram" class="size-5" />
                             </UButton>
-                            <UButton color="neutral" variant="ghost" size="sm" to="#" aria-label="LINE" class="text-[#06C755]">
+                            <UButton color="neutral" variant="ghost" size="sm" to="#" aria-label="LINE"
+                                class="text-[#06C755]">
                                 <UIcon name="i-simple-icons-line" class="size-5" />
                             </UButton>
                         </div>
@@ -240,7 +226,8 @@ const itemsDropdown = computed<DropdownMenuItem[][]>(() => [
         </template>
 
         <template #bottom>
-            <div class="flex flex-col md:flex-row items-center justify-between gap-4 container mx-auto max-w-7xl px-10 lg:px-12">
+            <div
+                class="flex flex-col md:flex-row items-center justify-between gap-4 container mx-auto max-w-7xl px-10 lg:px-12">
                 <p class="text-sm text-muted">
                     &copy; {{ new Date().getFullYear() }} SaiJai-Phareab. All rights reserved.
                 </p>

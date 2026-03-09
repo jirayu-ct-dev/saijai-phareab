@@ -1,32 +1,22 @@
 export const useUser = () => {
     const notify = useNotify()
-    const user = useState<User | null>('user', () => null);
     const { start, finish } = useLoadingIndicator()
 
-    const getCurrentUser = async () => {
-        start()
-        try {
-            const session = await authClient.getSession({
-                fetchOptions: {
-                    headers: useRequestHeaders(['cookie'])
-                }
-            })
+    // 1. ดึง Session อัตโนมัติจาก better-auth
+    const sessionRef = authClient.useSession();
 
-            if (session.error || !session.data) {
-                user.value = null
-                return
-            }
+    // 2. แปลงเป็น Computed ให้ใช้งานง่ายขึ้น
+    const session = computed(() => sessionRef.value.data);
+    const user = computed(() => sessionRef.value.data?.user);
 
-            user.value = session.data.user as User
-        }
-        catch (error) {
-            console.error(error)
-            user.value = null
-        }
-        finally {
-            finish()
-        }
-    }
+    // 3. ตัวช่วยสร้าง Object สำหรับรูป Avatar จากแหล่งภายนอก (เช่น LINE) แก้ปัญหาแครชกับ Cloudinary
+    const userAvatar = computed(() => ({
+        as: { img: 'img' },
+        src: user.value?.image || '',
+        alt: user.value?.name || 'ผู้ใช้งาน',
+        loading: 'lazy' as 'lazy'
+    }));
+
 
     const login = async (email: string, password: string) => {
         start()
@@ -45,7 +35,6 @@ export const useUser = () => {
             }
 
             notify.success("เข้าสู่ระบบสำเร็จ!")
-            await getCurrentUser()
         }
         catch (error: any) {
             console.error(error)
@@ -74,7 +63,6 @@ export const useUser = () => {
                 throw new Error('ไม่พบข้อมูลผู้ใช้')
             }
 
-            await getCurrentUser()
         }
         catch (error: any) {
             console.error(error)
@@ -100,8 +88,6 @@ export const useUser = () => {
             if (!data) {
                 throw new Error('ไม่พบข้อมูลผู้ใช้')
             }
-
-            await getCurrentUser()
         }
         catch (error: any) {
             console.error(error)
@@ -132,7 +118,6 @@ export const useUser = () => {
                 throw new Error('ไม่พบข้อมูลผู้ใช้')
             }
 
-            await getCurrentUser()
         }
         catch (error: any) {
             console.error(error)
@@ -147,7 +132,6 @@ export const useUser = () => {
         start()
         try {
             await authClient.signOut()
-            user.value = null
         }
         catch (error: any) {
             console.error(error)
@@ -159,8 +143,9 @@ export const useUser = () => {
     }
 
     return {
+        session,
         user,
-        getCurrentUser,
+        userAvatar,
         login,
         register,
         loginWithLine,
