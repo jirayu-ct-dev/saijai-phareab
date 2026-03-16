@@ -2,7 +2,7 @@
 export default defineNuxtConfig({
   compatibilityDate: '2025-07-15',
   devtools: { enabled: true },
-  modules: ['@nuxt/ui', '@nuxt/eslint', '@nuxtjs/google-fonts', '@nuxt/image'],
+  modules: ['@nuxt/ui', '@nuxt/eslint', '@nuxtjs/google-fonts', '@nuxt/image', '@vueuse/nuxt'],
   css: ['@/assets/css/main.css'],
   googleFonts: {
     families: {
@@ -38,7 +38,8 @@ export default defineNuxtConfig({
   },
   runtimeConfig: {
     public: {
-      liffId: process.env.NUXT_PUBLIC_LIFF_ID
+      liffId: process.env.NUXT_PUBLIC_LIFF_ID,
+      lineBizChatUrl: process.env.LINE_BIZ_CHAT_URL
     }
   }
 })

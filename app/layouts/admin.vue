@@ -165,6 +165,8 @@ const groups = computed(() => [{
 
         <UDashboardSearch :groups="groups" />
 
-        <slot />
+        <div class="flex flex-col min-h-0 flex-1 overflow-y-auto">
+            <slot />
+        </div>
     </UDashboardGroup>
 </template>

@@ -366,7 +366,8 @@ model Order {
   deletedBy               User?        @relation("OrderDeletedBy", fields: [deletedById], references: [id])
 
   // Relations
-  orderItems OrderItem[]
+  orderItems          OrderItem[]
+  paymentTransactions PaymentTransaction[]
 
   @@index([customerId])
   @@index([employeeId])
@@ -407,12 +408,26 @@ model PaymentTransaction {
   id            String        @id @default(cuid())
   userId        String
   user          User          @relation("PaymentUser", fields: [userId], references: [id])
-  userPackageId String
-  userPackage   UserPackage   @relation(fields: [userPackageId], references: [id])
+  
+  // เชื่อมกับแพ็กเกจ หรือ ออเดอร์ (อย่างใดอย่างหนึ่ง)
+  userPackageId String?
+  userPackage   UserPackage?  @relation(fields: [userPackageId], references: [id])
+  orderId       String?
+  order         Order?        @relation(fields: [orderId], references: [id])
+
   amount        Decimal
   slipImageId   String?
   slipImage     Image?        @relation("PaymentSlipImage", fields: [slipImageId], references: [id])
   status        PaymentStatus @default(PENDING)
+  
+  // ข้อมูลตรวจสอบสลิป (Slip2Go)
+  referenceNo     String?       @unique     // รหัสอ้างอิงสลิปบัญชี ใช้ป้องกันสลิปซ้ำ
+  senderName      String?                   // ชื่อผู้โอน
+  senderBank      String?                   // ธนาคารต้นทาง
+  receiverAccount String?                   // บัญชีปลายทาง (เช็คว่าเข้าบัญชีร้านไหม)
+  slipPayload     Json?                     // เก็บข้อมูลดิบจาก API ของ Slip2Go
+  rejectionReason String?                   // เหตุผลเมื่อสถานะเป็น FAILED
+
   verifiedById  String?
   verifiedBy    User?         @relation("PaymentVerifier", fields: [verifiedById], references: [id])
   verifiedAt    DateTime?
@@ -422,7 +437,7 @@ model PaymentTransaction {
   deletedById   String?
   deletedBy     User?         @relation("PaymentTxDeletedBy", fields: [deletedById], references: [id])
 
-  @@unique([userPackageId])
+  @@index([referenceNo])
   @@index([status, createdAt])
   @@map("payment_transaction")
 }

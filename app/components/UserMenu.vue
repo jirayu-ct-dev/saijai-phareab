@@ -6,14 +6,7 @@ defineProps<{
 }>()
 
 const colorMode = useColorMode()
-const appConfig = useAppConfig()
 const { user, userAvatar } = useUser()
-
-console.log('user', user.value)
-console.log('userAvatar', userAvatar.value)
-
-const colors = ['red', 'orange', 'amber', 'yellow', 'lime', 'green', 'emerald', 'teal', 'cyan', 'sky', 'blue', 'indigo', 'violet', 'purple', 'fuchsia', 'pink', 'rose']
-const neutrals = ['slate', 'gray', 'zinc', 'neutral', 'stone']
 
 const userMenuName = computed(() => user.value?.name || 'ผู้ใช้งาน')
 
