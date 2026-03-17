@@ -245,7 +245,7 @@ import Login from './auth/login.vue';
           </div>
 
           <!-- Contact Card 2 -->
-          <div
+          <a href="https://line.me/R/ti/p/@883vmdct" target="_blank" rel="noopener noreferrer"
             class="bg-white dark:bg-gray-800 rounded-xl p-8 shadow-[0_4px_20px_rgb(0,0,0,0.05)] hover:shadow-[0_8px_30px_rgb(0,0,0,0.1)] transition-all duration-300 border border-gray-100 hover:border-[#00B900] flex flex-col items-center text-center group cursor-pointer dark:border-gray-700">
             <div
               class="w-20 h-20 rounded-full bg-green-50 dark:bg-green-900/30 flex items-center justify-center mb-6 text-[#00B900] group-hover:bg-[#00B900] group-hover:text-white transition-colors duration-300">
@@ -253,7 +253,7 @@ import Login from './auth/login.vue';
             </div>
             <h3 class="text-xl font-bold text-[#1a2b4c] dark:text-white mb-2">LINE Official</h3>
             <p class="text-gray-500 dark:text-gray-400 text-lg">@SaiJaiLaundry</p>
-          </div>
+          </a>
 
           <!-- Contact Card 3 (Location) -->
           <a href="https://maps.app.goo.gl/BR6A8RFBuUgXniZN6" target="_blank" rel="noopener noreferrer"
