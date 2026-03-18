@@ -11,11 +11,13 @@ interface UpdatePackageBody {
     isActive?: boolean
     /** ส่งมาเพื่อแทนที่ bundle ทั้งหมด (ถ้าส่ง array ว่าง = ลบ bundle ทั้งหมด) */
     bundledAddons?: Array<{ addonPackageId: string; quantity: number }>
+    /** ส่งมาเพื่อแทนที่ bonuses ทั้งหมด */
+    packageBonuses?: Array<{ storefrontPriceId: string; quantity: number }>
 }
 
 /**
  * PUT /api/admin/packages/:id
- * อัปเดตข้อมูลแพ็กเกจ รองรับการแทนที่ Bundle relations ทั้งชุดใน Transaction เดียว
+ * อัปเดตข้อมูลแพ็กเกจ รองรับการแทนที่ Bundle และ Bonus relations ทั้งชุดใน Transaction เดียว
  */
 export default defineEventHandler(async (event) => {
     const id = getRouterParam(event, 'id')
@@ -28,7 +30,7 @@ export default defineEventHandler(async (event) => {
     if (!existing) throw createError({ statusCode: 404, statusMessage: 'ไม่พบแพ็กเกจที่ต้องการแก้ไข' })
 
     try {
-        // ใช้ Transaction เพื่อให้การอัปเดต Bundle และข้อมูลหลักเป็น Atomic
+        // ใช้ Transaction เพื่อให้การอัปเดต Bundle/Bonus และข้อมูลหลักเป็น Atomic
         const updated = await prisma.$transaction(async (tx) => {
             // ถ้าส่ง bundledAddons มา ให้ replace ทั้งหมด (delete + create)
             if (body.bundledAddons !== undefined) {
@@ -39,6 +41,20 @@ export default defineEventHandler(async (event) => {
                             mainPackageId: id,
                             addonPackageId: addon.addonPackageId,
                             quantity: addon.quantity,
+                        })),
+                    })
+                }
+            }
+
+            // ถ้าส่ง packageBonuses มา ให้ replace ทั้งหมด (delete + create)
+            if (body.packageBonuses !== undefined) {
+                await tx.packageBonus.deleteMany({ where: { packageId: id } })
+                if (body.packageBonuses.length > 0) {
+                    await tx.packageBonus.createMany({
+                        data: body.packageBonuses.map((bonus) => ({
+                            packageId: id,
+                            storefrontPriceId: bonus.storefrontPriceId,
+                            quantity: bonus.quantity,
                         })),
                     })
                 }

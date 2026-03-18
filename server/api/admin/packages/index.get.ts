@@ -17,6 +17,18 @@ export default defineEventHandler(async () => {
                         },
                     },
                 },
+                // โบนัส (แถมบริการหน้าร้าน)
+                packageBonuses: {
+                    include: {
+                        storefrontPrice: {
+                            select: {
+                                id: true,
+                                storefrontService: { select: { name: true } },
+                                storefrontItem: { select: { name: true } },
+                            },
+                        },
+                    },
+                },
                 // ข้อมูลว่าแพ็กเกจนี้ถูกรวมในชุดไหนบ้าง
                 includedInBundles: {
                     include: {

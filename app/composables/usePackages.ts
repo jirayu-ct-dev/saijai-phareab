@@ -14,6 +14,7 @@ export interface CreatePackageBody {
     validityDays?: number | null
     isActive?: boolean
     bundledAddons?: Array<{ addonPackageId: string; quantity: number }>
+    packageBonuses?: Array<{ storefrontPriceId: string; quantity: number }>
 }
 
 export interface UpdatePackageBody extends Partial<CreatePackageBody> {}
@@ -25,7 +26,7 @@ export type PackageTabKey = 'all' | 'main' | 'addon' | 'bundle'
 // Composable
 // ============================================================
 
-export function usePackages() {
+export const usePackages = () => {
     const toast = useToast()
 
     // ดึงข้อมูลแพ็กเกจทั้งหมดครั้งเดียว แล้ว filter ฝั่ง client ตาม Tab
@@ -49,7 +50,7 @@ export function usePackages() {
     // ============================================================
     // Filter ข้อมูลตาม Tab
     // ============================================================
-    function getPackagesByTab(tab: PackageTabKey): Package[] {
+    const getPackagesByTab = (tab: PackageTabKey): Package[] => {
         const all = packages.value ?? []
         switch (tab) {
             case 'main':
@@ -70,7 +71,7 @@ export function usePackages() {
     // CRUD Actions
     // ============================================================
 
-    async function createPackage(body: CreatePackageBody): Promise<boolean> {
+    const createPackage = async (body: CreatePackageBody): Promise<boolean> => {
         try {
             await $fetch('/api/admin/packages', { method: 'POST', body })
             await refresh()
@@ -87,7 +88,7 @@ export function usePackages() {
         }
     }
 
-    async function updatePackage(id: string, body: UpdatePackageBody): Promise<boolean> {
+    const updatePackage = async (id: string, body: UpdatePackageBody): Promise<boolean> => {
         try {
             await $fetch(`/api/admin/packages/${id}`, { method: 'PUT', body })
             await refresh()
@@ -104,7 +105,7 @@ export function usePackages() {
         }
     }
 
-    async function deletePackage(id: string, name: string): Promise<boolean> {
+    const deletePackage = async (id: string, name: string): Promise<boolean> => {
         try {
             await $fetch(`/api/admin/packages/${id}`, { method: 'DELETE' })
             await refresh()

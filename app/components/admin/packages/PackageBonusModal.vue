@@ -37,26 +37,25 @@ const selectedBonusIds = computed(
     () => new Set(draftBonuses.value.map(b => b.storefrontPriceId))
 );
 
-// TODO: Replace with actual data from storefront API
-const mockStorefrontPrices = [
-    { value: "sp_shirt", label: "เสื้อเชิ้ต (ซักรีด)" },
-    { value: "sp_pants", label: "กางเกง (ซักแห้ง)" },
-    { value: "sp_blanket", label: "ผ้าห่ม (ซักอบ)" },
-];
+const { data: storefrontPrices } = useFetch<{ id: string; name: string }[]>('/api/admin/storefront-prices', {
+    default: () => [],
+});
 
-function handleClose() {
+const handleClose = () => {
     emit("update:open", false);
-}
+};
 
 const availableStorefrontPrices = computed(() =>
-    mockStorefrontPrices.filter(p => !selectedBonusIds.value.has(p.value))
+    storefrontPrices.value
+        .filter((p) => !selectedBonusIds.value.has(p.id))
+        .map((p) => ({ value: p.id, label: p.name }))
 );
 
-function getStorefrontName(id: string): string {
-    return mockStorefrontPrices.find(p => p.value === id)?.label || 'รายการแถม';
-}
+const getStorefrontName = (id: string): string => {
+    return storefrontPrices.value.find((p) => p.id === id)?.name || 'รายการแถม';
+};
 
-function handleAddBonus() {
+const handleAddBonus = () => {
     if (!bonusForm.value.storefrontPriceId) return;
     
     draftBonuses.value.push({
@@ -64,26 +63,23 @@ function handleAddBonus() {
         packageId: props.pkg?.id,
         storefrontPriceId: bonusForm.value.storefrontPriceId,
         quantity: 1, // Default quantity
-        description: null, // Will generate on save or template
+        description: null,
         deletedById: null,
     });
     
     // reset form
     bonusForm.value.storefrontPriceId = "";
-}
+};
 
-function handleRemoveBonus(bonusId: string) {
-    draftBonuses.value = draftBonuses.value.filter(b => b.id !== bonusId);
-}
+const handleRemoveBonus = (bonusId: string) => {
+    draftBonuses.value = draftBonuses.value.filter((b) => b.id !== bonusId);
+};
 
-function handleSave() {
+const handleSave = () => {
     isSubmitting.value = true;
-    setTimeout(() => {
-        emit("save", draftBonuses.value);
-        isSubmitting.value = false;
-        emit("update:open", false);
-    }, 400);
-}
+    emit("save", draftBonuses.value);
+    isSubmitting.value = false;
+};
 
 </script>
 

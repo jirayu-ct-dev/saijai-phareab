@@ -17,11 +17,14 @@ const emit = defineEmits<{
 const draftBundles = ref<any[]>([]);
 const isSubmitting = ref(false);
 
+const bundleSelectKey = ref(0);
+
 watch(() => props.open, (isOpen) => {
     if (isOpen) {
         draftBundles.value = JSON.parse(JSON.stringify(props.pkg?.bundledAddons || []));
     } else {
         selectedNewAddon.value = undefined;
+        bundleSelectKey.value++;
     }
 });
 
@@ -39,39 +42,42 @@ const availableAddonOptions = computed(() =>
     addonOptions.value.filter((o) => !selectedAddonIds.value.has(o.value)),
 );
 
-function getAddonName(id: string): string {
+const getAddonName = (id: string): string => {
     return props.addonPackages.find((p) => p.id === id)?.name ?? id;
-}
+};
 
-function handleClose() {
+const handleClose = () => {
     emit("update:open", false);
-}
+};
 
-function handleAddBundle() {
-    if (!selectedNewAddon.value) return;
-    
+const handleAddBundle = (addonPackageId?: string) => {
+    if (!addonPackageId) return;
     draftBundles.value.push({
         id: `draft-${Date.now()}`,
         mainPackageId: props.pkg?.id,
-        addonPackageId: selectedNewAddon.value,
+        addonPackageId,
         quantity: 1,
     });
-    
+
     selectedNewAddon.value = undefined;
-}
+    bundleSelectKey.value++;
+};
 
-function handleRemoveBundle(addonPackageId: string) {
-    draftBundles.value = draftBundles.value.filter(b => b.addonPackageId !== addonPackageId);
-}
+const handleRemoveBundle = (addonPackageId: string) => {
+    draftBundles.value = draftBundles.value.filter((b) => b.addonPackageId !== addonPackageId);
 
-function handleSave() {
+    if (selectedNewAddon.value === addonPackageId) {
+        selectedNewAddon.value = undefined;
+    }
+
+    bundleSelectKey.value++;
+};
+
+const handleSave = () => {
     isSubmitting.value = true;
-    setTimeout(() => {
-        emit("save", draftBundles.value);
-        isSubmitting.value = false;
-        emit("update:open", false);
-    }, 400);
-}
+    emit("save", draftBundles.value);
+    isSubmitting.value = false;
+};
 </script>
 
 <template>
@@ -154,8 +160,9 @@ function handleSave() {
                         <UIcon name="i-lucide-plus-circle" class="size-4 text-primary" />
                         เพิ่มแพ็กเกจเสริม
                     </h4>
-                    <div class="flex gap-2">
+                    <div class="flex flex-col gap-2">
                         <USelect
+                            :key="bundleSelectKey"
                             v-model="selectedNewAddon"
                             :items="availableAddonOptions"
                             value-key="value"
@@ -163,8 +170,11 @@ function handleSave() {
                             placeholder="เลือกแพ็กเกจเสริม..."
                             class="w-full"
                             :disabled="availableAddonOptions.length === 0"
-                            @update:model-value="handleAddBundle"
+                            @update:model-value="handleAddBundle($event)"
                         />
+                        <p v-if="availableAddonOptions.length === 0" class="text-xs text-muted">
+                            ไม่มีรายการแพ็กเกจเสริมให้เลือกแล้ว
+                        </p>
                     </div>
                     <p v-if="availableAddonOptions.length === 0 && addonPackages.length === 0" class="text-xs text-muted">
                         ยังไม่มีแพ็กเกจเสริม (ADDON) ในระบบ

@@ -9,17 +9,19 @@ import {
     packageTypeColors,
     packageActiveConfig,
 } from "~~/shared/config/packageConfig";
-import { formatCredits, formatCurrency, formatDays } from "~~/shared/utils/format";
+import {
+    formatCredits,
+    formatCurrency,
+    formatDays,
+    formatDateTime,
+} from "~~/shared/utils/format";
 import { cycleColumnSorting } from "~~/shared/utils/table";
-
-// Define local helper avoiding scule import
-const upperFirst = (str: string) => str ? str.charAt(0).toUpperCase() + str.slice(1) : "";
 
 // ============================================================
 // Props & Emits
 // ============================================================
+
 const props = defineProps<{
-    /** แพ็กเกจที่ถูก filter Tab แล้วจาก Parent */
     packages: Package[];
     loading?: boolean;
 }>();
@@ -30,22 +32,27 @@ const emit = defineEmits<{
     bonus: [pkg: Package];
     bundle: [pkg: Package];
     "bulk-delete": [packages: Package[]];
+    refresh: [];
 }>();
 
 // ============================================================
 // Resolved Components
 // ============================================================
+
 const UBadge = resolveComponent("UBadge");
 const UButton = resolveComponent("UButton");
 const UCheckbox = resolveComponent("UCheckbox");
 const UIcon = resolveComponent("UIcon");
+const UDropdownMenu = resolveComponent("UDropdownMenu");
 
 // ============================================================
-// Table State (TanStack)
+// Table State
 // ============================================================
+
 const table = useTemplateRef<any>("table");
 const columnVisibility = ref<Record<string, boolean>>({});
 const rowSelection = ref<Record<string, boolean>>({});
+const expanded = ref<Record<string, boolean>>({});
 
 const pagination = ref({
     pageIndex: 0,
@@ -55,6 +62,7 @@ const pagination = ref({
 // ============================================================
 // Toolbar State
 // ============================================================
+
 const searchQuery = ref("");
 const statusFilter = ref<"all" | "active" | "inactive">("all");
 
@@ -64,10 +72,10 @@ const STATUS_OPTIONS = [
     { label: "ปิดการใช้งาน", value: "inactive" },
 ];
 
-
 // ============================================================
 // Filter Data
 // ============================================================
+
 const filteredPackages = computed<Package[]>(() => {
     let result = props.packages;
 
@@ -89,7 +97,6 @@ const filteredPackages = computed<Package[]>(() => {
     return result;
 });
 
-// Reset row selection when data or filters change
 watch([searchQuery, statusFilter, () => props.packages], () => {
     table.value?.tableApi?.resetRowSelection();
     pagination.value.pageIndex = 0;
@@ -98,12 +105,12 @@ watch([searchQuery, statusFilter, () => props.packages], () => {
 // ============================================================
 // Selection Helpers
 // ============================================================
-const selectedRows = computed<any[]>(() => {
-    return table.value?.tableApi?.getFilteredSelectedRowModel().rows ?? [];
-});
 
+const selectedRows = computed<any[]>(
+    () => table.value?.tableApi?.getFilteredSelectedRowModel().rows ?? [],
+);
 const selectedPackages = computed<Package[]>(() =>
-    selectedRows.value.map((row) => row.original),
+    selectedRows.value.map((r) => r.original),
 );
 const selectedRowsCount = computed(() => selectedRows.value.length);
 const filteredRowCount = computed(
@@ -112,13 +119,14 @@ const filteredRowCount = computed(
         filteredPackages.value.length,
 );
 
-function handleBulkDelete() {
-    emit("bulk-delete", selectedPackages.value);
-}
+const handleBulkDelete = () => emit("bulk-delete", selectedPackages.value);
+
 // ============================================================
 // Column Definitions
 // ============================================================
+
 const columns: TableColumn<Package>[] = [
+    // Checkbox
     {
         id: "select",
         header: ({ table }) =>
@@ -128,8 +136,8 @@ const columns: TableColumn<Package>[] = [
                     modelValue: table.getIsSomePageRowsSelected()
                         ? "indeterminate"
                         : table.getIsAllPageRowsSelected(),
-                    "onUpdate:modelValue": (value: boolean | "indeterminate") =>
-                        table.toggleAllPageRowsSelected(!!value),
+                    "onUpdate:modelValue": (v: boolean | "indeterminate") =>
+                        table.toggleAllPageRowsSelected(!!v),
                     ariaLabel: "Select all",
                 }),
             ),
@@ -138,12 +146,14 @@ const columns: TableColumn<Package>[] = [
                 "div",
                 h(UCheckbox, {
                     modelValue: row.getIsSelected(),
-                    "onUpdate:modelValue": (value: boolean | "indeterminate") =>
-                        row.toggleSelected(!!value),
+                    "onUpdate:modelValue": (v: boolean | "indeterminate") =>
+                        row.toggleSelected(!!v),
                     ariaLabel: "Select row",
                 }),
             ),
     },
+
+    // ชื่อ + ไอคอน + คำอธิบาย
     {
         accessorKey: "name",
         header: ({ column }) => {
@@ -173,7 +183,7 @@ const columns: TableColumn<Package>[] = [
                             pkg.packageType === "MAIN"
                                 ? "bg-primary/10"
                                 : "bg-info/10",
-                        ]
+                        ],
                     },
                     [
                         h(UIcon, {
@@ -203,6 +213,8 @@ const columns: TableColumn<Package>[] = [
             ]);
         },
     },
+
+    // ประเภท
     {
         accessorKey: "packageType",
         header: "ประเภท",
@@ -215,6 +227,8 @@ const columns: TableColumn<Package>[] = [
             );
         },
     },
+
+    // ราคา
     {
         accessorKey: "price",
         header: ({ column }) => {
@@ -247,6 +261,8 @@ const columns: TableColumn<Package>[] = [
             );
         },
     },
+
+    // เครดิต + โบนัส
     {
         accessorKey: "credits",
         header: "เครดิต",
@@ -255,9 +271,8 @@ const columns: TableColumn<Package>[] = [
             const base = formatCredits(pkg.credits);
             const bonus = pkg.bonusCredits ?? 0;
 
-            if (base === "—" && bonus === 0) {
+            if (base === "—" && bonus === 0)
                 return h("span", { class: "text-muted text-xs" }, "—");
-            }
 
             return h("div", { class: "flex items-center gap-1.5" }, [
                 h(UIcon, {
@@ -275,6 +290,8 @@ const columns: TableColumn<Package>[] = [
             ]);
         },
     },
+
+    // ระยะเวลา
     {
         accessorKey: "validityDays",
         header: "ระยะเวลา",
@@ -285,14 +302,15 @@ const columns: TableColumn<Package>[] = [
                 formatDays(row.getValue("validityDays") as number | null),
             ),
     },
+
+    // โบนัส
     {
         id: "bonuses",
         header: "โบนัส",
         cell: ({ row }) => {
             const count = row.original.packageBonuses?.length ?? 0;
-            if (count === 0) {
-                return h("span", { class: "text-muted text-xs" }, "ไม่มี");
-            }
+            if (count === 0)
+                return h("span", { class: "text-muted text-xs" }, "—");
             return h(
                 "div",
                 {
@@ -300,23 +318,31 @@ const columns: TableColumn<Package>[] = [
                     onClick: () => emit("bonus", row.original),
                 },
                 [
-                    h(UIcon, { name: "i-lucide-gift", class: "size-4 text-success" }),
-                    h(UBadge, { color: "success", variant: "subtle", size: "sm" }, () => `${count} รายการ`),
+                    h(UIcon, {
+                        name: "i-lucide-gift",
+                        class: "size-4 text-success",
+                    }),
+                    h(
+                        UBadge,
+                        { color: "success", variant: "subtle", size: "sm" },
+                        () => `${count} รายการ`,
+                    ),
                 ],
             );
         },
     },
+
+    // จัดเซ็ท
     {
         id: "bundles",
-        header: "จัดเซ็ทแพ็กเกจ",
+        header: "จัดเซ็ท",
         cell: ({ row }) => {
             const count = row.original.bundledAddons?.length ?? 0;
-            if (count === 0) {
-                return h("span", { class: "text-muted text-xs" }, "ไม่มี");
-            }
+            if (count === 0)
+                return h("span", { class: "text-muted text-xs" }, "—");
             return h(
                 "div",
-                { 
+                {
                     class: "flex items-center gap-1.5 cursor-pointer",
                     onClick: () => emit("bundle", row.original),
                 },
@@ -330,10 +356,12 @@ const columns: TableColumn<Package>[] = [
                         { color: "secondary", variant: "subtle", size: "sm" },
                         () => `${count} เสริม`,
                     ),
-                ]
+                ],
             );
         },
     },
+
+    // สถานะ
     {
         accessorKey: "isActive",
         header: "สถานะ",
@@ -349,32 +377,33 @@ const columns: TableColumn<Package>[] = [
             );
         },
     },
+
+    // Actions
     {
         id: "actions",
         header: "",
         cell: ({ row }) => {
             const pkg = row.original;
+            const isExpanded = row.getIsExpanded();
+
             return h("div", { class: "flex items-center justify-end gap-1" }, [
-                pkg.packageType === "MAIN"
-                    ? h(UButton, {
-                          icon: "i-lucide-layers",
-                          size: "xs",
-                          color: "secondary",
-                          variant: "ghost",
-                          "aria-label": "จัดเซ็ท",
-                          onClick: () => emit("bundle", pkg),
-                      })
-                    : null,
-                pkg.packageType === "MAIN"
-                    ? h(UButton, {
-                          icon: "i-lucide-gift",
-                          size: "xs",
-                          color: "success",
-                          variant: "ghost",
-                          "aria-label": "แพ็กเกจแถม",
-                          onClick: () => emit("bonus", pkg),
-                      })
-                    : null,
+                // Expand toggle
+                h(UButton, {
+                    icon: "i-lucide-chevron-down",
+                    size: "xs",
+                    color: "neutral",
+                    variant: isExpanded ? "subtle" : "ghost",
+                    "aria-label": "ดูรายละเอียด",
+                    ui: {
+                        leadingIcon: [
+                            "transition-transform duration-200",
+                            isExpanded ? "rotate-180" : "",
+                        ],
+                    },
+                    onClick: () => row.toggleExpanded(),
+                }),
+
+                // Edit
                 h(UButton, {
                     icon: "i-lucide-pencil",
                     size: "xs",
@@ -383,6 +412,8 @@ const columns: TableColumn<Package>[] = [
                     "aria-label": "แก้ไข",
                     onClick: () => emit("edit", pkg),
                 }),
+
+                // Delete
                 h(UButton, {
                     icon: "i-lucide-trash-2",
                     size: "xs",
@@ -391,6 +422,38 @@ const columns: TableColumn<Package>[] = [
                     "aria-label": "ลบ",
                     onClick: () => emit("delete", pkg),
                 }),
+
+                // Dropdown — MAIN only (Bundle + Bonus)
+                pkg.packageType === "MAIN"
+                    ? h(
+                          UDropdownMenu,
+                          {
+                              content: { align: "end" },
+                              items: [
+                                  {
+                                      label: "จัดเซ็ท Bundle",
+                                      icon: "i-lucide-layers",
+                                      onSelect: () => emit("bundle", pkg),
+                                  },
+                                  {
+                                      label: "โบนัสแพ็กเกจ",
+                                      icon: "i-lucide-gift",
+                                      onSelect: () => emit("bonus", pkg),
+                                  },
+                              ],
+                          },
+                          {
+                              default: () =>
+                                  h(UButton, {
+                                      icon: "i-lucide-ellipsis-vertical",
+                                      size: "xs",
+                                      color: "neutral",
+                                      variant: "ghost",
+                                      "aria-label": "เพิ่มเติม",
+                                  }),
+                          },
+                      )
+                    : null,
             ]);
         },
     },
@@ -399,11 +462,8 @@ const columns: TableColumn<Package>[] = [
 
 <template>
     <div class="flex flex-col gap-4">
-        <!-- ============================================================ -->
-        <!-- Toolbar                                                        -->
-        <!-- ============================================================ -->
+        <!-- Toolbar -->
         <div class="flex flex-wrap items-center justify-between gap-1.5">
-            <!-- ← ฝั่งซ้าย: Search -->
             <div class="flex items-center gap-1.5 w-full md:w-auto">
                 <UInput
                     v-model="searchQuery"
@@ -413,9 +473,7 @@ const columns: TableColumn<Package>[] = [
                 />
             </div>
 
-            <!-- → ฝั่งขวา: Bulk Delete + Status Filter + Columns -->
             <div class="flex flex-wrap items-center gap-1.5">
-                <!-- Bulk Delete -->
                 <UButton
                     v-if="selectedRowsCount > 0"
                     label="ลบ"
@@ -429,7 +487,6 @@ const columns: TableColumn<Package>[] = [
                     </template>
                 </UButton>
 
-                <!-- Status Filter -->
                 <USelect
                     v-model="statusFilter"
                     :items="STATUS_OPTIONS"
@@ -442,47 +499,20 @@ const columns: TableColumn<Package>[] = [
                     }"
                 />
 
-                <!-- Column Visibility Dropdown -->
-                <UDropdownMenu
-                    class="cursor-pointer"
-                    :items="
-                        table?.tableApi
-                            ?.getAllColumns()
-                            .filter((column: any) => column.getCanHide())
-                            .map((column: any) => ({
-                                label: upperFirst(column.id),
-                                type: 'checkbox',
-                                checked: column.getIsVisible(),
-                                onUpdateChecked(checked: boolean) {
-                                    table?.tableApi
-                                        ?.getColumn(column.id)
-                                        ?.toggleVisibility(!!checked);
-                                },
-                                onSelect(e?: Event) {
-                                    e?.preventDefault();
-                                },
-                            })) || []
-                    "
-                    :content="{ align: 'end' }"
-                >
-                    <UButton
-                        label="คอลัมน์"
-                        color="neutral"
-                        variant="outline"
-                        trailing-icon="i-lucide-settings-2"
-                    />
-                </UDropdownMenu>
+                <UIButtonRefresh
+                    :loading="loading"
+                    @refresh="emit('refresh')"
+                />
             </div>
         </div>
 
-        <!-- ============================================================ -->
-        <!-- Data Table                                                     -->
-        <!-- ============================================================ -->
+        <!-- Table -->
         <UTable
             ref="table"
             v-model:column-visibility="columnVisibility"
             v-model:row-selection="rowSelection"
             v-model:pagination="pagination"
+            v-model:expanded="expanded"
             class="shrink-0"
             :data="filteredPackages"
             :columns="columns"
@@ -496,6 +526,7 @@ const columns: TableColumn<Package>[] = [
                 separator: 'h-0',
             }"
         >
+            <!-- Empty state -->
             <template #empty>
                 <div
                     class="flex flex-col items-center justify-center py-12 text-center text-muted"
@@ -514,11 +545,227 @@ const columns: TableColumn<Package>[] = [
                     </p>
                 </div>
             </template>
+
+            <!-- Expanded row -->
+            <template #expanded="{ row }">
+                <div class="px-4 py-4 bg-elevated/40 border-t border-default">
+                    <div
+                        class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
+                    >
+                        <!-- คำอธิบาย + ข้อมูลพื้นฐาน -->
+                        <div class="space-y-3 min-w-0">
+                            <p
+                                class="text-xs font-semibold text-muted uppercase tracking-wide"
+                            >
+                                ข้อมูลทั่วไป
+                            </p>
+                            <div class="space-y-2">
+                                <div class="flex items-center gap-2">
+                                    <UIcon
+                                        name="i-lucide-package"
+                                        class="size-4 text-muted shrink-0"
+                                    />
+                                    <span
+                                        class="text-sm font-medium text-highlighted truncate"
+                                    >
+                                        {{ row.original.name }}
+                                    </span>
+                                </div>
+                                <div class="flex items-start gap-2 min-w-0">
+                                    <UIcon
+                                        name="i-lucide-file-text"
+                                        class="size-4 text-muted mt-0.5 shrink-0"
+                                    />
+                                    <p
+                                        class="text-sm whitespace-pre-wrap wrap-break-word flex-1 min-w-0"
+                                    >
+                                        {{
+                                            row.original.description ||
+                                            "ไม่มีคำอธิบาย"
+                                        }}
+                                    </p>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <UIcon
+                                        name="i-lucide-clock"
+                                        class="size-4 text-muted shrink-0"
+                                    />
+                                    <span class="text-sm">
+                                        <span class="text-muted"
+                                            >ระยะเวลา:</span
+                                        >
+                                        <span
+                                            class="ml-1 font-medium text-highlighted"
+                                        >
+                                            {{
+                                                formatDays(
+                                                    row.original.validityDays,
+                                                )
+                                            }}
+                                        </span>
+                                    </span>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <UIcon
+                                        name="i-lucide-coins"
+                                        class="size-4 text-muted shrink-0"
+                                    />
+                                    <span class="text-sm">
+                                        <span class="text-muted"
+                                            >เครดิตโบนัส:</span
+                                        >
+                                        <span
+                                            class="ml-1 font-medium text-success"
+                                        >
+                                            {{
+                                                row.original.bonusCredits
+                                                    ? `+${row.original.bonusCredits.toLocaleString("th-TH")} เครดิต`
+                                                    : "ไม่มี"
+                                            }}
+                                        </span>
+                                    </span>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <UIcon
+                                        name="i-lucide-calendar"
+                                        class="size-4 text-muted shrink-0"
+                                    />
+                                    <span class="text-sm">
+                                        <span class="text-muted"
+                                            >สร้างเมื่อ:</span
+                                        >
+                                        <span
+                                            class="ml-1 font-medium text-highlighted"
+                                        >
+                                            {{
+                                                formatDateTime(
+                                                    row.original.createdAt,
+                                                )
+                                            }}
+                                        </span>
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- โบนัสแพ็กเกจ -->
+                        <div class="space-y-3 min-w-0">
+                            <div class="flex items-center justify-between">
+                                <p
+                                    class="text-xs font-semibold text-muted uppercase tracking-wide"
+                                >
+                                    โบนัสแพ็กเกจ (ของแถม)
+                                </p>
+                                <UBadge
+                                    color="success"
+                                    variant="subtle"
+                                    size="xs"
+                                >
+                                    {{
+                                        row.original.packageBonuses?.length ?? 0
+                                    }}
+                                    รายการ
+                                </UBadge>
+                            </div>
+
+                            <div
+                                v-if="row.original.packageBonuses?.length"
+                                class="space-y-1.5"
+                            >
+                                <div
+                                    v-for="bonus in row.original.packageBonuses"
+                                    :key="bonus.id"
+                                    class="flex items-center gap-2 px-2.5 py-1.5 rounded-md bg-success/5 border border-success/15"
+                                >
+                                    <UIcon
+                                        name="i-lucide-gift"
+                                        class="size-3.5 text-success shrink-0"
+                                    />
+                                    <span class="text-sm flex-1 truncate">
+                                        {{
+                                            bonus.storefrontPrice
+                                                ?.storefrontService?.name
+                                        }}
+                                        {{
+                                            bonus.storefrontPrice
+                                                ?.storefrontItem?.name
+                                        }}
+                                    </span>
+                                    <UBadge
+                                        color="success"
+                                        variant="subtle"
+                                        size="xs"
+                                    >
+                                        × {{ bonus.quantity }}
+                                    </UBadge>
+                                </div>
+                            </div>
+                            <p v-else class="text-sm text-muted italic">
+                                ไม่มีโบนัส
+                            </p>
+                        </div>
+
+                        <!-- จัดเซ็ท Bundle (MAIN only) -->
+                        <div
+                            v-if="row.original.packageType === 'MAIN'"
+                            class="space-y-3 min-w-0"
+                        >
+                            <div class="flex items-center justify-between">
+                                <p
+                                    class="text-xs font-semibold text-muted uppercase tracking-wide"
+                                >
+                                    จัดเซ็ท Bundle
+                                </p>
+                                <UBadge
+                                    color="secondary"
+                                    variant="subtle"
+                                    size="xs"
+                                >
+                                    {{
+                                        row.original.bundledAddons?.length ?? 0
+                                    }}
+                                    เสริม
+                                </UBadge>
+                            </div>
+
+                            <div
+                                v-if="row.original.bundledAddons?.length"
+                                class="space-y-1.5"
+                            >
+                                <div
+                                    v-for="addon in row.original.bundledAddons"
+                                    :key="addon.id"
+                                    class="flex items-center gap-2 px-2.5 py-1.5 rounded-md bg-elevated border border-default"
+                                >
+                                    <UIcon
+                                        name="i-lucide-puzzle"
+                                        class="size-3.5 text-secondary shrink-0"
+                                    />
+                                    <span class="text-sm flex-1 truncate">
+                                        {{
+                                            addon.addonPackage?.name ??
+                                            addon.addonPackageId
+                                        }}
+                                    </span>
+                                    <UBadge
+                                        color="secondary"
+                                        variant="subtle"
+                                        size="xs"
+                                    >
+                                        × {{ addon.quantity }}
+                                    </UBadge>
+                                </div>
+                            </div>
+                            <p v-else class="text-sm text-muted italic">
+                                ไม่มี Bundle
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </template>
         </UTable>
 
-        <!-- ============================================================ -->
-        <!-- Pagination                                                     -->
-        <!-- ============================================================ -->
+        <!-- Pagination -->
         <div
             class="flex items-center justify-between gap-3 border-t border-default pt-4 mt-auto flex-wrap"
         >
@@ -545,11 +792,11 @@ const columns: TableColumn<Package>[] = [
                         table?.tableApi?.getState().pagination.pageSize
                     "
                     :total="filteredRowCount"
-                    @update:page="(p: number) => table?.tableApi?.setPageIndex(p - 1)
+                    @update:page="
+                        (p: number) => table?.tableApi?.setPageIndex(p - 1)
                     "
                 />
             </div>
         </div>
     </div>
 </template>
-

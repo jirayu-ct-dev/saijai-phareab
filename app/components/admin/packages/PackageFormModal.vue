@@ -1,12 +1,4 @@
 <script setup lang="ts">
-/**
- * PackageFormModal — Modal สำหรับสร้างและแก้ไขแพ็กเกจ
- *
- * - ถ้า `editPackage` เป็น null  → โหมดสร้างใหม่
- * - ถ้า `editPackage` มีค่า      → โหมดแก้ไข (populate form อัตโนมัติ)
- * - Bundle section จะแสดงเฉพาะตอน packageType === 'MAIN'
- */
-
 import type { Package } from "~~/shared/types/package";
 import type { CreatePackageBody } from "~~/app/composables/usePackages";
 import { packageTypeLabels } from "~~/shared/config/packageConfig";
@@ -37,6 +29,11 @@ interface BundleAddonRow {
     quantity: number;
 }
 
+interface BonusRow {
+    storefrontPriceId: string;
+    quantity: number;
+}
+
 interface FormState {
     name: string;
     description: string;
@@ -47,6 +44,7 @@ interface FormState {
     validityDays: number | null;
     isActive: boolean;
     bundledAddons: BundleAddonRow[];
+    packageBonuses: BonusRow[];
 }
 
 const defaultState = (): FormState => ({
@@ -59,6 +57,7 @@ const defaultState = (): FormState => ({
     validityDays: null,
     isActive: true,
     bundledAddons: [],
+    packageBonuses: [],
 });
 
 const state = reactive<FormState>(defaultState());
@@ -72,29 +71,87 @@ const modalTitle = computed(() =>
     isEditMode.value ? "แก้ไขแพ็กเกจ" : "เพิ่มแพ็กเกจใหม่",
 );
 
-/** Package type select options */
 const typeOptions = [
     { label: packageTypeLabels.MAIN, value: "MAIN" },
     { label: packageTypeLabels.ADDON, value: "ADDON" },
 ];
 
-/** Addon package select options สำหรับ Bundle picker */
+// ============================================================
+// Bundle
+// ============================================================
+
 const addonOptions = computed(() =>
     props.addonPackages.map((p) => ({ label: p.name, value: p.id })),
 );
 
-/** IDs ที่ถูกเลือกไปแล้ว (ป้องกันเลือกซ้ำ) */
 const selectedAddonIds = computed(
     () => new Set(state.bundledAddons.map((b) => b.addonPackageId)),
 );
 
-/** Addon options ที่ยังไม่ถูกเลือก */
 const availableAddonOptions = computed(() =>
     addonOptions.value.filter((o) => !selectedAddonIds.value.has(o.value)),
 );
 
-// สถานะ dropdown เลือก addon ใหม่
 const selectedNewAddon = ref<string | undefined>(undefined);
+const bundleSelectKey = ref(0);
+
+const getAddonName = (id: string): string =>
+    props.addonPackages.find((p) => p.id === id)?.name ?? id;
+
+const addBundleAddon = () => {
+    if (!selectedNewAddon.value) return;
+    state.bundledAddons.push({
+        addonPackageId: selectedNewAddon.value,
+        quantity: 1,
+    });
+    selectedNewAddon.value = undefined;
+    bundleSelectKey.value++;
+};
+
+const removeBundleAddon = (index: number) => {
+    state.bundledAddons.splice(index, 1);
+    bundleSelectKey.value++;
+};
+
+// ============================================================
+// Bonus
+// ============================================================
+
+const { data: storefrontPrices } = useFetch<{ id: string; name: string }[]>(
+    "/api/admin/storefront-prices",
+    { default: () => [] },
+);
+
+const selectedBonusIds = computed(
+    () => new Set(state.packageBonuses.map((b) => b.storefrontPriceId)),
+);
+
+const availableBonusOptions = computed(() =>
+    storefrontPrices.value
+        .filter((p) => !selectedBonusIds.value.has(p.id))
+        .map((p) => ({ value: p.id, label: p.name })),
+);
+
+const selectedNewBonus = ref<string | undefined>(undefined);
+const bonusSelectKey = ref(0);
+
+const getStorefrontName = (id: string): string =>
+    storefrontPrices.value.find((p) => p.id === id)?.name ?? id;
+
+const addBonus = () => {
+    if (!selectedNewBonus.value) return;
+    state.packageBonuses.push({
+        storefrontPriceId: selectedNewBonus.value,
+        quantity: 1,
+    });
+    selectedNewBonus.value = undefined;
+    bonusSelectKey.value++;
+};
+
+const removeBonus = (index: number) => {
+    state.packageBonuses.splice(index, 1);
+    bonusSelectKey.value++;
+};
 
 // ============================================================
 // Validation
@@ -103,43 +160,21 @@ const selectedNewAddon = ref<string | undefined>(undefined);
 interface FormErrors {
     name?: string;
     price?: string;
-    bundledAddons?: string;
 }
 
 const errors = ref<FormErrors>({});
 
-function validate(): boolean {
+const validate = (): boolean => {
     const e: FormErrors = {};
     if (!state.name.trim()) e.name = "กรุณากรอกชื่อแพ็กเกจ";
     if (state.price === null || state.price < 0)
         e.price = "กรุณากรอกราคาที่ถูกต้อง (≥ 0)";
     errors.value = e;
     return Object.keys(e).length === 0;
-}
+};
 
 // ============================================================
-// Bundle Management
-// ============================================================
-
-function addBundleAddon() {
-    if (!selectedNewAddon.value) return;
-    state.bundledAddons.push({
-        addonPackageId: selectedNewAddon.value,
-        quantity: 1,
-    });
-    selectedNewAddon.value = undefined;
-}
-
-function removeBundleAddon(index: number) {
-    state.bundledAddons.splice(index, 1);
-}
-
-function getAddonName(id: string): string {
-    return props.addonPackages.find((p) => p.id === id)?.name ?? id;
-}
-
-// ============================================================
-// Sync: populate form เมื่อ editPackage เปลี่ยน
+// Sync: populate form เมื่อ open / editPackage เปลี่ยน
 // ============================================================
 
 watch(
@@ -148,9 +183,9 @@ watch(
         if (!isOpen) return;
         errors.value = {};
         selectedNewAddon.value = undefined;
+        selectedNewBonus.value = undefined;
 
         if (props.editPackage) {
-            // โหมดแก้ไข: เติมข้อมูลจาก editPackage
             const p = props.editPackage;
             state.name = p.name;
             state.description = p.description ?? "";
@@ -165,19 +200,26 @@ watch(
                     addonPackageId: b.addonPackageId,
                     quantity: b.quantity,
                 })) ?? [];
+            state.packageBonuses =
+                p.packageBonuses?.map((b) => ({
+                    storefrontPriceId: b.storefrontPriceId,
+                    quantity: b.quantity,
+                })) ?? [];
         } else {
-            // โหมดสร้างใหม่: reset
             Object.assign(state, defaultState());
         }
     },
     { immediate: true },
 );
 
-// ถ้าเปลี่ยน packageType เป็น ADDON ให้ล้าง bundledAddons
+// เปลี่ยน packageType → ADDON ล้าง bundle + bonus
 watch(
     () => state.packageType,
     (type) => {
-        if (type === "ADDON") state.bundledAddons = [];
+        if (type === "ADDON") {
+            state.bundledAddons = [];
+            state.packageBonuses = [];
+        }
     },
 );
 
@@ -187,11 +229,13 @@ watch(
 
 const submitting = ref(false);
 
-async function handleSubmit() {
+const handleSubmit = async () => {
     if (!validate()) return;
     submitting.value = true;
 
-    const payload: CreatePackageBody = {
+    const isMain = state.packageType === "MAIN";
+
+    emit("save", {
         name: state.name.trim(),
         description: state.description.trim() || null,
         packageType: state.packageType,
@@ -200,16 +244,14 @@ async function handleSubmit() {
         bonusCredits: state.bonusCredits ?? 0,
         validityDays: state.validityDays,
         isActive: state.isActive,
-        bundledAddons: state.packageType === "MAIN" ? state.bundledAddons : [],
-    };
+        bundledAddons: isMain ? state.bundledAddons : [],
+        packageBonuses: isMain ? state.packageBonuses : [],
+    });
 
-    emit("save", payload);
     submitting.value = false;
-}
+};
 
-function handleClose() {
-    emit("update:open", false);
-}
+const handleClose = () => emit("update:open", false);
 </script>
 
 <template>
@@ -308,7 +350,7 @@ function handleClose() {
                     </UFormField>
                 </div>
 
-                <!-- เครดิต + โบนัส -->
+                <!-- เครดิต + เครดิตโบนัส -->
                 <div class="grid grid-cols-2 gap-4">
                     <UFormField label="เครดิต">
                         <UInput
@@ -341,21 +383,20 @@ function handleClose() {
                     </UFormField>
                 </div>
 
-                <!-- ======================================== -->
-                <!-- Bundle Section (เฉพาะ packageType MAIN) -->
-                <!-- ======================================== -->
+                <!-- ======================================================== -->
+                <!-- MAIN-only sections: Bundle + Bonus                        -->
+                <!-- ======================================================== -->
                 <template v-if="state.packageType === 'MAIN'">
-                    <USeparator label="จัดเซ็ตโปรโมชัน (Bundle)" />
+                    <!-- Bundle -->
+                    <USeparator label="จัดเซ็ตโปรโมชัน" />
 
                     <div class="flex flex-col gap-3">
                         <p class="text-sm text-muted">
-                            เลือกแพ็กเกจเสริม (ADDON)
-                            ที่ต้องการผูกเข้ากับแพ็กเกจนี้
+                            เลือกแพ็กเกจเสริมที่ต้องการผูกเข้ากับแพ็กเกจนี้
                         </p>
 
-                        <!-- รายการ bundle ที่เลือกไว้ -->
                         <div
-                            v-if="state.bundledAddons.length > 0"
+                            v-if="state.bundledAddons.length"
                             class="flex flex-col gap-2"
                         >
                             <div
@@ -367,15 +408,14 @@ function handleClose() {
                                     variant="subtle"
                                     color="secondary"
                                     class="shrink-0"
-                                    >เสริม</UBadge
                                 >
+                                    เสริม
+                                </UBadge>
                                 <span
                                     class="flex-1 text-sm font-medium truncate"
                                 >
                                     {{ getAddonName(bundle.addonPackageId) }}
                                 </span>
-
-                                <!-- จำนวน -->
                                 <UInput
                                     v-model.number="bundle.quantity"
                                     type="number"
@@ -386,8 +426,6 @@ function handleClose() {
                                 <span class="text-xs text-muted shrink-0"
                                     >ชิ้น</span
                                 >
-
-                                <!-- ลบ bundle -->
                                 <UButton
                                     icon="i-lucide-x"
                                     size="xs"
@@ -398,27 +436,100 @@ function handleClose() {
                             </div>
                         </div>
 
-                        <!-- เพิ่ม addon ใหม่ -->
-                        <div class="flex gap-2">
-                            <USelect
-                                v-model="selectedNewAddon"
-                                :items="availableAddonOptions"
-                                value-key="value"
-                                placeholder="เลือกแพ็กเกจเสริม..."
-                                class="w-full"
-                                :disabled="availableAddonOptions.length === 0"
-                                @update:model-value="addBundleAddon"
-                            />
-                        </div>
+                        <USelect
+                            :key="bundleSelectKey"
+                            v-model="selectedNewAddon"
+                            :items="availableAddonOptions"
+                            value-key="value"
+                            placeholder="เลือกแพ็กเกจเสริม..."
+                            class="w-full"
+                            :disabled="availableAddonOptions.length === 0"
+                            @update:model-value="addBundleAddon"
+                        />
+                        <p v-if="availableAddonOptions.length === 0" class="text-xs text-muted">
+                            ไม่มีแพ็กเกจเสริมที่สามารถเลือกได้ในระบบ
+                        </p>
 
                         <p
                             v-if="
                                 availableAddonOptions.length === 0 &&
-                                addonPackages.length === 0
+                                !addonPackages.length
                             "
                             class="text-xs text-muted"
                         >
-                            ยังไม่มีแพ็กเกจเสริม (ADDON) ในระบบ
+                            ยังไม่มีแพ็กเกจเสริมที่สามารถเลือกได้ในระบบ
+                        </p>
+                    </div>
+
+                    <!-- Bonus -->
+                    <USeparator label="โบนัสแพ็กเกจ (ของแถม)" />
+
+                    <div class="flex flex-col gap-3">
+                        <p class="text-sm text-muted">
+                            เลือกรายการบริการที่ต้องการแถมให้กับแพ็กเกจนี้
+                        </p>
+
+                        <div
+                            v-if="state.packageBonuses.length"
+                            class="flex flex-col gap-2"
+                        >
+                            <div
+                                v-for="(bonus, index) in state.packageBonuses"
+                                :key="bonus.storefrontPriceId"
+                                class="flex items-center gap-2 p-2 rounded-lg bg-success/5 border border-success/15"
+                            >
+                                <UIcon
+                                    name="i-lucide-gift"
+                                    class="size-4 text-success shrink-0"
+                                />
+                                <span
+                                    class="flex-1 text-sm font-medium truncate"
+                                >
+                                    {{
+                                        getStorefrontName(
+                                            bonus.storefrontPriceId,
+                                        )
+                                    }}
+                                </span>
+                                <UInput
+                                    v-model.number="bonus.quantity"
+                                    type="number"
+                                    min="1"
+                                    class="w-16"
+                                    size="xs"
+                                />
+                                <span class="text-xs text-muted shrink-0"
+                                    >ชิ้น</span
+                                >
+                                <UButton
+                                    icon="i-lucide-x"
+                                    size="xs"
+                                    color="error"
+                                    variant="ghost"
+                                    @click="removeBonus(index)"
+                                />
+                            </div>
+                        </div>
+
+                        <USelect
+                            :key="bonusSelectKey"
+                            v-model="selectedNewBonus"
+                            :items="availableBonusOptions"
+                            value-key="value"
+                            placeholder="เลือกรายการที่ต้องการแถม..."
+                            class="w-full"
+                            :disabled="availableBonusOptions.length === 0"
+                            @update:model-value="addBonus"
+                        />
+
+                        <p
+                            v-if="
+                                availableBonusOptions.length === 0 &&
+                                !storefrontPrices.length
+                            "
+                            class="text-xs text-muted"
+                        >
+                            ยังไม่มีรายการบริการในระบบ
                         </p>
                     </div>
                 </template>
