@@ -29,3 +29,5 @@ export const orderTypeColors: Record<OrderType, string> = {
     PACKAGE: 'secondary',
     STOREFRONT: 'primary',
 }
+
+

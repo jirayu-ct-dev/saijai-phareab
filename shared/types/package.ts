@@ -15,12 +15,15 @@ export interface Package extends Timestamps, SoftDeletable {
     packageType: PackageType;
     price: number | string; // Decimal from Prisma usually maps to number/string or Decimal instance
     credits: number | null;
+    bonusCredits: number | null;
     validityDays: number | null;
     isActive: boolean;
 
     // Relations
     packageBonuses?: PackageBonus[];
     userPackages?: UserPackage[];
+    bundledAddons?: PackageBundle[];
+    includedInBundles?: PackageBundle[];
 }
 
 // ============================
@@ -37,6 +40,23 @@ export interface PackageBonus extends Timestamps, SoftDeletable {
     // Relations
     package?: Package;
     storefrontPrice?: StorefrontPrice;
+}
+
+// ============================
+// PACKAGE BUNDLE
+// ============================
+
+export interface PackageBundle {
+    id: string;
+    mainPackageId: string;
+    addonPackageId: string;
+    quantity: number;
+    createdAt: Date;
+    updatedAt: Date;
+
+    // Relations
+    mainPackage?: Package;
+    addonPackage?: Package;
 }
 
 // ============================

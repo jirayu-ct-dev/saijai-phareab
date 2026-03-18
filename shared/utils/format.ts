@@ -60,3 +60,14 @@ export function formatDateByPeriod(date: Date, period: Period): string {
             return format(date, 'd MMM yy', { locale: th })
     }
 }
+
+// format credits
+export const formatCredits = (credits: number | null | undefined): string => {
+    const n = credits ?? 0;
+    return n > 0 ? n.toLocaleString("th-TH") : "—";
+}
+
+/** แสดงจำนวนวัน เช่น "30 วัน" หรือ "—" */
+export const formatDays = (days: number | null | undefined): string => {
+    return days ? `${days} วัน` : "—";
+}

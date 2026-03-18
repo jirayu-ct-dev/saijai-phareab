@@ -189,6 +189,7 @@ model Package {
   packageType  PackageType @default(MAIN)
   price        Decimal
   credits      Int?
+  bonusCredits Int?        @default(0) // เคดิตแถม หรือ โบนัสเคดิตพิเศษที่ได้รับฟรี
   validityDays Int?
   isActive     Boolean     @default(true)
   createdAt    DateTime    @default(now())
@@ -200,8 +201,29 @@ model Package {
   // Relations
   packageBonuses PackageBonus[]
   userPackages   UserPackage[]
+  
+  // Promotion Bundles (แพ็กเกจหลัก ซื้อแล้วแถมอะไรบ้าง / แพ็กเสริมนี้ถูกแถมกับอะไร)
+  bundledAddons    PackageBundle[] @relation("MainPackage")
+  includedInBundles PackageBundle[] @relation("AddonPackage")
 
   @@map("package")
+}
+
+// ตารางสำหรับผูกความสัมพันธ์ "แพ็กเกจโปรโมชัน" (ซื้อหลัก แถมเสริม)
+model PackageBundle {
+  id             String   @id @default(cuid())
+  mainPackageId  String
+  mainPackage    Package  @relation("MainPackage", fields: [mainPackageId], references: [id], onDelete: Cascade)
+  addonPackageId String
+  addonPackage   Package  @relation("AddonPackage", fields: [addonPackageId], references: [id], onDelete: Cascade)
+  quantity       Int      @default(1) // จำนวนที่แถมให้ ทั่วไปคือ 1
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([mainPackageId, addonPackageId])
+  @@index([mainPackageId])
+  @@index([addonPackageId])
+  @@map("package_bundle")
 }
 
 model PackageBonus {
