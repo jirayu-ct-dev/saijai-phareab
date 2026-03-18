@@ -95,6 +95,7 @@ model User {
   deletedStorefrontServices StorefrontService[]  @relation("StorefrontServiceDeletedBy")
   deletedStorefrontItems    StorefrontItem[]     @relation("StorefrontItemDeletedBy")
   deletedStorefrontPrices   StorefrontPrice[]    @relation("StorefrontPriceDeletedBy")
+  deletedStorefrontCategories StorefrontCategory[] @relation("StorefrontCategoryDeletedBy")
   deletedBaskets            Basket[]             @relation("BasketDeletedBy")
   deletedImages             Image[]              @relation("ImageDeletedBy")
   deletedOrders             Order[]              @relation("OrderDeletedBy")
@@ -273,8 +274,26 @@ model UserPackage {
 }
 
 // ============================
-// STOREFRONT (SERVICES / ITEMS)
 // ============================
+// STOREFRONT (SERVICES / CATEGORIES / ITEMS)
+// ============================
+
+model StorefrontCategory {
+  id          String    @id @default(cuid())
+  name        String
+  description String?
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+  deletedById String?
+  deletedBy   User?     @relation("StorefrontCategoryDeletedBy", fields: [deletedById], references: [id])
+
+  // Relations
+  storefrontItems StorefrontItem[]
+
+  @@map("storefront_category")
+}
 
 model StorefrontService {
   id          String    @id @default(cuid())
@@ -297,6 +316,8 @@ model StorefrontItem {
   id          String    @id @default(cuid())
   name        String
   description String?
+  categoryId  String?
+  category    StorefrontCategory? @relation(fields: [categoryId], references: [id])
   isActive    Boolean   @default(true)
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
