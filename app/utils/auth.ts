@@ -7,16 +7,36 @@ const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL! });
 const prisma = new PrismaClient({ adapter });
 
 export const auth = betterAuth({
-    database: prismaAdapter(prisma, {
-        provider: "postgresql",
-    }),
-    emailAndPassword: {
-        enabled: true,
+  database: prismaAdapter(prisma, {
+    provider: "postgresql",
+  }),
+  emailAndPassword: {
+    enabled: true,
+  },
+  socialProviders: {
+    line: {
+      clientId: process.env.LINE_LIFF_CLIENT_ID as string,
+      clientSecret: process.env.LINE_LIFF_CLIENT_SECRET as string,
     },
-    socialProviders: {
-        line: {
-            clientId: process.env.LINE_LIFF_CLIENT_ID as string,
-            clientSecret: process.env.LINE_LIFF_CLIENT_SECRET as string,
-        }
-    }
+  },
+  user: {
+    additionalFields: {
+      role: {
+        type: "string",
+        required: true,
+      },
+      phoneNumber: {
+        type: "string",
+        required: false,
+      },
+      deletedAt: {
+        type: "date",
+        required: false,
+      },
+      deletedById: {
+        type: "string",
+        required: false,
+      },
+    },
+  },
 });

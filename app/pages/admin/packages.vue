@@ -1,4 +1,6 @@
 <script setup lang="ts">
+
+
 import type { TabsItem } from "@nuxt/ui";
 import type { Package } from "~~/shared/types/package";
 import type { PackageType } from "~~/shared/types/enums";

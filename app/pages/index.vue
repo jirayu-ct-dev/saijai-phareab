@@ -29,7 +29,7 @@ import Login from './auth/login.vue';
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 relative">
         <!-- Connecting Line (Desktop only) -->
         <div
-          class="hidden lg:block absolute top-[45px] left-[12%] right-[12%] h-[2px] bg-gradient-to-r from-primary-100 via-primary-300 to-primary-100 dark:from-primary-900 dark:via-primary-700 dark:to-primary-900 border-dashed z-0">
+          class="hidden lg:block absolute top-[45px] left-[12%] right-[12%] h-[2px] bg-linear-to-r from-primary-100 via-primary-300 to-primary-100 dark:from-primary-900 dark:via-primary-700 dark:to-primary-900 border-dashed z-0">
         </div>
 
         <!-- Step 1 -->

@@ -1,3 +1,5 @@
+import type { User as AppUser } from "~~/shared/types/auth";
+
 export const useUser = () => {
     const notify = useNotify()
     const { start, finish } = useLoadingIndicator()
@@ -7,15 +9,21 @@ export const useUser = () => {
 
     // 2. แปลงเป็น Computed ให้ใช้งานง่ายขึ้น
     const session = computed(() => sessionRef.value.data);
-    const user = computed(() => sessionRef.value.data?.user);
+    const user = computed(() => sessionRef.value.data?.user as AppUser | undefined);
+
+    // console.log("user: ", user)
 
     // 3. ตัวช่วยสร้าง Object สำหรับรูป Avatar จากแหล่งภายนอก (เช่น LINE) แก้ปัญหาแครชกับ Cloudinary
-    const userAvatar = computed(() => ({
-        as: { img: 'img' },
-        src: user.value?.image || '',
-        alt: user.value?.name || 'ผู้ใช้งาน',
-        loading: 'lazy' as 'lazy'
-    }));
+    const userAvatar = computed(() => {
+        const u = user.value;
+
+        return {
+            as: { img: 'img' },
+            src: u && u.image ? u.image : '',
+            alt: u && u.name ? u.name : 'ผู้ใช้งาน',
+            loading: 'lazy' as const,
+        };
+    });
 
 
     const login = async (email: string, password: string) => {
@@ -107,7 +115,7 @@ export const useUser = () => {
                     token: idToken,
                     accessToken: accessToken
                 },
-                errorCallbackURL: "/login" // ถ้ามีผิดพลาด
+                errorCallbackURL: "/auth/login" // ถ้ามีผิดพลาด
             })
 
             if (error) {

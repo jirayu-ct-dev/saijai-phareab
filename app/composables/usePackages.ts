@@ -1,4 +1,5 @@
 import type { Package } from '~~/shared/types/package'
+const notify = useNotify() 
 
 // ============================================================
 // Types สำหรับ Request Body
@@ -27,8 +28,6 @@ export type PackageTabKey = 'all' | 'main' | 'addon' | 'bundle'
 // ============================================================
 
 export const usePackages = () => {
-    const toast = useToast()
-
     // ดึงข้อมูลแพ็กเกจทั้งหมดครั้งเดียว แล้ว filter ฝั่ง client ตาม Tab
     const {
         data: packages,
@@ -75,15 +74,10 @@ export const usePackages = () => {
         try {
             await $fetch('/api/admin/packages', { method: 'POST', body })
             await refresh()
-            toast.add({ title: 'สร้างแพ็กเกจสำเร็จ', color: 'success', icon: 'i-lucide-check-circle' })
+            notify.created("สร้างแพ็กเกจสำเร็จ")
             return true
         } catch (error: any) {
-            toast.add({
-                title: 'เกิดข้อผิดพลาด',
-                description: error?.data?.statusMessage ?? 'ไม่สามารถสร้างแพ็กเกจได้',
-                color: 'error',
-                icon: 'i-lucide-x-circle',
-            })
+            notify.error(`${error?.data?.statusMessage ?? 'ไม่สามารถสร้างแพ็กเกจได้'}`)
             return false
         }
     }
@@ -92,15 +86,10 @@ export const usePackages = () => {
         try {
             await $fetch(`/api/admin/packages/${id}`, { method: 'PUT', body })
             await refresh()
-            toast.add({ title: 'อัปเดตแพ็กเกจสำเร็จ', color: 'success', icon: 'i-lucide-check-circle' })
+            notify.updated("แพ็กเกจ")
             return true
         } catch (error: any) {
-            toast.add({
-                title: 'เกิดข้อผิดพลาด',
-                description: error?.data?.statusMessage ?? 'ไม่สามารถอัปเดตแพ็กเกจได้',
-                color: 'error',
-                icon: 'i-lucide-x-circle',
-            })
+            notify.error(`${error?.data?.statusMessage ?? 'ไม่สามารถอัปเดตแพ็กเกจได้'}`)
             return false
         }
     }
@@ -109,19 +98,10 @@ export const usePackages = () => {
         try {
             await $fetch(`/api/admin/packages/${id}`, { method: 'DELETE' })
             await refresh()
-            toast.add({
-                title: `ลบ "${name}" สำเร็จ`,
-                color: 'success',
-                icon: 'i-lucide-trash-2',
-            })
+            notify.deleted(name)
             return true
         } catch (error: any) {
-            toast.add({
-                title: 'เกิดข้อผิดพลาด',
-                description: error?.data?.statusMessage ?? 'ไม่สามารถลบแพ็กเกจได้',
-                color: 'error',
-                icon: 'i-lucide-x-circle',
-            })
+            notify.error(`${error?.data?.statusMessage ?? 'ไม่สามารถลบแพ็กเกจได้'}`)
             return false
         }
     }
