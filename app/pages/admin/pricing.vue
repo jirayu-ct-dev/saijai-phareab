@@ -1,20 +1,35 @@
 <script setup lang="ts">
-import { ref } from 'vue'
-import { mockServicesData, mockItemsData, mockPricesData, mockCategoriesData } from '~~/shared/data/mockPricing'
+import { ref, watch } from 'vue'
 
-const mockServices = ref([...mockServicesData])
-const mockItems = ref([...mockItemsData])
-const mockPrices = ref([...mockPricesData])
-const mockCategories = ref([...mockCategoriesData])
+const { data, pending } = useFetch<any>('/api/admin/pricing')
+
+const mockServices = ref<any[]>([])
+const mockItems = ref<any[]>([])
+const mockPrices = ref<any[]>([])
+const mockCategories = ref<any[]>([])
 
 const pageData = ref({
-    items: mockItems.value,
-    services: mockServices.value,
-    prices: mockPrices.value,
-    categories: mockCategories.value
+    items: [] as any[],
+    services: [] as any[],
+    prices: [] as any[],
+    categories: [] as any[]
 })
 
-const pending = ref(false)
+watch(data, (newVal) => {
+    if (newVal) {
+        mockServices.value = newVal.services || []
+        mockItems.value = newVal.items || []
+        mockPrices.value = newVal.prices ? newVal.prices.map((p: any) => ({ ...p, price: Number(p.price) })) : []
+        mockCategories.value = newVal.categories || []
+        
+        pageData.value = {
+            items: mockItems.value,
+            services: mockServices.value,
+            prices: mockPrices.value,
+            categories: mockCategories.value
+        }
+    }
+}, { immediate: true })
 
 const handleUpdatePrice = (payload: { itemId: string, serviceId: string, price: number }) => {
     const existingPrice = mockPrices.value.find(p => p.storefrontItemId === payload.itemId && p.storefrontServiceId === payload.serviceId)

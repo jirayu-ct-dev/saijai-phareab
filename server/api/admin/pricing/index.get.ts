@@ -19,10 +19,15 @@ export default defineEventHandler(async () => {
             where: { isActive: true, deletedAt: null }
         })
 
+        const categories = await prisma.storefrontCategory.findMany({
+            where: { isActive: true, deletedAt: null }
+        })
+
         return {
             items,
             services,
-            prices
+            prices,
+            categories
         }
     } catch (error) {
         console.error('[GET /api/admin/pricing]', error)

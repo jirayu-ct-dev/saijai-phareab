@@ -213,7 +213,7 @@ const itemsDropdown = computed<DropdownMenuItem[][]>(() => [
                             </li>
                             <li class="flex items-start gap-3">
                                 <UIcon name="i-lucide-phone" class="size-4 shrink-0 mt-0.5 text-muted" />
-                                <span>081-234-5678</span>
+                                <span>081-234-XXXX</span>
                             </li>
                             <li class="flex items-start gap-3">
                                 <UIcon name="i-lucide-mail" class="size-4 shrink-0 mt-0.5 text-muted" />
