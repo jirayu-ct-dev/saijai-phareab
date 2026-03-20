@@ -115,7 +115,10 @@ export const useUser = () => {
                     token: idToken,
                     accessToken: accessToken
                 },
-                errorCallbackURL: "/auth/login" // ถ้ามีผิดพลาด
+                callbackURL: "/",
+                newUserCallbackURL: "/",
+                errorCallbackURL: "/auth/login",
+                disableRedirect: true
             })
 
             if (error) {
@@ -161,3 +164,4 @@ export const useUser = () => {
         logout
     }
 }
+

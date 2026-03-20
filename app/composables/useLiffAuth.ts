@@ -3,12 +3,19 @@ import type { Liff } from '@line/liff'
 export const useLiffAuth = () => {
     const { $liff } = useNuxtApp()
     const notify = useNotify()
-    const { loginWithLineIdToken } = useUser()
+    const { loginWithLineIdToken, session } = useUser()
 
     const addLineFriend = ref(false)
+    const isAutoLoginProcessing = ref(false)
 
     // Function
     const handleLiffAutoLogin = async () => {
+        if (isAutoLoginProcessing.value || session.value?.user) {
+            return
+        }
+
+        isAutoLoginProcessing.value = true
+
         try {
             const liff = (await $liff) as Liff | undefined
 
@@ -25,7 +32,7 @@ export const useLiffAuth = () => {
                 const accessToken = liff.getAccessToken()
 
                 if (!idToken || !accessToken) {
-                    notify.error("ไม่พบข้อมูล ID Token หรือ Access Token")
+                    notify.error("ไม่สามารถเข้าสู่ระบบด้วย LINE ได้ในขณะนี้ กรุณาลองใหม่อีกครั้ง")
                     return
                 }
 
@@ -34,12 +41,18 @@ export const useLiffAuth = () => {
                 const isFriend = await liff.getFriendship()
                 addLineFriend.value = isFriend.friendFlag
 
-                notify.success(addLineFriend.value ? "เข้าสู่ระบบสำเร็จ! และเพิ่ม LINE เพื่อนแล้ว" : "เข้าสู่ระบบสำเร็จ!")
+                notify.success(
+                    addLineFriend.value
+                        ? "เข้าสู่ระบบเรียบร้อยแล้ว และเพิ่มเพื่อน LINE สำเร็จ"
+                        : "เข้าสู่ระบบเรียบร้อยแล้ว"
+                )
             }
         }
         catch (error: any) {
             console.error(error)
-            notify.error("LIFF Error: " + (error.message || "เกิดข้อผิดพลาดในการเชื่อมต่อ LINE"))
+            notify.error(error?.message || "ขออภัย เกิดปัญหาในการเชื่อมต่อ LINE กรุณาลองใหม่อีกครั้ง")
+        } finally {
+            isAutoLoginProcessing.value = false
         }
     }
 
