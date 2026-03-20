@@ -5,7 +5,21 @@ export default defineNuxtRouteMiddleware(async (to) => {
   if (publicRoutes.includes(to.path)) return;
 
   const { data: session, error } = await authClient.useSession(useFetch);
-  if (error.value || !session.value?.user) {
-    return navigateTo("/auth/login");
+  if (!error.value && session.value?.user) {
+    return;
   }
+
+  if (import.meta.client) {
+    const { ensureLiffSession } = useLiffAuth();
+    const restored = await ensureLiffSession();
+
+    if (restored) {
+      const { data: refreshedSession, error: refreshedError } = await authClient.useSession(useFetch);
+      if (!refreshedError.value && refreshedSession.value?.user) {
+        return;
+      }
+    }
+  }
+
+  return navigateTo("/auth/login");
 });
