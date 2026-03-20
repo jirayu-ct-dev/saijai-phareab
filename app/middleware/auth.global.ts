@@ -2,7 +2,7 @@ export default defineNuxtRouteMiddleware((to) => {
   const { session } = useUser();
 
   // หน้าสาธารณะ (ไม่ต้อง login)
-  const publicRoutes = ["/auth/login", "/auth/register"];
+  const publicRoutes = ["/", "/auth/login", "/auth/register"];
 
   if (publicRoutes.includes(to.path)) {
     return;
