@@ -1,12 +1,19 @@
-export default defineNuxtRouteMiddleware(() => {
-  const { user } = useUser();
+import { authClient } from "~~/app/utils/auth-client";
+import type { Role } from "~~/shared/types/enums";
 
-  if (!user.value) {
+type SessionUserWithRole = {
+  role?: Role;
+};
+
+export default defineNuxtRouteMiddleware(async () => {
+  const { data: session } = await authClient.useSession(useFetch);
+
+  if (!session.value?.user) {
     return navigateTo("/auth/login");
   }
 
-  if (user.value.role !== "ADMIN") {
+  const role = (session.value.user as SessionUserWithRole).role;
+  if (role !== "ADMIN") {
     return navigateTo("/");
   }
-})
-
+});

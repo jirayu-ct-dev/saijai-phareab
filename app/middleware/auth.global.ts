@@ -1,16 +1,11 @@
-export default defineNuxtRouteMiddleware((to) => {
-  const { session } = useUser();
+import { authClient } from "~~/app/utils/auth-client";
 
-  // หน้าสาธารณะ (ไม่ต้อง login)
+export default defineNuxtRouteMiddleware(async (to) => {
   const publicRoutes = ["/", "/auth/login", "/auth/register"];
+  if (publicRoutes.includes(to.path)) return;
 
-  if (publicRoutes.includes(to.path)) {
-    return;
-  }
-
-  // ถ้า session ยังไม่ได้โหลด ใช้ pending state จาก better-auth (ถ้ามี)
-  if (!session.value?.user) {
+  const { data: session, error } = await authClient.useSession(useFetch);
+  if (error.value || !session.value?.user) {
     return navigateTo("/auth/login");
   }
-})
-
+});

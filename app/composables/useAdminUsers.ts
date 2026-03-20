@@ -64,9 +64,15 @@ export const useAdminUsers = () => {
 
   const updateUser = async (id: string, body: UpdateAdminUserBody): Promise<boolean> => {
     try {
-      await $fetch(`/api/admin/users/${id}`, { method: "PUT", body });
+      const response = await $fetch<{ sessionsRevoked?: number }>(`/api/admin/users/${id}`, {
+        method: "PUT",
+        body,
+      });
       await refresh();
       notify.updated("User");
+      if ((response.sessionsRevoked ?? 0) > 0) {
+        notify.info("มีการเปลี่ยนสิทธิ์ผู้ใช้ ระบบได้ยกเลิกข้อมูลเดิมแล้ว");
+      }
       return true;
     } catch (error: unknown) {
       notify.error(getErrorMessage(error, "Unable to update user"));

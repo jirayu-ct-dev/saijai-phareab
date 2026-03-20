@@ -1,26 +1,39 @@
+import { authClient } from "~~/app/utils/auth-client";
+import type { Role } from "~~/shared/types/enums";
+
 type MemberState = {
   userId: string | null;
   isMember: boolean | null;
   checkedAt: number | null;
 };
 
+type SessionUserWithRole = {
+  id?: string;
+  role?: Role;
+};
+
 const MEMBER_STATUS_TTL_MS = 60_000;
-const ALLOWED_ROLES = ["USER", "EMPLOYEE", "ADMIN"];
-const PRIVILEGED_ROLES = ["EMPLOYEE", "ADMIN"];
+const ALLOWED_ROLES: Role[] = ["USER", "EMPLOYEE", "ADMIN"];
+const PRIVILEGED_ROLES: Role[] = ["EMPLOYEE", "ADMIN"];
 
 export default defineNuxtRouteMiddleware(async () => {
-  const { user } = useUser();
+  const { data: session } = await authClient.useSession(useFetch);
 
-  if (!user.value) {
+  if (!session.value?.user) {
     return navigateTo("/auth/login");
   }
 
-  if (!ALLOWED_ROLES.includes(user.value.role)) {
+  const user = session.value.user as SessionUserWithRole;
+  if (!user.id || !user.role) {
+    return navigateTo("/auth/login");
+  }
+
+  if (!ALLOWED_ROLES.includes(user.role)) {
     return navigateTo("/");
   }
 
   // EMPLOYEE / ADMIN can access member pages without package check.
-  if (PRIVILEGED_ROLES.includes(user.value.role)) {
+  if (PRIVILEGED_ROLES.includes(user.role)) {
     return;
   }
 
@@ -31,8 +44,8 @@ export default defineNuxtRouteMiddleware(async () => {
     checkedAt: null,
   }));
 
-  if (memberState.value.userId !== user.value.id) {
-    memberState.value.userId = user.value.id;
+  if (memberState.value.userId !== user.id) {
+    memberState.value.userId = user.id;
     memberState.value.isMember = null;
     memberState.value.checkedAt = null;
   }
@@ -63,4 +76,3 @@ export default defineNuxtRouteMiddleware(async () => {
     return navigateTo("/");
   }
 });
-

@@ -58,28 +58,45 @@ export default defineEventHandler(async (event) => {
   try {
     const existing = await prisma.user.findFirst({
       where: { id, deletedAt: null },
-      select: { id: true },
+      select: { id: true, role: true },
     });
     if (!existing) {
       throw createError({ statusCode: 404, statusMessage: "User not found" });
     }
 
-    const user = await prisma.user.update({
-      where: { id },
-      data: payload,
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        role: true,
-        phoneNumber: true,
-        emailVerified: true,
-        createdAt: true,
-        updatedAt: true,
-      },
+    const isRoleChanged = payload.role !== undefined && payload.role !== existing.role;
+
+    const result = await prisma.$transaction(async (tx) => {
+      const user = await tx.user.update({
+        where: { id },
+        data: payload,
+        select: {
+          id: true,
+          email: true,
+          name: true,
+          role: true,
+          phoneNumber: true,
+          emailVerified: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+      });
+
+      let sessionsRevoked = 0;
+      if (isRoleChanged) {
+        const revokeResult = await tx.session.deleteMany({
+          where: { userId: id },
+        });
+        sessionsRevoked = revokeResult.count;
+      }
+
+      return {
+        ...user,
+        sessionsRevoked,
+      };
     });
 
-    return user;
+    return result;
   } catch (error) {
     if (error && typeof error === "object" && "statusCode" in error) {
       throw error;
