@@ -50,7 +50,7 @@ const menu = [
         {
             label: 'จัดการราคาหน้าร้าน',
             icon: 'i-lucide-tag',
-            to: '/admin/prices',
+            to: '/admin/pricing',
             onSelect: () => {
                 open.value = false
             }
