@@ -10,7 +10,9 @@ type AccessPolicy = {
 };
 
 const ACCESS_POLICIES: AccessPolicy[] = [
+  { prefix: "/api/admin/users", roles: ["ADMIN"] },
   { prefix: "/api/admin/packages", roles: ["ADMIN"] },
+  { prefix: "/api/admin/pricing", roles: ["ADMIN"] },
   { prefix: "/api/admin/storefront-prices", roles: ["EMPLOYEE", "ADMIN"] },
   // Example when you add member APIs:
   // { prefix: "/api/member", roles: ["USER", "EMPLOYEE", "ADMIN"], requireMember: true },

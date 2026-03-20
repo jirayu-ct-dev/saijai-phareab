@@ -781,8 +781,7 @@ const columns: TableColumn<Package>[] = [
             <div class="flex items-center gap-1.5">
                 <UPagination
                     v-if="
-                        table?.tableApi?.getPageCount() &&
-                        table.tableApi.getPageCount() > 1
+                        table?.tableApi?.getPageCount()
                     "
                     :default-page="
                         (table?.tableApi?.getState().pagination.pageIndex ||
