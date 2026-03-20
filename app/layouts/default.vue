@@ -7,13 +7,13 @@ const open = ref(false)
 
 const menu = computed<NavigationMenuItem[]>(() => [
     {
-        label: 'ค่าบริการ',
+        label: 'ซักอบรีดรายชิ้น',
         to: { path: '/', hash: '#per-item-pricing', force: true },
         exact: true,
         exactHash: true
     },
     {
-        label: 'สมัครสมาชิก',
+        label: 'สมัครสมาชิกรายเดือน',
         to: { path: '/', hash: '#monthly-membership', force: true },
         exact: true,
         exactHash: true
