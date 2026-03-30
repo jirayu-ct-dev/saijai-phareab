@@ -8,8 +8,18 @@ export const useLiffAuth = () => {
     const addLineFriend = useState<boolean>('liff:add-line-friend', () => false)
     const isAutoLoginProcessing = useState<boolean>('liff:auto-login-processing', () => false)
     const isLiffBootstrapping = useState<boolean>('liff:bootstrapping', () => false)
+    const isPotentialLiffClient = useState<boolean>('liff:is-potential-client', () => false)
     const isInLiffClient = useState<boolean>('liff:is-in-client', () => false)
     const isLiffCheckCompleted = useState<boolean>('liff:check-completed', () => false)
+
+    const detectPotentialLiffClient = () => {
+        if (!import.meta.client) {
+            return false
+        }
+
+        const userAgent = window.navigator.userAgent || ''
+        return /\bLine\/|\bLIFF\b/i.test(userAgent)
+    }
 
     const runLiffAutoLogin = async (silent = false): Promise<'logged-in' | 'redirecting' | 'skipped' | 'failed'> => {
         if (isAutoLoginProcessing.value || session.value?.user) {
@@ -17,6 +27,14 @@ export const useLiffAuth = () => {
         }
 
         if (!import.meta.client) {
+            isLiffCheckCompleted.value = true
+            return 'skipped'
+        }
+
+        isPotentialLiffClient.value = detectPotentialLiffClient()
+
+        if (!isPotentialLiffClient.value) {
+            isInLiffClient.value = false
             isLiffCheckCompleted.value = true
             return 'skipped'
         }
@@ -95,6 +113,7 @@ export const useLiffAuth = () => {
         handleLiffAutoLogin,
         ensureLiffSession,
         isLiffBootstrapping,
+        isPotentialLiffClient,
         isInLiffClient,
         isLiffCheckCompleted
     }
