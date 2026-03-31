@@ -30,11 +30,11 @@ const handleTextMessageEvent = async (event: LineWebhookEvent): Promise<void> =>
     return;
   }
 
-  const userId = event.source?.type === "user" ? event.source.userId : null;
-  if (userId) {
+  const lineUserId = event.source?.type === "user" ? event.source.userId : null;
+  if (lineUserId) {
     try {
       await startLoadingAnimation({
-        chatId: userId,
+        chatId: lineUserId,
         loadingSeconds: 5,
       });
     } catch (error) {
@@ -69,7 +69,7 @@ const handleImageMessageEvent = async (event: LineWebhookEvent): Promise<void> =
 
   try {
     await startLoadingAnimation({
-      chatId: userId,
+      chatId: lineUserId as string,
       loadingSeconds: 5,
     });
   } catch (error) {
@@ -79,16 +79,47 @@ const handleImageMessageEvent = async (event: LineWebhookEvent): Promise<void> =
   const image = await getMessageContent(messageId);
   const uploadedImage = await uploadAndPersistLineImage(userId, messageId, image);
 
-  await replyMessage({
-    replyToken,
-    messages: [
+  try {
+    const response = await fetch(
+      "https://connect.slip2go.com/api/verify-slip/qr-image-link/info",
       {
-        type: "image",
-        originalContentUrl: uploadedImage.secureUrl,
-        previewImageUrl: uploadedImage.secureUrl,
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${process.env.SLIP2GO_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          payload: {
+            imageUrl: uploadedImage.secureUrl,
+            checkCondition: {
+              checkDuplicate: true,
+              checkReceiver: [
+                {
+                  accountNameTH: "จิรายุ ชมทอง",
+                  accountNameEN: "JIRAYU CHOMTHONG",
+                },
+              ],
+            },
+          },
+        }),
       },
-    ],
-  });
+    );
+
+    const data = await response.json();
+    console.log("[LINE webhook] Check slip2go api image URL:", data);
+
+    await replyMessage({
+      replyToken,
+      messages: [
+        {
+          type: "text",
+          text: JSON.stringify(data),
+        },
+      ],
+    });
+  } catch (error) {
+    console.log("[LINE webhook] Failed to upload check slip2go api image URL:", error);
+  }
 };
 
 const handleLineWebhookEvent = async (event: LineWebhookEvent): Promise<void> => {
