@@ -1,4 +1,5 @@
 import {
+  getMessageContent,
   parseLineWebhookPayload,
   replyMessage,
   startLoadingAnimation,
@@ -6,14 +7,22 @@ import {
   type LineWebhookEvent,
   type LineWebhookPayload,
 } from "~~/server/utils/line-messaging";
+import {
+  findAppUserIdByLineUserId,
+  uploadAndPersistLineImage,
+} from "~~/server/utils/line-image";
 
 const INVALID_REPLY_TOKEN = "00000000000000000000000000000000";
+
+const isValidReplyToken = (replyToken?: string): replyToken is string => {
+  return Boolean(replyToken && replyToken !== INVALID_REPLY_TOKEN);
+};
 
 const handleTextMessageEvent = async (event: LineWebhookEvent): Promise<void> => {
   const text = event.message?.text?.trim().toLowerCase();
   const replyToken = event.replyToken;
 
-  if (!text || !replyToken || replyToken === INVALID_REPLY_TOKEN) {
+  if (!text || !isValidReplyToken(replyToken)) {
     return;
   }
 
@@ -39,20 +48,67 @@ const handleTextMessageEvent = async (event: LineWebhookEvent): Promise<void> =>
   });
 };
 
+const handleImageMessageEvent = async (event: LineWebhookEvent): Promise<void> => {
+  const replyToken = event.replyToken;
+  const messageId = event.message?.id;
+  const lineUserId = event.source?.type === "user" ? event.source.userId ?? null : null;
+
+  if (!isValidReplyToken(replyToken) || !messageId) {
+    return;
+  }
+
+  const userId = await findAppUserIdByLineUserId(lineUserId);
+  if (!userId) {
+    console.warn("[LINE webhook] Skip image upload for unknown user", {
+      webhookEventId: event.webhookEventId,
+      lineUserId,
+      messageId,
+    });
+    return;
+  }
+
+  try {
+    await startLoadingAnimation({
+      chatId: userId,
+      loadingSeconds: 5,
+    });
+  } catch (error) {
+    console.error("[LINE webhook] Failed to start loading animation", error);
+  }
+
+  const image = await getMessageContent(messageId);
+  const uploadedImage = await uploadAndPersistLineImage(userId, messageId, image);
+
+  await replyMessage({
+    replyToken,
+    messages: [
+      {
+        type: "image",
+        originalContentUrl: uploadedImage.secureUrl,
+        previewImageUrl: uploadedImage.secureUrl,
+      },
+    ],
+  });
+};
+
 const handleLineWebhookEvent = async (event: LineWebhookEvent): Promise<void> => {
   if (event.type !== "message") {
     return;
   }
 
-  if (event.message?.type !== "text") {
+  if (event.message?.type === "text") {
+    await handleTextMessageEvent(event);
     return;
   }
 
-  await handleTextMessageEvent(event);
+  if (event.message?.type === "image") {
+    await handleImageMessageEvent(event);
+  }
 };
 
 export default defineEventHandler(async (event) => {
   const rawBody = await readRawBody(event, "utf8");
+
   if (!rawBody) {
     throw createError({ statusCode: 400, statusMessage: "Missing request body" });
   }
@@ -85,4 +141,3 @@ export default defineEventHandler(async (event) => {
 
   return { ok: true };
 });
-

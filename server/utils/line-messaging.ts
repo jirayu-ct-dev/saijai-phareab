@@ -11,15 +11,23 @@ type LineTextMessage = {
   text: string;
 };
 
+type LineImageMessage = {
+  type: "image";
+  originalContentUrl: string;
+  previewImageUrl: string;
+};
+
+type LineMessage = LineTextMessage | LineImageMessage;
+
 type LineReplyMessageRequest = {
   replyToken: string;
-  messages: LineTextMessage[];
+  messages: LineMessage[];
   notificationDisabled?: boolean;
 };
 
 type LinePushMessageRequest = {
   to: string;
-  messages: LineTextMessage[];
+  messages: LineMessage[];
   notificationDisabled?: boolean;
 };
 
@@ -39,6 +47,12 @@ type LineWebhookMessage = {
   id: string;
   type: string;
   text?: string;
+  quoteToken?: string;
+  contentProvider?: {
+    type: "line" | "external";
+    originalContentUrl?: string;
+    previewImageUrl?: string;
+  };
 };
 
 export type LineWebhookEvent = {
@@ -64,6 +78,12 @@ type CachedAccessToken = {
   expiresAt: number;
 };
 
+export type LineMessageContentResponse = {
+  contentType: string | null;
+  contentLength: number | null;
+  buffer: Buffer;
+};
+
 const TOKEN_EXPIRY_BUFFER_SECONDS = 60;
 let cachedStatelessAccessToken: CachedAccessToken | null = null;
 
@@ -80,6 +100,11 @@ const getRequiredEnv = (name: string): string => {
 const getLineMessagingApiBaseUrl = (): string => {
   const configured = process.env.LINE_MESSAGING_API?.trim();
   return trimTrailingSlash(configured || "https://api.line.me/v2/bot");
+};
+
+const getLineDataApiBaseUrl = (): string => {
+  const configured = process.env.LINE_MESSAGING_DATA_API?.trim();
+  return trimTrailingSlash(configured || "https://api-data.line.me/v2/bot");
 };
 
 const getLineMessagingOauthIssueTokenV3Url = (): string => {
@@ -104,6 +129,11 @@ const isCachedTokenValid = (cached: CachedAccessToken | null): cached is CachedA
 const getMessagingApiUrl = (path: string): string => {
   const normalizedPath = path.startsWith("/") ? path : `/${path}`;
   return `${getLineMessagingApiBaseUrl()}${normalizedPath}`;
+};
+
+const getMessagingDataApiUrl = (path: string): string => {
+  const normalizedPath = path.startsWith("/") ? path : `/${path}`;
+  return `${getLineDataApiBaseUrl()}${normalizedPath}`;
 };
 
 export const issueStatelessChannelAccessToken = async (): Promise<string> => {
@@ -181,6 +211,30 @@ export const pushMessage = async (payload: LinePushMessageRequest): Promise<void
 
 export const startLoadingAnimation = async (payload: LineLoadingAnimationRequest): Promise<void> => {
   await callLineMessagingApi("/chat/loading/start", payload);
+};
+
+export const getMessageContent = async (messageId: string): Promise<LineMessageContentResponse> => {
+  const accessToken = await getLineAccessToken();
+  const response = await fetch(getMessagingDataApiUrl(`/message/${messageId}/content`), {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`LINE get content failed with status ${response.status}`);
+  }
+
+  const arrayBuffer = await response.arrayBuffer();
+
+  return {
+    contentType: response.headers.get("content-type"),
+    contentLength: response.headers.get("content-length")
+      ? Number(response.headers.get("content-length"))
+      : null,
+    buffer: Buffer.from(arrayBuffer),
+  };
 };
 
 export const verifyLineWebhookSignature = (rawBody: string, signature: string): boolean => {

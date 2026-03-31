@@ -5,13 +5,14 @@ import type { PaymentTransaction } from "./payment";
 
 export interface Image extends Timestamps, SoftDeletable {
     id: string;
+    userId: string | null;
     assetId: string | null;
     publicId: string | null;
     url: string | null;
     secureUrl: string | null;
 
     // Relations
-    users?: User[];
+    user?: User | null;
     orderItems?: OrderItem[];
     orders?: Order[];
     slipPayments?: PaymentTransaction[];

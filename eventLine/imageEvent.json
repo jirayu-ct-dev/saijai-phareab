@@ -1,0 +1,23 @@
+{
+    "type": "message",
+    "message": {
+        "type": "image",
+        "id": "607402141451551283",
+        "quoteToken": "F8y9idQQUvvy0Txk9TVfdQVraOhXeCVLL7p8yfcwuxdAUZcMmTUDjF0WqIRo_bfSbHNdPuhLDtdABSG2Bq49fFgopsdzUVnLjr6vvtW3LLRNNLk-lBIjsQ0jO6a6CvZjcnm0zUEEt-61Q9GvOVxmaw",
+        "markAsReadToken": "tmwKPMVjaQj7njxzqYwyAHw6e5Vh2ikjnZyRR3ZGlmCA2xSdC8sTMTIV8TK3FTTbAoye70Pr6MZkS0JQG_MQGCaOftu1rirTCYKv2zp85mFSSzNfyVpH88_h6d60adZljK_gDGuo3C19vz6bRlhLgu83Dj3ICsGdFYv72VXvHvuvylEHDZqWSP_xiiz__FzkABW_3LElVdqWjMUZTRa5Fg",
+        "contentProvider": {
+            "type": "line"
+        }
+    },
+    "webhookEventId": "01KMZ92A4CQDDMAZQHSMS3SDXQ",
+    "deliveryContext": {
+        "isRedelivery": false
+    },
+    "timestamp": 1774871193423,
+    "source": {
+        "type": "user",
+        "userId": "U434a26eb17ca63769e6c88fc2e6d9833"
+    },
+    "replyToken": "89cc7543a3574e2288b1d682ec974ad6",
+    "mode": "active"
+}

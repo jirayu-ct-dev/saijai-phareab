@@ -64,8 +64,6 @@ model User {
   email         String    @unique
   name          String?
   emailVerified Boolean   @default(false)
-  imageId       String?
-  profileImage  Image?    @relation("UserImage", fields: [imageId], references: [id])
   image         String? // <- Better Auth ต้องการฟิลด์นี้เป็น String สำหรับเก็บ URL รูปจาก LINE
   role          Role      @default(USER)
   phoneNumber   String?
@@ -87,6 +85,7 @@ model User {
   paymentTransactions PaymentTransaction[] @relation("PaymentUser")
   verifiedPayments    PaymentTransaction[] @relation("PaymentVerifier")
   userAddresses       UserAddress[]
+  uploadedImages      Image[]              @relation("ImageOwner")
 
   // Soft delete relations (ผู้ที่ทำการลบ)
   deletedPackages           Package[]            @relation("PackageDeletedBy")
@@ -159,23 +158,25 @@ model Verification {
 // ============================
 
 model Image {
-  id          String    @id @default(cuid())
+  id          String   @id @default(cuid())
+  userId      String?
+  user        User?    @relation("ImageOwner", fields: [userId], references: [id])
   assetId     String?
   publicId    String?
   url         String?
   secureUrl   String?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
   deletedAt   DateTime?
   deletedById String?
-  deletedBy   User?     @relation("ImageDeletedBy", fields: [deletedById], references: [id])
+  deletedBy   User?    @relation("ImageDeletedBy", fields: [deletedById], references: [id])
 
   // Reverse relations
-  users        User[]               @relation("UserImage")
   orderItems   OrderItem[]          @relation("OrderItemImage")
   orders       Order[]              @relation("OrderImage")
   slipPayments PaymentTransaction[] @relation("PaymentSlipImage")
 
+  @@index([userId])
   @@map("image")
 }
 
