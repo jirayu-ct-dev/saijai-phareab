@@ -1,5 +1,4 @@
 import type { Package } from '~~/shared/types/package'
-const notify = useNotify() 
 
 // ============================================================
 // Types สำหรับ Request Body
@@ -11,23 +10,22 @@ export interface CreatePackageBody {
     packageType: 'MAIN' | 'ADDON'
     price: number
     credits?: number | null
-    bonusCredits?: number | null
     validityDays?: number | null
     isActive?: boolean
-    bundledAddons?: Array<{ addonPackageId: string; quantity: number }>
-    packageBonuses?: Array<{ storefrontPriceId: string; quantity: number }>
 }
 
 export interface UpdatePackageBody extends Partial<CreatePackageBody> {}
 
 // ประเภท Tab ที่ใช้ใน packages.vue
-export type PackageTabKey = 'all' | 'main' | 'addon' | 'bundle'
+export type PackageTabKey = 'all' | 'main' | 'addon'
 
 // ============================================================
 // Composable
 // ============================================================
 
 export const usePackages = () => {
+    const notify = useNotify() 
+
     // ดึงข้อมูลแพ็กเกจทั้งหมดครั้งเดียว แล้ว filter ฝั่ง client ตาม Tab
     const {
         data: packages,
@@ -40,13 +38,6 @@ export const usePackages = () => {
     const loading = computed(() => status.value === 'pending')
 
     // ============================================================
-    // Computed: แพ็กเกจเสริมที่ Active สำหรับเลือกใน Bundle Form
-    // ============================================================
-    const addonPackages = computed<Package[]>(() =>
-        (packages.value ?? []).filter((p) => p.packageType === 'ADDON' && p.isActive && !p.deletedAt),
-    )
-
-    // ============================================================
     // Filter ข้อมูลตาม Tab
     // ============================================================
     const getPackagesByTab = (tab: PackageTabKey): Package[] => {
@@ -56,11 +47,6 @@ export const usePackages = () => {
                 return all.filter((p) => p.packageType === 'MAIN')
             case 'addon':
                 return all.filter((p) => p.packageType === 'ADDON')
-            case 'bundle':
-                // Bundle tab = MAIN packages ที่มี bundledAddons อย่างน้อย 1 รายการ
-                return all.filter(
-                    (p) => p.packageType === 'MAIN' && (p.bundledAddons?.length ?? 0) > 0,
-                )
             default:
                 return all
         }
@@ -109,7 +95,6 @@ export const usePackages = () => {
     return {
         packages,
         loading,
-        addonPackages,
         getPackagesByTab,
         createPackage,
         updatePackage,

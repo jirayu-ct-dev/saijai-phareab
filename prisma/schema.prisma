@@ -7,35 +7,10 @@ datasource db {
   provider = "postgresql"
 }
 
-// ============================
-// ENUMS
-// ============================
-
 enum Role {
   USER
   EMPLOYEE
   ADMIN
-}
-
-enum OrderType {
-  PACKAGE
-  STOREFRONT
-}
-
-enum OrderStatus {
-  RECEIVED
-  PENDING
-  CHECKING
-  PROCESSING
-  PENDING_REVIEW
-  COMPLETED
-  CANCELLED
-}
-
-enum PackageStatus {
-  PENDING
-  ACTIVE
-  EXPIRED
 }
 
 enum BasketStatus {
@@ -54,17 +29,47 @@ enum PaymentStatus {
   FAILED
 }
 
-// ============================
-// AUTHENTICATION (Better Auth)
-// ห้ามแก้ไข Session, Account, Verification
-// ============================
+enum PaymentMethod {
+  CASH
+  TRANSFER
+}
+
+enum PackageSaleStatus {
+  DRAFT
+  PENDING
+  PAID
+  CANCELLED
+}
+
+enum PackageItemType {
+  MAIN
+  ADDON
+}
+
+enum EntitlementStatus {
+  PENDING
+  ACTIVE
+  SUSPENDED
+  EXPIRED
+  CANCELLED
+}
+
+enum ServiceOrderStatus {
+  RECEIVED
+  PENDING
+  CHECKING
+  PROCESSING
+  PENDING_REVIEW
+  COMPLETED
+  CANCELLED
+}
 
 model User {
   id            String    @id @default(cuid())
   email         String    @unique
   name          String?
   emailVerified Boolean   @default(false)
-  image         String? // <- Better Auth ต้องการฟิลด์นี้เป็น String สำหรับเก็บ URL รูปจาก LINE
+  image         String?
   role          Role      @default(USER)
   phoneNumber   String?
   createdAt     DateTime  @default(now())
@@ -74,33 +79,32 @@ model User {
   deletedBy     User?     @relation("DeletedByUser", fields: [deletedById], references: [id])
   deletedUsers  User[]    @relation("DeletedByUser")
 
-  // Better Auth relations
   sessions Session[]
   accounts Account[]
 
-  // Business relations
-  customerOrders      Order[]              @relation("OrderCustomer")
-  employeeOrders      Order[]              @relation("OrderEmployee")
-  userPackages        UserPackage[]        @relation("UserPackageOwner")
-  paymentTransactions PaymentTransaction[] @relation("PaymentUser")
-  verifiedPayments    PaymentTransaction[] @relation("PaymentVerifier")
-  userAddresses       UserAddress[]
-  uploadedImages      Image[]              @relation("ImageOwner")
+  packageSales          PackageSale[]       @relation("PackageSaleCustomer")
+  soldPackageSales      PackageSale[]       @relation("PackageSaleSeller")
+  serviceOrders         ServiceOrder[]      @relation("ServiceOrderCustomer")
+  employeeServiceOrders ServiceOrder[]      @relation("ServiceOrderEmployee")
+  memberEntitlements    MemberEntitlement[] @relation("MemberEntitlementOwner")
+  paymentRecords        PaymentRecord[]     @relation("PaymentUser")
+  verifiedPayments      PaymentRecord[]     @relation("PaymentVerifier")
+  userAddresses         UserAddress[]
+  uploadedImages        Image[]             @relation("ImageOwner")
 
-  // Soft delete relations (ผู้ที่ทำการลบ)
-  deletedPackages           Package[]            @relation("PackageDeletedBy")
-  deletedPackageBonuses     PackageBonus[]       @relation("PackageBonusDeletedBy")
-  deletedUserPackages       UserPackage[]        @relation("UserPackageDeletedBy")
-  deletedStorefrontServices StorefrontService[]  @relation("StorefrontServiceDeletedBy")
-  deletedStorefrontItems    StorefrontItem[]     @relation("StorefrontItemDeletedBy")
-  deletedStorefrontPrices   StorefrontPrice[]    @relation("StorefrontPriceDeletedBy")
+  deletedPackageProducts      PackageProduct[]     @relation("PackageProductDeletedBy")
+  deletedPackageSales         PackageSale[]        @relation("PackageSaleDeletedBy")
+  deletedMemberEntitlements   MemberEntitlement[]  @relation("MemberEntitlementDeletedBy")
+  deletedStorefrontServices   StorefrontService[]  @relation("StorefrontServiceDeletedBy")
+  deletedStorefrontItems      StorefrontItem[]     @relation("StorefrontItemDeletedBy")
+  deletedStorefrontPrices     StorefrontPrice[]    @relation("StorefrontPriceDeletedBy")
   deletedStorefrontCategories StorefrontCategory[] @relation("StorefrontCategoryDeletedBy")
-  deletedBaskets            Basket[]             @relation("BasketDeletedBy")
-  deletedImages             Image[]              @relation("ImageDeletedBy")
-  deletedOrders             Order[]              @relation("OrderDeletedBy")
-  deletedOrderItems         OrderItem[]          @relation("OrderItemDeletedBy")
-  deletedPaymentTx          PaymentTransaction[] @relation("PaymentTxDeletedBy")
-  deletedUserAddresses      UserAddress[]        @relation("UserAddressDeletedBy")
+  deletedBaskets              Basket[]             @relation("BasketDeletedBy")
+  deletedImages               Image[]              @relation("ImageDeletedBy")
+  deletedServiceOrders        ServiceOrder[]       @relation("ServiceOrderDeletedBy")
+  deletedServiceOrderItems    ServiceOrderItem[]   @relation("ServiceOrderItemDeletedBy")
+  deletedPaymentRecords       PaymentRecord[]      @relation("PaymentRecordDeletedBy")
+  deletedUserAddresses        UserAddress[]        @relation("UserAddressDeletedBy")
 
   @@map("user")
 }
@@ -153,10 +157,6 @@ model Verification {
   @@map("verification")
 }
 
-// ============================
-// IMAGES (Cloudinary)
-// ============================
-
 model Image {
   id          String   @id @default(cuid())
   userId      String?
@@ -171,113 +171,110 @@ model Image {
   deletedById String?
   deletedBy   User?    @relation("ImageDeletedBy", fields: [deletedById], references: [id])
 
-  // Reverse relations
-  orderItems   OrderItem[]          @relation("OrderItemImage")
-  orders       Order[]              @relation("OrderImage")
-  slipPayments PaymentTransaction[] @relation("PaymentSlipImage")
+  serviceOrderItems ServiceOrderItem[] @relation("ServiceOrderItemImage")
+  serviceOrders     ServiceOrder[]     @relation("ServiceOrderImage")
+  slipPayments      PaymentRecord[]    @relation("PaymentSlipImage")
 
   @@index([userId])
   @@map("image")
 }
 
-// ============================
-// PACKAGE & SUBSCRIPTION
-// ============================
-
-model Package {
+model PackageProduct {
   id           String      @id @default(cuid())
   name         String
   description  String?
   packageType  PackageType @default(MAIN)
   price        Decimal
   credits      Int?
-  bonusCredits Int?        @default(0) // เคดิตแถม หรือ โบนัสเคดิตพิเศษที่ได้รับฟรี
   validityDays Int?
   isActive     Boolean     @default(true)
   createdAt    DateTime    @default(now())
   updatedAt    DateTime    @updatedAt
   deletedAt    DateTime?
   deletedById  String?
-  deletedBy    User?       @relation("PackageDeletedBy", fields: [deletedById], references: [id])
+  deletedBy    User?       @relation("PackageProductDeletedBy", fields: [deletedById], references: [id])
 
-  // Relations
-  packageBonuses PackageBonus[]
-  userPackages   UserPackage[]
-  
-  // Promotion Bundles (แพ็กเกจหลัก ซื้อแล้วแถมอะไรบ้าง / แพ็กเสริมนี้ถูกแถมกับอะไร)
-  bundledAddons    PackageBundle[] @relation("MainPackage")
-  includedInBundles PackageBundle[] @relation("AddonPackage")
+  saleItems          PackageSaleItem[]
+  memberEntitlements MemberEntitlement[]
 
-  @@map("package")
+  @@map("package_product")
 }
 
-// ตารางสำหรับผูกความสัมพันธ์ "แพ็กเกจโปรโมชัน" (ซื้อหลัก แถมเสริม)
-model PackageBundle {
-  id             String   @id @default(cuid())
-  mainPackageId  String
-  mainPackage    Package  @relation("MainPackage", fields: [mainPackageId], references: [id], onDelete: Cascade)
-  addonPackageId String
-  addonPackage   Package  @relation("AddonPackage", fields: [addonPackageId], references: [id], onDelete: Cascade)
-  quantity       Int      @default(1) // จำนวนที่แถมให้ ทั่วไปคือ 1
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+model PackageSale {
+  id             String            @id @default(cuid())
+  customerId     String
+  customer       User              @relation("PackageSaleCustomer", fields: [customerId], references: [id])
+  soldById       String?
+  soldBy         User?             @relation("PackageSaleSeller", fields: [soldById], references: [id])
+  status         PackageSaleStatus @default(DRAFT)
+  subtotalAmount Decimal
+  discountAmount Decimal           @default(0)
+  totalAmount    Decimal
+  note           String?
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+  deletedAt      DateTime?
+  deletedById    String?
+  deletedBy      User?             @relation("PackageSaleDeletedBy", fields: [deletedById], references: [id])
 
-  @@unique([mainPackageId, addonPackageId])
-  @@index([mainPackageId])
-  @@index([addonPackageId])
-  @@map("package_bundle")
+  items          PackageSaleItem[]
+  payments       PaymentRecord[]
+
+  @@index([customerId, createdAt])
+  @@index([status, createdAt])
+  @@map("package_sale")
 }
 
-model PackageBonus {
-  id                String          @id @default(cuid())
-  packageId         String
-  package           Package         @relation(fields: [packageId], references: [id])
-  storefrontPriceId String
-  storefrontPrice   StorefrontPrice @relation(fields: [storefrontPriceId], references: [id])
-  quantity          Int
-  description       String?
-  createdAt         DateTime        @default(now())
-  updatedAt         DateTime        @updatedAt
+model PackageSaleItem {
+  id                 String            @id @default(cuid())
+  packageSaleId      String
+  packageSale        PackageSale       @relation(fields: [packageSaleId], references: [id], onDelete: Cascade)
+  productId          String
+  product            PackageProduct    @relation(fields: [productId], references: [id])
+  itemType           PackageItemType
+  qty                Int               @default(1)
+  unitPrice          Decimal
+  totalPrice         Decimal
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+
+  memberEntitlements MemberEntitlement[]
+
+  @@index([packageSaleId])
+  @@index([productId])
+  @@map("package_sale_item")
+}
+
+model MemberEntitlement {
+  id                String            @id @default(cuid())
+  customerId        String
+  customer          User              @relation("MemberEntitlementOwner", fields: [customerId], references: [id])
+  sourceSaleItemId  String?
+  sourceSaleItem    PackageSaleItem?  @relation(fields: [sourceSaleItemId], references: [id])
+  productId         String
+  product           PackageProduct    @relation(fields: [productId], references: [id])
+  status            EntitlementStatus @default(PENDING)
+  creditInitial     Int?
+  creditRemaining   Int?
+  startAt           DateTime?
+  endAt             DateTime?
+  activatedAt       DateTime?
+  suspendedAt       DateTime?
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
   deletedAt         DateTime?
   deletedById       String?
-  deletedBy         User?           @relation("PackageBonusDeletedBy", fields: [deletedById], references: [id])
+  deletedBy         User?             @relation("MemberEntitlementDeletedBy", fields: [deletedById], references: [id])
 
-  @@index([packageId])
-  @@map("package_bonus")
+  serviceOrders ServiceOrder[]
+  payments      PaymentRecord[]
+
+  @@index([customerId])
+  @@index([productId])
+  @@index([sourceSaleItemId])
+  @@index([status, endAt])
+  @@map("member_entitlement")
 }
-
-model UserPackage {
-  id                  String        @id @default(cuid())
-  userId              String
-  user                User          @relation("UserPackageOwner", fields: [userId], references: [id])
-  packageId           String
-  package             Package       @relation(fields: [packageId], references: [id])
-  parentUserPackageId String?
-  parentUserPackage   UserPackage?  @relation("UserPackageAddon", fields: [parentUserPackageId], references: [id])
-  addonPackages       UserPackage[] @relation("UserPackageAddon")
-  startDate           DateTime?
-  endDate             DateTime?
-  status              PackageStatus @default(PENDING)
-  creditRemain        Int?
-  createdAt           DateTime      @default(now())
-  updatedAt           DateTime      @updatedAt
-  deletedAt           DateTime?
-  deletedById         String?
-  deletedBy           User?         @relation("UserPackageDeletedBy", fields: [deletedById], references: [id])
-
-  // Relations
-  orders              Order[]
-  paymentTransactions PaymentTransaction[]
-
-  @@index([userId])
-  @@index([packageId])
-  @@map("user_package")
-}
-
-// ============================
-// ============================
-// STOREFRONT (SERVICES / CATEGORIES / ITEMS)
-// ============================
 
 model StorefrontCategory {
   id          String    @id @default(cuid())
@@ -290,7 +287,6 @@ model StorefrontCategory {
   deletedById String?
   deletedBy   User?     @relation("StorefrontCategoryDeletedBy", fields: [deletedById], references: [id])
 
-  // Relations
   storefrontItems StorefrontItem[]
 
   @@map("storefront_category")
@@ -307,26 +303,24 @@ model StorefrontService {
   deletedById String?
   deletedBy   User?     @relation("StorefrontServiceDeletedBy", fields: [deletedById], references: [id])
 
-  // Relations
   storefrontPrices StorefrontPrice[]
 
   @@map("storefront_service")
 }
 
 model StorefrontItem {
-  id          String    @id @default(cuid())
+  id          String              @id @default(cuid())
   name        String
   description String?
   categoryId  String?
   category    StorefrontCategory? @relation(fields: [categoryId], references: [id])
-  isActive    Boolean   @default(true)
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  isActive    Boolean             @default(true)
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
   deletedAt   DateTime?
   deletedById String?
-  deletedBy   User?     @relation("StorefrontItemDeletedBy", fields: [deletedById], references: [id])
+  deletedBy   User?               @relation("StorefrontItemDeletedBy", fields: [deletedById], references: [id])
 
-  // Relations
   storefrontPrices StorefrontPrice[]
 
   @@map("storefront_item")
@@ -346,17 +340,11 @@ model StorefrontPrice {
   deletedById         String?
   deletedBy           User?             @relation("StorefrontPriceDeletedBy", fields: [deletedById], references: [id])
 
-  // Relations
-  packageBonuses PackageBonus[]
-  orderItems     OrderItem[]
+  serviceOrderItems ServiceOrderItem[]
 
   @@unique([storefrontServiceId, storefrontItemId])
   @@map("storefront_price")
 }
-
-// ============================
-// BASKET (QR CODE)
-// ============================
 
 model Basket {
   id          String       @id @default(cuid())
@@ -370,60 +358,53 @@ model Basket {
   deletedById String?
   deletedBy   User?        @relation("BasketDeletedBy", fields: [deletedById], references: [id])
 
-  // Relations
-  orders Order[]
+  serviceOrders ServiceOrder[]
 
   @@map("basket")
 }
 
-// ============================
-// ORDERS
-// ============================
+model ServiceOrder {
+  id                   String             @id @default(cuid())
+  customerId           String
+  customer             User               @relation("ServiceOrderCustomer", fields: [customerId], references: [id])
+  employeeId           String?
+  employee             User?              @relation("ServiceOrderEmployee", fields: [employeeId], references: [id])
+  status               ServiceOrderStatus @default(PENDING)
+  isWalkIn             Boolean            @default(false)
+  walkInName           String?
+  walkInPhone          String?
+  memberEntitlementId  String?
+  memberEntitlement    MemberEntitlement? @relation(fields: [memberEntitlementId], references: [id])
+  creditUsed           Int?
+  hangerCharge         Json?
+  totalAmount          Decimal?
+  basketId             String?
+  basket               Basket?            @relation(fields: [basketId], references: [id])
+  note                 String?
+  usedBonuses          Json?
+  deliveryAddressSnapshot Json?
+  imageId              String?
+  image                Image?             @relation("ServiceOrderImage", fields: [imageId], references: [id])
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+  deletedAt            DateTime?
+  deletedById          String?
+  deletedBy            User?              @relation("ServiceOrderDeletedBy", fields: [deletedById], references: [id])
 
-model Order {
-  id                      String       @id @default(cuid())
-  customerId              String
-  customer                User         @relation("OrderCustomer", fields: [customerId], references: [id])
-  employeeId              String?
-  employee                User?        @relation("OrderEmployee", fields: [employeeId], references: [id])
-  orderType               OrderType
-  currentStatus           OrderStatus  @default(PENDING)
-  isWalkIn                Boolean      @default(false)
-  walkInName              String?
-  walkInPhone             String?
-  userPackageId           String?
-  userPackage             UserPackage? @relation(fields: [userPackageId], references: [id])
-  creditUsed              Int?
-  hangerCharge            Json? // { count: number, pricePerUnit: number, total: number }
-  totalAmount             Decimal?
-  basketId                String?
-  basket                  Basket?      @relation(fields: [basketId], references: [id])
-  note                    String?
-  usedBonuses             Json? // [{ packageBonusId, quantity, description }]
-  deliveryAddressSnapshot Json? // { contactName, contactPhone, addressLine, subDistrict, district, province, postalCode, latitude, longitude }
-  imageId                 String?
-  image                   Image?       @relation("OrderImage", fields: [imageId], references: [id])
-  createdAt               DateTime     @default(now())
-  updatedAt               DateTime     @updatedAt
-  deletedAt               DateTime?
-  deletedById             String?
-  deletedBy               User?        @relation("OrderDeletedBy", fields: [deletedById], references: [id])
-
-  // Relations
-  orderItems          OrderItem[]
-  paymentTransactions PaymentTransaction[]
+  serviceOrderItems ServiceOrderItem[]
+  payments          PaymentRecord[]
 
   @@index([customerId])
   @@index([employeeId])
-  @@index([currentStatus])
-  @@index([createdAt])
-  @@map("order")
+  @@index([memberEntitlementId])
+  @@index([status, createdAt])
+  @@map("service_order")
 }
 
-model OrderItem {
+model ServiceOrderItem {
   id                String          @id @default(cuid())
-  orderId           String
-  order             Order           @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  serviceOrderId    String
+  serviceOrder      ServiceOrder    @relation(fields: [serviceOrderId], references: [id], onDelete: Cascade)
   storefrontPriceId String
   storefrontPrice   StorefrontPrice @relation(fields: [storefrontPriceId], references: [id])
   isPackageIncluded Boolean         @default(false)
@@ -431,64 +412,57 @@ model OrderItem {
   unitPrice         Decimal
   totalPrice        Decimal
   imageId           String?
-  image             Image?          @relation("OrderItemImage", fields: [imageId], references: [id])
+  image             Image?          @relation("ServiceOrderItemImage", fields: [imageId], references: [id])
   notes             String?
   createdAt         DateTime        @default(now())
   updatedAt         DateTime        @updatedAt
   deletedAt         DateTime?
   deletedById       String?
-  deletedBy         User?           @relation("OrderItemDeletedBy", fields: [deletedById], references: [id])
+  deletedBy         User?           @relation("ServiceOrderItemDeletedBy", fields: [deletedById], references: [id])
 
-  @@index([orderId])
+  @@index([serviceOrderId])
   @@index([storefrontPriceId])
-  @@map("order_item")
+  @@map("service_order_item")
 }
 
-// ============================
-// PAYMENT
-// ============================
+model PaymentRecord {
+  id                  String             @id @default(cuid())
+  userId              String
+  user                User               @relation("PaymentUser", fields: [userId], references: [id])
+  memberEntitlementId String?
+  memberEntitlement   MemberEntitlement? @relation(fields: [memberEntitlementId], references: [id])
+  packageSaleId       String?
+  packageSale         PackageSale?       @relation(fields: [packageSaleId], references: [id])
+  serviceOrderId      String?
+  serviceOrder        ServiceOrder?      @relation(fields: [serviceOrderId], references: [id])
+  amount              Decimal
+  paymentMethod       PaymentMethod
+  slipImageId         String?
+  slipImage           Image?             @relation("PaymentSlipImage", fields: [slipImageId], references: [id])
+  status              PaymentStatus      @default(PENDING)
+  referenceNo         String?
+  note                String?
+  paidAt              DateTime?
+  metadata            Json?
+  rejectionReason     String?
+  verifiedById        String?
+  verifiedBy          User?              @relation("PaymentVerifier", fields: [verifiedById], references: [id])
+  verifiedAt          DateTime?
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+  deletedAt           DateTime?
+  deletedById         String?
+  deletedBy           User?              @relation("PaymentRecordDeletedBy", fields: [deletedById], references: [id])
 
-model PaymentTransaction {
-  id            String        @id @default(cuid())
-  userId        String
-  user          User          @relation("PaymentUser", fields: [userId], references: [id])
-  
-  // เชื่อมกับแพ็กเกจ หรือ ออเดอร์ (อย่างใดอย่างหนึ่ง)
-  userPackageId String?
-  userPackage   UserPackage?  @relation(fields: [userPackageId], references: [id])
-  orderId       String?
-  order         Order?        @relation(fields: [orderId], references: [id])
-
-  amount        Decimal
-  slipImageId   String?
-  slipImage     Image?        @relation("PaymentSlipImage", fields: [slipImageId], references: [id])
-  status        PaymentStatus @default(PENDING)
-  
-  // ข้อมูลตรวจสอบสลิป (Slip2Go)
-  referenceNo     String?       @unique     // รหัสอ้างอิงสลิปบัญชี ใช้ป้องกันสลิปซ้ำ
-  senderName      String?                   // ชื่อผู้โอน
-  senderBank      String?                   // ธนาคารต้นทาง
-  receiverAccount String?                   // บัญชีปลายทาง (เช็คว่าเข้าบัญชีร้านไหม)
-  slipPayload     Json?                     // เก็บข้อมูลดิบจาก API ของ Slip2Go
-  rejectionReason String?                   // เหตุผลเมื่อสถานะเป็น FAILED
-
-  verifiedById  String?
-  verifiedBy    User?         @relation("PaymentVerifier", fields: [verifiedById], references: [id])
-  verifiedAt    DateTime?
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
-  deletedAt     DateTime?
-  deletedById   String?
-  deletedBy     User?         @relation("PaymentTxDeletedBy", fields: [deletedById], references: [id])
-
+  @@index([userId, createdAt])
+  @@index([memberEntitlementId])
+  @@index([packageSaleId])
+  @@index([serviceOrderId])
+  @@index([paymentMethod, createdAt])
   @@index([referenceNo])
   @@index([status, createdAt])
-  @@map("payment_transaction")
+  @@map("payment_record")
 }
-
-// ============================
-// USER ADDRESS
-// ============================
 
 model UserAddress {
   id          String    @id @default(cuid())

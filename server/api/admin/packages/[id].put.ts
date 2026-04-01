@@ -6,18 +6,13 @@ interface UpdatePackageBody {
     packageType?: 'MAIN' | 'ADDON'
     price?: number
     credits?: number | null
-    bonusCredits?: number | null
     validityDays?: number | null
     isActive?: boolean
-    /** ส่งมาเพื่อแทนที่ bundle ทั้งหมด (ถ้าส่ง array ว่าง = ลบ bundle ทั้งหมด) */
-    bundledAddons?: Array<{ addonPackageId: string; quantity: number }>
-    /** ส่งมาเพื่อแทนที่ bonuses ทั้งหมด */
-    packageBonuses?: Array<{ storefrontPriceId: string; quantity: number }>
 }
 
 /**
  * PUT /api/admin/packages/:id
- * อัปเดตข้อมูลแพ็กเกจ รองรับการแทนที่ Bundle และ Bonus relations ทั้งชุดใน Transaction เดียว
+ * อัปเดตข้อมูลแพ็กเกจเดี่ยว
  */
 export default defineEventHandler(async (event) => {
     const id = getRouterParam(event, 'id')
@@ -26,58 +21,21 @@ export default defineEventHandler(async (event) => {
     const body = await readBody<UpdatePackageBody>(event)
 
     // ตรวจสอบว่า Package มีอยู่จริงและยังไม่ถูกลบ
-    const existing = await prisma.package.findFirst({ where: { id, deletedAt: null } })
+    const existing = await prisma.packageProduct.findFirst({ where: { id, deletedAt: null } })
     if (!existing) throw createError({ statusCode: 404, statusMessage: 'ไม่พบแพ็กเกจที่ต้องการแก้ไข' })
 
     try {
-        // ใช้ Transaction เพื่อให้การอัปเดต Bundle/Bonus และข้อมูลหลักเป็น Atomic
-        const updated = await prisma.$transaction(async (tx) => {
-            // ถ้าส่ง bundledAddons มา ให้ replace ทั้งหมด (delete + create)
-            if (body.bundledAddons !== undefined) {
-                await tx.packageBundle.deleteMany({ where: { mainPackageId: id } })
-                if (body.bundledAddons.length > 0) {
-                    await tx.packageBundle.createMany({
-                        data: body.bundledAddons.map((addon) => ({
-                            mainPackageId: id,
-                            addonPackageId: addon.addonPackageId,
-                            quantity: addon.quantity,
-                        })),
-                    })
-                }
-            }
-
-            // ถ้าส่ง packageBonuses มา ให้ replace ทั้งหมด (delete + create)
-            if (body.packageBonuses !== undefined) {
-                await tx.packageBonus.deleteMany({ where: { packageId: id } })
-                if (body.packageBonuses.length > 0) {
-                    await tx.packageBonus.createMany({
-                        data: body.packageBonuses.map((bonus) => ({
-                            packageId: id,
-                            storefrontPriceId: bonus.storefrontPriceId,
-                            quantity: bonus.quantity,
-                        })),
-                    })
-                }
-            }
-
-            return tx.package.update({
-                where: { id },
-                data: {
-                    ...(body.name !== undefined && { name: body.name.trim() }),
-                    ...(body.description !== undefined && { description: body.description }),
-                    ...(body.packageType !== undefined && { packageType: body.packageType }),
-                    ...(body.price !== undefined && { price: body.price }),
-                    ...(body.credits !== undefined && { credits: body.credits }),
-                    ...(body.bonusCredits !== undefined && { bonusCredits: body.bonusCredits }),
-                    ...(body.validityDays !== undefined && { validityDays: body.validityDays }),
-                    ...(body.isActive !== undefined && { isActive: body.isActive }),
-                },
-                include: {
-                    bundledAddons: {
-                        include: { addonPackage: { select: { id: true, name: true, packageType: true } } },
-                    },
-                },
-            })
+        const updated = await prisma.packageProduct.update({
+            where: { id },
+            data: {
+                ...(body.name !== undefined && { name: body.name.trim() }),
+                ...(body.description !== undefined && { description: body.description }),
+                ...(body.packageType !== undefined && { packageType: body.packageType }),
+                ...(body.price !== undefined && { price: body.price }),
+                ...(body.credits !== undefined && { credits: body.credits }),
+                ...(body.validityDays !== undefined && { validityDays: body.validityDays }),
+                ...(body.isActive !== undefined && { isActive: body.isActive }),
+            },
         })
 
         return updated

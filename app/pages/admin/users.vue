@@ -107,7 +107,7 @@ const packageFilterOptions = computed(() => {
   const packageItems: Array<{ label: string; value: string }> = [];
 
   for (const user of source) {
-    const pkg = user.userPackage?.package;
+    const pkg = user.memberEntitlement?.product;
     if (!pkg || seen.has(pkg.id)) continue;
     seen.add(pkg.id);
     packageItems.push({ label: pkg.name, value: pkg.id });
@@ -146,8 +146,8 @@ const filteredUsers = computed<AdminUser[]>(() => {
     const matchPackage = packageFilter.value === "all"
       ? true
       : packageFilter.value === "none"
-        ? !user.userPackage
-        : user.userPackage?.package.id === packageFilter.value;
+        ? !user.memberEntitlement
+        : user.memberEntitlement?.product.id === packageFilter.value;
 
     return matchKeyword && matchRole && matchEmail && matchPackage;
   });
@@ -417,7 +417,7 @@ const columns: TableColumn<AdminUser>[] = [
     cell: ({ row }) => row.original.phoneNumber || "-",
   },
   {
-    accessorKey: "userPackage",
+    accessorKey: "memberEntitlement",
     header: ({ column }) => {
       const isSorted = column.getIsSorted();
       const icon = !isSorted
@@ -436,15 +436,15 @@ const columns: TableColumn<AdminUser>[] = [
       });
     },
     cell: ({ row }) => {
-      const userPackage = row.original.userPackage;
-      if (!userPackage) return "ไม่มีแพ็กเกจ";
+      const memberEntitlement = row.original.memberEntitlement;
+      if (!memberEntitlement) return "ไม่มีแพ็กเกจ";
 
       return h("div", { class: "space-y-0.5 max-w-40 sm:max-w-56" }, [
-        h("p", { class: "font-medium text-highlighted truncate" }, userPackage.package.name),
+        h("p", { class: "font-medium text-highlighted truncate" }, memberEntitlement.product.name),
         h(
           "p",
           { class: "text-xs text-muted truncate" },
-          `เครดิตคงเหลือ ${userPackage.creditRemain ?? 0} | หมดอายุ ${userPackage.endDate ? formatDateShort(userPackage.endDate) : "-"}`,
+          `เครดิตคงเหลือ ${memberEntitlement.creditRemaining ?? 0} | หมดอายุ ${memberEntitlement.endAt ? formatDateShort(memberEntitlement.endAt) : "-"}`,
         ),
       ]);
     },

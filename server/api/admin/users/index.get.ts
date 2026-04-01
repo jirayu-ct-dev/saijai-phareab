@@ -2,6 +2,7 @@ import { prisma } from "~~/server/utils/prisma";
 
 export default defineEventHandler(async () => {
   try {
+    const now = new Date();
     const rows = await prisma.user.findMany({
       where: { deletedAt: null },
       select: {
@@ -14,24 +15,31 @@ export default defineEventHandler(async () => {
         emailVerified: true,
         createdAt: true,
         updatedAt: true,
-        userPackages: {
+        memberEntitlements: {
           where: {
             deletedAt: null,
-            parentUserPackageId: null,
             status: "ACTIVE",
+            AND: [
+              {
+                OR: [{ startAt: null }, { startAt: { lte: now } }],
+              },
+              {
+                OR: [{ endAt: null }, { endAt: { gte: now } }],
+              },
+            ],
           },
           select: {
             id: true,
-            creditRemain: true,
-            endDate: true,
-            package: {
+            creditRemaining: true,
+            endAt: true,
+            product: {
               select: {
                 id: true,
                 name: true,
               },
             },
           },
-          orderBy: [{ endDate: "asc" }, { createdAt: "desc" }],
+          orderBy: [{ endAt: "asc" }, { createdAt: "desc" }],
           take: 1,
         },
         accounts: {
@@ -44,10 +52,18 @@ export default defineEventHandler(async () => {
     });
 
     return rows.map((user) => {
-      const { userPackages, accounts, ...rest } = user;
+      const { memberEntitlements, accounts, ...rest } = user;
+      const entitlement = memberEntitlements[0] ?? null;
       return {
         ...rest,
-        userPackage: userPackages[0] ?? null,
+        memberEntitlement: entitlement
+          ? {
+              id: entitlement.id,
+              creditRemaining: entitlement.creditRemaining,
+              endAt: entitlement.endAt,
+              product: entitlement.product,
+            }
+          : null,
         lineUserId: accounts[0]?.accountId ?? null,
       };
     });

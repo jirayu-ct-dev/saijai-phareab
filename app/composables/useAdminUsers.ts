@@ -1,5 +1,15 @@
 import type { Role } from "~~/shared/types/enums";
 
+export type AdminUserMemberEntitlement = {
+  id: string;
+  creditRemaining: number | null;
+  endAt: string | Date | null;
+  product: {
+    id: string;
+    name: string;
+  };
+};
+
 export type AdminUser = {
   id: string;
   email: string;
@@ -11,15 +21,7 @@ export type AdminUser = {
   emailVerified: boolean;
   createdAt: string | Date;
   updatedAt: string | Date;
-  userPackage: {
-    id: string;
-    creditRemain: number | null;
-    endDate: string | Date | null;
-    package: {
-      id: string;
-      name: string;
-    };
-  } | null;
+  memberEntitlement: AdminUserMemberEntitlement | null;
 };
 
 export type CreateAdminUserBody = {
@@ -47,7 +49,6 @@ export const useAdminUsers = () => {
   const { data: users, status, refresh } = useFetch<AdminUser[]>("/api/admin/users", {
     default: () => [],
   });
-
   const isLoading = computed(() => status.value === "pending");
 
   const createUser = async (body: CreateAdminUserBody): Promise<boolean> => {

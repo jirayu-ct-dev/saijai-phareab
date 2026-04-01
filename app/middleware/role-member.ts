@@ -37,7 +37,7 @@ export default defineNuxtRouteMiddleware(async () => {
     return;
   }
 
-  // USER must have an active userPackage to be considered a member.
+  // USER must have an active member entitlement to be considered a member.
   const memberState = useState<MemberState>("member-status", () => ({
     userId: null,
     isMember: null,

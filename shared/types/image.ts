@@ -1,7 +1,7 @@
 import type { Timestamps, SoftDeletable } from "./enums";
 import type { User } from "./auth";
-import type { OrderItem, Order } from "./order";
-import type { PaymentTransaction } from "./payment";
+import type { ServiceOrderItem, ServiceOrder } from "./order";
+import type { PaymentRecord } from "./payment";
 
 export interface Image extends Timestamps, SoftDeletable {
     id: string;
@@ -13,7 +13,7 @@ export interface Image extends Timestamps, SoftDeletable {
 
     // Relations
     user?: User | null;
-    orderItems?: OrderItem[];
-    orders?: Order[];
-    slipPayments?: PaymentTransaction[];
+    serviceOrderItems?: ServiceOrderItem[];
+    serviceOrders?: ServiceOrder[];
+    slipPayments?: PaymentRecord[];
 }

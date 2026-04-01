@@ -37,18 +37,17 @@ export const requireRole = (event: H3Event, allowedRoles: Role[]): User => {
 }
 
 export const hasActiveMemberPackage = async (userId: string, now = new Date()): Promise<boolean> => {
-  const activePackage = await prisma.userPackage.findFirst({
+  const activePackage = await prisma.memberEntitlement.findFirst({
     where: {
-      userId,
+      customerId: userId,
       deletedAt: null,
       status: "ACTIVE",
-      parentUserPackageId: null,
       AND: [
         {
-          OR: [{ startDate: null }, { startDate: { lte: now } }],
+          OR: [{ startAt: null }, { startAt: { lte: now } }],
         },
         {
-          OR: [{ endDate: null }, { endDate: { gte: now } }],
+          OR: [{ endAt: null }, { endAt: { gte: now } }],
         },
       ],
     },

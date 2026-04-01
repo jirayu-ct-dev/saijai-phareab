@@ -9,11 +9,11 @@ export default defineEventHandler(async (event) => {
     const id = getRouterParam(event, 'id')
     if (!id) throw createError({ statusCode: 400, statusMessage: 'ไม่พบรหัสแพ็กเกจ' })
 
-    const existing = await prisma.package.findFirst({ where: { id, deletedAt: null } })
+    const existing = await prisma.packageProduct.findFirst({ where: { id, deletedAt: null } })
     if (!existing) throw createError({ statusCode: 404, statusMessage: 'ไม่พบแพ็กเกจที่ต้องการลบ' })
 
     try {
-        await prisma.package.update({
+        await prisma.packageProduct.update({
             where: { id },
             data: { deletedAt: new Date() },
         })
