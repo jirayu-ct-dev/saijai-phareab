@@ -80,6 +80,7 @@ export default defineEventHandler(async (event) => {
           select: {
             id: true,
             note: true,
+            discountAmount: true,
             items: {
               orderBy: [{ createdAt: "asc" }],
               select: {
@@ -105,6 +106,7 @@ export default defineEventHandler(async (event) => {
     const nextStatus = body.status ?? existing.status;
     const nextNote = body.note !== undefined ? body.note?.trim() || null : (existing.note ?? existingPackageSale.note ?? null);
     const nextSlipImageId = body.slipImageId !== undefined ? body.slipImageId : existing.slipImageId;
+    const nextDiscountAmount = Number(existingPackageSale.discountAmount ?? 0);
 
     if (!Number.isFinite(Number(nextAmount)) || Number(nextAmount) < 0) {
       throw createError({ statusCode: 400, statusMessage: "กรุณาระบุจำนวนเงินให้ถูกต้อง" });
@@ -140,8 +142,8 @@ export default defineEventHandler(async (event) => {
         data: {
           customerId: nextCustomerId,
           status: nextStatus === "VERIFIED" ? "PAID" : nextStatus === "FAILED" ? "CANCELLED" : "PENDING",
-          subtotalAmount: nextAmount,
-          discountAmount: 0,
+          subtotalAmount: nextAmount + nextDiscountAmount,
+          discountAmount: nextDiscountAmount,
           totalAmount: nextAmount,
           note: nextNote,
         },

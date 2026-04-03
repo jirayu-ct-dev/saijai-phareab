@@ -53,6 +53,7 @@ export type AdminSaleItemInput = {
 export type CreateAdminSaleBody = {
   customerId: string;
   items: AdminSaleItemInput[];
+  discountAmount?: number;
   paymentMethod: PaymentMethod;
   status?: PaymentStatus;
   note?: string | null;

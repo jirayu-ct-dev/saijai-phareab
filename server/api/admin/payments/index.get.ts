@@ -52,6 +52,16 @@ export default defineEventHandler(async () => {
             },
           },
         },
+        serviceOrder: {
+          select: {
+            id: true,
+            orderNo: true,
+            serviceOrderItems: {
+              where: { deletedAt: null },
+              select: { id: true },
+            },
+          },
+        },
         slipImage: {
           select: {
             id: true,
@@ -100,6 +110,13 @@ export default defineEventHandler(async () => {
           validityDays: packageProduct?.validityDays ?? null,
           items: packageSaleItems,
         },
+        serviceOrder: row.serviceOrder
+          ? {
+              id: row.serviceOrder.id,
+              orderNo: row.serviceOrder.orderNo,
+              itemCount: row.serviceOrder.serviceOrderItems.length,
+            }
+          : null,
         slipImage: row.slipImage
           ? {
               id: row.slipImage.id,

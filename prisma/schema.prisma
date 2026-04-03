@@ -364,22 +364,27 @@ model Basket {
 }
 
 model ServiceOrder {
-  id                   String             @id @default(cuid())
-  customerId           String
-  customer             User               @relation("ServiceOrderCustomer", fields: [customerId], references: [id])
-  employeeId           String?
-  employee             User?              @relation("ServiceOrderEmployee", fields: [employeeId], references: [id])
-  status               ServiceOrderStatus @default(PENDING)
+    id                   String             @id @default(cuid())
+    orderNo              String?            @unique
+    customerId           String
+    customer             User               @relation("ServiceOrderCustomer", fields: [customerId], references: [id])
+    employeeId           String?
+    employee             User?              @relation("ServiceOrderEmployee", fields: [employeeId], references: [id])
+    status               ServiceOrderStatus @default(PENDING)
   isWalkIn             Boolean            @default(false)
   walkInName           String?
   walkInPhone          String?
-  memberEntitlementId  String?
-  memberEntitlement    MemberEntitlement? @relation(fields: [memberEntitlementId], references: [id])
-  creditUsed           Int?
-  hangerCharge         Json?
-  totalAmount          Decimal?
-  basketId             String?
-  basket               Basket?            @relation(fields: [basketId], references: [id])
+    memberEntitlementId  String?
+    memberEntitlement    MemberEntitlement? @relation(fields: [memberEntitlementId], references: [id])
+    creditUsed           Int?
+    hangerCharge         Json?
+    receivedAt           DateTime           @default(now())
+    dueAt                DateTime?
+    subtotalAmount       Decimal            @default(0)
+    discountAmount       Decimal            @default(0)
+    totalAmount          Decimal?
+    basketId             String?
+    basket               Basket?            @relation(fields: [basketId], references: [id])
   note                 String?
   usedBonuses          Json?
   deliveryAddressSnapshot Json?
@@ -394,12 +399,13 @@ model ServiceOrder {
   serviceOrderItems ServiceOrderItem[]
   payments          PaymentRecord[]
 
-  @@index([customerId])
-  @@index([employeeId])
-  @@index([memberEntitlementId])
-  @@index([status, createdAt])
-  @@map("service_order")
-}
+    @@index([customerId])
+    @@index([employeeId])
+    @@index([memberEntitlementId])
+    @@index([orderNo])
+    @@index([status, createdAt])
+    @@map("service_order")
+  }
 
 model ServiceOrderItem {
   id                String          @id @default(cuid())

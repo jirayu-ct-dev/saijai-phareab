@@ -3,6 +3,7 @@ import { DEFAULT_HANGER_PRICE_PER_UNIT } from "~~/shared/config/posConfig";
 import { requireRole } from "~~/server/utils/auth";
 import { createPaymentNo } from "~~/server/utils/paymentNo";
 import { prisma } from "~~/server/utils/prisma";
+import { createServiceOrderNo } from "~~/server/utils/serviceOrderNo";
 
 type CreateServiceOrderBody = {
   customerId: string;
@@ -11,6 +12,8 @@ type CreateServiceOrderBody = {
     quantity: number;
   }>;
   hangerCount?: number;
+  dueAt?: string | null;
+  discountAmount?: number;
   paymentMethod: PaymentMethod;
   status?: PaymentStatus;
   note?: string | null;
@@ -54,6 +57,10 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, statusMessage: "จำนวนไม้แขวนต้องเป็น 0 หรือมากกว่า" });
   }
 
+  if (body.discountAmount !== undefined && (!Number.isFinite(Number(body.discountAmount)) || Number(body.discountAmount) < 0)) {
+    throw createError({ statusCode: 400, statusMessage: "จำนวนส่วนลดต้องเป็น 0 หรือมากกว่า" });
+  }
+
   if (body.paymentMethod !== "CASH" && body.paymentMethod !== "TRANSFER") {
     throw createError({ statusCode: 400, statusMessage: "ช่องทางการชำระเงินไม่ถูกต้อง" });
   }
@@ -64,6 +71,12 @@ export default defineEventHandler(async (event) => {
 
   const status: PaymentStatus = body.status ?? (body.paymentMethod === "CASH" ? "VERIFIED" : "PENDING");
   const isVerified = status === "VERIFIED";
+  const receivedAt = new Date();
+  const dueAt = body.dueAt ? new Date(body.dueAt) : null;
+
+  if (dueAt && Number.isNaN(dueAt.getTime())) {
+    throw createError({ statusCode: 400, statusMessage: "วันนัดรับไม่ถูกต้อง" });
+  }
 
   try {
     const customer = await prisma.user.findFirst({
@@ -130,21 +143,27 @@ export default defineEventHandler(async (event) => {
     });
 
     const subtotalAmount = orderItems.reduce((sum, item) => sum + item.totalPrice, 0);
+    const discountAmount = Math.min(Number(body.discountAmount ?? 0), subtotalAmount);
     const hangerCount = body.hangerCount ?? orderItems.reduce((sum, item) => sum + item.quantity, 0);
     const hangerCharge = {
       count: hangerCount,
       pricePerUnit: DEFAULT_HANGER_PRICE_PER_UNIT,
       total: hangerCount * DEFAULT_HANGER_PRICE_PER_UNIT,
     };
-    const totalAmount = subtotalAmount + hangerCharge.total;
+    const totalAmount = subtotalAmount - discountAmount + hangerCharge.total;
 
     const created = await prisma.$transaction(async (tx) => {
       const serviceOrder = await tx.serviceOrder.create({
         data: {
+          orderNo: createServiceOrderNo(receivedAt),
           customerId: body.customerId,
           employeeId: actor.id,
           status: getServiceOrderStatus(status),
           isWalkIn: false,
+          receivedAt,
+          dueAt,
+          subtotalAmount,
+          discountAmount,
           hangerCharge,
           totalAmount,
           note: body.note?.trim() || null,
@@ -180,14 +199,19 @@ export default defineEventHandler(async (event) => {
           metadata: {
             createdByAdminId: actor.id,
             source: "admin-service-orders",
+            orderNo: serviceOrder.orderNo,
             subtotalAmount,
+            discountAmount,
             hangerCharge,
+            receivedAt,
+            dueAt,
           },
         },
       });
 
       return {
         id: serviceOrder.id,
+        orderNo: serviceOrder.orderNo,
         paymentId: payment.id,
       };
     });

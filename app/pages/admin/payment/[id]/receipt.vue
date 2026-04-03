@@ -47,8 +47,13 @@ type ReceiptPayload = {
   } | null;
   serviceOrder: {
     id: string;
+    orderNo: string | null;
     status: string;
     note: string | null;
+    receivedAt: string;
+    dueAt: string | null;
+    subtotalAmount: number;
+    discountAmount: number;
     totalAmount: number;
     employee: {
       id: string;
@@ -75,7 +80,6 @@ type ReceiptLineItem = {
   id: string;
   name: string;
   quantity: number;
-  unitPrice: number;
   totalPrice: number;
   subtitle: string | null;
 };
@@ -88,7 +92,6 @@ definePageMeta({
 const route = useRoute();
 const paymentId = computed(() => String(route.params.id ?? ""));
 const receiptElement = useTemplateRef<HTMLElement>("receiptElement");
-const RECEIPT_WIDTH_MM = 80;
 const RECEIPT_EXPORT_WIDTH_PX = 302;
 
 const SHOP_PROFILE = {
@@ -111,7 +114,7 @@ const customerName = computed(() => data.value?.customer.name || data.value?.cus
 const paymentMethodLabel = computed(() => (data.value?.paymentMethod === "TRANSFER" ? "โอน" : "เงินสด"));
 const paymentStatusLabel = computed(() => {
   if (data.value?.status === "VERIFIED") return "ชำระเรียบร้อย";
-  if (data.value?.status === "FAILED") return "ไม่สำเร็จ";
+  if (data.value?.status === "FAILED") return "ชำระไม่สำเร็จ";
   return "รอตรวจสอบ";
 });
 const receiptLines = computed<ReceiptLineItem[]>(() => {
@@ -120,7 +123,6 @@ const receiptLines = computed<ReceiptLineItem[]>(() => {
       id: item.id,
       name: item.name,
       quantity: item.quantity,
-      unitPrice: item.unitPrice,
       totalPrice: item.totalPrice,
       subtitle: item.type === "MAIN" ? "แพ็กเกจหลัก" : "แพ็กเกจเสริม",
     }));
@@ -130,22 +132,23 @@ const receiptLines = computed<ReceiptLineItem[]>(() => {
     id: item.id,
     name: item.name,
     quantity: item.quantity,
-    unitPrice: item.unitPrice,
     totalPrice: item.totalPrice,
-    subtitle: item.notes,
+    subtitle: null,
   })) ?? [];
 });
 const totalItemQuantity = computed(() => receiptLines.value.reduce((sum, item) => sum + item.quantity, 0));
-const subtotalAmount = computed(() => {
-  if (data.value?.packageSale) return data.value.packageSale.subtotalAmount;
-  const serviceItems = data.value?.serviceOrder?.items ?? [];
-  return serviceItems.reduce((sum, item) => sum + item.totalPrice, 0);
-});
-const discountAmount = computed(() => data.value?.packageSale?.discountAmount ?? 0);
+const subtotalAmount = computed(() => data.value?.packageSale?.subtotalAmount ?? data.value?.serviceOrder?.subtotalAmount ?? 0);
+const discountAmount = computed(() => data.value?.packageSale?.discountAmount ?? data.value?.serviceOrder?.discountAmount ?? 0);
 const hangerCharge = computed(() => data.value?.serviceOrder?.hangerCharge ?? null);
 const noteText = computed(() => data.value?.note || data.value?.packageSale?.note || data.value?.serviceOrder?.note || null);
-const hasAutoPrinted = ref(false);
+const goBack = () => {
+  if (import.meta.client && window.history.length > 1) {
+    window.history.back();
+    return;
+  }
 
+  void navigateTo("/admin/payment");
+};
 const handlePrint = () => {
   if (import.meta.client) window.print();
 };
@@ -188,15 +191,6 @@ const downloadPng = async () => {
   link.click();
 };
 
-watch(
-  () => [route.query.print, isLoading.value, data.value?.id] as const,
-  ([printQuery, loading, id]) => {
-    if (!import.meta.client || hasAutoPrinted.value || printQuery !== "1" || loading || !id) return;
-    hasAutoPrinted.value = true;
-    window.setTimeout(() => window.print(), 250);
-  },
-  { immediate: true },
-);
 </script>
 
 <template>
@@ -209,7 +203,7 @@ watch(
 
         <template #right>
           <div class="receipt-actions flex items-center gap-2">
-            <UButton label="กลับหน้าการชำระเงิน" color="neutral" variant="outline" icon="i-lucide-arrow-left" @click="navigateTo('/admin/payment')" />
+            <UButton label="กลับ" color="neutral" variant="outline" icon="i-lucide-arrow-left" @click="goBack" />
             <UButton label="บันทึก PNG" color="neutral" variant="outline" icon="i-lucide-image-down" @click="downloadPng" />
             <UButton label="พิมพ์ใบเสร็จ" color="neutral" icon="i-lucide-printer" @click="handlePrint" />
           </div>
@@ -251,11 +245,23 @@ watch(
             <span>เลขที่บิล:</span>
             <span class="text-right">{{ receiptCode }}</span>
           </div>
+          <div v-if="data.serviceOrder?.orderNo" class="receipt-info-row">
+            <span>เลขรับผ้า:</span>
+            <span class="text-right">{{ data.serviceOrder.orderNo }}</span>
+          </div>
           <div class="receipt-info-row">
             <span>วันที่:</span>
             <span class="text-right">{{ formatDateTime(data.createdAt) }}</span>
           </div>
-          <div class="receipt-info-row" v-if="data.paidAt">
+          <div v-if="data.serviceOrder?.receivedAt" class="receipt-info-row">
+            <span>วันที่รับ:</span>
+            <span class="text-right">{{ formatDateTime(data.serviceOrder.receivedAt) }}</span>
+          </div>
+          <div v-if="data.serviceOrder?.dueAt" class="receipt-info-row">
+            <span>วันนัดรับ:</span>
+            <span class="text-right">{{ formatDateTime(data.serviceOrder.dueAt) }}</span>
+          </div>
+          <div v-if="data.paidAt" class="receipt-info-row">
             <span>วันที่ชำระ:</span>
             <span class="text-right">{{ formatDateTime(data.paidAt) }}</span>
           </div>
@@ -294,13 +300,13 @@ watch(
 
           <div class="mt-2 space-y-2">
             <div v-for="item in receiptLines" :key="item.id">
-              <div class="flex items-start gap-2 text-[12px]">
-                <div class="min-w-0 flex-1">
-                  <p class="wrap-break-word font-semibold leading-4">{{ item.name }}</p>
-                  <p v-if="item.subtitle" class="mt-0.5 text-[11px] leading-4 text-neutral-600">{{ item.subtitle }}</p>
+              <div class="receipt-item-row text-[12px]">
+                <div class="min-w-0">
+                  <p class="receipt-item-name font-semibold leading-4">{{ item.name }}</p>
+                  <p v-if="item.subtitle" class="receipt-item-subtitle mt-0.5 text-[11px] leading-4 text-neutral-600">{{ item.subtitle }}</p>
                 </div>
-                <p class="w-10 shrink-0 pt-0.5 text-right whitespace-nowrap">x{{ item.quantity }}</p>
-                <p class="w-19.5 shrink-0 pt-0.5 text-right whitespace-nowrap">{{ formatCurrency(item.totalPrice) }}</p>
+                <p class="text-right whitespace-nowrap">x{{ item.quantity }}</p>
+                <p class="text-right whitespace-nowrap">{{ formatCurrency(item.totalPrice) }}</p>
               </div>
             </div>
           </div>
@@ -313,7 +319,7 @@ watch(
             <span>รวมจำนวนรายการ</span>
             <span>{{ totalItemQuantity }} ชิ้น</span>
           </div>
-          <div class="receipt-info-row">
+          <div v-if="hangerCharge" class="receipt-info-row">
             <span>รวมไม้แขวน</span>
             <span>{{ hangerCharge?.count ?? 0 }} ชิ้น</span>
           </div>
@@ -382,6 +388,20 @@ watch(
 .receipt-info-row > span:last-child {
   min-width: 0;
   text-align: right;
+  white-space: nowrap;
+}
+
+.receipt-item-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 36px 56px;
+  align-items: start;
+  gap: 8px;
+}
+
+.receipt-item-name,
+.receipt-item-subtitle {
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
 

@@ -44,6 +44,11 @@ export type AdminPaymentRecord = {
       totalPrice: number;
     }>;
   };
+  serviceOrder: {
+    id: string | null;
+    orderNo: string | null;
+    itemCount: number;
+  } | null;
   slipImage: PaymentSlipImage | null;
 };
 

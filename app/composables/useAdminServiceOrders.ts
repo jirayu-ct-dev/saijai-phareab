@@ -7,6 +7,8 @@ export type CreateAdminServiceOrderBody = {
     quantity: number;
   }>;
   hangerCount?: number;
+  dueAt?: string | null;
+  discountAmount?: number;
   paymentMethod: PaymentMethod;
   status?: PaymentStatus;
   note?: string | null;
@@ -15,6 +17,7 @@ export type CreateAdminServiceOrderBody = {
 
 export type CreateAdminServiceOrderResult = {
   id: string;
+  orderNo: string | null;
   paymentId: string;
 };
 

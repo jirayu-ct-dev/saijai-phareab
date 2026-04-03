@@ -10,6 +10,7 @@ type UpdatePackageSaleBody = {
     productId: string;
     quantity: number;
   }>;
+  discountAmount?: number;
   paymentMethod: PaymentMethod;
   status?: PaymentStatus;
   note?: string | null;
@@ -100,6 +101,10 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, statusMessage: "กรุณาอัปโหลดสลิปสำหรับรายการโอน" });
   }
 
+  if (body.discountAmount !== undefined && (!Number.isFinite(Number(body.discountAmount)) || Number(body.discountAmount) < 0)) {
+    throw createError({ statusCode: 400, statusMessage: "ส่วนลดต้องมากกว่าหรือเท่ากับ 0" });
+  }
+
   const status: PaymentStatus = body.status ?? (body.paymentMethod === "CASH" ? "VERIFIED" : "PENDING");
   const isVerified = status === "VERIFIED";
 
@@ -185,7 +190,9 @@ export default defineEventHandler(async (event) => {
       };
     });
 
-    const totalAmount = saleItems.reduce((sum, item) => sum + item.totalPrice, 0);
+    const subtotalAmount = saleItems.reduce((sum, item) => sum + item.totalPrice, 0);
+    const discountAmount = Math.min(Number(body.discountAmount ?? 0), subtotalAmount);
+    const totalAmount = subtotalAmount - discountAmount;
     const existingItemIds = existingSale.items.map((item) => item.id);
 
     await prisma.$transaction(async (tx) => {
@@ -211,8 +218,8 @@ export default defineEventHandler(async (event) => {
         data: {
           customerId: body.customerId,
           status: getSaleStatus(status),
-          subtotalAmount: totalAmount,
-          discountAmount: 0,
+          subtotalAmount,
+          discountAmount,
           totalAmount,
           note: body.note?.trim() || null,
         },

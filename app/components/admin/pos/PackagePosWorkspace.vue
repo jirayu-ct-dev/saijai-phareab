@@ -64,6 +64,7 @@ const createItemKey = () => `package-pos-item-${++itemKeySeed}`;
 const createEmptyForm = () => ({
   customerId: "",
   items: [] as FormItemState[],
+  discountAmount: 0,
   paymentMethod: "CASH" as PaymentMethod,
   status: "VERIFIED" as PaymentStatus,
   note: "",
@@ -97,7 +98,14 @@ const cartItems = computed(() =>
     .filter((item): item is NonNullable<typeof item> => Boolean(item)),
 );
 
-const totalAmount = computed(() => cartItems.value.reduce((sum, item) => sum + item.totalPrice, 0));
+const subtotalAmount = computed(() => cartItems.value.reduce((sum, item) => sum + item.totalPrice, 0));
+const sanitizedDiscountAmount = computed(() => {
+  const raw = Number(form.discountAmount || 0);
+  if (!Number.isFinite(raw) || raw <= 0) return 0;
+
+  return Math.min(raw, subtotalAmount.value);
+});
+const totalAmount = computed(() => subtotalAmount.value - sanitizedDiscountAmount.value);
 const totalQuantity = computed(() => cartItems.value.reduce((sum, item) => sum + item.quantity, 0));
 
 const normalizedItems = computed<AdminSaleItemInput[]>(() =>
@@ -178,6 +186,7 @@ const handleSubmit = async () => {
     const payload: CreateAdminSaleBody = {
       customerId: form.customerId,
       items: normalizedItems.value,
+      discountAmount: sanitizedDiscountAmount.value,
       paymentMethod: form.paymentMethod,
       status: form.status,
       note: form.note.trim() || null,
@@ -311,6 +320,30 @@ const openUploadedSlip = () => {
                     <p class="text-xs text-muted">{{ formatCurrency(item.unitPrice) }} / ชิ้น</p>
                     <p class="font-semibold text-highlighted">{{ formatCurrency(item.totalPrice) }}</p>
                   </div>
+                </div>
+              </div>
+
+              <div class="rounded-xl border border-default bg-default p-3 text-sm">
+                <div class="flex items-center justify-between gap-3">
+                  <span class="text-muted">ยอดรวมก่อนส่วนลด</span>
+                  <span class="font-medium text-highlighted">{{ formatCurrency(subtotalAmount) }}</span>
+                </div>
+
+                <div class="mt-3">
+                  <p class="mb-2 text-sm font-medium text-highlighted">ส่วนลด</p>
+                  <UInputNumber
+                    v-model="form.discountAmount"
+                    :min="0"
+                    :max="subtotalAmount"
+                    :step="1"
+                    :format-options="{ minimumFractionDigits: 0, maximumFractionDigits: 2 }"
+                    class="w-full"
+                  />
+                </div>
+
+                <div class="mt-3 flex items-center justify-between gap-3">
+                  <span class="text-muted">ส่วนลด</span>
+                  <span class="font-medium text-highlighted">-{{ formatCurrency(sanitizedDiscountAmount) }}</span>
                 </div>
               </div>
             </div>

@@ -5,6 +5,8 @@ import StorefrontPosWorkspace from "~~/app/components/admin/pos/StorefrontPosWor
 type CompletedSalePayload = {
   paymentId: string;
   saleType: "PACKAGE" | "STOREFRONT";
+  serviceOrderId?: string;
+  orderNo?: string | null;
   title: string;
 };
 
@@ -18,17 +20,29 @@ const saleResultModalOpen = ref(false);
 const latestSaleResult = reactive<CompletedSalePayload>({
   paymentId: "",
   saleType: "PACKAGE",
+  serviceOrderId: "",
+  orderNo: null,
   title: "",
 });
 
 const modeOptions = [
-  { value: "packages" as const, label: "เธเธฒเธขเนเธเนเธเน€เธเธ", description: "เน€เธฅเธทเธญเธเนเธเนเธเน€เธเธเนเธฅเธฐเธเธฒเธขเนเธเธ POS" },
-  { value: "storefront" as const, label: "เธเธฒเธขเธเธฃเธดเธเธฒเธฃเธซเธเนเธฒเธฃเนเธฒเธ", description: "เธเธฑเธเธเนเธฒ เธเธดเธ”เธฃเธฒเธเธฒ เนเธฅเธฐเธฃเธงเธกเธเนเธฒเนเธกเนเนเธเธงเธ" },
+  {
+    value: "packages" as const,
+    label: "ขายแพ็กเกจ",
+    description: "เลือกลูกค้าและแพ็กเกจหลายรายการในรูปแบบ POS",
+  },
+  {
+    value: "storefront" as const,
+    label: "รับงานหน้าร้าน",
+    description: "รับผ้า นับชิ้น กำหนดวันนัดรับ และคิดค่าบริการในหน้าเดียว",
+  },
 ];
 
 const handleCompleted = (payload: CompletedSalePayload) => {
   latestSaleResult.paymentId = payload.paymentId;
   latestSaleResult.saleType = payload.saleType;
+  latestSaleResult.serviceOrderId = payload.serviceOrderId ?? "";
+  latestSaleResult.orderNo = payload.orderNo ?? null;
   latestSaleResult.title = payload.title;
   saleResultModalOpen.value = true;
 };
@@ -39,10 +53,23 @@ const closeSaleResultModal = () => {
 
 const openReceipt = () => {
   if (!latestSaleResult.paymentId) return;
-  const target = `/admin/payment/${latestSaleResult.paymentId}/receipt?print=1`;
+
+  const target = `/admin/payment/${latestSaleResult.paymentId}/receipt`;
   if (import.meta.client) {
     window.open(target, "_blank", "noopener,noreferrer");
   }
+
+  closeSaleResultModal();
+};
+
+const openIntakeSlip = () => {
+  if (!latestSaleResult.serviceOrderId) return;
+
+  const target = `/admin/service-orders/${latestSaleResult.serviceOrderId}/intake`;
+  if (import.meta.client) {
+    window.open(target, "_blank", "noopener,noreferrer");
+  }
+
   closeSaleResultModal();
 };
 
@@ -53,8 +80,8 @@ const goToPaymentPage = async () => {
 
 const resultDescription = computed(() =>
   latestSaleResult.saleType === "PACKAGE"
-    ? "รายการขายถูกบันทึกแล้ว คุณสามารถพิมพ์ใบเสร็จทันทีหรือไปดูข้อมูลที่หน้าการชำระเงินต่อได้"
-    : "รายการบริการหน้าร้านถูกบันทึกแล้ว คุณสามารถพิมพ์ใบเสร็จทันทีหรือไปดูข้อมูลที่หน้าการชำระเงินต่อได้",
+    ? "รายการขายถูกบันทึกแล้ว คุณสามารถพิมพ์ใบเสร็จรับเงินหรือไปดูที่หน้าการชำระเงินต่อได้"
+    : "รายการรับผ้าถูกบันทึกแล้ว คุณสามารถพิมพ์ใบรับผ้าได้ทันที หรือไปดูที่หน้าการชำระเงินต่อได้",
 );
 </script>
 
@@ -101,6 +128,11 @@ const resultDescription = computed(() =>
       <div class="rounded-xl border border-default bg-neutral-50 p-4 text-sm text-toned">
         <p class="font-medium text-highlighted">เลขอ้างอิงการชำระเงิน</p>
         <p class="mt-1 break-all font-mono text-xs text-muted">{{ latestSaleResult.paymentId }}</p>
+
+        <div v-if="latestSaleResult.saleType === 'STOREFRONT' && latestSaleResult.orderNo" class="mt-3 border-t border-default pt-3">
+          <p class="font-medium text-highlighted">เลขรับผ้า</p>
+          <p class="mt-1 break-all font-mono text-xs text-muted">{{ latestSaleResult.orderNo }}</p>
+        </div>
       </div>
     </template>
 
@@ -108,6 +140,14 @@ const resultDescription = computed(() =>
       <div class="flex w-full flex-col-reverse gap-2 sm:flex-row sm:justify-end">
         <UButton label="เสร็จสิ้น" color="neutral" variant="ghost" @click="closeSaleResultModal" />
         <UButton label="ไปหน้าการชำระเงิน" color="neutral" variant="outline" icon="i-lucide-arrow-right" @click="goToPaymentPage" />
+        <UButton
+          v-if="latestSaleResult.saleType === 'STOREFRONT'"
+          label="พิมพ์ใบรับผ้า"
+          color="neutral"
+          variant="outline"
+          icon="i-lucide-ticket"
+          @click="openIntakeSlip"
+        />
         <UButton label="พิมพ์ใบเสร็จ" color="neutral" icon="i-lucide-printer" @click="openReceipt" />
       </div>
     </template>
