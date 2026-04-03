@@ -1,4 +1,8 @@
 <script setup lang="ts">
+definePageMeta({
+  middleware: ["role-admin"],
+});
+
 import { h, resolveComponent } from "vue";
 import type { TableColumn } from "@nuxt/ui";
 import type { AdminUser, CreateAdminUserBody } from "~~/app/composables/useAdminUsers";
@@ -120,7 +124,14 @@ const packageFilterOptions = computed(() => {
   ];
 });
 
-const formatDateShort = (value: string | Date) => new Date(value).toLocaleDateString("th-TH");
+const shortDateFormatter = new Intl.DateTimeFormat("th-TH", {
+  day: "numeric",
+  month: "short",
+  year: "numeric",
+  timeZone: "Asia/Bangkok",
+});
+
+const formatDateShort = (value: string | Date) => shortDateFormatter.format(new Date(value));
 
 // ============================================================
 // Filtered Data
@@ -479,6 +490,14 @@ const columns: TableColumn<AdminUser>[] = [
     header: "",
     cell: ({ row }) =>
       h("div", { class: "flex items-center justify-end gap-1" }, [
+        h(UButton, {
+          icon: "i-lucide-eye",
+          size: "xs",
+          color: "neutral",
+          variant: "ghost",
+          "aria-label": "View user details",
+          to: `/admin/users/${row.original.id}`,
+        }),
         h(UIButtonChatLine, {
           lineUserId: row.original.lineUserId ?? null,
           size: "xs",

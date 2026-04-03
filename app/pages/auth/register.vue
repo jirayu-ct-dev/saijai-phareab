@@ -16,7 +16,7 @@ const form = reactive({
     email: "",
     password: "",
     confirmPassword: "",
-    acceptTerms: false,
+    // acceptTerms: false,
 });
 
 async function handleSignUp() {
@@ -26,10 +26,10 @@ async function handleSignUp() {
         return;
     }
 
-    if (!form.acceptTerms) {
-        notify.error("กรุณายอมรับเงื่อนไขการให้บริการ");
-        return;
-    }
+    // if (!form.acceptTerms) {
+    //     notify.error("กรุณายอมรับเงื่อนไขการให้บริการ");
+    //     return;
+    // }
 
     loading.value = true;
 

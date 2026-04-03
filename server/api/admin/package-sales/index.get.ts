@@ -2,7 +2,7 @@ import { requireRole } from "~~/server/utils/auth";
 import { prisma } from "~~/server/utils/prisma";
 
 export default defineEventHandler(async (event) => {
-  requireRole(event, ["ADMIN"]);
+  requireRole(event, ["EMPLOYEE", "ADMIN"]);
 
   try {
     const sales = await prisma.packageSale.findMany({

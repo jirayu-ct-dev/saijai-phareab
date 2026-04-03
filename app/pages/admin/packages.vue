@@ -1,4 +1,8 @@
 <script setup lang="ts">
+definePageMeta({
+  middleware: ["role-admin"],
+});
+
 import type { TabsItem } from "@nuxt/ui";
 import type { Package } from "~~/shared/types/package";
 import type { PackageType } from "~~/shared/types/enums";

@@ -1,18 +1,21 @@
 <script setup lang="ts">
 import { h, resolveComponent } from "vue";
 import type { TableColumn } from "@nuxt/ui";
-import type { PaymentMethod, PaymentStatus } from "~~/shared/types/enums";
+import type { PaymentMethod, PaymentStatus, Role } from "~~/shared/types/enums";
 import { paymentStatusColors, paymentStatusLabels } from "~~/shared/config/paymentConfig";
 import { formatCurrency, formatDateTime } from "~~/shared/utils/format";
 import type { AdminPaymentRecord } from "~~/app/composables/useAdminPayments";
 
 definePageMeta({
   layout: "admin",
+  middleware: ["role-employee"],
 });
 
 const UAvatar = resolveComponent("UAvatar");
 const UBadge = resolveComponent("UBadge");
 const UButton = resolveComponent("UButton");
+const { user } = useUser();
+const isAdmin = computed(() => (user.value?.role as Role | undefined) === "ADMIN");
 
 const PAYMENT_METHOD_OPTIONS: Array<{ label: string; value: PaymentMethod }> = [
   { label: "เงินสด", value: "CASH" },
@@ -78,10 +81,6 @@ const openSlipPreview = (payment: AdminPaymentRecord) => {
   const url = payment.slipImage?.secureUrl || payment.slipImage?.url;
   if (!url) return;
   window.open(url, "_blank", "noopener,noreferrer");
-};
-
-const openSalePage = (payment: AdminPaymentRecord) => {
-  navigateTo("/admin/sales");
 };
 
 const isDeleteOpen = ref(false);
@@ -174,13 +173,6 @@ const columns: TableColumn<AdminPaymentRecord>[] = [
     cell: ({ row }) =>
       h("div", { class: "flex items-center justify-end gap-1" }, [
         h(UButton, {
-          icon: "i-lucide-arrow-up-right",
-          size: "xs",
-          color: "neutral",
-          variant: "ghost",
-          onClick: () => openSalePage(row.original),
-        }),
-        h(UButton, {
           icon: "i-lucide-receipt-text",
           size: "xs",
           color: "neutral",
@@ -188,13 +180,17 @@ const columns: TableColumn<AdminPaymentRecord>[] = [
           disabled: !row.original.slipImage,
           onClick: () => openSlipPreview(row.original),
         }),
-        h(UButton, {
-          icon: "i-lucide-trash-2",
-          size: "xs",
-          color: "error",
-          variant: "ghost",
-          onClick: () => openDeleteModal(row.original),
-        }),
+        ...(isAdmin.value
+          ? [
+              h(UButton, {
+                icon: "i-lucide-trash-2",
+                size: "xs",
+                color: "error",
+                variant: "ghost",
+                onClick: () => openDeleteModal(row.original),
+              }),
+            ]
+          : []),
       ]),
   },
 ];
@@ -298,6 +294,7 @@ const columns: TableColumn<AdminPaymentRecord>[] = [
   </UDashboardPanel>
 
   <UIConfirmModal
+    v-if="isAdmin"
     v-model:open="isDeleteOpen"
     title="ลบรายการชำระเงิน"
     description="ยืนยันการลบรายการชำระเงินนี้ออกจากระบบ"

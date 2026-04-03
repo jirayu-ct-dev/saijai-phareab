@@ -2,7 +2,7 @@ import { requireRole } from "~~/server/utils/auth";
 import { prisma } from "~~/server/utils/prisma";
 
 export default defineEventHandler(async (event) => {
-  const actor = requireRole(event, ["ADMIN"]);
+  const actor = requireRole(event, ["EMPLOYEE", "ADMIN"]);
   const id = getRouterParam(event, "id");
 
   if (!id) {

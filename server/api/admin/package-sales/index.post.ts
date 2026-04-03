@@ -65,7 +65,7 @@ const getSaleStatus = (status: PaymentStatus) => {
 };
 
 export default defineEventHandler(async (event) => {
-  const actor = requireRole(event, ["ADMIN"]);
+  const actor = requireRole(event, ["EMPLOYEE", "ADMIN"]);
   const body = await readBody<CreatePackageSaleBody>(event);
 
   if (!body.customerId) {

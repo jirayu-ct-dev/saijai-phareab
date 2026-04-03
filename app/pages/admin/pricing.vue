@@ -1,4 +1,8 @@
 <script setup lang="ts">
+definePageMeta({
+  middleware: ["role-admin"],
+});
+
 import { ref, watch } from 'vue'
 
 const { data, pending } = useFetch<any>('/api/admin/pricing')

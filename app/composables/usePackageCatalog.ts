@@ -1,0 +1,21 @@
+export type PosPackageProduct = {
+  id: string;
+  name: string;
+  description: string | null;
+  packageType: "MAIN" | "ADDON";
+  price: number;
+  credits: number | null;
+  validityDays: number | null;
+};
+
+export const usePackageCatalog = () => {
+  const { data: products, status, refresh } = useFetch<PosPackageProduct[]>("/api/admin/package-catalog", {
+    default: () => [],
+  });
+
+  return {
+    products,
+    isLoading: computed(() => status.value === "pending"),
+    refresh,
+  };
+};

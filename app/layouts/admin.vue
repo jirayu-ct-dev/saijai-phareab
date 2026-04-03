@@ -1,14 +1,20 @@
 <script setup lang="ts">
 import type { NavigationMenuItem } from "@nuxt/ui";
+import type { Role } from "~~/shared/types/enums";
 
 const open = ref(false);
 const route = useRoute();
+const { user } = useUser();
 
 const closeSidebar = () => {
   open.value = false;
 };
 
-const menu = [
+const role = computed<Role | undefined>(() => user.value?.role);
+const isAdmin = computed(() => role.value === "ADMIN");
+const homeTarget = computed(() => (isAdmin.value ? "/admin" : "/admin/sales"));
+
+const adminMenu = [
   [
     {
       label: "แดชบอร์ด",
@@ -108,11 +114,30 @@ const menu = [
   ],
 ] satisfies NavigationMenuItem[][];
 
+const employeeMenu = [
+  [
+    {
+      label: "รายการขาย",
+      icon: "i-lucide-shopping-cart",
+      to: "/admin/sales",
+      onSelect: closeSidebar,
+    },
+    {
+      label: "รายการชำระเงิน",
+      icon: "i-lucide-receipt",
+      to: "/admin/payment",
+      onSelect: closeSidebar,
+    },
+  ],
+] satisfies NavigationMenuItem[][];
+
+const menu = computed(() => (isAdmin.value ? adminMenu : employeeMenu));
+
 const groups = computed(() => [
   {
     id: "links",
     label: "Go to",
-    items: menu.flat(),
+    items: menu.value.flat(),
   },
   {
     id: "code",
@@ -142,7 +167,7 @@ const groups = computed(() => [
       :ui="{ footer: 'lg:border-t lg:border-default' }"
     >
       <template #header="{ collapsed }">
-        <AppLogo :collapsed="collapsed" label="ADMIN PANEL" to="/admin" />
+        <AppLogo :collapsed="collapsed" label="ADMIN PANEL" :to="homeTarget" />
       </template>
 
       <template #default="{ collapsed }">
@@ -150,7 +175,14 @@ const groups = computed(() => [
 
         <UNavigationMenu :collapsed="collapsed" :items="menu[0]" orientation="vertical" tooltip popover />
 
-        <UNavigationMenu :collapsed="collapsed" :items="menu[1]" orientation="vertical" tooltip class="mt-auto" />
+        <UNavigationMenu
+          v-if="menu[1]?.length"
+          :collapsed="collapsed"
+          :items="menu[1]"
+          orientation="vertical"
+          tooltip
+          class="mt-auto"
+        />
       </template>
 
       <template #footer="{ collapsed }">
@@ -160,7 +192,7 @@ const groups = computed(() => [
 
     <UDashboardSearch :groups="groups" />
 
-    <div class="flex flex-col min-h-0 flex-1 overflow-y-auto">
+    <div class="flex min-h-0 flex-1 flex-col overflow-y-auto">
       <slot />
     </div>
   </UDashboardGroup>

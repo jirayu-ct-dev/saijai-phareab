@@ -1,7 +1,7 @@
 <script setup lang="ts">
 definePageMeta({
     layout: 'admin',
-    middleware: ['role-admin'],
+    middleware: ['role-employee'],
 })
 </script>
 

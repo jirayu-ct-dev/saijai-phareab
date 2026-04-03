@@ -12,7 +12,12 @@ type AccessPolicy = {
 const ACCESS_POLICIES: AccessPolicy[] = [
   { prefix: "/api/admin/users", roles: ["ADMIN"] },
   { prefix: "/api/admin/packages", roles: ["ADMIN"] },
-  { prefix: "/api/admin/payments", roles: ["ADMIN"] },
+  { prefix: "/api/admin/customer-options", roles: ["EMPLOYEE", "ADMIN"] },
+  { prefix: "/api/admin/package-catalog", roles: ["EMPLOYEE", "ADMIN"] },
+  { prefix: "/api/admin/storefront-catalog", roles: ["EMPLOYEE", "ADMIN"] },
+  { prefix: "/api/admin/package-sales", roles: ["EMPLOYEE", "ADMIN"] },
+  { prefix: "/api/admin/service-orders", roles: ["EMPLOYEE", "ADMIN"] },
+  { prefix: "/api/admin/payments", roles: ["EMPLOYEE", "ADMIN"] },
   { prefix: "/api/admin/pricing", roles: ["ADMIN"] },
   { prefix: "/api/admin/storefront-prices", roles: ["EMPLOYEE", "ADMIN"] },
   // Example when you add member APIs:

@@ -3,7 +3,7 @@ import { requireRole } from "~~/server/utils/auth";
 import { prisma } from "~~/server/utils/prisma";
 
 export default defineEventHandler(async (event) => {
-  const actor = requireRole(event, ["ADMIN"]);
+  const actor = requireRole(event, ["EMPLOYEE", "ADMIN"]);
   const parts = await readMultipartFormData(event);
   const file = parts?.find((part) => part.name === "file" && part.filename);
 
