@@ -1,4 +1,4 @@
-import type { PaymentMethod, PaymentStatus, PackageSaleStatus } from "~~/shared/types/enums";
+import type { PackageSaleStatus, PaymentMethod, PaymentStatus } from "~~/shared/types/enums";
 
 export type AdminSaleSlipImage = {
   id: string;
@@ -61,6 +61,11 @@ export type CreateAdminSaleBody = {
 
 export type UpdateAdminSaleBody = CreateAdminSaleBody;
 
+export type CreateAdminSaleResult = {
+  id: string;
+  paymentId: string;
+};
+
 export const useAdminSales = () => {
   const notify = useNotify();
 
@@ -79,15 +84,15 @@ export const useAdminSales = () => {
 
   const isLoading = computed(() => status.value === "pending");
 
-  const createSale = async (body: CreateAdminSaleBody): Promise<boolean> => {
+  const createSale = async (body: CreateAdminSaleBody): Promise<CreateAdminSaleResult | null> => {
     try {
-      await $fetch("/api/admin/package-sales", { method: "POST", body });
+      const result = await $fetch<CreateAdminSaleResult>("/api/admin/package-sales", { method: "POST", body });
       await refresh();
-      notify.created("รายการขาย");
-      return true;
+      notify.created("เธฃเธฒเธขเธเธฒเธฃเธเธฒเธข");
+      return result;
     } catch (error: unknown) {
       notify.error(getErrorMessage(error, "Unable to create sale"));
-      return false;
+      return null;
     }
   };
 
@@ -95,7 +100,7 @@ export const useAdminSales = () => {
     try {
       await $fetch(`/api/admin/package-sales/${id}`, { method: "PUT", body });
       await refresh();
-      notify.updated("รายการขาย");
+      notify.updated("เธฃเธฒเธขเธเธฒเธฃเธเธฒเธข");
       return true;
     } catch (error: unknown) {
       notify.error(getErrorMessage(error, "Unable to update sale"));
@@ -107,7 +112,7 @@ export const useAdminSales = () => {
     try {
       await $fetch(`/api/admin/package-sales/${id}`, { method: "DELETE" });
       await refresh();
-      notify.deleted("รายการขาย");
+      notify.deleted("เธฃเธฒเธขเธเธฒเธฃเธเธฒเธข");
       return true;
     } catch (error: unknown) {
       notify.error(getErrorMessage(error, "Unable to delete sale"));

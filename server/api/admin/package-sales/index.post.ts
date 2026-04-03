@@ -1,6 +1,7 @@
 import { addDays } from "date-fns";
 import type { PaymentMethod, PaymentStatus } from "~~/shared/types/enums";
 import { requireRole } from "~~/server/utils/auth";
+import { createPaymentNo } from "~~/server/utils/paymentNo";
 import { prisma } from "~~/server/utils/prisma";
 
 type CreatePackageSaleBody = {
@@ -186,6 +187,7 @@ export default defineEventHandler(async (event) => {
 
       const payment = await tx.paymentRecord.create({
         data: {
+          paymentNo: createPaymentNo(),
           userId: body.customerId,
           packageSaleId: packageSale.id,
           amount: totalAmount,

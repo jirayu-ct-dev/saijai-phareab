@@ -13,6 +13,11 @@ export type CreateAdminServiceOrderBody = {
   slipImageId?: string | null;
 };
 
+export type CreateAdminServiceOrderResult = {
+  id: string;
+  paymentId: string;
+};
+
 export const useAdminServiceOrders = () => {
   const notify = useNotify();
 
@@ -25,14 +30,14 @@ export const useAdminServiceOrders = () => {
     return fallback;
   };
 
-  const createServiceOrder = async (body: CreateAdminServiceOrderBody): Promise<boolean> => {
+  const createServiceOrder = async (body: CreateAdminServiceOrderBody): Promise<CreateAdminServiceOrderResult | null> => {
     try {
-      await $fetch("/api/admin/service-orders", { method: "POST", body });
-      notify.created("รายการบริการหน้าร้าน");
-      return true;
+      const result = await $fetch<CreateAdminServiceOrderResult>("/api/admin/service-orders", { method: "POST", body });
+      notify.created("เธฃเธฒเธขเธเธฒเธฃเธเธฃเธดเธเธฒเธฃเธซเธเนเธฒเธฃเนเธฒเธ");
+      return result;
     } catch (error: unknown) {
       notify.error(getErrorMessage(error, "Unable to create storefront order"));
-      return false;
+      return null;
     }
   };
 

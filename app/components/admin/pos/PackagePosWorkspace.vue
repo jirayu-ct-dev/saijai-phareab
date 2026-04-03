@@ -11,6 +11,10 @@ type FormItemState = {
   quantity: number;
 };
 
+const emit = defineEmits<{
+  completed: [payload: { paymentId: string; saleType: "PACKAGE"; title: string }];
+}>();
+
 const PACKAGE_TYPE_FILTERS: Array<{ label: string; value: "all" | PackageType }> = [
   { label: "ทั้งหมด", value: "all" },
   { label: "หลัก", value: "MAIN" },
@@ -179,8 +183,13 @@ const handleSubmit = async () => {
       note: form.note.trim() || null,
       slipImageId: form.slipImageId,
     };
-    const ok = await createSale(payload);
-    if (ok) {
+    const result = await createSale(payload);
+    if (result) {
+      emit("completed", {
+        paymentId: result.paymentId,
+        saleType: "PACKAGE",
+        title: "บันทึกรายการขายแพ็กเกจสำเร็จ",
+      });
       resetForm();
       await refresh();
     }

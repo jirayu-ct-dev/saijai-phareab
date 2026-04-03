@@ -58,6 +58,7 @@ const filteredPayments = computed<AdminPaymentRecord[]>(() => {
   return (payments.value ?? []).filter((payment) => {
     const matchKeyword = keyword
       ? [
+          payment.paymentNo ?? "",
           payment.customer.name ?? "",
           payment.customer.email,
           payment.customer.phoneNumber ?? "",
@@ -83,6 +84,8 @@ const openSlipPreview = (payment: AdminPaymentRecord) => {
   window.open(url, "_blank", "noopener,noreferrer");
 };
 
+const openReceipt = (payment: AdminPaymentRecord) => navigateTo(`/admin/payment/${payment.id}/receipt`);
+
 const isDeleteOpen = ref(false);
 const isDeleting = ref(false);
 const deletingPayment = ref<AdminPaymentRecord | null>(null);
@@ -106,6 +109,11 @@ const confirmDelete = async () => {
 };
 
 const columns: TableColumn<AdminPaymentRecord>[] = [
+  {
+    accessorKey: "paymentNo",
+    header: "เลขชำระ",
+    cell: ({ row }) => h("div", { class: "font-mono text-xs text-muted" }, row.original.paymentNo || "-"),
+  },
   {
     accessorKey: "customer",
     header: "ลูกค้า",
@@ -165,7 +173,11 @@ const columns: TableColumn<AdminPaymentRecord>[] = [
   {
     accessorKey: "createdAt",
     header: "วันที่",
-    cell: ({ row }) => formatDateTime(row.original.createdAt),
+    cell: ({ row }) =>
+      h("div", { class: "space-y-0.5" }, [
+        h("p", { class: "text-sm" }, formatDateTime(row.original.createdAt)),
+        h("p", { class: "text-xs text-muted" }, row.original.referenceNo || "-"),
+      ]),
   },
   {
     id: "actions",
@@ -173,7 +185,14 @@ const columns: TableColumn<AdminPaymentRecord>[] = [
     cell: ({ row }) =>
       h("div", { class: "flex items-center justify-end gap-1" }, [
         h(UButton, {
-          icon: "i-lucide-receipt-text",
+          icon: "i-lucide-receipt",
+          size: "xs",
+          color: "neutral",
+          variant: "ghost",
+          onClick: () => openReceipt(row.original),
+        }),
+        h(UButton, {
+          icon: "i-lucide-image",
           size: "xs",
           color: "neutral",
           variant: "ghost",
@@ -205,12 +224,7 @@ const columns: TableColumn<AdminPaymentRecord>[] = [
         </template>
 
         <template #right>
-          <UButton
-            label="ไปหน้ารายการขาย"
-            icon="i-lucide-shopping-cart"
-            color="primary"
-            @click="navigateTo('/admin/sales')"
-          />
+          <UButton label="ไปหน้ารายการขาย" icon="i-lucide-shopping-cart" color="primary" @click="navigateTo('/admin/sales')" />
         </template>
       </UDashboardNavbar>
     </template>
@@ -222,7 +236,7 @@ const columns: TableColumn<AdminPaymentRecord>[] = [
             v-model="searchQuery"
             class="w-full md:max-w-sm"
             icon="i-lucide-search"
-            placeholder="ค้นหาลูกค้า อีเมล package หรือเลขอ้างอิง"
+            placeholder="ค้นหาลูกค้า package เลขชำระ หรือเลขอ้างอิง"
           />
 
           <div class="flex flex-wrap items-center gap-2">
@@ -244,13 +258,7 @@ const columns: TableColumn<AdminPaymentRecord>[] = [
               value-key="value"
               class="min-w-32"
             />
-            <UButton
-              icon="i-lucide-refresh-cw"
-              color="neutral"
-              variant="outline"
-              :loading="isLoading"
-              @click="refresh"
-            />
+            <UButton icon="i-lucide-refresh-cw" color="neutral" variant="outline" :loading="isLoading" @click="refresh" />
           </div>
         </div>
 
@@ -277,7 +285,7 @@ const columns: TableColumn<AdminPaymentRecord>[] = [
           </template>
         </UTable>
 
-        <div class="flex items-center justify-between gap-3 border-t border-default pt-4 mt-auto flex-wrap">
+        <div class="mt-auto flex flex-wrap items-center justify-between gap-3 border-t border-default pt-4">
           <div class="text-sm text-muted">
             ทั้งหมด {{ filteredPayments.length }} รายการ
           </div>
@@ -315,6 +323,9 @@ const columns: TableColumn<AdminPaymentRecord>[] = [
 
     <template #subMessage>
       <div class="space-y-1">
+        <p class="text-sm text-muted">
+          เลขชำระ: {{ deletingPayment?.paymentNo || "-" }}
+        </p>
         <p class="text-sm text-muted">
           รายการขาย: {{ deletingPayment?.packageSale.items.map((item) => `${item.productName} x${item.quantity}`).join(", ") || deletingPayment?.packageSale.productName || "-" }}
         </p>

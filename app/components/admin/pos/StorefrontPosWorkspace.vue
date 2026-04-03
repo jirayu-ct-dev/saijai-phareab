@@ -12,6 +12,10 @@ type FormItemState = {
   quantity: number;
 };
 
+const emit = defineEmits<{
+  completed: [payload: { paymentId: string; saleType: "STOREFRONT"; title: string }];
+}>();
+
 const notify = useNotify();
 const { customers, isLoading: isCustomersLoading } = useAdminCustomerOptions();
 const { items, refresh } = useStorefrontCatalog();
@@ -182,7 +186,7 @@ const handleSubmit = async () => {
   isSubmitting.value = true;
   try {
     await uploadSlipIfNeeded();
-    const ok = await createServiceOrder({
+    const result = await createServiceOrder({
       customerId: form.customerId,
       items: normalizedItems.value,
       hangerCount: form.hangerCount,
@@ -191,7 +195,12 @@ const handleSubmit = async () => {
       note: form.note.trim() || null,
       slipImageId: form.slipImageId,
     });
-    if (ok) {
+    if (result) {
+      emit("completed", {
+        paymentId: result.paymentId,
+        saleType: "STOREFRONT",
+        title: "บันทึกบริการหน้าร้านสำเร็จ",
+      });
       resetForm();
       await refresh();
     }

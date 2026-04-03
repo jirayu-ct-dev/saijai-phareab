@@ -1,6 +1,7 @@
 import type { PaymentMethod, PaymentStatus } from "~~/shared/types/enums";
 import { DEFAULT_HANGER_PRICE_PER_UNIT } from "~~/shared/config/posConfig";
 import { requireRole } from "~~/server/utils/auth";
+import { createPaymentNo } from "~~/server/utils/paymentNo";
 import { prisma } from "~~/server/utils/prisma";
 
 type CreateServiceOrderBody = {
@@ -164,6 +165,7 @@ export default defineEventHandler(async (event) => {
 
       const payment = await tx.paymentRecord.create({
         data: {
+          paymentNo: createPaymentNo(),
           userId: body.customerId,
           serviceOrderId: serviceOrder.id,
           amount: totalAmount,

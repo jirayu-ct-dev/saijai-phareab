@@ -427,6 +427,7 @@ model ServiceOrderItem {
 
 model PaymentRecord {
   id                  String             @id @default(cuid())
+  paymentNo           String?            @unique
   userId              String
   user                User               @relation("PaymentUser", fields: [userId], references: [id])
   memberEntitlementId String?
@@ -459,6 +460,7 @@ model PaymentRecord {
   @@index([packageSaleId])
   @@index([serviceOrderId])
   @@index([paymentMethod, createdAt])
+  @@index([paymentNo])
   @@index([referenceNo])
   @@index([status, createdAt])
   @@map("payment_record")

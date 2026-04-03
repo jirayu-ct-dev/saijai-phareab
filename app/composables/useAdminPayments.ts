@@ -8,6 +8,7 @@ export type PaymentSlipImage = {
 
 export type AdminPaymentRecord = {
   id: string;
+  paymentNo: string | null;
   amount: number;
   status: PaymentStatus;
   paymentMethod: PaymentMethod;
