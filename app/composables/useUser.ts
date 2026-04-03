@@ -60,8 +60,9 @@ export const useUser = () => {
             const { data, error } = await authClient.signUp.email({
                 name,
                 email,
-                password
-            })
+                password,
+                role: "USER",
+            } as Parameters<typeof authClient.signUp.email>[0] & { role: "USER" })
 
             if (error) {
                 throw new Error(error.message || 'สมัครสมาชิกไม่สำเร็จ')
