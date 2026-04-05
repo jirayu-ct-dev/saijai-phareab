@@ -56,6 +56,9 @@ export default defineEventHandler(async () => {
           select: {
             id: true,
             orderNo: true,
+            isWalkIn: true,
+            walkInName: true,
+            walkInPhone: true,
             serviceOrderItems: {
               where: { deletedAt: null },
               select: { id: true },
@@ -74,6 +77,16 @@ export default defineEventHandler(async () => {
     });
 
     return rows.map((row) => {
+      const customerName = row.serviceOrder?.isWalkIn
+        ? row.serviceOrder.walkInName || "ลูกค้าหน้าร้าน"
+        : row.user.name;
+      const customerEmail = row.serviceOrder?.isWalkIn
+        ? "ลูกค้าหน้าร้าน"
+        : row.user.email;
+      const customerPhoneNumber = row.serviceOrder?.isWalkIn
+        ? row.serviceOrder.walkInPhone || null
+        : row.user.phoneNumber;
+
       const saleMainItem = row.packageSale?.items[0] ?? null;
       const packageProduct = row.memberEntitlement?.product ?? saleMainItem?.product ?? null;
       const packageSaleItems = (row.packageSale?.items ?? []).map((item) => ({
@@ -96,10 +109,15 @@ export default defineEventHandler(async () => {
         updatedAt: row.updatedAt,
         verifiedAt: row.verifiedAt,
         paidAt: row.paidAt,
-        referenceNo: row.referenceNo,
         metadata: row.metadata,
         rejectionReason: row.rejectionReason,
-        customer: row.user,
+        customer: {
+          id: row.user.id,
+          name: customerName,
+          email: customerEmail,
+          phoneNumber: customerPhoneNumber,
+          image: row.serviceOrder?.isWalkIn ? null : row.user.image,
+        },
         packageSale: {
           memberEntitlementId: row.memberEntitlement?.id ?? null,
           packageSaleId: row.packageSale?.id ?? null,
@@ -114,6 +132,9 @@ export default defineEventHandler(async () => {
           ? {
               id: row.serviceOrder.id,
               orderNo: row.serviceOrder.orderNo,
+              isWalkIn: row.serviceOrder.isWalkIn,
+              walkInName: row.serviceOrder.walkInName,
+              walkInPhone: row.serviceOrder.walkInPhone,
               itemCount: row.serviceOrder.serviceOrderItems.length,
             }
           : null,

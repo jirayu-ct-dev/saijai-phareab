@@ -1,10 +1,14 @@
 import { prisma } from "~~/server/utils/prisma";
+import { getWalkInCustomerEmail } from "~~/server/utils/walkInCustomer";
 
 export default defineEventHandler(async () => {
   try {
     const users = await prisma.user.findMany({
       where: {
         deletedAt: null,
+        email: {
+          not: getWalkInCustomerEmail(),
+        },
         // role: "USER",
       },
       select: {
@@ -32,7 +36,7 @@ export default defineEventHandler(async () => {
     console.error("[GET /api/admin/customer-options]", error);
     throw createError({
       statusCode: 500,
-      statusMessage: "Unable to load customers",
+      statusMessage: "ไม่สามารถโหลดรายชื่อลูกค้าได้",
     });
   }
 });

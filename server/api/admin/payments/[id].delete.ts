@@ -18,7 +18,17 @@ export default defineEventHandler(async (event) => {
           select: { id: true },
         },
         packageSale: {
-          select: { id: true },
+          select: {
+            id: true,
+            items: {
+              select: {
+                memberEntitlements: {
+                  where: { deletedAt: null },
+                  select: { id: true },
+                },
+              },
+            },
+          },
         },
       },
     });
@@ -46,10 +56,22 @@ export default defineEventHandler(async (event) => {
         });
       }
 
+      const entitlementIds = new Set<string>();
+
       if (existing.memberEntitlement?.id) {
+        entitlementIds.add(existing.memberEntitlement.id);
+      }
+
+      for (const item of existing.packageSale?.items ?? []) {
+        for (const entitlement of item.memberEntitlements) {
+          entitlementIds.add(entitlement.id);
+        }
+      }
+
+      if (entitlementIds.size > 0) {
         await tx.memberEntitlement.updateMany({
           where: {
-            id: existing.memberEntitlement.id,
+            id: { in: [...entitlementIds] },
             deletedAt: null,
           },
           data: {
@@ -69,7 +91,7 @@ export default defineEventHandler(async (event) => {
     console.error("[DELETE /api/admin/payments/:id]", error);
     throw createError({
       statusCode: 500,
-      statusMessage: "Unable to delete payment",
+      statusMessage: "ไม่สามารถลบรายการชำระเงินได้",
     });
   }
 });

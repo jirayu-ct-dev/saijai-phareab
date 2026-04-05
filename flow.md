@@ -73,7 +73,6 @@
 - `amount`
 - `paidAt`
 - `slipImageId`
-- `referenceNo`
 - `note`
 - `verifiedById`
 - `verifiedAt`
@@ -197,7 +196,6 @@ model PaymentRecord {
   paidAt         DateTime?
   slipImageId    String?
   note           String?
-  referenceNo    String?
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 }

@@ -1,5 +1,5 @@
 import type { Timestamps, SoftDeletable } from "./enums";
-import type { OrderItem } from "./order";
+import type { ServiceOrderItem } from "./order";
 
 // ============================
 // STOREFRONT SERVICE
@@ -43,5 +43,5 @@ export interface StorefrontPrice extends Timestamps, SoftDeletable {
     // Relations
     storefrontService?: StorefrontService;
     storefrontItem?: StorefrontItem;
-    orderItems?: OrderItem[];
+    orderItems?: ServiceOrderItem[];
 }

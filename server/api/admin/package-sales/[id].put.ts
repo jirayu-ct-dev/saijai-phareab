@@ -74,9 +74,11 @@ export default defineEventHandler(async (event) => {
   if (!id) {
     throw createError({ statusCode: 400, statusMessage: "ไม่พบรหัสรายการขาย" });
   }
+
   if (!body.customerId) {
     throw createError({ statusCode: 400, statusMessage: "กรุณาเลือกลูกค้า" });
   }
+
   if (!Array.isArray(body.items) || body.items.length === 0) {
     throw createError({ statusCode: 400, statusMessage: "กรุณาเลือกสินค้าอย่างน้อย 1 รายการ" });
   }
@@ -91,12 +93,15 @@ export default defineEventHandler(async (event) => {
   if (normalizedItems.length === 0) {
     throw createError({ statusCode: 400, statusMessage: "กรุณาเลือกสินค้าอย่างน้อย 1 รายการ" });
   }
+
   if (normalizedItems.some((item) => !Number.isInteger(item.quantity) || item.quantity < 1)) {
     throw createError({ statusCode: 400, statusMessage: "จำนวนสินค้าต้องมากกว่า 0" });
   }
+
   if (body.paymentMethod !== "CASH" && body.paymentMethod !== "TRANSFER") {
     throw createError({ statusCode: 400, statusMessage: "ช่องทางการชำระเงินไม่ถูกต้อง" });
   }
+
   if (body.paymentMethod === "TRANSFER" && !body.slipImageId) {
     throw createError({ statusCode: 400, statusMessage: "กรุณาอัปโหลดสลิปสำหรับรายการโอน" });
   }
@@ -171,14 +176,14 @@ export default defineEventHandler(async (event) => {
     });
 
     if (products.length !== productIds.length) {
-      throw createError({ statusCode: 404, statusMessage: "มี package บางรายการไม่ถูกต้องหรือถูกปิดใช้งาน" });
+      throw createError({ statusCode: 404, statusMessage: "มีแพ็กเกจบางรายการไม่ถูกต้องหรือถูกปิดใช้งาน" });
     }
 
     const productMap = new Map(products.map((product) => [product.id, product]));
     const saleItems = normalizedItems.map((item) => {
       const product = productMap.get(item.productId);
       if (!product) {
-        throw createError({ statusCode: 404, statusMessage: "ไม่พบ package ที่เลือก" });
+        throw createError({ statusCode: 404, statusMessage: "ไม่พบแพ็กเกจที่เลือก" });
       }
 
       const unitPrice = Number(product.price);
@@ -225,7 +230,12 @@ export default defineEventHandler(async (event) => {
         },
       });
 
-      const createdItems = [];
+      const createdItems: Array<{
+        id: string;
+        qty: number;
+        product: (typeof saleItems)[number]["product"];
+      }> = [];
+
       for (const item of saleItems) {
         const createdItem = await tx.packageSaleItem.create({
           data: {
@@ -237,12 +247,19 @@ export default defineEventHandler(async (event) => {
             totalPrice: item.totalPrice,
           },
         });
-        createdItems.push({ ...createdItem, product: item.product });
+
+        createdItems.push({
+          id: createdItem.id,
+          qty: createdItem.qty,
+          product: item.product,
+        });
       }
+
+      let primaryEntitlementId: string | null = null;
 
       for (const saleItem of createdItems) {
         for (let count = 0; count < saleItem.qty; count += 1) {
-          await tx.memberEntitlement.create({
+          const createdEntitlement = await tx.memberEntitlement.create({
             data: {
               customerId: body.customerId,
               sourceSaleItemId: saleItem.id,
@@ -250,6 +267,10 @@ export default defineEventHandler(async (event) => {
               ...buildEntitlementState(saleItem.product.validityDays, saleItem.product.credits, status),
             },
           });
+
+          if (!primaryEntitlementId) {
+            primaryEntitlementId = createdEntitlement.id;
+          }
         }
       }
 
@@ -260,7 +281,7 @@ export default defineEventHandler(async (event) => {
           },
           data: {
             userId: body.customerId,
-            memberEntitlementId: null,
+            memberEntitlementId: primaryEntitlementId,
             amount: totalAmount,
             paymentMethod: body.paymentMethod,
             slipImageId: body.slipImageId ?? null,
@@ -281,6 +302,7 @@ export default defineEventHandler(async (event) => {
           data: {
             paymentNo: createPaymentNo(),
             userId: body.customerId,
+            memberEntitlementId: primaryEntitlementId,
             packageSaleId: id,
             amount: totalAmount,
             paymentMethod: body.paymentMethod,
@@ -309,7 +331,7 @@ export default defineEventHandler(async (event) => {
     console.error("[PUT /api/admin/package-sales/:id]", error);
     throw createError({
       statusCode: 500,
-      statusMessage: "Unable to update package sale",
+      statusMessage: "ไม่สามารถแก้ไขรายการขายแพ็กเกจได้",
     });
   }
 });

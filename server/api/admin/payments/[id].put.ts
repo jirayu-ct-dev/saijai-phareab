@@ -70,21 +70,35 @@ export default defineEventHandler(async (event) => {
     const existing = await prisma.paymentRecord.findFirst({
       where: { id, deletedAt: null },
       include: {
-        memberEntitlement: {
-          select: {
-            id: true,
-            productId: true,
-          },
-        },
         packageSale: {
           select: {
             id: true,
+            customerId: true,
             note: true,
             discountAmount: true,
             items: {
               orderBy: [{ createdAt: "asc" }],
               select: {
                 id: true,
+                productId: true,
+                qty: true,
+                totalPrice: true,
+                product: {
+                  select: {
+                    id: true,
+                    packageType: true,
+                    credits: true,
+                    validityDays: true,
+                  },
+                },
+                memberEntitlements: {
+                  where: {
+                    deletedAt: null,
+                  },
+                  select: {
+                    id: true,
+                  },
+                },
               },
             },
           },
@@ -92,84 +106,126 @@ export default defineEventHandler(async (event) => {
       },
     });
 
-    if (!existing || !existing.memberEntitlement || !existing.packageSale) {
+    if (!existing || !existing.packageSale) {
       throw createError({ statusCode: 404, statusMessage: "ไม่พบรายการชำระเงินที่ต้องการแก้ไข" });
     }
 
-    const existingMemberEntitlement = existing.memberEntitlement;
     const existingPackageSale = existing.packageSale;
+    const saleItems = existingPackageSale.items;
+    const primarySaleItem = saleItems[0] ?? null;
+    const primaryEntitlementId =
+      existing.memberEntitlementId
+      ?? primarySaleItem?.memberEntitlements[0]?.id
+      ?? null;
 
-    const nextCustomerId = body.customerId ?? existing.userId;
-    const nextProductId = body.productId ?? existingMemberEntitlement.productId;
+    const nextCustomerId = body.customerId ?? existingPackageSale.customerId ?? existing.userId;
+    const nextProductId = body.productId ?? primarySaleItem?.productId ?? null;
     const nextAmount = body.amount ?? Number(existing.amount);
     const nextPaymentMethod = body.paymentMethod ?? existing.paymentMethod;
     const nextStatus = body.status ?? existing.status;
-    const nextNote = body.note !== undefined ? body.note?.trim() || null : (existing.note ?? existingPackageSale.note ?? null);
+    const nextNote =
+      body.note !== undefined
+        ? body.note?.trim() || null
+        : (existing.note ?? existingPackageSale.note ?? null);
     const nextSlipImageId = body.slipImageId !== undefined ? body.slipImageId : existing.slipImageId;
     const nextDiscountAmount = Number(existingPackageSale.discountAmount ?? 0);
+    const isStructureUpdateRequested =
+      body.customerId !== undefined
+      || body.productId !== undefined
+      || body.amount !== undefined;
 
     if (!Number.isFinite(Number(nextAmount)) || Number(nextAmount) < 0) {
       throw createError({ statusCode: 400, statusMessage: "กรุณาระบุจำนวนเงินให้ถูกต้อง" });
     }
+
     if (nextPaymentMethod === "TRANSFER" && !nextSlipImageId) {
       throw createError({ statusCode: 400, statusMessage: "กรุณาอัปโหลดสลิปสำหรับรายการโอน" });
+    }
+
+    if (isStructureUpdateRequested && (!primarySaleItem || saleItems.length !== 1 || primarySaleItem.qty !== 1)) {
+      throw createError({
+        statusCode: 400,
+        statusMessage: "การแก้ไขลูกค้า แพ็กเกจ หรือจำนวนเงิน รองรับเฉพาะรายการขายแพ็กเกจเดี่ยวเท่านั้น",
+      });
+    }
+
+    if (body.productId !== undefined && !nextProductId) {
+      throw createError({ statusCode: 400, statusMessage: "กรุณาเลือกแพ็กเกจที่ต้องการ" });
     }
 
     const customer = await prisma.user.findFirst({
       where: { id: nextCustomerId, deletedAt: null },
       select: { id: true },
     });
+
     if (!customer) {
       throw createError({ statusCode: 404, statusMessage: "ไม่พบลูกค้าที่เลือก" });
     }
 
-    const pkg = await prisma.packageProduct.findFirst({
-      where: { id: nextProductId, deletedAt: null, isActive: true },
-    });
+    let nextPrimaryProduct = primarySaleItem?.product ?? null;
+    if (body.productId !== undefined) {
+      nextPrimaryProduct = await prisma.packageProduct.findFirst({
+        where: { id: nextProductId!, deletedAt: null, isActive: true },
+      });
 
-    if (!pkg) {
-      throw createError({ statusCode: 404, statusMessage: "ไม่พบ package ที่เลือก" });
-    }
-
-    const mainSaleItem = existingPackageSale.items[0];
-    if (!mainSaleItem) {
-      throw createError({ statusCode: 409, statusMessage: "ข้อมูล package sale ไม่สมบูรณ์" });
+      if (!nextPrimaryProduct) {
+        throw createError({ statusCode: 404, statusMessage: "ไม่พบแพ็กเกจที่เลือก" });
+      }
     }
 
     const updated = await prisma.$transaction(async (tx) => {
+      const currentSubtotalAmount = saleItems.reduce((sum, item) => sum + Number(item.totalPrice), 0);
+      const nextSubtotalAmount = isStructureUpdateRequested ? nextAmount + nextDiscountAmount : currentSubtotalAmount;
+      const nextTotalAmount = isStructureUpdateRequested ? nextAmount : currentSubtotalAmount - nextDiscountAmount;
+
       await tx.packageSale.update({
         where: { id: existingPackageSale.id },
         data: {
           customerId: nextCustomerId,
           status: nextStatus === "VERIFIED" ? "PAID" : nextStatus === "FAILED" ? "CANCELLED" : "PENDING",
-          subtotalAmount: nextAmount + nextDiscountAmount,
+          subtotalAmount: nextSubtotalAmount,
           discountAmount: nextDiscountAmount,
-          totalAmount: nextAmount,
+          totalAmount: nextTotalAmount,
           note: nextNote,
         },
       });
 
-      await tx.packageSaleItem.update({
-        where: { id: mainSaleItem.id },
-        data: {
-          productId: nextProductId,
-          itemType: pkg.packageType,
-          qty: 1,
-          unitPrice: nextAmount,
-          totalPrice: nextAmount,
-        },
-      });
+      if (isStructureUpdateRequested && primarySaleItem && nextPrimaryProduct) {
+        await tx.packageSaleItem.update({
+          where: { id: primarySaleItem.id },
+          data: {
+            productId: nextProductId!,
+            itemType: nextPrimaryProduct.packageType,
+            qty: 1,
+            unitPrice: nextAmount,
+            totalPrice: nextAmount,
+          },
+        });
+      }
 
-      await tx.memberEntitlement.update({
-        where: { id: existingMemberEntitlement.id },
-        data: {
-          customerId: nextCustomerId,
-          productId: nextProductId,
-          ...buildEntitlementState(pkg.validityDays, pkg.credits, nextStatus),
-          deletedAt: null,
-          deletedById: null,
-        },
-      });
+      for (const saleItem of saleItems) {
+        const itemProduct =
+          saleItem.id === primarySaleItem?.id && nextPrimaryProduct
+            ? nextPrimaryProduct
+            : saleItem.product;
+        const itemProductId =
+          saleItem.id === primarySaleItem?.id && nextProductId
+            ? nextProductId
+            : saleItem.productId;
+
+        for (const entitlement of saleItem.memberEntitlements) {
+          await tx.memberEntitlement.update({
+            where: { id: entitlement.id },
+            data: {
+              customerId: nextCustomerId,
+              productId: itemProductId,
+              ...buildEntitlementState(itemProduct.validityDays, itemProduct.credits, nextStatus),
+              deletedAt: null,
+              deletedById: null,
+            },
+          });
+        }
+      }
 
       const isVerified = nextStatus === "VERIFIED";
 
@@ -177,9 +233,9 @@ export default defineEventHandler(async (event) => {
         where: { id },
         data: {
           userId: nextCustomerId,
-          memberEntitlementId: existingMemberEntitlement.id,
+          memberEntitlementId: primaryEntitlementId,
           packageSaleId: existingPackageSale.id,
-          amount: nextAmount,
+          amount: nextTotalAmount,
           paymentMethod: nextPaymentMethod,
           slipImageId: nextSlipImageId ?? null,
           status: nextStatus,
@@ -204,7 +260,7 @@ export default defineEventHandler(async (event) => {
     console.error("[PUT /api/admin/payments/:id]", error);
     throw createError({
       statusCode: 500,
-      statusMessage: "Unable to update payment",
+      statusMessage: "ไม่สามารถอัปเดตรายการชำระเงินได้",
     });
   }
 });

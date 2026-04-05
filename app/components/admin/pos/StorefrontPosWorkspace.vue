@@ -2,8 +2,8 @@
 import { CalendarDate } from "@internationalized/date";
 import PosCatalogCard from "~~/app/components/admin/pos/PosCatalogCard.vue";
 import PosCheckoutPanel from "~~/app/components/admin/pos/PosCheckoutPanel.vue";
-import type { PaymentMethod, PaymentStatus } from "~~/shared/types/enums";
 import type { AdminSaleSlipImage } from "~~/app/composables/useAdminSales";
+import type { PaymentMethod, PaymentStatus } from "~~/shared/types/enums";
 import { DEFAULT_HANGER_PRICE_PER_UNIT } from "~~/shared/config/posConfig";
 import { formatCurrency } from "~~/shared/utils/format";
 
@@ -28,6 +28,7 @@ const categoryFilter = ref<"all" | string>("all");
 const serviceFilter = ref<"all" | string>("all");
 
 const catalogMap = computed(() => new Map((items.value ?? []).map((item) => [item.id, item])));
+
 const categoryOptions = computed(() => {
   const map = new Map<string, string>();
   for (const item of items.value ?? []) {
@@ -36,6 +37,7 @@ const categoryOptions = computed(() => {
 
   return [{ label: "ทุกหมวดหมู่", value: "all" }, ...Array.from(map.entries()).map(([value, label]) => ({ label, value }))];
 });
+
 const serviceOptions = computed(() => {
   const map = new Map<string, string>();
   for (const item of items.value ?? []) {
@@ -44,6 +46,7 @@ const serviceOptions = computed(() => {
 
   return [{ label: "ทุกบริการ", value: "all" }, ...Array.from(map.entries()).map(([value, label]) => ({ label, value }))];
 });
+
 const customerOptions = computed(() =>
   (customers.value ?? []).map((customer) => ({
     label: customer.label,
@@ -72,6 +75,9 @@ const createItemKey = () => `service-pos-item-${++itemKeySeed}`;
 
 const createEmptyForm = () => ({
   customerId: "",
+  isWalkIn: true,
+  walkInName: "",
+  walkInPhone: "",
   items: [] as FormItemState[],
   hangerCount: 0,
   discountAmount: 0,
@@ -89,6 +95,7 @@ const slipFile = ref<File | null>(null);
 const uploadedSlip = ref<AdminSaleSlipImage | null>(null);
 
 const selectedItemMap = computed(() => new Map(form.items.map((item) => [item.storefrontPriceId, item])));
+
 const cartItems = computed(() =>
   form.items
     .map((item) => {
@@ -99,7 +106,6 @@ const cartItems = computed(() =>
         key: item.key,
         storefrontPriceId: item.storefrontPriceId,
         label: catalog.label,
-        categoryName: catalog.categoryName,
         quantity: item.quantity,
         unitPrice: catalog.price,
         totalPrice: catalog.price * item.quantity,
@@ -110,6 +116,7 @@ const cartItems = computed(() =>
 
 const subtotalAmount = computed(() => cartItems.value.reduce((sum, item) => sum + item.totalPrice, 0));
 const totalQuantity = computed(() => cartItems.value.reduce((sum, item) => sum + item.quantity, 0));
+
 watch(
   totalQuantity,
   (value) => {
@@ -120,15 +127,15 @@ watch(
 
 const hangerCharge = computed(() => ({
   count: form.hangerCount,
-  pricePerUnit: DEFAULT_HANGER_PRICE_PER_UNIT,
   total: form.hangerCount * DEFAULT_HANGER_PRICE_PER_UNIT,
 }));
+
 const sanitizedDiscountAmount = computed(() => {
   const raw = Number(form.discountAmount || 0);
   if (!Number.isFinite(raw) || raw <= 0) return 0;
-
   return Math.min(raw, subtotalAmount.value);
 });
+
 const dueTimeOptions = computed(() => {
   const options: Array<{ label: string; value: string }> = [];
   for (let hour = 0; hour < 24; hour += 1) {
@@ -140,11 +147,13 @@ const dueTimeOptions = computed(() => {
 
   return options;
 });
+
 const dueTimeLabel = computed(() => dueTime.value || "00:00");
 const dueAtValue = computed(() => {
   if (!dueDate.value) return null;
   return `${dueDate.value.toString()}T${dueTimeLabel.value}`;
 });
+
 const totalAmount = computed(() => subtotalAmount.value - sanitizedDiscountAmount.value + hangerCharge.value.total);
 
 const normalizedItems = computed(() =>
@@ -203,11 +212,6 @@ const removeItem = (key: string) => {
   form.items = form.items.filter((entry) => entry.key !== key);
 };
 
-const handleSlipSelected = (event: Event) => {
-  const target = event.target as HTMLInputElement;
-  slipFile.value = target.files?.[0] ?? null;
-};
-
 const uploadSlipIfNeeded = async () => {
   if (!slipFile.value) return;
 
@@ -219,14 +223,23 @@ const uploadSlipIfNeeded = async () => {
 };
 
 const handleSubmit = async () => {
-  if (!form.customerId) return notify.validationError("กรุณาเลือกลูกค้า");
-  if (normalizedItems.value.length === 0) return notify.validationError("กรุณาเลือกบริการอย่างน้อย 1 รายการ");
+  if (!form.isWalkIn && !form.customerId) {
+    return notify.validationError("กรุณาเลือกลูกค้า");
+  }
+
+  if (normalizedItems.value.length === 0) {
+    return notify.validationError("กรุณาเลือกบริการอย่างน้อย 1 รายการ");
+  }
 
   isSubmitting.value = true;
   try {
     await uploadSlipIfNeeded();
+
     const result = await createServiceOrder({
-      customerId: form.customerId,
+      customerId: form.isWalkIn ? null : form.customerId,
+      isWalkIn: form.isWalkIn,
+      walkInName: form.isWalkIn ? form.walkInName.trim() || null : null,
+      walkInPhone: form.isWalkIn ? form.walkInPhone.trim() || null : null,
       items: normalizedItems.value,
       hangerCount: form.hangerCount,
       dueAt: dueAtValue.value,
@@ -254,11 +267,6 @@ const handleSubmit = async () => {
     isSubmitting.value = false;
   }
 };
-
-const openUploadedSlip = () => {
-  const url = uploadedSlip.value?.secureUrl || uploadedSlip.value?.url;
-  if (url) window.open(url, "_blank", "noopener,noreferrer");
-};
 </script>
 
 <template>
@@ -268,7 +276,7 @@ const openUploadedSlip = () => {
         <div class="flex flex-col gap-4">
           <div>
             <p class="text-lg font-semibold text-highlighted">รับงานหน้าร้าน</p>
-            <p class="text-sm text-muted">นับผ้าตามชิ้น ใส่วันนัดรับ คิดค่าไม้แขวน และส่วนลดได้ในหน้าเดียว</p>
+            <p class="text-sm text-muted">นับผ้าตามชิ้น กำหนดวันนัดรับ คิดค่าไม้แขวน และใส่ส่วนลดได้ในหน้าเดียว</p>
           </div>
 
           <div class="flex flex-col gap-2 lg:flex-row lg:items-center">
@@ -284,10 +292,10 @@ const openUploadedSlip = () => {
             :key="item.id"
             :title="item.label"
             :description="item.categoryName || item.serviceName"
-            badge-label="บริการหน้าร้าน"
-            badge-color="info"
+            badge-label="ราคาหน้าร้าน"
+            badge-color="primary"
             :price-label="formatCurrency(item.price)"
-            :meta-label="item.categoryName ? `${item.categoryName} · ${item.serviceName}` : item.serviceName"
+            :meta-label="item.categoryName ? `${item.categoryName} | ${item.serviceName}` : item.serviceName"
             :quantity="selectedItemMap.get(item.id)?.quantity ?? 0"
             :selected="selectedItemMap.has(item.id)"
             :decrement-disabled="!selectedItemMap.has(item.id)"
@@ -310,117 +318,57 @@ const openUploadedSlip = () => {
         :customer-id="form.customerId"
         :customer-options="customerOptions"
         :customer-loading="isCustomersLoading"
+        allow-walk-in
+        :is-walk-in="form.isWalkIn"
+        :walk-in-name="form.walkInName"
+        :walk-in-phone="form.walkInPhone"
         :payment-method="form.paymentMethod"
         :status="form.status"
         :note="form.note"
-        total-label="ยอดสุทธิ"
+        total-label="ยอดรวมสุทธิ"
         :total-value="formatCurrency(totalAmount)"
-        :total-meta="`${cartItems.length} รายการ · ${totalQuantity} ชิ้น`"
+        :total-meta="`${cartItems.length} รายการ | ${totalQuantity} ชิ้น`"
         submit-label="บันทึกรับผ้า"
         :is-submitting="isSubmitting"
+        :slip-file="slipFile"
         :uploaded-slip-url="uploadedSlip?.secureUrl || uploadedSlip?.url"
         :uploaded-slip-label="uploadedSlip?.secureUrl || uploadedSlip?.url || null"
         @update:customer-id="form.customerId = $event"
+        @update:is-walk-in="form.isWalkIn = $event"
+        @update:walk-in-name="form.walkInName = $event"
+        @update:walk-in-phone="form.walkInPhone = $event"
         @update:payment-method="form.paymentMethod = $event"
         @update:status="form.status = $event"
         @update:note="form.note = $event"
-        @select-slip="handleSlipSelected"
-        @open-slip="openUploadedSlip"
+        @update:slip-file="slipFile = $event"
         @remove-slip="resetSlip"
         @submit="handleSubmit"
         @reset="resetForm"
       >
         <template #cart>
-          <div class="rounded-2xl border border-default bg-neutral-50 p-4">
+          <div class="rounded-2xl border border-default bg-default p-4">
             <div class="flex items-center justify-between gap-3">
               <p class="font-medium text-highlighted">รายการที่เลือก</p>
               <span class="text-sm text-muted">{{ totalQuantity }} ชิ้น</span>
             </div>
 
-            <div v-if="cartItems.length" class="mt-4 space-y-3">
-              <div v-for="item in cartItems" :key="item.key" class="rounded-xl border border-default bg-default p-3">
-                <div class="flex items-start justify-between gap-3">
-                  <div class="min-w-0">
-                    <p class="wrap-break-word font-medium text-highlighted">{{ item.label }}</p>
-                    <p class="text-xs text-muted">{{ item.categoryName || "หน้าร้าน" }}</p>
-                  </div>
-                  <UButton icon="i-lucide-trash-2" color="error" variant="ghost" size="xs" @click="removeItem(item.key)" />
+            <div v-if="cartItems.length" class="mt-4 divide-y divide-default">
+              <div v-for="item in cartItems" :key="item.key" class="flex items-center gap-3 py-3 first:pt-0 last:pb-0">
+                <div class="min-w-0 flex-1">
+                  <p class="truncate text-sm font-medium text-highlighted">{{ item.label }}</p>
                 </div>
 
-                <div class="mt-3 flex items-center justify-between gap-3">
-                  <div class="inline-flex items-center rounded-full border border-default">
-                    <UButton icon="i-lucide-minus" color="neutral" variant="ghost" size="xs" @click="decrementItemByKey(item.key)" />
-                    <span class="min-w-10 text-center text-sm font-medium">{{ item.quantity }}</span>
-                    <UButton icon="i-lucide-plus" color="neutral" variant="ghost" size="xs" @click="incrementItemByKey(item.key)" />
-                  </div>
-                  <div class="text-right">
-                    <p class="text-xs text-muted">{{ formatCurrency(item.unitPrice) }} / ชิ้น</p>
-                    <p class="font-semibold text-highlighted">{{ formatCurrency(item.totalPrice) }}</p>
-                  </div>
-                </div>
-              </div>
-
-              <div class="rounded-xl border border-default bg-default p-3 text-sm">
-                <div class="flex items-center justify-between gap-3">
-                  <span class="text-muted">รวมค่าบริการ</span>
-                  <span class="font-medium text-highlighted">{{ formatCurrency(subtotalAmount) }}</span>
+                <div class="flex items-center gap-1">
+                  <UButton icon="i-lucide-minus" color="neutral" variant="ghost" size="xs" @click="decrementItemByKey(item.key)" />
+                  <span class="min-w-8 text-center text-sm font-medium">{{ item.quantity }}</span>
+                  <UButton icon="i-lucide-plus" color="neutral" variant="ghost" size="xs" @click="incrementItemByKey(item.key)" />
                 </div>
 
-                <div class="mt-3 rounded-xl border border-default bg-neutral-50 p-3">
-                  <div class="flex items-center justify-between gap-3">
-                    <span class="text-muted">รวมจำนวนผ้าทั้งหมด</span>
-                    <span class="font-medium text-highlighted">{{ totalQuantity }} ชิ้น</span>
-                  </div>
-
-                  <div class="mt-3 flex items-end gap-3">
-                    <UFormField label="จำนวนไม้แขวน" class="flex-1">
-                      <UInputNumber v-model="form.hangerCount" :min="0" :step="1" orientation="vertical" class="w-full" />
-                    </UFormField>
-                    <UButton label="ใช้ตามจำนวนผ้า" color="neutral" variant="outline" @click="form.hangerCount = totalQuantity" />
-                  </div>
-
-                  <div class="mt-2 flex items-center justify-between gap-3">
-                    <span class="text-muted">ค่าไม้แขวน {{ hangerCharge.count }} ชิ้น</span>
-                    <span class="font-medium text-highlighted">{{ formatCurrency(hangerCharge.total) }}</span>
-                  </div>
-
-                  <div class="mt-3">
-                    <p class="mb-2 text-sm font-medium text-highlighted">วันนัดรับ</p>
-                    <div class="grid grid-cols-2 gap-2">
-                      <UPopover>
-                        <UInputDate v-model="dueDate" icon="i-lucide-calendar" class="w-full" />
-                        <template #content>
-                          <UCalendar v-model="dueDate" locale="th-TH" class="p-2" />
-                        </template>
-                      </UPopover>
-
-                      <USelect
-                        v-model="dueTime"
-                        :items="dueTimeOptions"
-                        value-key="value"
-                        icon="i-lucide-clock"
-                        class="w-full"
-                      />
-                    </div>
-                  </div>
-
-                  <div class="mt-3">
-                    <p class="mb-2 text-sm font-medium text-highlighted">ส่วนลด</p>
-                    <UInputNumber
-                      v-model="form.discountAmount"
-                      :min="0"
-                      :max="subtotalAmount"
-                      :step="1"
-                      :format-options="{ minimumFractionDigits: 0, maximumFractionDigits: 2 }"
-                      class="w-full"
-                    />
-                  </div>
-
-                  <div class="mt-2 flex items-center justify-between gap-3">
-                    <span class="text-muted">ส่วนลด</span>
-                    <span class="font-medium text-highlighted">-{{ formatCurrency(sanitizedDiscountAmount) }}</span>
-                  </div>
+                <div class="min-w-20 text-right text-sm font-semibold text-highlighted">
+                  {{ formatCurrency(item.totalPrice) }}
                 </div>
+
+                <UButton icon="i-lucide-trash-2" color="error" variant="ghost" size="xs" @click="removeItem(item.key)" />
               </div>
             </div>
 
@@ -428,6 +376,61 @@ const openUploadedSlip = () => {
               ยังไม่ได้เลือกบริการ
             </div>
           </div>
+        </template>
+
+        <template #summary>
+          <div class="rounded-xl border border-default bg-default p-3 text-sm space-y-3">
+            <div class="flex items-center justify-between gap-3">
+              <span class="text-muted">รวมค่าบริการ</span>
+              <span class="font-medium text-highlighted">{{ formatCurrency(subtotalAmount) }}</span>
+            </div>
+
+            <div class="flex items-center justify-between gap-3">
+              <span class="text-muted">ค่าไม้แขวน</span>
+              <span class="font-medium text-highlighted">{{ formatCurrency(hangerCharge.total) }}</span>
+            </div>
+
+            <div class="flex items-center justify-between gap-3">
+              <span class="text-muted">จำนวนไม้แขวน</span>
+              <div class="flex items-center gap-2">
+                <UInputNumber v-model="form.hangerCount" :min="0" :step="1" orientation="vertical" class="w-28" />
+                <UButton label="ใช้ตามจำนวนผ้า" color="neutral" variant="outline" @click="form.hangerCount = totalQuantity" />
+              </div>
+            </div>
+
+            <div>
+              <p class="mb-2 text-sm font-medium text-highlighted">วันนัดรับ</p>
+              <div class="grid grid-cols-2 gap-2">
+                <UPopover>
+                  <UInputDate v-model="dueDate" icon="i-lucide-calendar" class="w-full" />
+                  <template #content>
+                    <UCalendar v-model="dueDate" locale="th-TH" class="p-2" />
+                  </template>
+                </UPopover>
+
+                <USelect
+                  v-model="dueTime"
+                  :items="dueTimeOptions"
+                  value-key="value"
+                  icon="i-lucide-clock"
+                  class="w-full"
+                />
+              </div>
+            </div>
+          </div>
+        </template>
+
+        <template #discount>
+          <UFormField label="ส่วนลด">
+            <UInputNumber
+              v-model="form.discountAmount"
+              :min="0"
+              :max="subtotalAmount"
+              :step="1"
+              :format-options="{ minimumFractionDigits: 0, maximumFractionDigits: 2 }"
+              class="w-full"
+            />
+          </UFormField>
         </template>
       </PosCheckoutPanel>
     </aside>

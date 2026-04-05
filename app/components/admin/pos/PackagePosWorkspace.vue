@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import PosCatalogCard from "~~/app/components/admin/pos/PosCatalogCard.vue";
 import PosCheckoutPanel from "~~/app/components/admin/pos/PosCheckoutPanel.vue";
-import type { PaymentMethod, PaymentStatus, PackageType } from "~~/shared/types/enums";
 import type { AdminSaleItemInput, AdminSaleSlipImage, CreateAdminSaleBody } from "~~/app/composables/useAdminSales";
+import type { PaymentMethod, PaymentStatus, PackageType } from "~~/shared/types/enums";
 import { formatCurrency } from "~~/shared/utils/format";
 
 type FormItemState = {
@@ -15,13 +15,13 @@ const emit = defineEmits<{
   completed: [payload: { paymentId: string; saleType: "PACKAGE"; title: string }];
 }>();
 
-const PACKAGE_TYPE_FILTERS: Array<{ label: string; value: "all" | PackageType }> = [
+const packageTypeFilters: Array<{ label: string; value: "all" | PackageType }> = [
   { label: "ทั้งหมด", value: "all" },
   { label: "หลัก", value: "MAIN" },
   { label: "เสริม", value: "ADDON" },
 ];
 
-const PACKAGE_TYPE_BADGES: Record<PackageType, { label: string; color: "primary" | "warning" }> = {
+const packageTypeBadges: Record<PackageType, { label: string; color: "primary" | "warning" }> = {
   MAIN: { label: "แพ็กเกจหลัก", color: "primary" },
   ADDON: { label: "แพ็กเกจเสริม", color: "warning" },
 };
@@ -90,6 +90,7 @@ const cartItems = computed(() =>
         name: product.name,
         packageType: product.packageType,
         validityDays: product.validityDays,
+        credits: product.credits,
         quantity: item.quantity,
         unitPrice: product.price,
         totalPrice: product.price * item.quantity,
@@ -141,10 +142,12 @@ const incrementProduct = (productId: string) => addProductToCart(productId);
 const decrementItemByKey = (key: string) => {
   const item = form.items.find((entry) => entry.key === key);
   if (!item) return;
+
   if (item.quantity <= 1) {
     form.items = form.items.filter((entry) => entry.key !== key);
     return;
   }
+
   item.quantity -= 1;
 };
 
@@ -163,11 +166,6 @@ const removeItem = (key: string) => {
   form.items = form.items.filter((entry) => entry.key !== key);
 };
 
-const handleSlipSelected = (event: Event) => {
-  const target = event.target as HTMLInputElement;
-  slipFile.value = target.files?.[0] ?? null;
-};
-
 const uploadSlipIfNeeded = async () => {
   if (!slipFile.value) return;
   const image = await uploadSlip(slipFile.value);
@@ -178,7 +176,7 @@ const uploadSlipIfNeeded = async () => {
 
 const handleSubmit = async () => {
   if (!form.customerId) return notify.validationError("กรุณาเลือกลูกค้า");
-  if (normalizedItems.value.length === 0) return notify.validationError("กรุณาเลือกสินค้าอย่างน้อย 1 รายการ");
+  if (normalizedItems.value.length === 0) return notify.validationError("กรุณาเลือกแพ็กเกจอย่างน้อย 1 รายการ");
 
   isSubmitting.value = true;
   try {
@@ -192,6 +190,7 @@ const handleSubmit = async () => {
       note: form.note.trim() || null,
       slipImageId: form.slipImageId,
     };
+
     const result = await createSale(payload);
     if (result) {
       emit("completed", {
@@ -207,11 +206,6 @@ const handleSubmit = async () => {
   } finally {
     isSubmitting.value = false;
   }
-};
-
-const openUploadedSlip = () => {
-  const url = uploadedSlip.value?.secureUrl || uploadedSlip.value?.url;
-  if (url) window.open(url, "_blank", "noopener,noreferrer");
 };
 </script>
 
@@ -229,10 +223,10 @@ const openUploadedSlip = () => {
             <UInput v-model="searchQuery" icon="i-lucide-search" placeholder="ค้นหาชื่อแพ็กเกจ" class="w-full md:w-72" />
             <div class="flex flex-wrap gap-2">
               <UButton
-                v-for="filter in PACKAGE_TYPE_FILTERS"
+                v-for="filter in packageTypeFilters"
                 :key="filter.value"
                 :label="filter.label"
-                :color="packageTypeFilter === filter.value ? 'neutral' : 'neutral'"
+                color="neutral"
                 :variant="packageTypeFilter === filter.value ? 'solid' : 'outline'"
                 size="sm"
                 @click="packageTypeFilter = filter.value"
@@ -247,10 +241,10 @@ const openUploadedSlip = () => {
             :key="pkg.id"
             :title="pkg.name"
             :description="pkg.description"
-            :badge-label="PACKAGE_TYPE_BADGES[pkg.packageType].label"
-            :badge-color="PACKAGE_TYPE_BADGES[pkg.packageType].color"
+            :badge-label="packageTypeBadges[pkg.packageType].label"
+            :badge-color="packageTypeBadges[pkg.packageType].color"
             :price-label="formatCurrency(pkg.price)"
-            :meta-label="`${pkg.credits ? `${pkg.credits} เครดิต` : 'ไม่จำกัดเครดิต'} • ${pkg.validityDays ? `${pkg.validityDays} วัน` : 'ไม่กำหนดอายุ'}`"
+            :meta-label="`${pkg.credits ? `${pkg.credits} เครดิต` : 'ไม่จำกัดเครดิต'} | ${pkg.validityDays ? `${pkg.validityDays} วัน` : 'ไม่กำหนดอายุ'}`"
             :quantity="selectedItemMap.get(pkg.id)?.quantity ?? 0"
             :selected="selectedItemMap.has(pkg.id)"
             :decrement-disabled="!selectedItemMap.has(pkg.id)"
@@ -278,73 +272,45 @@ const openUploadedSlip = () => {
         :note="form.note"
         total-label="ยอดรวมสุทธิ"
         :total-value="formatCurrency(totalAmount)"
-        :total-meta="`${cartItems.length} รายการ • ${totalQuantity} ชิ้น`"
-        submit-label="บันทึกรายการขายแพ็กเกจ"
+        :total-meta="`${cartItems.length} รายการ | ${totalQuantity} ชิ้น`"
+        submit-label="บันทึก"
         :is-submitting="isSubmitting"
+        :slip-file="slipFile"
         :uploaded-slip-url="uploadedSlip?.secureUrl || uploadedSlip?.url"
         :uploaded-slip-label="uploadedSlip?.secureUrl || uploadedSlip?.url || null"
         @update:customer-id="form.customerId = $event"
         @update:payment-method="form.paymentMethod = $event"
         @update:status="form.status = $event"
         @update:note="form.note = $event"
-        @select-slip="handleSlipSelected"
-        @open-slip="openUploadedSlip"
+        @update:slip-file="slipFile = $event"
         @remove-slip="resetSlip"
         @submit="handleSubmit"
         @reset="resetForm"
       >
         <template #cart>
-          <div class="rounded-2xl border border-default bg-neutral-50 p-4">
+          <div class="rounded-2xl border border-default bg-default p-4">
             <div class="flex items-center justify-between gap-3">
               <p class="font-medium text-highlighted">รายการที่เลือก</p>
               <span class="text-sm text-muted">{{ totalQuantity }} ชิ้น</span>
             </div>
 
-            <div v-if="cartItems.length" class="mt-4 space-y-3">
-              <div v-for="item in cartItems" :key="item.key" class="rounded-xl border border-default bg-default p-3">
-                <div class="flex items-start justify-between gap-3">
-                  <div class="min-w-0">
-                    <p class="truncate font-medium text-highlighted">{{ item.name }}</p>
-                    <p class="text-xs text-muted">{{ PACKAGE_TYPE_BADGES[item.packageType].label }} • {{ item.validityDays ? `${item.validityDays} วัน` : "ไม่กำหนดอายุ" }}</p>
-                  </div>
-                  <UButton icon="i-lucide-trash-2" color="error" variant="ghost" size="xs" @click="removeItem(item.key)" />
+            <div v-if="cartItems.length" class="mt-4 divide-y divide-default">
+              <div v-for="item in cartItems" :key="item.key" class="flex items-center gap-3 py-3 first:pt-0 last:pb-0">
+                <div class="min-w-0 flex-1">
+                  <p class="truncate text-sm font-medium text-highlighted">{{ item.name }}</p>
                 </div>
 
-                <div class="mt-3 flex items-center justify-between gap-3">
-                  <div class="inline-flex items-center rounded-full border border-default">
-                    <UButton icon="i-lucide-minus" color="neutral" variant="ghost" size="xs" @click="decrementItemByKey(item.key)" />
-                    <span class="min-w-10 text-center text-sm font-medium">{{ item.quantity }}</span>
-                    <UButton icon="i-lucide-plus" color="neutral" variant="ghost" size="xs" @click="incrementItemByKey(item.key)" />
-                  </div>
-                  <div class="text-right">
-                    <p class="text-xs text-muted">{{ formatCurrency(item.unitPrice) }} / ชิ้น</p>
-                    <p class="font-semibold text-highlighted">{{ formatCurrency(item.totalPrice) }}</p>
-                  </div>
-                </div>
-              </div>
-
-              <div class="rounded-xl border border-default bg-default p-3 text-sm">
-                <div class="flex items-center justify-between gap-3">
-                  <span class="text-muted">ยอดรวมก่อนส่วนลด</span>
-                  <span class="font-medium text-highlighted">{{ formatCurrency(subtotalAmount) }}</span>
+                <div class="flex items-center gap-1">
+                  <UButton icon="i-lucide-minus" color="neutral" variant="ghost" size="xs" @click="decrementItemByKey(item.key)" />
+                  <span class="min-w-8 text-center text-sm font-medium">{{ item.quantity }}</span>
+                  <UButton icon="i-lucide-plus" color="neutral" variant="ghost" size="xs" @click="incrementItemByKey(item.key)" />
                 </div>
 
-                <div class="mt-3">
-                  <p class="mb-2 text-sm font-medium text-highlighted">ส่วนลด</p>
-                  <UInputNumber
-                    v-model="form.discountAmount"
-                    :min="0"
-                    :max="subtotalAmount"
-                    :step="1"
-                    :format-options="{ minimumFractionDigits: 0, maximumFractionDigits: 2 }"
-                    class="w-full"
-                  />
+                <div class="min-w-20 text-right text-sm font-semibold text-highlighted">
+                  {{ formatCurrency(item.totalPrice) }}
                 </div>
 
-                <div class="mt-3 flex items-center justify-between gap-3">
-                  <span class="text-muted">ส่วนลด</span>
-                  <span class="font-medium text-highlighted">-{{ formatCurrency(sanitizedDiscountAmount) }}</span>
-                </div>
+                <UButton icon="i-lucide-trash-2" color="error" variant="ghost" size="xs" @click="removeItem(item.key)" />
               </div>
             </div>
 
@@ -352,6 +318,19 @@ const openUploadedSlip = () => {
               ยังไม่ได้เลือกแพ็กเกจ
             </div>
           </div>
+        </template>
+
+        <template #discount>
+          <UFormField label="ส่วนลด">
+            <UInputNumber
+              v-model="form.discountAmount"
+              :min="0"
+              :max="subtotalAmount"
+              :step="1"
+              :format-options="{ minimumFractionDigits: 0, maximumFractionDigits: 2 }"
+              class="w-full"
+            />
+          </UFormField>
         </template>
       </PosCheckoutPanel>
     </aside>

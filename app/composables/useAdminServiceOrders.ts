@@ -1,7 +1,10 @@
 import type { PaymentMethod, PaymentStatus } from "~~/shared/types/enums";
 
 export type CreateAdminServiceOrderBody = {
-  customerId: string;
+  customerId?: string | null;
+  isWalkIn?: boolean;
+  walkInName?: string | null;
+  walkInPhone?: string | null;
   items: Array<{
     storefrontPriceId: string;
     quantity: number;
@@ -36,10 +39,10 @@ export const useAdminServiceOrders = () => {
   const createServiceOrder = async (body: CreateAdminServiceOrderBody): Promise<CreateAdminServiceOrderResult | null> => {
     try {
       const result = await $fetch<CreateAdminServiceOrderResult>("/api/admin/service-orders", { method: "POST", body });
-      notify.created("เธฃเธฒเธขเธเธฒเธฃเธเธฃเธดเธเธฒเธฃเธซเธเนเธฒเธฃเนเธฒเธ");
+      notify.created("รายการรับผ้าหน้าร้าน");
       return result;
     } catch (error: unknown) {
-      notify.error(getErrorMessage(error, "Unable to create storefront order"));
+      notify.error(getErrorMessage(error, "ไม่สามารถสร้างรายการรับผ้าหน้าร้านได้"));
       return null;
     }
   };

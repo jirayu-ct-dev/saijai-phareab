@@ -89,10 +89,10 @@ export const useAdminSales = () => {
     try {
       const result = await $fetch<CreateAdminSaleResult>("/api/admin/package-sales", { method: "POST", body });
       await refresh();
-      notify.created("เธฃเธฒเธขเธเธฒเธฃเธเธฒเธข");
+      notify.created("รายการขายแพ็กเกจ");
       return result;
     } catch (error: unknown) {
-      notify.error(getErrorMessage(error, "Unable to create sale"));
+      notify.error(getErrorMessage(error, "ไม่สามารถสร้างรายการขายแพ็กเกจได้"));
       return null;
     }
   };
@@ -101,10 +101,10 @@ export const useAdminSales = () => {
     try {
       await $fetch(`/api/admin/package-sales/${id}`, { method: "PUT", body });
       await refresh();
-      notify.updated("เธฃเธฒเธขเธเธฒเธฃเธเธฒเธข");
+      notify.updated("รายการขายแพ็กเกจ");
       return true;
     } catch (error: unknown) {
-      notify.error(getErrorMessage(error, "Unable to update sale"));
+      notify.error(getErrorMessage(error, "ไม่สามารถอัปเดตรายการขายแพ็กเกจได้"));
       return false;
     }
   };
@@ -113,10 +113,10 @@ export const useAdminSales = () => {
     try {
       await $fetch(`/api/admin/package-sales/${id}`, { method: "DELETE" });
       await refresh();
-      notify.deleted("เธฃเธฒเธขเธเธฒเธฃเธเธฒเธข");
+      notify.deleted("รายการขายแพ็กเกจ");
       return true;
     } catch (error: unknown) {
-      notify.error(getErrorMessage(error, "Unable to delete sale"));
+      notify.error(getErrorMessage(error, "ไม่สามารถลบรายการขายแพ็กเกจได้"));
       return false;
     }
   };

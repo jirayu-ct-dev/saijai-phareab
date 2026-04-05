@@ -4,9 +4,13 @@ import { requireRole } from "~~/server/utils/auth";
 import { createPaymentNo } from "~~/server/utils/paymentNo";
 import { prisma } from "~~/server/utils/prisma";
 import { createServiceOrderNo } from "~~/server/utils/serviceOrderNo";
+import { ensureWalkInCustomer } from "~~/server/utils/walkInCustomer";
 
 type CreateServiceOrderBody = {
-  customerId: string;
+  customerId?: string | null;
+  isWalkIn?: boolean;
+  walkInName?: string | null;
+  walkInPhone?: string | null;
   items: Array<{
     storefrontPriceId: string;
     quantity: number;
@@ -30,7 +34,12 @@ export default defineEventHandler(async (event) => {
   const actor = requireRole(event, ["EMPLOYEE", "ADMIN"]);
   const body = await readBody<CreateServiceOrderBody>(event);
 
-  if (!body.customerId) {
+  const isWalkIn = Boolean(body.isWalkIn);
+  const customerId = body.customerId?.trim() || null;
+  const walkInName = body.walkInName?.trim() || null;
+  const walkInPhone = body.walkInPhone?.trim() || null;
+
+  if (!isWalkIn && !customerId) {
     throw createError({ statusCode: 400, statusMessage: "กรุณาเลือกลูกค้า" });
   }
 
@@ -79,16 +88,23 @@ export default defineEventHandler(async (event) => {
   }
 
   try {
-    const customer = await prisma.user.findFirst({
-      where: {
-        id: body.customerId,
-        deletedAt: null,
-      },
-      select: { id: true },
-    });
+    let paymentUserId = customerId;
 
-    if (!customer) {
-      throw createError({ statusCode: 404, statusMessage: "ไม่พบลูกค้าที่เลือก" });
+    if (isWalkIn) {
+      const walkInCustomer = await ensureWalkInCustomer(prisma);
+      paymentUserId = walkInCustomer.id;
+    } else {
+      const customer = await prisma.user.findFirst({
+        where: {
+          id: customerId!,
+          deletedAt: null,
+        },
+        select: { id: true },
+      });
+
+      if (!customer) {
+        throw createError({ statusCode: 404, statusMessage: "ไม่พบลูกค้าที่เลือก" });
+      }
     }
 
     const priceIds = [...new Set(normalizedItems.map((item) => item.storefrontPriceId))];
@@ -156,10 +172,12 @@ export default defineEventHandler(async (event) => {
       const serviceOrder = await tx.serviceOrder.create({
         data: {
           orderNo: createServiceOrderNo(receivedAt),
-          customerId: body.customerId,
+          customerId: paymentUserId!,
           employeeId: actor.id,
           status: getServiceOrderStatus(status),
-          isWalkIn: false,
+          isWalkIn,
+          walkInName,
+          walkInPhone,
           receivedAt,
           dueAt,
           subtotalAmount,
@@ -185,7 +203,7 @@ export default defineEventHandler(async (event) => {
       const payment = await tx.paymentRecord.create({
         data: {
           paymentNo: createPaymentNo(),
-          userId: body.customerId,
+          userId: paymentUserId!,
           serviceOrderId: serviceOrder.id,
           amount: totalAmount,
           paymentMethod: body.paymentMethod,
@@ -205,6 +223,9 @@ export default defineEventHandler(async (event) => {
             hangerCharge,
             receivedAt,
             dueAt,
+            isWalkIn,
+            walkInName,
+            walkInPhone,
           },
         },
       });
@@ -225,7 +246,7 @@ export default defineEventHandler(async (event) => {
     console.error("[POST /api/admin/service-orders]", error);
     throw createError({
       statusCode: 500,
-      statusMessage: "Unable to create service order",
+      statusMessage: "ไม่สามารถสร้างรายการรับผ้าหน้าร้านได้",
     });
   }
 });

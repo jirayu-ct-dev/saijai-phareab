@@ -11,7 +11,6 @@ type ReceiptPayload = {
   paymentMethod: "CASH" | "TRANSFER";
   status: "PENDING" | "VERIFIED" | "FAILED";
   note: string | null;
-  referenceNo: string | null;
   customer: {
     id: string;
     name: string | null;
@@ -106,7 +105,7 @@ const { data, status, refresh, error } = await useFetch<ReceiptPayload>(() => `/
 });
 
 const isLoading = computed(() => status.value === "pending");
-const receiptCode = computed(() => data.value?.paymentNo || data.value?.referenceNo || `PAY-${paymentId.value.slice(-8).toUpperCase()}`);
+const receiptCode = computed(() => data.value?.paymentNo || `PAY-${paymentId.value.slice(-8).toUpperCase()}`);
 const sellerName = computed(
   () => data.value?.packageSale?.soldBy?.name ?? data.value?.serviceOrder?.employee?.name ?? data.value?.verifiedBy?.name ?? "-",
 );

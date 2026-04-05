@@ -75,6 +75,23 @@ export default defineEventHandler(async (event) => {
                   validityDays: true,
                 },
               },
+              memberEntitlements: {
+                where: {
+                  deletedAt: null,
+                },
+                include: {
+                  product: {
+                    select: {
+                      id: true,
+                      name: true,
+                      packageType: true,
+                      price: true,
+                      credits: true,
+                      validityDays: true,
+                    },
+                  },
+                },
+              },
             },
             orderBy: { createdAt: "asc" },
           },
@@ -158,6 +175,46 @@ export default defineEventHandler(async (event) => {
     },
   })) ?? [];
 
+  const packageEntitlements = payment.packageSale?.items.flatMap((item) =>
+    item.memberEntitlements.map((entitlement) => ({
+      id: entitlement.id,
+      status: entitlement.status,
+      creditInitial: entitlement.creditInitial,
+      creditRemaining: entitlement.creditRemaining,
+      startAt: entitlement.startAt?.toISOString() ?? null,
+      endAt: entitlement.endAt?.toISOString() ?? null,
+      activatedAt: entitlement.activatedAt?.toISOString() ?? null,
+      product: {
+        id: entitlement.product.id,
+        name: entitlement.product.name,
+        packageType: entitlement.product.packageType,
+        price: toNumber(entitlement.product.price),
+        credits: entitlement.product.credits,
+        validityDays: entitlement.product.validityDays,
+      },
+    })),
+  ) ?? [];
+
+  const primaryEntitlement = payment.memberEntitlement
+    ? {
+        id: payment.memberEntitlement.id,
+        status: payment.memberEntitlement.status,
+        creditInitial: payment.memberEntitlement.creditInitial,
+        creditRemaining: payment.memberEntitlement.creditRemaining,
+        startAt: payment.memberEntitlement.startAt?.toISOString() ?? null,
+        endAt: payment.memberEntitlement.endAt?.toISOString() ?? null,
+        activatedAt: payment.memberEntitlement.activatedAt?.toISOString() ?? null,
+        product: {
+          id: payment.memberEntitlement.product.id,
+          name: payment.memberEntitlement.product.name,
+          packageType: payment.memberEntitlement.product.packageType,
+          price: toNumber(payment.memberEntitlement.product.price),
+          credits: payment.memberEntitlement.product.credits,
+          validityDays: payment.memberEntitlement.product.validityDays,
+        },
+      }
+    : packageEntitlements[0] ?? null;
+
   const serviceItems = payment.serviceOrder?.serviceOrderItems.map((item) => ({
     id: item.id,
     quantity: item.quantity,
@@ -188,7 +245,6 @@ export default defineEventHandler(async (event) => {
     status: payment.status,
     paymentMethod: payment.paymentMethod,
     note: payment.note,
-    referenceNo: payment.referenceNo,
     paidAt: payment.paidAt?.toISOString() ?? null,
     verifiedAt: payment.verifiedAt?.toISOString() ?? null,
     rejectionReason: payment.rejectionReason,
@@ -197,10 +253,10 @@ export default defineEventHandler(async (event) => {
     updatedAt: payment.updatedAt.toISOString(),
     customer: {
       id: payment.user.id,
-      name: payment.user.name,
-      email: payment.user.email,
-      phoneNumber: payment.user.phoneNumber,
-      image: payment.user.image,
+      name: payment.serviceOrder?.isWalkIn ? payment.serviceOrder.walkInName || "ลูกค้าหน้าร้าน" : payment.user.name,
+      email: payment.serviceOrder?.isWalkIn ? "ลูกค้าหน้าร้าน" : payment.user.email,
+      phoneNumber: payment.serviceOrder?.isWalkIn ? payment.serviceOrder.walkInPhone : payment.user.phoneNumber,
+      image: payment.serviceOrder?.isWalkIn ? null : payment.user.image,
     },
     verifiedBy: payment.verifiedBy
       ? {
@@ -216,25 +272,8 @@ export default defineEventHandler(async (event) => {
           secureUrl: payment.slipImage.secureUrl,
         }
       : null,
-    memberEntitlement: payment.memberEntitlement
-      ? {
-          id: payment.memberEntitlement.id,
-          status: payment.memberEntitlement.status,
-          creditInitial: payment.memberEntitlement.creditInitial,
-          creditRemaining: payment.memberEntitlement.creditRemaining,
-          startAt: payment.memberEntitlement.startAt?.toISOString() ?? null,
-          endAt: payment.memberEntitlement.endAt?.toISOString() ?? null,
-          activatedAt: payment.memberEntitlement.activatedAt?.toISOString() ?? null,
-          product: {
-            id: payment.memberEntitlement.product.id,
-            name: payment.memberEntitlement.product.name,
-            packageType: payment.memberEntitlement.product.packageType,
-            price: toNumber(payment.memberEntitlement.product.price),
-            credits: payment.memberEntitlement.product.credits,
-            validityDays: payment.memberEntitlement.product.validityDays,
-          },
-        }
-      : null,
+    memberEntitlement: primaryEntitlement,
+    memberEntitlements: packageEntitlements,
     packageSale: payment.packageSale
       ? {
           id: payment.packageSale.id,

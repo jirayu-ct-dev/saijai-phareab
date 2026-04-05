@@ -17,7 +17,6 @@ export type AdminPaymentRecord = {
   updatedAt: string;
   verifiedAt: string | null;
   paidAt: string | null;
-  referenceNo: string | null;
   metadata: any | null;
   rejectionReason: string | null;
   customer: {
@@ -47,22 +46,23 @@ export type AdminPaymentRecord = {
   serviceOrder: {
     id: string | null;
     orderNo: string | null;
+    isWalkIn?: boolean;
+    walkInName?: string | null;
+    walkInPhone?: string | null;
     itemCount: number;
   } | null;
   slipImage: PaymentSlipImage | null;
 };
 
-export type CreateAdminPaymentBody = {
-  customerId: string;
-  productId: string;
-  amount: number;
-  paymentMethod: PaymentMethod;
+export type UpdateAdminPaymentBody = {
+  customerId?: string;
+  productId?: string;
+  amount?: number;
+  paymentMethod?: PaymentMethod;
   status?: PaymentStatus;
   note?: string | null;
   slipImageId?: string | null;
 };
-
-export type UpdateAdminPaymentBody = Partial<CreateAdminPaymentBody>;
 
 export const useAdminPayments = () => {
   const notify = useNotify();
@@ -77,21 +77,11 @@ export const useAdminPayments = () => {
   };
 
   const { data: payments, status, refresh } = useFetch<AdminPaymentRecord[]>("/api/admin/payments", {
+    key: "admin-payments",
     default: () => [],
   });
-  const isLoading = computed(() => status.value === "pending");
 
-  const createPayment = async (body: CreateAdminPaymentBody): Promise<boolean> => {
-    try {
-      await $fetch("/api/admin/payments", { method: "POST", body });
-      await refresh();
-      notify.created("รายการขาย package");
-      return true;
-    } catch (error: unknown) {
-      notify.error(getErrorMessage(error, "Unable to create payment"));
-      return false;
-    }
-  };
+  const isLoading = computed(() => status.value === "pending");
 
   const updatePayment = async (id: string, body: UpdateAdminPaymentBody): Promise<boolean> => {
     try {
@@ -100,7 +90,7 @@ export const useAdminPayments = () => {
       notify.updated("รายการชำระเงิน");
       return true;
     } catch (error: unknown) {
-      notify.error(getErrorMessage(error, "Unable to update payment"));
+      notify.error(getErrorMessage(error, "ไม่สามารถอัปเดตรายการชำระเงินได้"));
       return false;
     }
   };
@@ -112,7 +102,7 @@ export const useAdminPayments = () => {
       notify.deleted("รายการชำระเงิน");
       return true;
     } catch (error: unknown) {
-      notify.error(getErrorMessage(error, "Unable to delete payment"));
+      notify.error(getErrorMessage(error, "ไม่สามารถลบรายการชำระเงินได้"));
       return false;
     }
   };
@@ -127,7 +117,7 @@ export const useAdminPayments = () => {
         body: formData,
       });
     } catch (error: unknown) {
-      notify.error(getErrorMessage(error, "Unable to upload slip"));
+      notify.error(getErrorMessage(error, "ไม่สามารถอัปโหลดหลักฐานการชำระเงินได้"));
       return null;
     }
   };
@@ -136,7 +126,6 @@ export const useAdminPayments = () => {
     payments,
     isLoading,
     refresh,
-    createPayment,
     updatePayment,
     deletePayment,
     uploadSlip,

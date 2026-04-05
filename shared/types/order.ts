@@ -79,11 +79,8 @@ export interface ServiceOrderItem extends Timestamps, SoftDeletable {
 export type Order = ServiceOrder & {
   orderType?: "STOREFRONT";
   currentStatus?: ServiceOrderStatus;
-  userPackageId?: string | null;
-  userPackage?: MemberEntitlement | null;
   orderItems?: ServiceOrderItem[];
 };
 export type OrderItem = ServiceOrderItem & {
-  orderId?: string;
   order?: Order;
 };

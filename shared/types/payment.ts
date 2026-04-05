@@ -17,7 +17,6 @@ export interface PaymentRecord extends Timestamps, SoftDeletable {
   paymentMethod: PaymentMethod;
   slipImageId: string | null;
   status: PaymentStatus;
-  referenceNo: string | null;
   note: string | null;
   paidAt: Date | null;
   metadata: any | null;

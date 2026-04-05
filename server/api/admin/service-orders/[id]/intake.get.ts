@@ -99,7 +99,16 @@ export default defineEventHandler(async (event) => {
           total: Number(hangerCharge.total ?? 0),
         }
       : null,
-    customer: serviceOrder.customer,
+    customer: {
+      id: serviceOrder.customer.id,
+      name: serviceOrder.isWalkIn ? serviceOrder.walkInName || "ลูกค้าหน้าร้าน" : serviceOrder.customer.name,
+      email: serviceOrder.isWalkIn ? "ลูกค้าหน้าร้าน" : serviceOrder.customer.email,
+      phoneNumber: serviceOrder.isWalkIn ? serviceOrder.walkInPhone : serviceOrder.customer.phoneNumber,
+      image: serviceOrder.isWalkIn ? null : serviceOrder.customer.image,
+    },
+    isWalkIn: serviceOrder.isWalkIn,
+    walkInName: serviceOrder.walkInName,
+    walkInPhone: serviceOrder.walkInPhone,
     employee: serviceOrder.employee,
     items: serviceOrder.serviceOrderItems.map((item) => ({
       id: item.id,

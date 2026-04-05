@@ -75,13 +75,14 @@ const openIntakeSlip = () => {
 
 const goToPaymentPage = async () => {
   closeSaleResultModal();
+  await refreshNuxtData("admin-payments");
   await navigateTo("/admin/payment");
 };
 
 const resultDescription = computed(() =>
   latestSaleResult.saleType === "PACKAGE"
-    ? "รายการขายถูกบันทึกแล้ว คุณสามารถพิมพ์ใบเสร็จรับเงินหรือไปดูที่หน้าการชำระเงินต่อได้"
-    : "รายการรับผ้าถูกบันทึกแล้ว คุณสามารถพิมพ์ใบรับผ้าได้ทันที หรือไปดูที่หน้าการชำระเงินต่อได้",
+    ? "บันทึกรายการขายแล้ว คุณสามารถเปิดใบเสร็จหรือไปหน้าการชำระเงินต่อได้"
+    : "บันทึกรับงานแล้ว คุณสามารถเปิดใบรับผ้าหรือไปหน้าการชำระเงินต่อได้",
 );
 </script>
 
@@ -94,21 +95,30 @@ const resultDescription = computed(() =>
         </template>
 
         <template #right>
-          <UButton label="ดูประวัติชำระเงิน" icon="i-lucide-receipt" color="neutral" variant="outline" @click="navigateTo('/admin/payment')" />
+          <UButton
+            label="ดูประวัติการชำระเงิน"
+            icon="i-lucide-receipt"
+            color="neutral"
+            variant="outline"
+            @click="navigateTo('/admin/payment')"
+          />
         </template>
       </UDashboardNavbar>
     </template>
 
     <template #body>
       <div class="space-y-6">
-        <section class="rounded-2xl border border-default bg-default p-4">
-          <div class="grid gap-3 md:grid-cols-2">
+        <section class="rounded-2xl border border-default bg-default p-2 md:p-0">
+          <div class="grid md:grid-cols-2">
             <button
               v-for="option in modeOptions"
               :key="option.value"
               type="button"
-              class="rounded-2xl border p-4 text-left transition"
-              :class="activeMode === option.value ? 'border-inverted bg-neutral-100' : 'border-default bg-elevated/20 hover:border-neutral-400'"
+              class="bg-default p-4 text-left transition cursor-pointer first:rounded-t-xl last:rounded-b-xl md:first:rounded-none md:last:rounded-none"
+              :class="[
+                activeMode === option.value ? 'bg-elevated/50' : '',
+                option.value === 'storefront' ? 'border-t border-default md:border-t-0 md:border-l' : ''
+              ]"
               @click="activeMode = option.value"
             >
               <p class="font-semibold text-highlighted">{{ option.label }}</p>
@@ -125,8 +135,8 @@ const resultDescription = computed(() =>
 
   <UModal v-model:open="saleResultModalOpen" :title="latestSaleResult.title" :description="resultDescription">
     <template #body>
-      <div class="rounded-xl border border-default bg-neutral-50 p-4 text-sm text-toned">
-        <p class="font-medium text-highlighted">เลขอ้างอิงการชำระเงิน</p>
+      <div class="rounded-xl border border-default bg-default p-4 text-sm text-toned">
+        <p class="font-medium text-highlighted">รหัสรายการชำระเงิน</p>
         <p class="mt-1 break-all font-mono text-xs text-muted">{{ latestSaleResult.paymentId }}</p>
 
         <div v-if="latestSaleResult.saleType === 'STOREFRONT' && latestSaleResult.orderNo" class="mt-3 border-t border-default pt-3">
@@ -142,13 +152,13 @@ const resultDescription = computed(() =>
         <UButton label="ไปหน้าการชำระเงิน" color="neutral" variant="outline" icon="i-lucide-arrow-right" @click="goToPaymentPage" />
         <UButton
           v-if="latestSaleResult.saleType === 'STOREFRONT'"
-          label="พิมพ์ใบรับผ้า"
+          label="เปิดใบรับผ้า"
           color="neutral"
           variant="outline"
           icon="i-lucide-ticket"
           @click="openIntakeSlip"
         />
-        <UButton label="พิมพ์ใบเสร็จ" color="neutral" icon="i-lucide-printer" @click="openReceipt" />
+        <UButton label="เปิดใบเสร็จ" color="neutral" icon="i-lucide-printer" @click="openReceipt" />
       </div>
     </template>
   </UModal>
