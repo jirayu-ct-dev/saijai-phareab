@@ -1,266 +1,274 @@
 <script setup lang="ts">
-import { computed } from "vue";
-import { packageTypeColors, packageTypeLabels } from "~~/shared/config/packageConfig";
-import { paymentStatusLabels } from "~~/shared/config/paymentConfig";
-import { formatCurrency, formatDateTime } from "~~/shared/utils/format";
+import { packageTypeColors, packageTypeLabels } from '~~/shared/config/packageConfig'
+import { paymentStatusLabels, paymentStatusColors } from '~~/shared/config/paymentConfig'
+import { orderStatusLabels, orderStatusColors } from '~~/shared/config/orderConfig'
+import { formatCurrency, formatDateTime } from '~~/shared/utils/format'
 import type {
   EntitlementStatus,
   PackageSaleStatus,
   PaymentMethod,
   PaymentStatus,
   Role,
-  ServiceOrderStatus,
-} from "~~/shared/types/enums";
+  ServiceOrderStatus
+} from '~~/shared/types/enums'
 
 definePageMeta({
-  layout: "admin",
-  middleware: ["role-admin"],
-});
+  layout: 'admin',
+  middleware: ['role-admin']
+})
+
+type BadgeColor = 'error' | 'primary' | 'secondary' | 'success' | 'info' | 'warning' | 'neutral'
+type InfoRow = { label: string; value: string; valueClass?: string }
 
 type UserDetailResponse = {
   user: {
-    id: string;
-    email: string;
-    name: string | null;
-    image: string | null;
-    role: Role;
-    phoneNumber: string | null;
-    emailVerified: boolean;
-    createdAt: string;
-    updatedAt: string;
-    lineUserId: string | null;
-  };
+    id: string
+    email: string
+    name: string | null
+    image: string | null
+    role: Role
+    phoneNumber: string | null
+    emailVerified: boolean
+    createdAt: string
+    updatedAt: string
+    lineUserId: string | null
+  }
   stats: {
-    activeEntitlementCount: number;
-    totalEntitlementCount: number;
-    totalCreditsRemaining: number;
-    totalCreditsUsed: number;
-    totalPackageSales: number;
-    totalPayments: number;
-    totalServiceOrders: number;
-    totalSpent: number;
-  };
+    activeEntitlementCount: number
+    totalEntitlementCount: number
+    totalCreditsRemaining: number
+    totalCreditsUsed: number
+    totalPackageSales: number
+    totalPayments: number
+    totalServiceOrders: number
+    totalSpent: number
+  }
   memberEntitlements: Array<{
-    id: string;
-    status: EntitlementStatus;
-    creditInitial: number | null;
-    creditRemaining: number | null;
-    creditUsed: number;
-    startAt: string | null;
-    endAt: string | null;
-    activatedAt: string | null;
-    suspendedAt: string | null;
-    createdAt: string;
+    id: string
+    status: EntitlementStatus
+    creditInitial: number | null
+    creditRemaining: number | null
+    creditUsed: number
+    startAt: string | null
+    endAt: string | null
+    activatedAt: string | null
+    suspendedAt: string | null
+    createdAt: string
     product: {
-      id: string;
-      name: string;
-      packageType: "MAIN" | "ADDON";
-      credits: number | null;
-      validityDays: number | null;
-      price: number;
-    };
+      id: string
+      name: string
+      packageType: 'MAIN' | 'ADDON'
+      credits: number | null
+      validityDays: number | null
+      price: number
+    }
     sourceSale: {
-      id: string;
-      createdAt: string;
-    } | null;
-  }>;
+      id: string
+      createdAt: string
+    } | null
+  }>
   recentPayments: Array<{
-    id: string;
-    amount: number;
-    paymentMethod: PaymentMethod;
-    status: PaymentStatus;
-    note: string | null;
-    createdAt: string;
-    paidAt: string | null;
+    id: string
+    amount: number
+    paymentMethod: PaymentMethod
+    status: PaymentStatus
+    note: string | null
+    createdAt: string
+    paidAt: string | null
     packageSale: {
-      id: string;
+      id: string
       items: Array<{
-        id: string;
-        quantity: number;
-        totalPrice: number;
+        id: string
+        quantity: number
+        totalPrice: number
         product: {
-          id: string;
-          name: string;
-          packageType: "MAIN" | "ADDON";
-        };
-      }>;
-    } | null;
+          id: string
+          name: string
+          packageType: 'MAIN' | 'ADDON'
+        }
+      }>
+    } | null
     serviceOrder: {
-      id: string;
-      status: ServiceOrderStatus;
-    } | null;
-  }>;
+      id: string
+      status: ServiceOrderStatus
+    } | null
+  }>
   recentSales: Array<{
-    id: string;
-    status: PackageSaleStatus;
-    totalAmount: number;
-    note: string | null;
-    createdAt: string;
+    id: string
+    status: PackageSaleStatus
+    totalAmount: number
+    note: string | null
+    createdAt: string
     items: Array<{
-      id: string;
-      quantity: number;
-      totalPrice: number;
+      id: string
+      quantity: number
+      totalPrice: number
       product: {
-        id: string;
-        name: string;
-        packageType: "MAIN" | "ADDON";
-      };
-    }>;
-    payment: {
-      id: string;
-      amount: number;
-      paymentMethod: PaymentMethod;
-      status: PaymentStatus;
-      createdAt: string;
-    } | null;
-  }>;
+        id: string
+        name: string
+        packageType: 'MAIN' | 'ADDON'
+      }
+    }>
+  }>
   recentServiceOrders: Array<{
-    id: string;
-    status: ServiceOrderStatus;
-    creditUsed: number | null;
-    totalAmount: number | null;
-    note: string | null;
-    createdAt: string;
+    id: string
+    status: ServiceOrderStatus
+    creditUsed: number | null
+    totalAmount: number | null
+    createdAt: string
     memberEntitlement: {
-      id: string;
+      id: string
       product: {
-        id: string;
-        name: string;
-      };
-    } | null;
+        id: string
+        name: string
+      }
+    } | null
     items: Array<{
-      id: string;
-      quantity: number;
-      totalPrice: number;
-      isPackageIncluded: boolean;
-      label: string;
-    }>;
-  }>;
-};
+      id: string
+      quantity: number
+      totalPrice: number
+      isPackageIncluded: boolean
+      label: string
+    }>
+  }>
+}
 
-const route = useRoute();
-const userId = computed(() => String(route.params.id));
+const route = useRoute()
+const userId = computed(() => String(route.params.id))
 
 const { data, status, refresh, error } = await useFetch<UserDetailResponse>(
   () => `/api/admin/users/${userId.value}`,
   {
-    key: () => `admin-user-detail-${userId.value}`,
-  },
-);
+    key: () => `admin-user-detail-${userId.value}`
+  }
+)
 
-const isLoading = computed(() => status.value === "pending");
-const user = computed(() => data.value?.user ?? null);
-const stats = computed(() => data.value?.stats ?? null);
+const isLoading = computed(() => status.value === 'pending')
+const user = computed(() => data.value?.user ?? null)
+const stats = computed(() => data.value?.stats ?? null)
+const entitlements = computed(() => data.value?.memberEntitlements ?? [])
+const recentPayments = computed(() => data.value?.recentPayments ?? [])
+const recentSales = computed(() => data.value?.recentSales ?? [])
+const recentServiceOrders = computed(() => data.value?.recentServiceOrders ?? [])
 
 const roleLabelMap: Record<Role, string> = {
-  USER: "ผู้ใช้",
-  EMPLOYEE: "พนักงาน",
-  ADMIN: "แอดมิน",
-};
+  USER: 'ผู้ใช้งาน',
+  EMPLOYEE: 'พนักงาน',
+  ADMIN: 'แอดมิน'
+}
 
-const entitlementStatusMap: Record<
-  EntitlementStatus,
-  { label: string; color: "success" | "warning" | "neutral" | "error" }
-> = {
-  ACTIVE: { label: "ใช้งานอยู่", color: "success" },
-  PENDING: { label: "รอเปิดใช้งาน", color: "warning" },
-  SUSPENDED: { label: "ระงับ", color: "neutral" },
-  EXPIRED: { label: "หมดอายุ", color: "neutral" },
-  CANCELLED: { label: "ยกเลิก", color: "error" },
-};
+const entitlementStatusMap: Record<EntitlementStatus, { label: string; color: BadgeColor }> = {
+  ACTIVE: { label: 'ใช้งานอยู่', color: 'success' },
+  PENDING: { label: 'รอเปิดใช้งาน', color: 'warning' },
+  SUSPENDED: { label: 'ระงับ', color: 'neutral' },
+  EXPIRED: { label: 'หมดอายุ', color: 'neutral' },
+  CANCELLED: { label: 'ยกเลิก', color: 'error' }
+}
 
-const saleStatusMap: Record<
-  PackageSaleStatus,
-  { label: string; color: "success" | "warning" | "neutral" | "error" }
-> = {
-  PAID: { label: "ชำระแล้ว", color: "success" },
-  PENDING: { label: "รอชำระ", color: "warning" },
-  DRAFT: { label: "ฉบับร่าง", color: "neutral" },
-  CANCELLED: { label: "ยกเลิก", color: "error" },
-};
-
-const orderStatusMap: Record<
-  ServiceOrderStatus,
-  { label: string; color: "success" | "warning" | "neutral" | "error" | "info" }
-> = {
-  RECEIVED: { label: "รับงานแล้ว", color: "info" },
-  PENDING: { label: "รอดำเนินการ", color: "warning" },
-  CHECKING: { label: "กำลังตรวจสอบ", color: "info" },
-  PROCESSING: { label: "กำลังดำเนินการ", color: "warning" },
-  PENDING_REVIEW: { label: "รอตรวจทาน", color: "warning" },
-  COMPLETED: { label: "เสร็จสิ้น", color: "success" },
-  CANCELLED: { label: "ยกเลิก", color: "error" },
-};
+const saleStatusMap: Record<PackageSaleStatus, { label: string; color: BadgeColor }> = {
+  PAID: { label: 'ชำระแล้ว', color: 'success' },
+  PENDING: { label: 'รอชำระ', color: 'warning' },
+  DRAFT: { label: 'ฉบับร่าง', color: 'neutral' },
+  CANCELLED: { label: 'ยกเลิก', color: 'error' }
+}
 
 const paymentMethodLabelMap: Record<PaymentMethod, string> = {
-  CASH: "เงินสด",
-  TRANSFER: "โอน",
-};
+  CASH: 'เงินสด',
+  TRANSFER: 'โอน'
+}
 
-const paymentStatusColorMap: Record<PaymentStatus, "success" | "warning" | "error"> = {
-  PENDING: "warning",
-  VERIFIED: "success",
-  FAILED: "error",
-};
+const getAvatarProps = (target?: UserDetailResponse['user'] | null) => ({
+  as: { img: 'img' },
+  src: target?.image || '',
+  alt: target?.name || target?.email || 'ลูกค้า',
+  loading: 'lazy' as const
+})
 
-const activeEntitlements = computed(() =>
-  (data.value?.memberEntitlements ?? []).filter((entitlement) => entitlement.status === "ACTIVE"),
-);
+const hasMembership = computed(() => entitlements.value.some((e) => e.status === 'ACTIVE'))
 
-const inactiveEntitlements = computed(() =>
-  (data.value?.memberEntitlements ?? []).filter((entitlement) => entitlement.status !== "ACTIVE"),
-);
+const customerRows = computed<InfoRow[]>(() => {
+  if (!user.value) return []
 
-const summaryCards = computed(() => {
-  if (!stats.value) return [];
+  return [
+    { label: 'ชื่อ', value: user.value.name || '-' },
+    { label: 'อีเมล', value: user.value.email, valueClass: 'break-all' },
+    { label: 'เบอร์โทร', value: user.value.phoneNumber || '-' },
+    { label: 'LINE User ID', value: user.value.lineUserId || '-', valueClass: 'break-all font-mono text-xs' },
+    { label: 'สิทธิ์', value: roleLabelMap[user.value.role] },
+    { label: 'สถานะอีเมล', value: user.value.emailVerified ? 'ยืนยันแล้ว' : 'รอยืนยัน' },
+    { label: 'สมัครเมื่อ', value: formatDateTime(user.value.createdAt) },
+    { label: 'อัปเดตล่าสุด', value: formatDateTime(user.value.updatedAt) }
+  ]
+})
+
+const customerRowsLeft = computed(() => customerRows.value.slice(0, Math.ceil(customerRows.value.length / 2)))
+const customerRowsRight = computed(() => customerRows.value.slice(Math.ceil(customerRows.value.length / 2)))
+
+const statCards = computed(() => {
+  if (!stats.value) return []
+
+  const s = stats.value
 
   return [
     {
-      label: "แพ็กเกจที่ใช้งาน",
-      value: String(stats.value.activeEntitlementCount),
-      hint: `ทั้งหมด ${stats.value.totalEntitlementCount} รายการ`,
+      title: 'แพ็กเกจที่ใช้งานอยู่',
+      icon: 'i-lucide-package-check',
+      value: String(s.activeEntitlementCount),
+      hint: `สิทธิ์ทั้งหมด ${s.totalEntitlementCount}`
     },
     {
-      label: "เครดิตคงเหลือ",
-      value: String(stats.value.totalCreditsRemaining),
-      hint: `ใช้ไป ${stats.value.totalCreditsUsed}`,
+      title: 'เครดิตคงเหลือ',
+      icon: 'i-lucide-coins',
+      value: String(s.totalCreditsRemaining),
+      hint: `ใช้ไป ${s.totalCreditsUsed}`
     },
     {
-      label: "ยอดชำระสะสม",
-      value: formatCurrency(stats.value.totalSpent),
-      hint: `${stats.value.totalPayments} รายการชำระเงิน`,
+      title: 'ยอดชำระสะสม',
+      icon: 'i-lucide-banknote',
+      value: formatCurrency(s.totalSpent),
+      hint: `${s.totalPayments} รายการชำระเงิน`,
+      to: '/admin/payment'
     },
     {
-      label: "ประวัติการใช้งาน",
-      value: String(stats.value.totalServiceOrders),
-      hint: `${stats.value.totalPackageSales} รายการขายแพ็กเกจ`,
-    },
-  ];
-});
+      title: 'รายการผ้าทั้งหมด',
+      icon: 'i-lucide-clipboard-list',
+      value: String(s.totalServiceOrders),
+      hint: `${s.totalPackageSales} รายการขายแพ็กเกจ`,
+      to: '/admin/service-orders'
+    }
+  ]
+})
 
-const packageSaleSummary = (payment: UserDetailResponse["recentPayments"][number]) => {
-  if (payment.packageSale) {
-    return payment.packageSale.items.map((item) => `${item.product.name} x${item.quantity}`).join(", ");
+const paymentSummary = (payment: UserDetailResponse['recentPayments'][number]) => {
+  if (payment.packageSale?.items.length) {
+    return payment.packageSale.items.map((item) => `${item.product.name} x${item.quantity}`).join(', ')
   }
 
-  return `งานซัก ${payment.serviceOrder?.id || ""}`.trim();
-};
+  if (payment.serviceOrder) {
+    const order = recentServiceOrders.value.find((o) => o.id === payment.serviceOrder?.id)
+    if (order) {
+      const total = order.items.reduce((sum, item) => sum + item.quantity, 0)
+      return `ส่งซักทั้งหมด ${total} ชิ้น`
+    }
+    return 'รายการผ้า'
+  }
 
-const saleItemSummary = (sale: UserDetailResponse["recentSales"][number]) =>
-  sale.items.map((item) => `${item.product.name} x${item.quantity}`).join(", ");
+  return '-'
+}
 
-const serviceOrderSummary = (order: UserDetailResponse["recentServiceOrders"][number]) =>
-  order.items.map((item) => `${item.label} x${item.quantity}`).join(", ");
+const saleSummary = (sale: UserDetailResponse['recentSales'][number]) =>
+  sale.items.map((item) => `${item.product.name} x${item.quantity}`).join(', ')
 
-const formatValidity = (days: number | null) => (days ? `${days} วัน` : "ไม่กำหนดอายุ");
+const formatOrderTotal = (amount: number | null) => (amount != null ? formatCurrency(amount) : '-')
 
-const formatOrderTotal = (amount: number | null) => (amount != null ? formatCurrency(amount) : "-");
+const orderItemCount = (order: UserDetailResponse['recentServiceOrders'][number]) =>
+  order.items.reduce((sum, item) => sum + item.quantity, 0)
 </script>
 
 <template>
   <UDashboardPanel id="user-detail">
     <template #header>
-      <UDashboardNavbar :title="user?.name || user?.email || 'รายละเอียดสมาชิก'" icon="i-lucide-user-round">
+      <UDashboardNavbar :title="user?.name || user?.email || 'รายละเอียดลูกค้า'" icon="i-lucide-user-round">
         <template #leading>
           <UDashboardSidebarCollapse class="hidden lg:inline-flex" />
         </template>
@@ -268,7 +276,7 @@ const formatOrderTotal = (amount: number | null) => (amount != null ? formatCurr
         <template #right>
           <div class="flex items-center gap-2">
             <UButton
-              label="กลับหน้าผู้ใช้"
+              label="กลับหน้าลูกค้า"
               icon="i-lucide-arrow-left"
               color="neutral"
               variant="outline"
@@ -279,7 +287,7 @@ const formatOrderTotal = (amount: number | null) => (amount != null ? formatCurr
               color="neutral"
               variant="outline"
               :loading="isLoading"
-              @click="() => refresh()"
+              @click="refresh()"
             />
           </div>
         </template>
@@ -287,300 +295,249 @@ const formatOrderTotal = (amount: number | null) => (amount != null ? formatCurr
     </template>
 
     <template #body>
+      <!-- Error State -->
       <div v-if="error" class="rounded-2xl border border-error/40 bg-error/5 p-6 text-error">
-        {{ error.statusMessage || "ไม่สามารถโหลดรายละเอียดสมาชิกได้" }}
+        {{ error.statusMessage || 'ไม่สามารถโหลดรายละเอียดลูกค้าได้' }}
       </div>
 
+      <!-- Loading State -->
       <div v-else-if="!user || !stats" class="flex items-center justify-center py-20 text-muted">
         กำลังโหลดข้อมูล...
       </div>
 
-      <div v-else class="mx-auto flex w-full max-w-7xl flex-col gap-6">
-        <section class="rounded-3xl border border-default bg-gradient-to-br from-default via-default to-elevated/30 p-6 shadow-sm lg:p-8">
-          <div class="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
-            <div class="flex items-start gap-4">
-              <UAvatar :src="user.image || undefined" :alt="user.name || user.email" size="3xl" />
-
-              <div class="min-w-0 space-y-3">
+      <!-- Main Content -->
+      <div v-else class="space-y-6">
+        <!-- ═══════════════════════════════════════════
+             SECTION 1: Profile Header
+             ═══════════════════════════════════════════ -->
+        <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div class="flex items-center gap-4">
+            <UAvatar v-bind="getAvatarProps(user)" size="xl" />
+            <div class="min-w-0">
                 <div class="flex flex-wrap items-center gap-2">
-                  <h2 class="text-2xl font-semibold text-highlighted">
-                    {{ user.name || "ไม่ระบุชื่อ" }}
-                  </h2>
-                  <UBadge color="neutral" variant="subtle">
-                    {{ roleLabelMap[user.role] }}
-                  </UBadge>
-                  <UBadge :color="user.emailVerified ? 'success' : 'warning'" variant="subtle">
-                    {{ user.emailVerified ? "ยืนยันอีเมลแล้ว" : "รอยืนยันอีเมล" }}
+                  <h1 class="truncate text-xl font-bold text-highlighted">
+                  {{ user.name || user.email || '-' }}
+                </h1>
+                <UBadge v-if="hasMembership" color="primary" variant="subtle">
+                  <UIcon name="i-lucide-crown" class="size-3" />
+                    ลูกค้ารายเดือน
                   </UBadge>
                 </div>
-
-                <p class="text-sm text-muted break-all">
-                  {{ user.email }}
-                </p>
-
-                <div class="flex flex-wrap gap-2 text-sm text-muted">
-                  <span class="rounded-full border border-default px-3 py-1">
-                    โทร {{ user.phoneNumber || "-" }}
-                  </span>
-                  <span class="rounded-full border border-default px-3 py-1">
-                    LINE {{ user.lineUserId || "-" }}
-                  </span>
-                  <span class="rounded-full border border-default px-3 py-1">
-                    สมัครเมื่อ {{ formatDateTime(user.createdAt) }}
-                  </span>
+                <p class="mt-0.5 text-sm text-muted break-all">{{ user.email }}</p>
+                <div class="mt-2 flex flex-wrap items-center gap-1.5">
+                  <UBadge color="neutral" variant="subtle" size="md">{{ roleLabelMap[user.role] }}</UBadge>
+                  <UBadge :color="user.emailVerified ? 'success' : 'warning'" variant="subtle" size="md">
+                    {{ user.emailVerified ? 'ยืนยันอีเมลแล้ว' : 'รอยืนยันอีเมล' }}
+                  </UBadge>
+                  <UBadge color="neutral" variant="outline" size="md" class="font-mono">
+                    ID: {{ user.id }}
+                  </UBadge>
                 </div>
-              </div>
-            </div>
-
-            <div class="grid w-full gap-3 sm:grid-cols-2 xl:w-[34rem]">
-              <div
-                v-for="card in summaryCards"
-                :key="card.label"
-                class="rounded-2xl border border-default bg-default/80 p-4"
-              >
-                <p class="text-sm text-muted">{{ card.label }}</p>
-                <p class="mt-2 text-2xl font-semibold text-highlighted">{{ card.value }}</p>
-                <p class="mt-1 text-xs text-muted">{{ card.hint }}</p>
-              </div>
             </div>
           </div>
-        </section>
+          <UIButtonChatLine
+            :line-user-id="user.lineUserId"
+            label="แชท LINE"
+            size="sm"
+          />
+        </div>
 
-        <section class="grid gap-6 xl:grid-cols-[minmax(0,1.1fr)_minmax(320px,0.9fr)]">
-          <div class="rounded-3xl border border-default bg-default p-6 shadow-sm">
-            <div class="flex items-center justify-between gap-3">
-              <div>
-                <h3 class="text-lg font-semibold text-highlighted">แพ็กเกจที่ใช้งานอยู่</h3>
-                <p class="text-sm text-muted">ดูเครดิตคงเหลือ สถานะ และวันหมดอายุของสมาชิก</p>
+        <!-- ═══════════════════════════════════════════
+             SECTION 2: Stats Grid  (kept as-is)
+             ═══════════════════════════════════════════ -->
+        <UPageGrid class="grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6 lg:grid-cols-4 lg:gap-px">
+          <UPageCard
+            v-for="card in statCards"
+            :key="card.title"
+            :icon="card.icon"
+            :title="card.title"
+            :to="card.to"
+            variant="subtle"
+            :ui="{
+              container: 'gap-y-1.5',
+              wrapper: 'items-start',
+              leading: 'p-2.5 rounded-full bg-primary/10 ring ring-inset ring-primary/25 flex-col',
+              title: 'font-normal text-muted text-sm'
+            }"
+            class="lg:rounded-none first:rounded-l-lg last:rounded-r-lg hover:z-1"
+          >
+            <div class="flex flex-col gap-1">
+              <span class="text-2xl font-semibold text-highlighted">
+                {{ card.value }}
+              </span>
+              <p class="text-sm text-muted">
+                {{ card.hint }}
+              </p>
+            </div>
+          </UPageCard>
+        </UPageGrid>
+
+        <!-- ═══════════════════════════════════════════
+             SECTION 3: ข้อมูลลูกค้า + แพ็กเกจ (2-col)
+             ═══════════════════════════════════════════ -->
+        <div class="grid gap-5 lg:grid-cols-[1fr_1fr]">
+          <!-- ── ข้อมูลทั่วไป ── -->
+          <UCard :ui="{ root: 'rounded-2xl border border-default shadow-none', body: 'p-5' }">
+            <p class="text-base font-semibold text-highlighted mb-4">ข้อมูลทั่วไป</p>
+            <!-- Mobile: single column -->
+            <dl class="space-y-3 md:hidden">
+              <div v-for="row in customerRows" :key="row.label" class="flex items-baseline justify-between gap-4">
+                <dt class="text-sm text-muted whitespace-nowrap">{{ row.label }}</dt>
+                <dd class="text-right text-sm text-highlighted" :class="row.valueClass">{{ row.value }}</dd>
               </div>
-              <UBadge color="success" variant="subtle">
-                {{ activeEntitlements.length }} ใช้งานอยู่
+            </dl>
+            <!-- Desktop: 2 columns with dashed divider -->
+            <div class="hidden md:grid grid-cols-[1fr_auto_1fr] gap-0">
+              <dl class="space-y-3 pr-5">
+                <div v-for="row in customerRowsLeft" :key="row.label" class="flex items-baseline justify-between gap-4">
+                  <dt class="text-sm text-muted whitespace-nowrap">{{ row.label }}</dt>
+                  <dd class="text-sm text-right text-highlighted" :class="row.valueClass">{{ row.value }}</dd>
+                </div>
+              </dl>
+              <div class="border-l border-dashed border-default" />
+              <dl class="space-y-3 pl-5">
+                <div v-for="row in customerRowsRight" :key="row.label" class="flex items-baseline justify-between gap-4">
+                  <dt class="text-sm text-muted whitespace-nowrap">{{ row.label }}</dt>
+                  <dd class="text-sm text-right text-highlighted" :class="row.valueClass">{{ row.value }}</dd>
+                </div>
+              </dl>
+            </div>
+          </UCard>
+
+          <!-- ── แพ็กเกจ ── -->
+          <UCard :ui="{ root: 'rounded-2xl border border-default shadow-none', body: 'p-5' }">
+            <div class="flex items-center justify-between gap-3 mb-4">
+              <p class="text-base font-semibold text-highlighted">แพ็กเกจ</p>
+              <UBadge color="neutral" variant="subtle" size="sm">
+                {{ entitlements.length }} รายการ
               </UBadge>
             </div>
 
-            <div v-if="activeEntitlements.length" class="mt-5 space-y-3">
+            <div v-if="entitlements.length" class="divide-y divide-default">
               <div
-                v-for="entitlement in activeEntitlements"
+                v-for="entitlement in entitlements"
                 :key="entitlement.id"
-                class="rounded-2xl border border-default bg-elevated/15 p-4"
+                class="flex items-start gap-3 py-3 first:pt-0 last:pb-0"
               >
-                <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-                  <div class="min-w-0">
-                    <div class="flex flex-wrap items-center gap-2">
-                      <p class="font-semibold text-highlighted">{{ entitlement.product.name }}</p>
-                      <UBadge :color="packageTypeColors[entitlement.product.packageType]" variant="subtle">
-                        {{ packageTypeLabels[entitlement.product.packageType] }}
-                      </UBadge>
-                      <UBadge :color="entitlementStatusMap[entitlement.status].color" variant="subtle">
-                        {{ entitlementStatusMap[entitlement.status].label }}
-                      </UBadge>
-                    </div>
-                    <p class="mt-1 text-sm text-muted">
-                      ราคา {{ formatCurrency(entitlement.product.price) }} • อายุ {{ formatValidity(entitlement.product.validityDays) }}
-                    </p>
+                <div class="min-w-0 flex-1">
+                  <div class="flex flex-wrap items-center gap-1.5">
+                    <p class="text-highlighted truncate">{{ entitlement.product.name }}</p>
+                    <UBadge :color="packageTypeColors[entitlement.product.packageType]" variant="subtle" size="sm">
+                      {{ packageTypeLabels[entitlement.product.packageType] }}
+                    </UBadge>
                   </div>
+                  <p class="mt-1 text-sm text-muted">
+                    เครดิต {{ entitlement.creditRemaining ?? 0 }}/{{ entitlement.creditInitial ?? 0 }}
+                    · ราคา {{ formatCurrency(entitlement.product.price) }}
+                    <template v-if="entitlement.endAt"> · หมดอายุ {{ formatDateTime(entitlement.endAt) }}</template>
+                  </p>
+                </div>
+                <UBadge :color="entitlementStatusMap[entitlement.status].color" variant="subtle" size="sm">
+                  {{ entitlementStatusMap[entitlement.status].label }}
+                </UBadge>
+              </div>
+            </div>
+            <p v-else class="text-sm text-muted py-4 text-center">ยังไม่มีแพ็กเกจ</p>
+          </UCard>
+        </div>
 
-                  <div class="grid grid-cols-2 gap-2 text-sm sm:min-w-[18rem]">
-                    <div class="rounded-xl border border-default bg-default p-3">
-                      <p class="text-xs text-muted">เครดิตเริ่มต้น</p>
-                      <p class="mt-1 font-medium text-highlighted">{{ entitlement.creditInitial ?? 0 }}</p>
-                    </div>
-                    <div class="rounded-xl border border-default bg-default p-3">
-                      <p class="text-xs text-muted">เครดิตคงเหลือ</p>
-                      <p class="mt-1 font-medium text-highlighted">{{ entitlement.creditRemaining ?? 0 }}</p>
-                    </div>
-                    <div class="rounded-xl border border-default bg-default p-3">
-                      <p class="text-xs text-muted">ใช้ไป</p>
-                      <p class="mt-1 font-medium text-highlighted">{{ entitlement.creditUsed }}</p>
-                    </div>
-                    <div class="rounded-xl border border-default bg-default p-3">
-                      <p class="text-xs text-muted">หมดอายุ</p>
-                      <p class="mt-1 font-medium text-highlighted">
-                        {{ entitlement.endAt ? formatDateTime(entitlement.endAt) : "-" }}
-                      </p>
-                    </div>
+        <!-- ═══════════════════════════════════════════
+             SECTION 4: กิจกรรมล่าสุด (3-col)
+             ═══════════════════════════════════════════ -->
+        <div class="grid gap-5 lg:grid-cols-3">
+
+          <!-- ── การซื้อแพ็กเกจ ── -->
+          <UCard :ui="{ root: 'rounded-2xl border border-default shadow-none', body: 'p-5' }">
+            <div class="flex items-center justify-between gap-2 mb-4">
+              <div class="flex items-center gap-2">
+                <p class="text-base font-semibold text-highlighted">การซื้อแพ็กเกจ</p>
+                <UBadge color="neutral" variant="subtle" size="sm">{{ recentSales.length }} รายการ</UBadge>
+              </div>
+              <UButton label="ดูทั้งหมด" icon="i-lucide-arrow-up-right" color="neutral" variant="ghost" size="xs" @click="navigateTo('/admin/sales')" />
+            </div>
+
+            <div v-if="recentSales.length" class="divide-y divide-default">
+              <div v-for="sale in recentSales" :key="sale.id" class="group cursor-pointer py-3 first:pt-0 last:pb-0 hover:bg-elevated/50 -mx-2 px-2 rounded-lg transition-colors" @click="navigateTo(`/admin/sales`)">
+                <div class="flex items-center justify-between gap-2">
+                  <div class="flex items-center gap-2">
+                    <p class="text-highlighted">{{ saleSummary(sale) }}</p>
                   </div>
+                  <div class="flex items-center gap-2">
+                    <span class="text-highlighted">{{ formatCurrency(sale.totalAmount) }}</span>
+                    <UIcon name="i-lucide-arrow-up-right" class="size-4 text-muted" />
+                  </div>
+                </div>
+                <div class="flex items-center justify-between gap-2">
+                  <span class="text-sm text-muted text-right">{{ saleStatusMap[sale.status].label }}</span>
+                  <p class="mt-1 text-sm text-muted text-right">{{ formatDateTime(sale.createdAt) }}</p>
                 </div>
               </div>
             </div>
+            <p v-else class="text-sm text-muted py-6 text-center">ยังไม่มีประวัติ</p>
+          </UCard>
 
-            <div v-else class="mt-5 rounded-2xl border border-dashed border-default p-8 text-center text-muted">
-              ยังไม่มีแพ็กเกจที่ใช้งานอยู่
-            </div>
-          </div>
-
-          <div class="rounded-3xl border border-default bg-default p-6 shadow-sm">
-            <div class="flex items-center justify-between gap-3">
-              <div>
-                <h3 class="text-lg font-semibold text-highlighted">ภาพรวมสมาชิก</h3>
-                <p class="text-sm text-muted">ข้อมูลติดต่อและสิทธิ์ที่ไม่ได้ใช้งานแล้ว</p>
+          <!-- ── งานบริการ ── -->
+          <UCard :ui="{ root: 'rounded-2xl border border-default shadow-none', body: 'p-5' }">
+            <div class="flex items-center justify-between gap-2 mb-4">
+              <div class="flex items-center gap-2">
+                <p class="text-base font-semibold text-highlighted">รายการผ้า</p>
+                <UBadge color="neutral" variant="subtle" size="sm">{{ stats.totalServiceOrders }} งาน</UBadge>
               </div>
-              <UBadge color="neutral" variant="subtle">
-                ทั้งหมด {{ data?.memberEntitlements.length || 0 }} สิทธิ์
-              </UBadge>
+              <UButton label="ดูทั้งหมด" icon="i-lucide-arrow-up-right" color="neutral" variant="ghost" size="xs" @click="navigateTo('/admin/service-orders')" />
             </div>
 
-            <div class="mt-5 grid gap-3">
-              <div class="rounded-2xl border border-default bg-elevated/15 p-4">
-                <p class="text-xs text-muted">อีเมล</p>
-                <p class="mt-1 break-all font-medium text-highlighted">{{ user.email }}</p>
-              </div>
-              <div class="rounded-2xl border border-default bg-elevated/15 p-4">
-                <p class="text-xs text-muted">เบอร์โทร</p>
-                <p class="mt-1 font-medium text-highlighted">{{ user.phoneNumber || "-" }}</p>
-              </div>
-              <div class="rounded-2xl border border-default bg-elevated/15 p-4">
-                <p class="text-xs text-muted">LINE User ID</p>
-                <p class="mt-1 break-all font-medium text-highlighted">{{ user.lineUserId || "-" }}</p>
-              </div>
-            </div>
-
-            <div v-if="inactiveEntitlements.length" class="mt-6">
-              <div class="mb-3 flex items-center justify-between gap-2">
-                <h4 class="font-medium text-highlighted">สิทธิ์อื่น ๆ</h4>
-                <span class="text-xs text-muted">{{ inactiveEntitlements.length }} รายการ</span>
-              </div>
-              <div class="space-y-2">
-                <div
-                  v-for="entitlement in inactiveEntitlements"
-                  :key="entitlement.id"
-                  class="flex items-start justify-between gap-3 rounded-2xl border border-default bg-default p-4"
-                >
-                  <div class="min-w-0">
-                    <p class="truncate font-medium text-highlighted">{{ entitlement.product.name }}</p>
-                    <p class="mt-1 text-sm text-muted">
-                      คงเหลือ {{ entitlement.creditRemaining ?? 0 }} • หมดอายุ {{ entitlement.endAt ? formatDateTime(entitlement.endAt) : "-" }}
-                    </p>
+            <div v-if="recentServiceOrders.length" class="divide-y divide-default">
+              <div v-for="order in recentServiceOrders" :key="order.id" class="group cursor-pointer py-3 first:pt-0 last:pb-0 hover:bg-elevated/50 -mx-2 px-2 rounded-lg transition-colors" @click="navigateTo(`/admin/service-orders/${order.id}`)">
+                <div class="flex items-center justify-between gap-2">
+                   <p class="text-highlighted truncate">ส่งซักทั้งหมด {{ orderItemCount(order) }} ชิ้น</p>
+                  <div class="flex items-center gap-2">
+                    <div class="flex items-center gap-2 text-highlighted">
+                      <span v-show="order.creditUsed === 0">เครดิต {{ order.creditUsed ?? 0 }} | </span>
+                      <span>{{ formatOrderTotal(order.totalAmount) }}</span>
+                    </div>
+                    <UIcon name="i-lucide-arrow-up-right" class="size-4 text-muted" />
                   </div>
-                  <UBadge :color="entitlementStatusMap[entitlement.status].color" variant="subtle">
-                    {{ entitlementStatusMap[entitlement.status].label }}
-                  </UBadge>
+                </div>
+
+                <div class="mt-1 flex items-center justify-between text-sm text-muted">
+                  <span>{{ orderStatusLabels[order.status] }}</span>
+                  <span>{{ formatDateTime(order.createdAt) }}</span>
                 </div>
               </div>
             </div>
-          </div>
-        </section>
+            <p v-else class="text-sm text-muted py-6 text-center">ยังไม่มีประวัติ</p>
+          </UCard>
 
-        <section class="rounded-3xl border border-default bg-default p-6 shadow-sm">
-          <div class="flex items-center justify-between gap-3">
-            <div>
-              <h3 class="text-lg font-semibold text-highlighted">ประวัติการชำระเงิน</h3>
-              <p class="text-sm text-muted">รายการรับชำระล่าสุดของลูกค้ารายนี้</p>
-            </div>
-            <UButton
-              label="ไปหน้าการชำระเงิน"
-              icon="i-lucide-arrow-right"
-              color="neutral"
-              variant="ghost"
-              @click="navigateTo('/admin/payment')"
-            />
-          </div>
-
-          <div v-if="data?.recentPayments.length" class="mt-5 divide-y divide-default">
-            <div
-              v-for="payment in data.recentPayments"
-              :key="payment.id"
-              class="flex flex-col gap-3 py-4 lg:flex-row lg:items-start lg:justify-between"
-            >
-              <div class="min-w-0">
-                <div class="flex flex-wrap items-center gap-2">
-                  <p class="font-medium text-highlighted">{{ formatCurrency(payment.amount) }}</p>
-                  <UBadge :color="paymentStatusColorMap[payment.status]" variant="subtle">
-                    {{ paymentStatusLabels[payment.status] }}
-                  </UBadge>
-                  <span class="text-sm text-muted">{{ paymentMethodLabelMap[payment.paymentMethod] }}</span>
-                </div>
-                <p class="mt-1 text-sm text-muted">{{ packageSaleSummary(payment) }}</p>
-                <p class="mt-1 text-xs text-muted">{{ formatDateTime(payment.createdAt) }}</p>
+          <!-- ── การชำระเงิน ── -->
+          <UCard :ui="{ root: 'rounded-2xl border border-default shadow-none', body: 'p-5' }">
+            <div class="flex items-center justify-between gap-2 mb-4">
+              <div class="flex items-center gap-2">
+                <p class="text-base font-semibold text-highlighted">การชำระเงิน</p>
+                <UBadge color="neutral" variant="subtle" size="sm">{{ recentPayments.length }} รายการ</UBadge>
               </div>
-            </div>
-          </div>
-
-          <div v-else class="mt-5 rounded-2xl border border-dashed border-default p-8 text-center text-muted">
-            ยังไม่มีประวัติการชำระเงิน
-          </div>
-        </section>
-
-        <section class="grid gap-6 xl:grid-cols-2">
-          <div class="rounded-3xl border border-default bg-default p-6 shadow-sm">
-            <div class="flex items-center justify-between gap-3">
-              <div>
-                <h3 class="text-lg font-semibold text-highlighted">ประวัติการซื้อแพ็กเกจ</h3>
-                <p class="text-sm text-muted">รายการขายแพ็กเกจล่าสุดของลูกค้ารายนี้</p>
-              </div>
-              <UButton
-                label="ไปหน้าคิดเงิน"
-                icon="i-lucide-arrow-right"
-                color="neutral"
-                variant="ghost"
-                @click="navigateTo('/admin/sales')"
-              />
+              <UButton label="ดูทั้งหมด" icon="i-lucide-arrow-up-right" color="neutral" variant="ghost" size="xs" @click="navigateTo('/admin/payment')" />
             </div>
 
-            <div v-if="data?.recentSales.length" class="mt-5 divide-y divide-default">
-              <div
-                v-for="sale in data.recentSales"
-                :key="sale.id"
-                class="flex flex-col gap-3 py-4"
-              >
-                <div class="flex flex-wrap items-center justify-between gap-2">
-                  <div>
-                    <p class="font-medium text-highlighted">{{ formatCurrency(sale.totalAmount) }}</p>
-                    <p class="text-xs text-muted">{{ formatDateTime(sale.createdAt) }}</p>
+            <div v-if="recentPayments.length" class="divide-y divide-default">
+              <div v-for="payment in recentPayments" :key="payment.id" class="group cursor-pointer py-3 first:pt-0 last:pb-0 hover:bg-elevated/50 -mx-2 px-2 rounded-lg transition-colors" @click="navigateTo(`/admin/payment/${payment.id}`)">
+                <div class="flex items-center justify-between gap-2">
+                  <div class="flex items-center gap-2">
+                    <p class="text-highlighted">{{ paymentSummary(payment) }}</p>
                   </div>
-                  <UBadge :color="saleStatusMap[sale.status].color" variant="subtle">
-                    {{ saleStatusMap[sale.status].label }}
-                  </UBadge>
-                </div>
-                <p class="text-sm text-muted">{{ saleItemSummary(sale) }}</p>
-              </div>
-            </div>
-
-            <div v-else class="mt-5 rounded-2xl border border-dashed border-default p-8 text-center text-muted">
-              ยังไม่มีประวัติการซื้อแพ็กเกจ
-            </div>
-          </div>
-
-          <div class="rounded-3xl border border-default bg-default p-6 shadow-sm">
-            <div class="flex items-center justify-between gap-3">
-              <div>
-                <h3 class="text-lg font-semibold text-highlighted">ประวัติการใช้งาน</h3>
-                <p class="text-sm text-muted">การใช้เครดิตหรือแพ็กเกจกับงานบริการล่าสุด</p>
-              </div>
-              <UBadge color="neutral" variant="subtle">
-                {{ stats.totalServiceOrders }} งาน
-              </UBadge>
-            </div>
-
-            <div v-if="data?.recentServiceOrders.length" class="mt-5 divide-y divide-default">
-              <div
-                v-for="order in data.recentServiceOrders"
-                :key="order.id"
-                class="flex flex-col gap-3 py-4"
-              >
-                <div class="flex flex-wrap items-center justify-between gap-2">
-                  <div>
-                    <p class="font-medium text-highlighted">
-                      {{ order.memberEntitlement?.product.name || "งานทั่วไป" }}
-                    </p>
-                    <p class="text-xs text-muted">{{ formatDateTime(order.createdAt) }}</p>
+                  <div class="flex items-center gap-2">
+                    <span class="text-highlighted">{{ formatCurrency(payment.amount) }}</span>
+                    <UIcon name="i-lucide-arrow-up-right" class="size-4 text-muted" />
                   </div>
-                  <UBadge :color="orderStatusMap[order.status].color" variant="subtle">
-                    {{ orderStatusMap[order.status].label }}
-                  </UBadge>
                 </div>
-                <p class="text-sm text-muted">{{ serviceOrderSummary(order) }}</p>
-                <p class="text-xs text-muted">
-                  ใช้เครดิต {{ order.creditUsed ?? 0 }} • ยอดรวม {{ formatOrderTotal(order.totalAmount) }}
-                </p>
+                <div class="flex items-center justify-between gap-2">
+                  <span class="text-sm text-muted">{{ paymentStatusLabels[payment.status] }} · {{ paymentMethodLabelMap[payment.paymentMethod] }}</span>
+                  <p class="mt-1 text-sm text-muted text-right">{{ formatDateTime(payment.createdAt) }}</p>
+                </div>
               </div>
             </div>
-
-            <div v-else class="mt-5 rounded-2xl border border-dashed border-default p-8 text-center text-muted">
-              ยังไม่มีประวัติการใช้งานแพ็กเกจ
-            </div>
-          </div>
-        </section>
+            <p v-else class="text-sm text-muted py-6 text-center">ยังไม่มีประวัติ</p>
+          </UCard>
+        </div>
       </div>
     </template>
   </UDashboardPanel>

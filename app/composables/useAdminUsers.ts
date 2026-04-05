@@ -22,6 +22,7 @@ export type AdminUser = {
   createdAt: string | Date;
   updatedAt: string | Date;
   memberEntitlement: AdminUserMemberEntitlement | null;
+  memberEntitlements: AdminUserMemberEntitlement[];
 };
 
 export type CreateAdminUserBody = {
@@ -37,6 +38,7 @@ export type UpdateAdminUserBody = Partial<CreateAdminUserBody>;
 
 export const useAdminUsers = () => {
   const notify = useNotify();
+
   const getErrorMessage = (error: unknown, fallback: string) => {
     if (error && typeof error === "object" && "data" in error) {
       const data = (error as { data?: { statusMessage?: string } }).data;
@@ -47,18 +49,20 @@ export const useAdminUsers = () => {
   };
 
   const { data: users, status, refresh } = useFetch<AdminUser[]>("/api/admin/users", {
+    key: "admin-users",
     default: () => [],
   });
+
   const isLoading = computed(() => status.value === "pending");
 
   const createUser = async (body: CreateAdminUserBody): Promise<boolean> => {
     try {
       await $fetch("/api/admin/users", { method: "POST", body });
       await refresh();
-      notify.created("User");
+      notify.created("ผู้ใช้งาน");
       return true;
     } catch (error: unknown) {
-      notify.error(getErrorMessage(error, "Unable to create user"));
+      notify.error(getErrorMessage(error, "ไม่สามารถสร้างผู้ใช้งานได้"));
       return false;
     }
   };
@@ -69,14 +73,17 @@ export const useAdminUsers = () => {
         method: "PUT",
         body,
       });
+
       await refresh();
-      notify.updated("User");
+      notify.updated("ผู้ใช้งาน");
+
       if ((response.sessionsRevoked ?? 0) > 0) {
-        notify.info("มีการเปลี่ยนสิทธิ์ผู้ใช้ ระบบได้ยกเลิกข้อมูลเดิมแล้ว");
+        notify.info("มีการเปลี่ยนสิทธิ์ผู้ใช้งาน ระบบได้ยกเลิกเซสชันเดิมแล้ว");
       }
+
       return true;
     } catch (error: unknown) {
-      notify.error(getErrorMessage(error, "Unable to update user"));
+      notify.error(getErrorMessage(error, "ไม่สามารถอัปเดตผู้ใช้งานได้"));
       return false;
     }
   };
@@ -85,10 +92,10 @@ export const useAdminUsers = () => {
     try {
       await $fetch(`/api/admin/users/${id}`, { method: "DELETE" });
       await refresh();
-      notify.deleted("User");
+      notify.deleted("ผู้ใช้งาน");
       return true;
     } catch (error: unknown) {
-      notify.error(getErrorMessage(error, "Unable to delete user"));
+      notify.error(getErrorMessage(error, "ไม่สามารถลบผู้ใช้งานได้"));
       return false;
     }
   };

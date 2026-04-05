@@ -18,10 +18,17 @@ export default defineEventHandler(async (event) => {
   try {
     const existing = await prisma.user.findFirst({
       where: { id, deletedAt: null },
-      select: { id: true },
+      select: { id: true, email: true },
     });
     if (!existing) {
       throw createError({ statusCode: 404, statusMessage: "User not found" });
+    }
+
+    if (existing.email === "walkin@saijai.local") {
+      throw createError({
+        statusCode: 400,
+        statusMessage: "Cannot delete system default user",
+      });
     }
 
     await prisma.user.update({

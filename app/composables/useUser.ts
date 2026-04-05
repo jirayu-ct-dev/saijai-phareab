@@ -1,168 +1,161 @@
-import type { User as AppUser } from "~~/shared/types/auth";
+import type { Session as AppSession, User as AppUser } from "~~/shared/types/auth";
+
+type SessionWithUser = (AppSession & { user?: AppUser }) | null;
 
 export const useUser = () => {
-    const notify = useNotify()
-    const { start, finish } = useLoadingIndicator()
+  const notify = useNotify();
+  const { start, finish } = useLoadingIndicator();
 
-    // 1. ดึง Session อัตโนมัติจาก better-auth
-    const sessionRef = authClient.useSession();
+  // ใช้ state กลางสำหรับ session เพื่อให้ SSR กับ client ได้ข้อมูลชุดเดียวกัน
+  const session = useState<SessionWithUser>("auth:session", () => null);
+  const user = computed(() => session.value?.user as AppUser | undefined);
 
-    // 2. แปลงเป็น Computed ให้ใช้งานง่ายขึ้น
-    const session = computed(() => sessionRef.value.data);
-    const user = computed(() => sessionRef.value.data?.user as AppUser | undefined);
+  const userAvatar = computed(() => ({
+    as: { img: "img" },
+    src: user.value?.image || "",
+    alt: user.value?.name || "ผู้ใช้งาน",
+    loading: "lazy" as const,
+  }));
 
-    // console.log("user: ", user)
+  const refreshSession = async () => {
+    const { data, error } = await authClient.useSession(useFetch);
 
-    // 3. ตัวช่วยสร้าง Object สำหรับรูป Avatar จากแหล่งภายนอก (เช่น LINE) แก้ปัญหาแครชกับ Cloudinary
-    const userAvatar = computed(() => {
-        const u = user.value;
-
-        return {
-            as: { img: 'img' },
-            src: u && u.image ? u.image : '',
-            alt: u && u.name ? u.name : 'ผู้ใช้งาน',
-            loading: 'lazy' as const,
-        };
-    });
-
-
-    const login = async (email: string, password: string) => {
-        start()
-        try {
-            const { data, error } = await authClient.signIn.email({
-                email,
-                password
-            })
-
-            if (error) {
-                throw new Error(error.message || 'เข้าสู่ระบบไม่สำเร็จ')
-            }
-
-            if (!data) {
-                throw new Error('ไม่พบข้อมูลผู้ใช้')
-            }
-
-            notify.success("เข้าสู่ระบบสำเร็จ!")
-        }
-        catch (error: any) {
-            console.error(error)
-            notify.error(error.message || 'เกิดข้อผิดพลาดในการเข้าสู่ระบบ')
-            throw error // โยน error ดั้งเดิมออกไป ถ้าหน้าบ้านไม่ได้ใช้งาน
-        }
-        finally {
-            finish()
-        }
+    if (!error.value) {
+      session.value = (data.value as SessionWithUser) ?? null;
     }
 
-    const register = async (name: string, email: string, password: string) => {
-        start()
-        try {
-            const { data, error } = await authClient.signUp.email({
-                name,
-                email,
-                password,
-                role: "USER",
-            } as Parameters<typeof authClient.signUp.email>[0] & { role: "USER" })
+    return session.value;
+  };
 
-            if (error) {
-                throw new Error(error.message || 'สมัครสมาชิกไม่สำเร็จ')
-            }
+  const login = async (email: string, password: string) => {
+    start();
+    try {
+      const { data, error } = await authClient.signIn.email({
+        email,
+        password,
+      });
 
-            if (!data) {
-                throw new Error('ไม่พบข้อมูลผู้ใช้')
-            }
+      if (error) {
+        throw new Error(error.message || "เข้าสู่ระบบไม่สำเร็จ");
+      }
 
-        }
-        catch (error: any) {
-            console.error(error)
-            throw new Error(error.message || 'เกิดข้อผิดพลาดในการสมัครสมาชิก')
-        }
-        finally {
-            finish()
-        }
+      if (!data) {
+        throw new Error("ไม่พบข้อมูลผู้ใช้งาน");
+      }
+
+      await refreshSession();
+      notify.success("เข้าสู่ระบบสำเร็จ");
+    } catch (error: any) {
+      console.error(error);
+      notify.error(error.message || "เกิดข้อผิดพลาดในการเข้าสู่ระบบ");
+      throw error;
+    } finally {
+      finish();
     }
+  };
 
-    const loginWithLine = async () => {
-        start()
-        try {
-            const { data, error } = await authClient.signIn.social({
-                provider: "line",
-                callbackURL: "/"
-            })
+  const register = async (name: string, email: string, password: string) => {
+    start();
+    try {
+      const { data, error } = await authClient.signUp.email({
+        name,
+        email,
+        password,
+        role: "USER",
+      } as Parameters<typeof authClient.signUp.email>[0] & { role: "USER" });
 
-            if (error) {
-                throw new Error(error.message || 'เข้าสู่ระบบด้วย LINE ไม่สำเร็จ')
-            }
+      if (error) {
+        throw new Error(error.message || "สมัครสมาชิกไม่สำเร็จ");
+      }
 
-            if (!data) {
-                throw new Error('ไม่พบข้อมูลผู้ใช้')
-            }
-        }
-        catch (error: any) {
-            console.error(error)
-            throw new Error(error.message || 'เกิดข้อผิดพลาดในการเข้าสู่ระบบด้วย LINE')
-        }
-        finally {
-            finish()
-        }
+      if (!data) {
+        throw new Error("ไม่พบข้อมูลผู้ใช้งาน");
+      }
+    } catch (error: any) {
+      console.error(error);
+      throw new Error(error.message || "เกิดข้อผิดพลาดในการสมัครสมาชิก");
+    } finally {
+      finish();
     }
+  };
 
-    const loginWithLineIdToken = async (accessToken: string, idToken: string) => {
-        start()
-        try {
-            const { data, error } = await authClient.signIn.social({
-                provider: "line",
-                idToken: {
-                    token: idToken,
-                    accessToken: accessToken
-                },
-                callbackURL: "/",
-                newUserCallbackURL: "/",
-                errorCallbackURL: "/auth/login",
-                disableRedirect: true
-            })
+  const loginWithLine = async () => {
+    start();
+    try {
+      const { data, error } = await authClient.signIn.social({
+        provider: "line",
+        callbackURL: "/",
+      });
 
-            if (error) {
-                throw new Error(error.message || 'เข้าสู่ระบบด้วย LINE ไม่สำเร็จ')
-            }
+      if (error) {
+        throw new Error(error.message || "เข้าสู่ระบบด้วย LINE ไม่สำเร็จ");
+      }
 
-            if (!data) {
-                throw new Error('ไม่พบข้อมูลผู้ใช้')
-            }
-
-        }
-        catch (error: any) {
-            console.error(error)
-            throw new Error(error.message || 'เกิดข้อผิดพลาดในการเข้าสู่ระบบด้วย LINE')
-        }
-        finally {
-            finish()
-        }
+      if (!data) {
+        throw new Error("ไม่พบข้อมูลผู้ใช้งาน");
+      }
+    } catch (error: any) {
+      console.error(error);
+      throw new Error(error.message || "เกิดข้อผิดพลาดในการเข้าสู่ระบบด้วย LINE");
+    } finally {
+      finish();
     }
+  };
 
-    const logout = async () => {
-        start()
-        try {
-            await authClient.signOut()
-        }
-        catch (error: any) {
-            console.error(error)
-            throw new Error(error.message || 'ออกจากระบบไม่สำเร็จ')
-        }
-        finally {
-            finish()
-        }
+  const loginWithLineIdToken = async (accessToken: string, idToken: string) => {
+    start();
+    try {
+      const { data, error } = await authClient.signIn.social({
+        provider: "line",
+        idToken: {
+          token: idToken,
+          accessToken,
+        },
+        callbackURL: "/",
+        newUserCallbackURL: "/",
+        errorCallbackURL: "/auth/login",
+        disableRedirect: true,
+      });
+
+      if (error) {
+        throw new Error(error.message || "เข้าสู่ระบบด้วย LINE ไม่สำเร็จ");
+      }
+
+      if (!data) {
+        throw new Error("ไม่พบข้อมูลผู้ใช้งาน");
+      }
+
+      await refreshSession();
+    } catch (error: any) {
+      console.error(error);
+      throw new Error(error.message || "เกิดข้อผิดพลาดในการเข้าสู่ระบบด้วย LINE");
+    } finally {
+      finish();
     }
+  };
 
-    return {
-        session,
-        user,
-        userAvatar,
-        login,
-        register,
-        loginWithLine,
-        loginWithLineIdToken,
-        logout
+  const logout = async () => {
+    start();
+    try {
+      await authClient.signOut();
+      session.value = null;
+    } catch (error: any) {
+      console.error(error);
+      throw new Error(error.message || "ออกจากระบบไม่สำเร็จ");
+    } finally {
+      finish();
     }
-}
+  };
 
+  return {
+    session,
+    user,
+    userAvatar,
+    refreshSession,
+    login,
+    register,
+    loginWithLine,
+    loginWithLineIdToken,
+    logout,
+  };
+};

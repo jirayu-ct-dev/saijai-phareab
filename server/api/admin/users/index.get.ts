@@ -40,7 +40,6 @@ export default defineEventHandler(async () => {
             },
           },
           orderBy: [{ endAt: "asc" }, { createdAt: "desc" }],
-          take: 1,
         },
         accounts: {
           where: { providerId: "line" },
@@ -56,6 +55,12 @@ export default defineEventHandler(async () => {
       const entitlement = memberEntitlements[0] ?? null;
       return {
         ...rest,
+        memberEntitlements: memberEntitlements.map((entitlement) => ({
+          id: entitlement.id,
+          creditRemaining: entitlement.creditRemaining,
+          endAt: entitlement.endAt,
+          product: entitlement.product,
+        })),
         memberEntitlement: entitlement
           ? {
               id: entitlement.id,

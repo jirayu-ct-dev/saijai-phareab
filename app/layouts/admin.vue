@@ -158,39 +158,56 @@ const groups = computed(() => [
 
 <template>
   <UDashboardGroup unit="rem">
-    <UDashboardSidebar
-      id="default"
-      v-model:open="open"
-      collapsible
-      resizable
-      class="bg-elevated/25"
-      :ui="{ footer: 'lg:border-t lg:border-default' }"
-    >
-      <template #header="{ collapsed }">
-        <AppLogo :collapsed="collapsed" label="ADMIN PANEL" :to="homeTarget" />
+      <UDashboardSidebar
+        id="default"
+        v-model:open="open"
+        collapsible
+        resizable
+        class="bg-elevated/25"
+        :ui="{ footer: 'lg:border-t lg:border-default' }"
+      >
+        <template #header="{ collapsed }">
+          <AppLogo :collapsed="collapsed" label="ADMIN PANEL" :to="homeTarget" />
+        </template>
+
+        <template #default="{ collapsed }">
+          <UDashboardSearchButton :collapsed="collapsed" class="bg-transparent ring-default" />
+
+          <UNavigationMenu :collapsed="collapsed" :items="menu[0]" orientation="vertical" tooltip popover />
+
+          <UNavigationMenu
+            v-if="menu[1]?.length"
+            :collapsed="collapsed"
+            :items="menu[1]"
+            orientation="vertical"
+            tooltip
+            class="mt-auto"
+          />
+        </template>
+
+        <template #footer="{ collapsed }">
+          <UserMenu :collapsed="collapsed" />
+        </template>
+      </UDashboardSidebar>
+
+      <UDashboardSearch :groups="groups" />
+
+      <template #fallback>
+        <aside class="hidden border-r border-default bg-elevated/25 lg:flex lg:w-72 lg:flex-col">
+          <div class="border-b border-default px-4 py-4">
+            <USkeleton class="h-8 w-36" />
+          </div>
+          <div class="space-y-3 px-4 py-4">
+            <USkeleton class="h-10 w-full" />
+            <USkeleton class="h-9 w-full" />
+            <USkeleton class="h-9 w-full" />
+            <USkeleton class="h-9 w-full" />
+          </div>
+          <div class="mt-auto border-t border-default px-4 py-4">
+            <USkeleton class="h-10 w-full" />
+          </div>
+        </aside>
       </template>
-
-      <template #default="{ collapsed }">
-        <UDashboardSearchButton :collapsed="collapsed" class="bg-transparent ring-default" />
-
-        <UNavigationMenu :collapsed="collapsed" :items="menu[0]" orientation="vertical" tooltip popover />
-
-        <UNavigationMenu
-          v-if="menu[1]?.length"
-          :collapsed="collapsed"
-          :items="menu[1]"
-          orientation="vertical"
-          tooltip
-          class="mt-auto"
-        />
-      </template>
-
-      <template #footer="{ collapsed }">
-        <UserMenu :collapsed="collapsed" />
-      </template>
-    </UDashboardSidebar>
-
-    <UDashboardSearch :groups="groups" />
 
     <div class="flex min-h-0 flex-1 flex-col overflow-y-auto">
       <slot />

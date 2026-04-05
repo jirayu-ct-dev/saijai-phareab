@@ -1,81 +1,87 @@
-import { format, isSameYear } from 'date-fns'
-import { th } from 'date-fns/locale'
-import type { Period } from '../types/dashboard'
+import { format, isSameYear } from "date-fns";
+import { th } from "date-fns/locale";
+import type { Period } from "../types/dashboard";
 
-const BANGKOK_TIME_ZONE = 'Asia/Bangkok'
-
-const currencyFormatter = new Intl.NumberFormat('th-TH', {
-    style: 'currency',
-    currency: 'THB',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0
-})
-
-const numberFormatter = new Intl.NumberFormat('th-TH')
-
-const shortDateFormatter = new Intl.DateTimeFormat('th-TH', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-    timeZone: BANGKOK_TIME_ZONE
-})
-
-const timeFormatter = new Intl.DateTimeFormat('th-TH', {
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false,
-    timeZone: BANGKOK_TIME_ZONE
-})
-
-const toBangkokDate = (date: Date | string): Date => {
-    const source = date instanceof Date ? date : new Date(date)
-    const localized = source.toLocaleString('sv-SE', { timeZone: BANGKOK_TIME_ZONE })
-    return new Date(localized)
-}
+const BANGKOK_OFFSET_MS = 7 * 60 * 60 * 1000;
 
 export const THAI_MONTHS = [
-    'มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน',
-    'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'
-]
+  "ม.ค.",
+  "ก.พ.",
+  "มี.ค.",
+  "เม.ย.",
+  "พ.ค.",
+  "มิ.ย.",
+  "ก.ค.",
+  "ส.ค.",
+  "ก.ย.",
+  "ต.ค.",
+  "พ.ย.",
+  "ธ.ค.",
+];
+
+const toValidDate = (value: Date | string): Date | null => {
+  const date = value instanceof Date ? value : new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+};
+
+const toBangkokDate = (value: Date | string): Date | null => {
+  const source = toValidDate(value);
+  if (!source) return null;
+  return new Date(source.getTime() + BANGKOK_OFFSET_MS);
+};
+
+const padTwoDigits = (value: number) => value.toString().padStart(2, "0");
+
+const formatInteger = (value: number) => {
+  const sign = value < 0 ? "-" : "";
+  const digits = Math.abs(Math.trunc(value)).toString();
+  return `${sign}${digits.replace(/\B(?=(\d{3})+(?!\d))/g, ",")}`;
+};
 
 export function formatCurrency(amount: number): string {
-    return currencyFormatter.format(amount)
+  return `฿${formatInteger(Math.round(amount))}`;
 }
 
 export function formatNumber(amount: number): string {
-    return numberFormatter.format(amount)
+  return formatInteger(Math.round(amount));
 }
 
-export function formatDateTime(date: Date | string): string {
-    const bangkokDate = toBangkokDate(date)
-    const datePart = shortDateFormatter.format(bangkokDate)
-    const timePart = timeFormatter.format(bangkokDate)
-    return `${datePart} ${timePart} น.`
+export function formatDateTime(value: Date | string): string {
+  const bangkokDate = toBangkokDate(value);
+  if (!bangkokDate) return "-";
+
+  const day = bangkokDate.getUTCDate();
+  const month = THAI_MONTHS[bangkokDate.getUTCMonth()];
+  const year = bangkokDate.getUTCFullYear() + 543;
+  const hour = padTwoDigits(bangkokDate.getUTCHours());
+  const minute = padTwoDigits(bangkokDate.getUTCMinutes());
+
+  return `${day} ${month} ${year} ${hour}:${minute} น.`;
 }
 
 export function formatDateByPeriod(date: Date, period: Period): string {
-    const isCurrentYear = isSameYear(date, new Date())
+  const isCurrentYear = isSameYear(date, new Date());
 
-    switch (period) {
-        case 'daily':
-            return format(date, isCurrentYear ? 'd MMM' : 'd MMM yy', { locale: th })
+  switch (period) {
+    case "daily":
+      return format(date, isCurrentYear ? "d MMM" : "d MMM yy", { locale: th });
 
-        case 'weekly':
-            return format(date, isCurrentYear ? 'd MMM' : 'd MMM yy', { locale: th })
+    case "weekly":
+      return format(date, isCurrentYear ? "d MMM" : "d MMM yy", { locale: th });
 
-        case 'monthly':
-            return format(date, isCurrentYear ? 'MMM' : 'MMM yy', { locale: th })
+    case "monthly":
+      return format(date, isCurrentYear ? "MMM" : "MMM yy", { locale: th });
 
-        default:
-            return format(date, 'd MMM yy', { locale: th })
-    }
+    default:
+      return format(date, "d MMM yy", { locale: th });
+  }
 }
 
 export const formatCredits = (credits: number | null | undefined): string => {
-    const n = credits ?? 0
-    return n > 0 ? n.toLocaleString('th-TH') : '—'
-}
+  const value = credits ?? 0;
+  return value > 0 ? formatInteger(value) : "—";
+};
 
 export const formatDays = (days: number | null | undefined): string => {
-    return days ? `${days} วัน` : '—'
-}
+  return days ? `${days} วัน` : "—";
+};

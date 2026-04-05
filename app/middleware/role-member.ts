@@ -17,12 +17,15 @@ const ALLOWED_ROLES: Role[] = ["USER", "EMPLOYEE", "ADMIN"];
 const PRIVILEGED_ROLES: Role[] = ["EMPLOYEE", "ADMIN"];
 
 export default defineNuxtRouteMiddleware(async () => {
+  const authSession = useState<unknown | null>("auth:session", () => null);
   const { data: session } = await authClient.useSession(useFetch);
 
   if (!session.value?.user) {
+    authSession.value = null;
     return navigateTo("/auth/login");
   }
 
+  authSession.value = session.value;
   const user = session.value.user as SessionUserWithRole;
   if (!user.id || !user.role) {
     return navigateTo("/auth/login");
