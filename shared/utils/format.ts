@@ -59,6 +59,17 @@ export function formatDateTime(value: Date | string): string {
   return `${day} ${month} ${year} ${hour}:${minute} น.`;
 }
 
+export function formatDate(value: Date | string): string {
+  const bangkokDate = toBangkokDate(value);
+  if (!bangkokDate) return "-";
+
+  const day = bangkokDate.getUTCDate();
+  const month = THAI_MONTHS[bangkokDate.getUTCMonth()];
+  const year = bangkokDate.getUTCFullYear() + 543;
+
+  return `${day} ${month} ${year}`;
+}
+
 export function formatDateByPeriod(date: Date, period: Period): string {
   const isCurrentYear = isSameYear(date, new Date());
 

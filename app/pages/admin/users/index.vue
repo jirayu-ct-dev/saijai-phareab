@@ -9,6 +9,7 @@ import type { AdminUser, AdminUserMemberEntitlement, CreateAdminUserBody } from 
 import type { Role } from '~~/shared/types/enums'
 import { cycleColumnSorting } from '~~/shared/utils/table'
 import { randomPassword } from '~~/shared/utils/random'
+import { formatDate } from '~~/shared/utils/format'
 
 const UAvatar = resolveComponent('UAvatar')
 const UButton = resolveComponent('UButton')
@@ -82,14 +83,7 @@ const EMAIL_VERIFICATION_OPTIONS = [
   { label: 'รอยืนยัน', value: 'pending' }
 ]
 
-const shortDateFormatter = new Intl.DateTimeFormat('th-TH', {
-  day: 'numeric',
-  month: 'short',
-  year: 'numeric',
-  timeZone: 'Asia/Bangkok'
-})
-
-const formatDateShort = (value: string | Date) => shortDateFormatter.format(new Date(value))
+const formatDateShort = (value: string | Date) => formatDate(value)
 
 const getAvatarProps = (user: AdminUser) => ({
   as: { img: 'img' },
@@ -632,31 +626,33 @@ const columns: TableColumn<AdminUser>[] = [
           </template>
         </UModal>
 
-        <UTable
-          ref="table"
-          v-model:column-visibility="columnVisibility"
-          v-model:row-selection="rowSelection"
-          v-model:pagination="pagination"
-          class="shrink-0"
-          :data="filteredUsers"
-          :columns="columns"
-          :loading="isLoading"
-          :ui="{
-            base: 'table-fixed border-separate border-spacing-0',
-            thead: '[&>tr]:bg-elevated/50 [&>tr]:after:content-none',
-            tbody: '[&>tr]:last:[&>td]:border-b-0',
-            th: 'py-2 font-medium first:rounded-l-lg last:rounded-r-lg border-y border-default first:border-l last:border-r',
-            td: 'border-b border-default',
-            separator: 'h-0'
-          }"
-        >
-          <template #empty>
-            <div class="flex flex-col items-center justify-center py-12 text-center text-muted">
-              <UIcon name="i-lucide-users" class="mb-3 size-10 opacity-60" />
-              <p>ไม่พบผู้ใช้งาน</p>
-            </div>
-          </template>
-        </UTable>
+        <ClientOnly>
+          <UTable
+            ref="table"
+            v-model:column-visibility="columnVisibility"
+            v-model:row-selection="rowSelection"
+            v-model:pagination="pagination"
+            class="shrink-0"
+            :data="filteredUsers"
+            :columns="columns"
+            :loading="isLoading"
+            :ui="{
+              base: 'table-fixed border-separate border-spacing-0',
+              thead: '[&>tr]:bg-elevated/50 [&>tr]:after:content-none',
+              tbody: '[&>tr]:last:[&>td]:border-b-0',
+              th: 'py-2 font-medium first:rounded-l-lg last:rounded-r-lg border-y border-default first:border-l last:border-r',
+              td: 'border-b border-default',
+              separator: 'h-0'
+            }"
+          >
+            <template #empty>
+              <div class="flex flex-col items-center justify-center py-12 text-center text-muted">
+                <UIcon name="i-lucide-users" class="mb-3 size-10 opacity-60" />
+                <p>ไม่พบผู้ใช้งาน</p>
+              </div>
+            </template>
+          </UTable>
+        </ClientOnly>
 
         <div class="mt-auto flex flex-wrap items-center justify-between gap-3 border-t border-default pt-4">
           <div class="text-sm text-muted">
