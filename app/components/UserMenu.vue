@@ -42,7 +42,7 @@ const items = computed<DropdownMenuItem[][]>(() => (
                 to: '/member'
             },
             {
-                label: 'empoyee',
+                label: 'employee',
                 icon: 'i-lucide-user-cog',
                 to: '/employee'
             },

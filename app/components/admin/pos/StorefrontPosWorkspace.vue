@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { CalendarDate } from "@internationalized/date";
+import type { CalendarDate } from "@internationalized/date";
 import PosCatalogCard from "~~/app/components/admin/pos/PosCatalogCard.vue";
 import PosCheckoutPanel from "~~/app/components/admin/pos/PosCheckoutPanel.vue";
 import type { AdminSaleSlipImage } from "~~/app/composables/useAdminSales";

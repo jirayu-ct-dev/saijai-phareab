@@ -1,4 +1,4 @@
-// plugins/liff.client.ts (Nuxt 3)
+// app/plugins/liff-init.client.ts
 import liff from '@line/liff'
 
 // เก็บสถานะการ init ไว้ที่ระดับ module

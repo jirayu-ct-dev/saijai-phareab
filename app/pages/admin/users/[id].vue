@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { packageTypeColors, packageTypeLabels } from '~~/shared/config/packageConfig'
-import { paymentStatusLabels, paymentStatusColors } from '~~/shared/config/paymentConfig'
-import { orderStatusLabels, orderStatusColors } from '~~/shared/config/orderConfig'
+import { paymentStatusLabels } from '~~/shared/config/paymentConfig'
+import { orderStatusLabels } from '~~/shared/config/orderConfig'
 import { formatCurrency, formatDateTime } from '~~/shared/utils/format'
 import type {
   EntitlementStatus,
