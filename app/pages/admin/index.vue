@@ -9,9 +9,9 @@ definePageMeta({
 
 const items = [[
   {
-    label: "เพิ่มรายการออเดอร์",
+    label: "เพิ่มรายการรับผ้า",
     icon: "i-lucide-shopping-basket",
-    to: "/admin/orders",
+    to: "/admin/service-orders",
   },
   {
     label: "เพิ่มรายการขาย",

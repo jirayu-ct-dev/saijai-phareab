@@ -23,9 +23,9 @@ const adminMenu = [
       onSelect: closeSidebar,
     },
     {
-      label: "จัดการออเดอร์",
+      label: "รายการรับผ้า",
       icon: "i-lucide-shopping-basket",
-      to: "/admin/orders",
+      to: "/admin/service-orders",
       onSelect: closeSidebar,
     },
     {
@@ -116,6 +116,24 @@ const adminMenu = [
 
 const employeeMenu = [
   [
+    {
+      label: "รายการรับผ้า",
+      icon: "i-lucide-shopping-basket",
+      to: "/admin/service-orders",
+      onSelect: closeSidebar,
+    },
+    {
+      label: "สแกนสถานะผ้า",
+      icon: "i-lucide-scan-line",
+      to: "/admin/service-orders/scan",
+      onSelect: closeSidebar,
+    },
+    {
+      label: "สแกนสถานะผ้า",
+      icon: "i-lucide-scan-line",
+      to: "/admin/service-orders/scan",
+      onSelect: closeSidebar,
+    },
     {
       label: "รายการขาย",
       icon: "i-lucide-shopping-cart",

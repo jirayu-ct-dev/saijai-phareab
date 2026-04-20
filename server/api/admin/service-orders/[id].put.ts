@@ -3,10 +3,9 @@ import { DEFAULT_HANGER_PRICE_PER_UNIT } from "~~/shared/config/posConfig";
 import { requireRole } from "~~/server/utils/auth";
 import { createPaymentNo } from "~~/server/utils/paymentNo";
 import { prisma } from "~~/server/utils/prisma";
-import { createServiceOrderNo } from "~~/server/utils/serviceOrderNo";
 import { ensureWalkInCustomer } from "~~/server/utils/walkInCustomer";
 
-type CreateServiceOrderBody = {
+type UpdateServiceOrderBody = {
   customerId?: string | null;
   isWalkIn?: boolean;
   walkInName?: string | null;
@@ -25,15 +24,15 @@ type CreateServiceOrderBody = {
   slipImageId?: string | null;
 };
 
-const getDefaultServiceOrderStatus = (status: PaymentStatus) => {
-  if (status === "VERIFIED") return "RECEIVED" as const;
-  if (status === "FAILED") return "CANCELLED" as const;
-  return "PENDING" as const;
-};
-
 export default defineEventHandler(async (event) => {
   const actor = requireRole(event, ["EMPLOYEE", "ADMIN"]);
-  const body = await readBody<CreateServiceOrderBody>(event);
+  const id = getRouterParam(event, "id");
+
+  if (!id) {
+    throw createError({ statusCode: 400, statusMessage: "ไม่พบรหัสรายการรับผ้า" });
+  }
+
+  const body = await readBody<UpdateServiceOrderBody>(event);
 
   const isWalkIn = Boolean(body.isWalkIn);
   const customerId = body.customerId?.trim() || null;
@@ -75,23 +74,43 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, statusMessage: "ช่องทางการชำระเงินไม่ถูกต้อง" });
   }
 
-  if (body.paymentMethod === "TRANSFER" && !body.slipImageId) {
-    throw createError({ statusCode: 400, statusMessage: "กรุณาอัปโหลดสลิปสำหรับรายการโอน" });
-  }
-
-  const status: PaymentStatus = body.status ?? (body.paymentMethod === "CASH" ? "VERIFIED" : "PENDING");
-  const serviceOrderStatus: ServiceOrderStatus = body.serviceOrderStatus ?? getDefaultServiceOrderStatus(status);
-  const isVerified = status === "VERIFIED";
-  const receivedAt = new Date();
-  const dueAt = body.dueAt ? new Date(body.dueAt) : null;
-
-  if (dueAt && Number.isNaN(dueAt.getTime())) {
-    throw createError({ statusCode: 400, statusMessage: "วันนัดรับไม่ถูกต้อง" });
-  }
-
   try {
-    let paymentUserId = customerId;
+    const existing = await prisma.serviceOrder.findFirst({
+      where: {
+        id,
+        deletedAt: null,
+      },
+      include: {
+        payments: {
+          where: {
+            deletedAt: null,
+          },
+          orderBy: {
+            createdAt: "desc",
+          },
+          include: {
+            slipImage: {
+              select: {
+                id: true,
+              },
+            },
+          },
+        },
+      },
+    });
 
+    if (!existing) {
+      throw createError({ statusCode: 404, statusMessage: "ไม่พบรายการรับผ้าที่ต้องการแก้ไข" });
+    }
+
+    if (existing.payments.length > 1) {
+      throw createError({
+        statusCode: 400,
+        statusMessage: "รายการนี้มีข้อมูลการชำระเงินหลายรายการ ระบบยังไม่รองรับการแก้ไขอัตโนมัติ",
+      });
+    }
+
+    let paymentUserId = customerId;
     if (isWalkIn) {
       const walkInCustomer = await ensureWalkInCustomer(prisma);
       paymentUserId = walkInCustomer.id;
@@ -170,17 +189,34 @@ export default defineEventHandler(async (event) => {
     };
     const totalAmount = subtotalAmount - discountAmount + hangerCharge.total;
 
-    const created = await prisma.$transaction(async (tx) => {
-      const serviceOrder = await tx.serviceOrder.create({
+    const dueAt = body.dueAt ? new Date(body.dueAt) : null;
+    if (dueAt && Number.isNaN(dueAt.getTime())) {
+      throw createError({ statusCode: 400, statusMessage: "วันนัดรับไม่ถูกต้อง" });
+    }
+
+    const paymentStatus = body.status ?? existing.payments[0]?.status ?? (body.paymentMethod === "CASH" ? "VERIFIED" : "PENDING");
+    const serviceOrderStatus = body.serviceOrderStatus ?? existing.status;
+    const existingSlipImageId = existing.payments[0]?.slipImage?.id ?? null;
+    const slipImageId = body.slipImageId !== undefined ? body.slipImageId : existingSlipImageId;
+
+    if (body.paymentMethod === "TRANSFER" && !slipImageId) {
+      throw createError({ statusCode: 400, statusMessage: "กรุณาอัปโหลดสลิปสำหรับรายการโอน" });
+    }
+
+    const isVerified = paymentStatus === "VERIFIED";
+
+    await prisma.$transaction(async (tx) => {
+      const deletedAt = new Date();
+
+      await tx.serviceOrder.update({
+        where: { id },
         data: {
-          orderNo: createServiceOrderNo(receivedAt),
           customerId: paymentUserId!,
-          employeeId: actor.id,
+          employeeId: existing.employeeId ?? actor.id,
           status: serviceOrderStatus,
           isWalkIn,
           walkInName,
           walkInPhone,
-          receivedAt,
           dueAt,
           subtotalAmount,
           discountAmount,
@@ -190,9 +226,20 @@ export default defineEventHandler(async (event) => {
         },
       });
 
+      await tx.serviceOrderItem.updateMany({
+        where: {
+          serviceOrderId: id,
+          deletedAt: null,
+        },
+        data: {
+          deletedAt,
+          deletedById: actor.id,
+        },
+      });
+
       await tx.serviceOrderItem.createMany({
         data: orderItems.map((item) => ({
-          serviceOrderId: serviceOrder.id,
+          serviceOrderId: id,
           storefrontPriceId: item.price.id,
           isPackageIncluded: false,
           quantity: item.quantity,
@@ -202,53 +249,77 @@ export default defineEventHandler(async (event) => {
         })),
       });
 
-      const payment = await tx.paymentRecord.create({
-        data: {
-          paymentNo: createPaymentNo(),
-          userId: paymentUserId!,
-          serviceOrderId: serviceOrder.id,
-          amount: totalAmount,
-          paymentMethod: body.paymentMethod,
-          slipImageId: body.slipImageId ?? null,
-          status,
-          note: body.note?.trim() || null,
-          paidAt: isVerified ? new Date() : null,
-          verifiedById: isVerified ? actor.id : null,
-          verifiedAt: isVerified ? new Date() : null,
-          rejectionReason: status === "FAILED" ? "บันทึกรายการไม่สำเร็จ" : null,
-          metadata: {
-            createdByAdminId: actor.id,
-            source: "admin-service-orders",
-            orderNo: serviceOrder.orderNo,
-            subtotalAmount,
-            discountAmount,
-            hangerCharge,
-            receivedAt,
-            dueAt,
-            isWalkIn,
-            walkInName,
-            walkInPhone,
+      if (existing.payments[0]) {
+        await tx.paymentRecord.update({
+          where: { id: existing.payments[0].id },
+          data: {
+            userId: paymentUserId!,
+            amount: totalAmount,
+            paymentMethod: body.paymentMethod,
+            slipImageId: slipImageId ?? null,
+            status: paymentStatus,
+            note: body.note?.trim() || null,
+            paidAt: isVerified ? new Date() : null,
+            verifiedById: isVerified ? actor.id : null,
+            verifiedAt: isVerified ? new Date() : null,
+            rejectionReason: paymentStatus === "FAILED" ? "อัปเดตรายการโดยผู้ดูแลระบบ" : null,
+            metadata: {
+              updatedByAdminId: actor.id,
+              source: "admin-service-orders",
+              orderNo: existing.orderNo,
+              subtotalAmount,
+              discountAmount,
+              hangerCharge,
+              dueAt,
+              isWalkIn,
+              walkInName,
+              walkInPhone,
+            },
           },
-        },
-      });
-
-      return {
-        id: serviceOrder.id,
-        orderNo: serviceOrder.orderNo,
-        paymentId: payment.id,
-      };
+        });
+      } else {
+        await tx.paymentRecord.create({
+          data: {
+            paymentNo: createPaymentNo(),
+            userId: paymentUserId!,
+            serviceOrderId: id,
+            amount: totalAmount,
+            paymentMethod: body.paymentMethod,
+            slipImageId: slipImageId ?? null,
+            status: paymentStatus,
+            note: body.note?.trim() || null,
+            paidAt: isVerified ? new Date() : null,
+            verifiedById: isVerified ? actor.id : null,
+            verifiedAt: isVerified ? new Date() : null,
+            rejectionReason: paymentStatus === "FAILED" ? "บันทึกรายการไม่สำเร็จ" : null,
+            metadata: {
+              createdByAdminId: actor.id,
+              source: "admin-service-orders",
+              orderNo: existing.orderNo,
+              subtotalAmount,
+              discountAmount,
+              hangerCharge,
+              receivedAt: existing.receivedAt,
+              dueAt,
+              isWalkIn,
+              walkInName,
+              walkInPhone,
+            },
+          },
+        });
+      }
     });
 
-    return created;
+    return { success: true };
   } catch (error) {
     if (error && typeof error === "object" && "statusCode" in error) {
       throw error;
     }
 
-    console.error("[POST /api/admin/service-orders]", error);
+    console.error("[PUT /api/admin/service-orders/:id]", error);
     throw createError({
       statusCode: 500,
-      statusMessage: "ไม่สามารถสร้างรายการรับผ้าหน้าร้านได้",
+      statusMessage: "ไม่สามารถอัปเดตรายการรับผ้าได้",
     });
   }
 });

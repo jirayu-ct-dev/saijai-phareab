@@ -19,9 +19,9 @@ const props = defineProps<{
 
 const baseStats = [
   {
-    title: 'ออเดอร์',
+    title: 'รับผ้า',
     icon: 'i-lucide-shopping-basket',
-    to: '/admin/orders',
+    to: '/admin/service-orders',
     minValue: 10,
     maxValue: 50,
     minVariation: -10,
@@ -51,7 +51,7 @@ const baseStats = [
   {
     title: 'รอดำเนินการ',
     icon: 'i-lucide-clock',
-    to: '/admin/orders?status=pending',
+    to: '/admin/service-orders?status=pending',
     minValue: 3,
     maxValue: 15,
     minVariation: -20,
