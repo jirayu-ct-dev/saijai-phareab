@@ -59,6 +59,14 @@ export default defineEventHandler(async () => {
             isWalkIn: true,
             walkInName: true,
             walkInPhone: true,
+            creditUsed: true,
+            memberEntitlementId: true,
+            memberEntitlement: {
+              select: {
+                id: true,
+                product: { select: { id: true, name: true } },
+              },
+            },
             serviceOrderItems: {
               where: { deletedAt: null },
               select: { id: true },
@@ -136,6 +144,9 @@ export default defineEventHandler(async () => {
               walkInName: row.serviceOrder.walkInName,
               walkInPhone: row.serviceOrder.walkInPhone,
               itemCount: row.serviceOrder.serviceOrderItems.length,
+              creditUsed: row.serviceOrder.creditUsed ?? 0,
+              memberEntitlementId: row.serviceOrder.memberEntitlementId ?? null,
+              memberProductName: row.serviceOrder.memberEntitlement?.product.name ?? null,
             }
           : null,
         slipImage: row.slipImage

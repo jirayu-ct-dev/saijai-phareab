@@ -86,6 +86,26 @@ export default defineEventHandler(async (event) => {
           createdAt: "asc",
         },
         include: {
+          image: {
+            select: {
+              id: true,
+              secureUrl: true,
+              url: true,
+            },
+          },
+          photos: {
+            where: { deletedAt: null },
+            orderBy: { sortOrder: "asc" },
+            include: {
+              image: {
+                select: {
+                  id: true,
+                  secureUrl: true,
+                  url: true,
+                },
+              },
+            },
+          },
           storefrontPrice: {
             include: {
               storefrontService: {
@@ -104,12 +124,52 @@ export default defineEventHandler(async (event) => {
           },
         },
       },
+      image: {
+        select: {
+          id: true,
+          secureUrl: true,
+          url: true,
+        },
+      },
+      deliveryImage: {
+        select: {
+          id: true,
+          secureUrl: true,
+          url: true,
+        },
+      },
     },
   });
 
   if (!serviceOrder) {
     throw createError({ statusCode: 404, statusMessage: "Service order not found" });
   }
+
+  const now = new Date();
+  const activeEntitlements = serviceOrder.isWalkIn
+    ? []
+    : await prisma.memberEntitlement.findMany({
+        where: {
+          customerId: serviceOrder.customerId,
+          deletedAt: null,
+          status: "ACTIVE",
+          startAt: { lte: now },
+          endAt: { gte: now },
+          creditRemaining: { gt: 0 },
+        },
+        include: {
+          product: {
+            select: {
+              id: true,
+              name: true,
+              packageType: true,
+              credits: true,
+              validityDays: true,
+            },
+          },
+        },
+        orderBy: [{ product: { packageType: "asc" } }, { activatedAt: "asc" }],
+      });
 
   const hangerCharge = (serviceOrder.hangerCharge ?? null) as
     | { count?: number; pricePerUnit?: number; total?: number }
@@ -131,6 +191,20 @@ export default defineEventHandler(async (event) => {
     subtotalAmount: toNumber(serviceOrder.subtotalAmount),
     discountAmount: toNumber(serviceOrder.discountAmount),
     totalAmount: toNumber(serviceOrder.totalAmount),
+    image: serviceOrder.image
+      ? {
+          id: serviceOrder.image.id,
+          secureUrl: serviceOrder.image.secureUrl,
+          url: serviceOrder.image.url,
+        }
+      : null,
+    deliveryImage: serviceOrder.deliveryImage
+      ? {
+          id: serviceOrder.deliveryImage.id,
+          secureUrl: serviceOrder.deliveryImage.secureUrl,
+          url: serviceOrder.deliveryImage.url,
+        }
+      : null,
     hangerCharge: hangerCharge
       ? {
           count: Number(hangerCharge.count ?? 0),
@@ -158,6 +232,15 @@ export default defineEventHandler(async (event) => {
           product: serviceOrder.memberEntitlement.product,
         }
       : null,
+    activeEntitlements: activeEntitlements.map((ent) => ({
+      id: ent.id,
+      status: ent.status,
+      creditInitial: ent.creditInitial,
+      creditRemaining: ent.creditRemaining,
+      activatedAt: ent.activatedAt?.toISOString() ?? null,
+      endAt: ent.endAt?.toISOString() ?? null,
+      product: ent.product,
+    })),
     items: serviceOrder.serviceOrderItems.map((item) => ({
       id: item.id,
       storefrontPriceId: item.storefrontPriceId,
@@ -166,6 +249,21 @@ export default defineEventHandler(async (event) => {
       totalPrice: toNumber(item.totalPrice),
       notes: item.notes,
       isPackageIncluded: item.isPackageIncluded,
+      image: item.image
+        ? {
+            id: item.image.id,
+            secureUrl: item.image.secureUrl,
+            url: item.image.url,
+          }
+        : null,
+      photos: item.photos.map((photo) => ({
+        id: photo.id,
+        imageId: photo.imageId,
+        isDamaged: photo.isDamaged,
+        sortOrder: photo.sortOrder,
+        secureUrl: photo.image?.secureUrl ?? null,
+        url: photo.image?.url ?? null,
+      })),
       service: {
         id: item.storefrontPrice.storefrontService.id,
         name: item.storefrontPrice.storefrontService.name,

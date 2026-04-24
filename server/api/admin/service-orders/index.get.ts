@@ -28,6 +28,38 @@ export default defineEventHandler(async (event) => {
             email: true,
           },
         },
+        memberEntitlement: {
+          select: {
+            id: true,
+            status: true,
+            creditInitial: true,
+            creditRemaining: true,
+            endAt: true,
+            product: {
+              select: {
+                id: true,
+                name: true,
+                packageType: true,
+                credits: true,
+                validityDays: true,
+              },
+            },
+          },
+        },
+        image: {
+          select: {
+            id: true,
+            secureUrl: true,
+            url: true,
+          },
+        },
+        deliveryImage: {
+          select: {
+            id: true,
+            secureUrl: true,
+            url: true,
+          },
+        },
         serviceOrderItems: {
           where: {
             deletedAt: null,
@@ -36,6 +68,26 @@ export default defineEventHandler(async (event) => {
             createdAt: "asc",
           },
           include: {
+            image: {
+              select: {
+                id: true,
+                secureUrl: true,
+                url: true,
+              },
+            },
+            photos: {
+              where: { deletedAt: null },
+              orderBy: { sortOrder: "asc" },
+              include: {
+                image: {
+                  select: {
+                    id: true,
+                    secureUrl: true,
+                    url: true,
+                  },
+                },
+              },
+            },
             storefrontPrice: {
               include: {
                 storefrontService: {
@@ -92,11 +144,36 @@ export default defineEventHandler(async (event) => {
         walkInName: row.walkInName,
         walkInPhone: row.walkInPhone,
         note: row.note,
+        creditUsed: row.creditUsed,
         receivedAt: row.receivedAt.toISOString(),
         dueAt: row.dueAt?.toISOString() ?? null,
         subtotalAmount: toNumber(row.subtotalAmount),
         discountAmount: toNumber(row.discountAmount),
         totalAmount: toNumber(row.totalAmount),
+        image: row.image
+          ? {
+              id: row.image.id,
+              secureUrl: row.image.secureUrl,
+              url: row.image.url,
+            }
+          : null,
+        deliveryImage: row.deliveryImage
+          ? {
+              id: row.deliveryImage.id,
+              secureUrl: row.deliveryImage.secureUrl,
+              url: row.deliveryImage.url,
+            }
+          : null,
+        memberEntitlement: row.memberEntitlement
+          ? {
+              id: row.memberEntitlement.id,
+              status: row.memberEntitlement.status,
+              creditInitial: row.memberEntitlement.creditInitial,
+              creditRemaining: row.memberEntitlement.creditRemaining,
+              endAt: row.memberEntitlement.endAt?.toISOString() ?? null,
+              product: row.memberEntitlement.product,
+            }
+          : null,
         hangerCharge: hangerCharge
           ? {
               count: Number(hangerCharge.count ?? 0),
@@ -120,6 +197,22 @@ export default defineEventHandler(async (event) => {
           unitPrice: toNumber(item.unitPrice),
           totalPrice: toNumber(item.totalPrice),
           notes: item.notes,
+          isPackageIncluded: item.isPackageIncluded,
+          image: item.image
+            ? {
+                id: item.image.id,
+                secureUrl: item.image.secureUrl,
+                url: item.image.url,
+              }
+            : null,
+          photos: item.photos.map((photo) => ({
+            id: photo.id,
+            imageId: photo.imageId,
+            isDamaged: photo.isDamaged,
+            sortOrder: photo.sortOrder,
+            secureUrl: photo.image?.secureUrl ?? null,
+            url: photo.image?.url ?? null,
+          })),
         })),
         payment: payment
           ? {

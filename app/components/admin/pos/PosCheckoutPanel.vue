@@ -1,8 +1,4 @@
 <script setup lang="ts">
-import SlipUploadField from "~~/app/components/UI/SlipUploadField.vue";
-import type { PaymentMethod, PaymentStatus } from "~~/shared/types/enums";
-import { paymentStatusLabels } from "~~/shared/config/paymentConfig";
-
 type CustomerOption = {
   label: string;
   value: string;
@@ -22,8 +18,6 @@ const props = defineProps<{
   isWalkIn?: boolean;
   walkInName?: string;
   walkInPhone?: string;
-  paymentMethod: PaymentMethod;
-  status: PaymentStatus;
   note: string;
   totalLabel: string;
   totalValue: string;
@@ -33,6 +27,7 @@ const props = defineProps<{
   slipFile?: File | null;
   uploadedSlipUrl?: string | null;
   uploadedSlipLabel?: string | null;
+  hidePaymentFields?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -40,8 +35,6 @@ const emit = defineEmits<{
   "update:isWalkIn": [value: boolean];
   "update:walkInName": [value: string];
   "update:walkInPhone": [value: string];
-  "update:paymentMethod": [value: PaymentMethod];
-  "update:status": [value: PaymentStatus];
   "update:note": [value: string];
   "update:slipFile": [value: File | null];
   "remove-slip": [];
@@ -49,20 +42,9 @@ const emit = defineEmits<{
   reset: [];
 }>();
 
-const paymentMethodOptions: Array<{ label: string; value: PaymentMethod }> = [
-  { label: "เงินสด", value: "CASH" },
-  { label: "โอน", value: "TRANSFER" },
-];
-
-const paymentStatusOptions: Array<{ label: string; value: PaymentStatus }> = [
-  { label: paymentStatusLabels.PENDING, value: "PENDING" },
-  { label: paymentStatusLabels.VERIFIED, value: "VERIFIED" },
-  { label: paymentStatusLabels.FAILED, value: "FAILED" },
-];
-
 const customerModeOptions: Array<{ label: string; value: "member" | "walk-in" }> = [
-  { label: "ลูกค้าหน้าร้าน", value: "walk-in" },
   { label: "เลือกลูกค้าในระบบ", value: "member" },
+  { label: "ลูกค้าหน้าร้าน", value: "walk-in" },
 ];
 
 const selectedCustomer = computed(() => props.customerOptions.find((item) => item.value === props.customerId) ?? null);
@@ -77,6 +59,49 @@ const getAvatarProps = (customer?: CustomerOption | null) => ({
   alt: customer?.name || customer?.email || "ลูกค้า",
   loading: "lazy" as const,
 });
+
+const slipFileInputRef = ref<HTMLInputElement | null>(null);
+const slipObjectUrl = ref<string>("");
+const slipPreviewOpen = ref(false);
+const slipRemoveOpen = ref(false);
+
+watch(
+  () => props.slipFile,
+  (file) => {
+    if (slipObjectUrl.value && import.meta.client) URL.revokeObjectURL(slipObjectUrl.value);
+    slipObjectUrl.value = file && import.meta.client ? URL.createObjectURL(file) : "";
+  },
+);
+
+onBeforeUnmount(() => {
+  if (slipObjectUrl.value && import.meta.client) URL.revokeObjectURL(slipObjectUrl.value);
+});
+
+const slipDisplayUrl = computed(() => props.uploadedSlipUrl || slipObjectUrl.value || "");
+const slipLabel = "หลักฐานการชำระเงิน";
+
+const openSlipPicker = () => {
+  if (props.isSubmitting) return;
+  slipFileInputRef.value?.click();
+};
+const onSlipFileSelected = (event: Event) => {
+  const input = event.target as HTMLInputElement | null;
+  const file = input?.files?.[0] ?? null;
+  if (!file) return;
+  emit("update:slipFile", file);
+  if (input) input.value = "";
+};
+const openSlipPreview = () => {
+  if (!slipDisplayUrl.value) return;
+  slipPreviewOpen.value = true;
+};
+const requestRemoveSlip = () => {
+  slipRemoveOpen.value = true;
+};
+const performRemoveSlip = () => {
+  emit("remove-slip");
+  slipRemoveOpen.value = false;
+};
 </script>
 
 <template>
@@ -143,46 +168,76 @@ const getAvatarProps = (customer?: CustomerOption | null) => ({
 
       <slot name="cart" />
       <slot name="summary" />
-      
 
-      <div class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
-        <UFormField label="ช่องทางชำระเงิน" required>
-          <USelect
-            :model-value="props.paymentMethod"
-            :items="paymentMethodOptions"
-            value-key="value"
-            class="w-full"
-            @update:model-value="emit('update:paymentMethod', $event as PaymentMethod)"
+      <!-- comment ไว้ก่อน ไม่ต้องมาลบ -->
+      <!-- <div v-if="!props.hidePaymentFields" class="rounded-xl border border-dashed border-default p-4">
+        <div class="flex items-center justify-between gap-3">
+          <div>
+            <p class="font-medium text-highlighted">{{ slipLabel }}</p>
+            <p v-if="!slipDisplayUrl" class="text-sm text-muted">ยังไม่ได้แนบรูป</p>
+          </div>
+          <UButton
+            v-if="!slipDisplayUrl"
+            label="เพิ่มรูป"
+            icon="i-lucide-camera"
+            color="neutral"
+            variant="solid"
+            :disabled="props.isSubmitting"
+            @click="openSlipPicker"
           />
-        </UFormField>
+        </div>
+        <input
+          ref="slipFileInputRef"
+          type="file"
+          accept="image/*"
+          capture="environment"
+          class="hidden"
+          @change="onSlipFileSelected"
+        >
+        <div v-if="slipDisplayUrl" class="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
+          <div class="group relative overflow-hidden rounded-xl border border-default bg-muted/30">
+            <img
+              :src="slipDisplayUrl"
+              :alt="slipLabel"
+              class="h-28 w-full cursor-pointer object-cover"
+              @click="openSlipPreview"
+            >
+            <UButton
+              icon="i-lucide-x"
+              color="error"
+              variant="solid"
+              size="xs"
+              class="absolute right-1 top-1"
+              :disabled="props.isSubmitting"
+              @click.stop="requestRemoveSlip"
+            />
+          </div>
+        </div>
+      </div> -->
 
-        <UFormField label="สถานะการชำระเงิน" required>
-          <USelect
-            :model-value="props.status"
-            :items="paymentStatusOptions"
-            value-key="value"
-            class="w-full"
-            @update:model-value="emit('update:status', $event as PaymentStatus)"
-          />
-        </UFormField>
+      <UIImagePreviewModal
+        v-model:open="slipPreviewOpen"
+        :title="slipLabel"
+        :image-url="slipDisplayUrl"
+        :image-alt="slipLabel"
+      />
+
+      <UIConfirmModal
+        v-model:open="slipRemoveOpen"
+        :title="props.slipFile ? 'ยกเลิกไฟล์ที่เลือก' : 'ลบรูปหลักฐาน'"
+        icon="i-lucide-trash-2"
+        icon-color="error"
+        confirm-label="ลบรูป"
+        confirm-color="error"
+        :message="props.slipFile ? 'ต้องการล้างไฟล์ที่เลือกไว้หรือไม่' : 'ต้องการลบรูปหลักฐานการชำระเงินนี้หรือไม่'"
+        :sub-message="props.slipFile ? 'ไฟล์นี้จะไม่ถูกอัปโหลดจนกว่าจะเลือกใหม่อีกครั้ง' : 'หากยืนยัน ระบบจะถอดรูปนี้ออกจากรายการปัจจุบัน'"
+        @confirm="performRemoveSlip"
+      />
+
+      <div v-if="props.hidePaymentFields" class="rounded-xl border border-success/40 bg-success/10 p-3 text-sm">
+        <p class="font-medium text-success">ใช้สิทธิ์แพ็กเกจรายเดือน</p>
+        <p class="text-muted">ไม่ต้องชำระเงินเพิ่ม ระบบจะตัดเครดิตให้อัตโนมัติ</p>
       </div>
-
-      <UFormField :label="props.paymentMethod === 'TRANSFER' ? 'สลิปโอนเงิน' : 'หลักฐานการชำระเงิน'">
-        <SlipUploadField
-          :label="props.paymentMethod === 'TRANSFER' ? 'สลิปโอนเงิน' : 'หลักฐานการชำระเงิน'"
-          :description="props.paymentMethod === 'TRANSFER' ? 'แนบสลิปเพื่อใช้ยืนยันรายการ' : 'แนบรูปหลักฐานเพิ่มเติมได้ตามต้องการ'"
-          :file="props.slipFile"
-          :image-url="props.uploadedSlipUrl"
-          :image-label="props.uploadedSlipLabel"
-          :disabled="props.isSubmitting"
-          confirm-remove
-          :confirm-title="props.slipFile ? 'ยกเลิกไฟล์ที่เลือก' : 'ลบรูปหลักฐาน'"
-          :confirm-message="props.slipFile ? 'ต้องการล้างไฟล์ที่เลือกไว้หรือไม่' : 'ต้องการลบรูปหลักฐานการชำระเงินนี้หรือไม่'"
-          :confirm-sub-message="props.slipFile ? 'ไฟล์นี้จะไม่ถูกอัปโหลดจนกว่าจะเลือกใหม่อีกครั้ง' : 'หากยืนยัน ระบบจะถอดรูปนี้ออกจากรายการปัจจุบัน'"
-          @update:file="emit('update:slipFile', $event)"
-          @remove="emit('remove-slip')"
-        />
-      </UFormField>
 
       <UFormField label="หมายเหตุ">
         <UTextarea
@@ -195,7 +250,7 @@ const getAvatarProps = (customer?: CustomerOption | null) => ({
       </UFormField>
 
       <slot name="discount" />
-      
+
       <div class="rounded-2xl border border-default bg-default p-4 text-default">
         <div class="flex items-center justify-between gap-3">
           <div>

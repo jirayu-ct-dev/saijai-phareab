@@ -103,6 +103,7 @@ model User {
   deletedImages               Image[]              @relation("ImageDeletedBy")
   deletedServiceOrders        ServiceOrder[]       @relation("ServiceOrderDeletedBy")
   deletedServiceOrderItems    ServiceOrderItem[]   @relation("ServiceOrderItemDeletedBy")
+  deletedServiceOrderItemImages ServiceOrderItemImage[] @relation("ServiceOrderItemImageDeletedBy")
   deletedPaymentRecords       PaymentRecord[]      @relation("PaymentRecordDeletedBy")
   deletedUserAddresses        UserAddress[]        @relation("UserAddressDeletedBy")
 
@@ -171,9 +172,11 @@ model Image {
   deletedById String?
   deletedBy   User?    @relation("ImageDeletedBy", fields: [deletedById], references: [id])
 
-  serviceOrderItems ServiceOrderItem[] @relation("ServiceOrderItemImage")
-  serviceOrders     ServiceOrder[]     @relation("ServiceOrderImage")
-  slipPayments      PaymentRecord[]    @relation("PaymentSlipImage")
+  serviceOrderItems      ServiceOrderItem[]      @relation("ServiceOrderItemImage")
+  serviceOrderItemImages ServiceOrderItemImage[] @relation("ServiceOrderItemImageAsset")
+  serviceOrders          ServiceOrder[]          @relation("ServiceOrderImage")
+  serviceOrderDeliveries ServiceOrder[]          @relation("ServiceOrderDeliveryImage")
+  slipPayments           PaymentRecord[]         @relation("PaymentSlipImage")
 
   @@index([userId])
   @@map("image")
@@ -387,9 +390,12 @@ model ServiceOrder {
     basket               Basket?            @relation(fields: [basketId], references: [id])
   note                 String?
   usedBonuses          Json?
+  addonUsages          Json?
   deliveryAddressSnapshot Json?
   imageId              String?
   image                Image?             @relation("ServiceOrderImage", fields: [imageId], references: [id])
+  deliveryImageId      String?
+  deliveryImage        Image?             @relation("ServiceOrderDeliveryImage", fields: [deliveryImageId], references: [id])
   createdAt            DateTime           @default(now())
   updatedAt            DateTime           @updatedAt
   deletedAt            DateTime?
@@ -426,9 +432,30 @@ model ServiceOrderItem {
   deletedById       String?
   deletedBy         User?           @relation("ServiceOrderItemDeletedBy", fields: [deletedById], references: [id])
 
+  photos            ServiceOrderItemImage[]
+
   @@index([serviceOrderId])
   @@index([storefrontPriceId])
   @@map("service_order_item")
+}
+
+model ServiceOrderItemImage {
+  id                 String           @id @default(cuid())
+  serviceOrderItemId String
+  serviceOrderItem   ServiceOrderItem @relation(fields: [serviceOrderItemId], references: [id], onDelete: Cascade)
+  imageId            String
+  image              Image            @relation("ServiceOrderItemImageAsset", fields: [imageId], references: [id])
+  isDamaged          Boolean          @default(false)
+  sortOrder          Int              @default(0)
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+  deletedAt          DateTime?
+  deletedById        String?
+  deletedBy          User?            @relation("ServiceOrderItemImageDeletedBy", fields: [deletedById], references: [id])
+
+  @@index([serviceOrderItemId])
+  @@index([imageId])
+  @@map("service_order_item_image")
 }
 
 model PaymentRecord {

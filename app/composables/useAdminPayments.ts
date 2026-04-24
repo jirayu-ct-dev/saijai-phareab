@@ -50,6 +50,9 @@ export type AdminPaymentRecord = {
     walkInName?: string | null;
     walkInPhone?: string | null;
     itemCount: number;
+    creditUsed?: number;
+    memberEntitlementId?: string | null;
+    memberProductName?: string | null;
   } | null;
   slipImage: PaymentSlipImage | null;
 };

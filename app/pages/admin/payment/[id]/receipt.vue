@@ -1,5 +1,10 @@
 <script setup lang="ts">
-import { formatCurrency, formatDateTime } from "~~/shared/utils/format";
+import ThermalSlip from "~~/app/components/admin/thermal/ThermalSlip.vue";
+import ThermalHeader from "~~/app/components/admin/thermal/ThermalHeader.vue";
+import ThermalTitle from "~~/app/components/admin/thermal/ThermalTitle.vue";
+import ThermalInfoRows from "~~/app/components/admin/thermal/ThermalInfoRows.vue";
+import ThermalLineQr from "~~/app/components/admin/thermal/ThermalLineQr.vue";
+import { formatCurrency, formatDate, formatDateTime } from "~~/shared/utils/format";
 
 type ReceiptPayload = {
   id: string;
@@ -71,7 +76,24 @@ type ReceiptPayload = {
       unitPrice: number;
       totalPrice: number;
       notes: string | null;
+      isPackageIncluded: boolean;
     }>;
+    creditUsed: number;
+    usageHistory: Array<{
+      sessionIndex: number;
+      orderId: string;
+      orderNo: string | null;
+      receivedAt: string;
+      quantity: number;
+      isCurrent: boolean;
+    }>;
+    memberEntitlement: {
+      id: string;
+      productName: string;
+      creditInitial: number;
+      creditRemaining: number;
+      endAt: string | null;
+    } | null;
   } | null;
 };
 
@@ -90,8 +112,6 @@ definePageMeta({
 
 const route = useRoute();
 const paymentId = computed(() => String(route.params.id ?? ""));
-const receiptElement = useTemplateRef<HTMLElement>("receiptElement");
-const RECEIPT_EXPORT_WIDTH_PX = 302;
 
 const SHOP_PROFILE = {
   name: "ร้านใส่ใจผ้าเรียบ",
@@ -105,17 +125,12 @@ const { data, status, refresh, error } = await useFetch<ReceiptPayload>(() => `/
 });
 
 const isLoading = computed(() => status.value === "pending");
+const hasError = computed(() => Boolean(error.value) || !data.value);
 const receiptCode = computed(() => data.value?.paymentNo || `PAY-${paymentId.value.slice(-8).toUpperCase()}`);
 const sellerName = computed(
   () => data.value?.packageSale?.soldBy?.name ?? data.value?.serviceOrder?.employee?.name ?? data.value?.verifiedBy?.name ?? "-",
 );
 const customerName = computed(() => data.value?.customer.name || data.value?.customer.email || "-");
-const paymentMethodLabel = computed(() => (data.value?.paymentMethod === "TRANSFER" ? "โอน" : "เงินสด"));
-const paymentStatusLabel = computed(() => {
-  if (data.value?.status === "VERIFIED") return "ชำระเรียบร้อย";
-  if (data.value?.status === "FAILED") return "ชำระไม่สำเร็จ";
-  return "รอตรวจสอบ";
-});
 const receiptLines = computed<ReceiptLineItem[]>(() => {
   if (data.value?.packageSale) {
     return data.value.packageSale.items.map((item) => ({
@@ -140,287 +155,241 @@ const subtotalAmount = computed(() => data.value?.packageSale?.subtotalAmount ??
 const discountAmount = computed(() => data.value?.packageSale?.discountAmount ?? data.value?.serviceOrder?.discountAmount ?? 0);
 const hangerCharge = computed(() => data.value?.serviceOrder?.hangerCharge ?? null);
 const noteText = computed(() => data.value?.note || data.value?.packageSale?.note || data.value?.serviceOrder?.note || null);
-const goBack = () => {
-  if (import.meta.client && window.history.length > 1) {
-    window.history.back();
-    return;
-  }
+const memberEntitlement = computed(() => data.value?.serviceOrder?.memberEntitlement ?? null);
+const isMemberOrder = computed(() => Boolean(memberEntitlement.value));
+const isMemberFreeOrder = computed(
+  () => isMemberOrder.value && Number(data.value?.amount ?? 0) === 0,
+);
+const receiptTitle = computed(() => {
+  if (data.value?.receiptType === "PACKAGE") return "ใบเสร็จรับเงิน";
+  if (isMemberFreeOrder.value) return "ใบแจ้งการใช้บริการ";
+  return "ใบเสร็จรับเงิน";
+});
+const creditUsed = computed(() => data.value?.serviceOrder?.creditUsed ?? 0);
+const usageHistory = computed(() => data.value?.serviceOrder?.usageHistory ?? []);
+const totalUsedCredits = computed(() => usageHistory.value.reduce((sum, row) => sum + row.quantity, 0));
 
-  void navigateTo("/admin/payment");
-};
-const handlePrint = () => {
-  if (import.meta.client) window.print();
-};
-
-const downloadPng = async () => {
-  if (!import.meta.client || !receiptElement.value) return;
-
-  const { toPng } = await import("html-to-image");
-
-  const exportHost = document.createElement("div");
-  exportHost.style.position = "fixed";
-  exportHost.style.left = "-10000px";
-  exportHost.style.top = "0";
-  exportHost.style.width = `${RECEIPT_EXPORT_WIDTH_PX}px`;
-  exportHost.style.padding = "0";
-  exportHost.style.margin = "0";
-  exportHost.style.background = "#ffffff";
-
-  const receiptClone = receiptElement.value.cloneNode(true) as HTMLElement;
-  receiptClone.style.width = `${RECEIPT_EXPORT_WIDTH_PX}px`;
-  receiptClone.style.maxWidth = `${RECEIPT_EXPORT_WIDTH_PX}px`;
-  receiptClone.style.margin = "0 auto";
-  receiptClone.style.boxSizing = "border-box";
-
-  exportHost.appendChild(receiptClone);
-  document.body.appendChild(exportHost);
-
-  const dataUrl = await toPng(receiptClone, {
-    backgroundColor: "#ffffff",
-    pixelRatio: 2,
-    canvasWidth: RECEIPT_EXPORT_WIDTH_PX,
-    skipFonts: true,
-  });
-
-  document.body.removeChild(exportHost);
-
-  const link = document.createElement("a");
-  link.href = dataUrl;
-  link.download = `${receiptCode.value}.png`;
-  link.click();
-};
-
+const infoRows = computed(() => {
+  const d = data.value;
+  if (!d) return [];
+  const isServiceOrder = Boolean(d.serviceOrder);
+  return [
+    { label: "เลขที่บิล", value: receiptCode.value },
+    { label: "เลขรับผ้า", value: d.serviceOrder?.orderNo ?? null },
+    { label: "วันที่", value: formatDateTime(d.createdAt), show: !isServiceOrder },
+    { label: "วันที่รับผ้า", value: d.serviceOrder?.receivedAt ? formatDateTime(d.serviceOrder.receivedAt) : null },
+    { label: "วันนัดรับ", value: d.serviceOrder?.dueAt ? formatDateTime(d.serviceOrder.dueAt) : null },
+    { label: "วันที่ส่งผ้า", value: d.paidAt ? formatDateTime(d.paidAt) : null, show: isServiceOrder },
+    { label: "แพ็กเกจ", value: memberEntitlement.value?.productName ?? null, show: isMemberOrder.value },
+    { label: "รูปแบบ", value: "แพ็กเกจรายเดือน", show: isMemberOrder.value },
+    { label: "ชื่อลูกค้า", value: customerName.value },
+    { label: "พนักงาน", value: sellerName.value },
+    { label: "โทร", value: d.customer.phoneNumber },
+  ];
+});
 </script>
 
 <template>
-  <UDashboardPanel id="payment-receipt">
-    <template #header>
-      <UDashboardNavbar title="ใบเสร็จ" icon="i-lucide-receipt">
-        <template #leading>
-          <UDashboardSidebarCollapse class="hidden lg:inline-flex receipt-actions" />
-        </template>
+  <ThermalSlip
+    panel-id="payment-receipt"
+    navbar-title="ใบเสร็จ"
+    navbar-icon="i-lucide-receipt"
+    :file-name="receiptCode"
+    :is-loading="isLoading"
+    :has-error="hasError"
+    fallback-path="/admin/payment"
+    empty-title="ไม่พบข้อมูลใบเสร็จ"
+    print-label="พิมพ์ใบเสร็จ"
+    @retry="refresh()"
+  >
+    <template v-if="data">
+      <ThermalHeader
+        :name="SHOP_PROFILE.name"
+        :subtitle="SHOP_PROFILE.subtitle"
+        :address="SHOP_PROFILE.address"
+        :phone="SHOP_PROFILE.phone"
+      />
 
-        <template #right>
-          <div class="receipt-actions flex items-center gap-2">
-            <UButton label="กลับ" color="neutral" variant="outline" icon="i-lucide-arrow-left" @click="goBack" />
-            <UButton label="บันทึก PNG" color="neutral" variant="outline" icon="i-lucide-image-down" @click="downloadPng" />
-            <UButton label="พิมพ์ใบเสร็จ" color="neutral" icon="i-lucide-printer" @click="handlePrint" />
-          </div>
-        </template>
-      </UDashboardNavbar>
-    </template>
+      <ThermalTitle :text="receiptTitle" />
 
-    <template #body>
-      <div v-if="isLoading" class="receipt-card rounded-2xl border border-default bg-default p-6">
-        <USkeleton class="mx-auto h-5 w-40" />
-        <USkeleton class="mx-auto mt-2 h-4 w-56" />
-        <USkeleton class="mt-6 h-80 w-full" />
+      <div class="mt-3">
+        <ThermalInfoRows :rows="infoRows" />
       </div>
 
-      <div v-else-if="error || !data" class="receipt-card rounded-2xl border border-default bg-default p-6">
-        <p class="text-base font-semibold text-highlighted">ไม่พบข้อมูลใบเสร็จ</p>
-        <p class="mt-2 text-sm text-muted">รายการนี้อาจถูกลบหรือยังไม่พร้อมสำหรับพิมพ์</p>
-        <div class="mt-4">
-          <UButton label="ลองใหม่" color="neutral" variant="outline" @click="refresh()" />
+      <div class="thermal-dash mt-3" />
+
+      <section class="mt-2">
+        <div class="flex items-start gap-2 text-[12px] font-bold">
+          <p class="min-w-0 flex-1">รายการ</p>
+          <p class="w-10 shrink-0 text-right whitespace-nowrap">จำนวน</p>
+          <p class="w-19.5 shrink-0 text-right whitespace-nowrap">รวม</p>
         </div>
-      </div>
 
-      <article ref="receiptElement" v-else class="receipt-card mx-auto bg-white px-4 py-5 text-[13px] leading-5 text-black">
-        <header class="text-center">
-          <p class="text-[22px] font-bold leading-7">{{ SHOP_PROFILE.name }}</p>
-          <p class="mt-1 text-[15px] font-semibold">{{ SHOP_PROFILE.subtitle }}</p>
-          <p class="mt-1 text-[12px] leading-5">{{ SHOP_PROFILE.address }}</p>
-          <p class="text-[12px] leading-5">{{ SHOP_PROFILE.phone }}</p>
-        </header>
+        <div class="thermal-dash mt-1" />
 
-        <div class="receipt-rule mt-4" />
-
-        <section class="pt-3 text-center">
-          <p class="text-[18px] font-bold">ใบเสร็จรับเงิน</p>
-        </section>
-
-        <section class="mt-3 grid gap-1 text-[12px] leading-4">
-          <div class="receipt-info-row">
-            <span>เลขที่บิล:</span>
-            <span class="text-right">{{ receiptCode }}</span>
-          </div>
-          <div v-if="data.serviceOrder?.orderNo" class="receipt-info-row">
-            <span>เลขรับผ้า:</span>
-            <span class="text-right">{{ data.serviceOrder.orderNo }}</span>
-          </div>
-          <div class="receipt-info-row">
-            <span>วันที่:</span>
-            <span class="text-right">{{ formatDateTime(data.createdAt) }}</span>
-          </div>
-          <div v-if="data.serviceOrder?.receivedAt" class="receipt-info-row">
-            <span>วันที่รับ:</span>
-            <span class="text-right">{{ formatDateTime(data.serviceOrder.receivedAt) }}</span>
-          </div>
-          <div v-if="data.serviceOrder?.dueAt" class="receipt-info-row">
-            <span>วันนัดรับ:</span>
-            <span class="text-right">{{ formatDateTime(data.serviceOrder.dueAt) }}</span>
-          </div>
-          <div v-if="data.paidAt" class="receipt-info-row">
-            <span>วันที่ชำระ:</span>
-            <span class="text-right">{{ formatDateTime(data.paidAt) }}</span>
-          </div>
-          <div class="receipt-info-row">
-            <span>ประเภทการชำระ:</span>
-            <span class="text-right">{{ paymentMethodLabel }}</span>
-          </div>
-          <div class="receipt-info-row">
-            <span>สถานะ:</span>
-            <span class="text-right">{{ paymentStatusLabel }}</span>
-          </div>
-          <div class="receipt-info-row">
-            <span>ชื่อลูกค้า:</span>
-            <span class="text-right">{{ customerName }}</span>
-          </div>
-          <div class="receipt-info-row">
-            <span>พนักงาน:</span>
-            <span class="text-right">{{ sellerName }}</span>
-          </div>
-          <div v-if="data.customer.phoneNumber" class="receipt-info-row">
-            <span>โทร:</span>
-            <span class="text-right">{{ data.customer.phoneNumber }}</span>
-          </div>
-        </section>
-
-        <div class="receipt-dash mt-3" />
-
-        <section class="mt-2">
-          <div class="flex items-start gap-2 text-[12px] font-bold">
-            <p class="min-w-0 flex-1">รายการ</p>
-            <p class="w-10 shrink-0 text-right whitespace-nowrap">จำนวน</p>
-            <p class="w-19.5 shrink-0 text-right whitespace-nowrap">รวม</p>
-          </div>
-
-          <div class="receipt-dash mt-1" />
-
-          <div class="mt-2 space-y-2">
-            <div v-for="item in receiptLines" :key="item.id">
-              <div class="receipt-item-row text-[12px]">
-                <div class="min-w-0">
-                  <p class="receipt-item-name font-semibold leading-4">{{ item.name }}</p>
-                  <p v-if="item.subtitle" class="receipt-item-subtitle mt-0.5 text-[11px] leading-4 text-neutral-600">{{ item.subtitle }}</p>
-                </div>
-                <p class="text-right whitespace-nowrap">x{{ item.quantity }}</p>
-                <p class="text-right whitespace-nowrap">{{ formatCurrency(item.totalPrice) }}</p>
+        <div class="mt-2 space-y-2">
+          <div v-for="item in receiptLines" :key="item.id">
+            <div class="item-row text-[12px]">
+              <div class="min-w-0">
+                <p class="item-name font-semibold leading-4">{{ item.name }}</p>
+                <p v-if="item.subtitle" class="item-name mt-0.5 text-[11px] leading-4 text-neutral-600">{{ item.subtitle }}</p>
               </div>
+              <p class="text-right whitespace-nowrap">x{{ item.quantity }}</p>
+              <p class="text-right whitespace-nowrap">
+                {{ isMemberOrder && item.totalPrice === 0 ? `${item.quantity} เครดิต` : formatCurrency(item.totalPrice) }}
+              </p>
             </div>
           </div>
-        </section>
+        </div>
+      </section>
 
-        <div class="receipt-dash mt-3" />
+      <div class="thermal-dash mt-3" />
 
-        <section class="mt-3 space-y-1 text-[12px] leading-4">
-          <div class="receipt-info-row">
-            <span>รวมจำนวนรายการ</span>
-            <span>{{ totalItemQuantity }} ชิ้น</span>
-          </div>
-          <div v-if="hangerCharge" class="receipt-info-row">
-            <span>รวมไม้แขวน</span>
-            <span>{{ hangerCharge?.count ?? 0 }} ชิ้น</span>
-          </div>
-          <div class="receipt-info-row">
-            <span>ราคา</span>
-            <span>{{ formatCurrency(subtotalAmount) }}</span>
-          </div>
-          <div v-if="hangerCharge && hangerCharge.total > 0" class="receipt-info-row">
-            <span>ค่าไม้แขวน</span>
-            <span>{{ formatCurrency(hangerCharge.total) }}</span>
-          </div>
-          <div class="receipt-info-row">
-            <span>ส่วนลด</span>
-            <span>{{ formatCurrency(discountAmount) }}</span>
-          </div>
-          <div v-if="noteText" class="pt-1 text-[11px] leading-4 text-neutral-700">
-            <p class="font-semibold">หมายเหตุ</p>
-            <p class="mt-1 wrap-break-word">{{ noteText }}</p>
-          </div>
-        </section>
+      <section class="mt-3 space-y-1 text-[12px] leading-4">
+        <div class="summary-row">
+          <span>รวมจำนวนรายการ</span>
+          <span>{{ totalItemQuantity }} ชิ้น</span>
+        </div>
+        <div v-if="hangerCharge" class="summary-row">
+          <span>รวมไม้แขวน</span>
+          <span>{{ hangerCharge?.count ?? 0 }} ชิ้น</span>
+        </div>
+        <div class="summary-row">
+          <span>ราคา</span>
+          <span>{{ formatCurrency(subtotalAmount) }}</span>
+        </div>
+        <div v-if="hangerCharge && hangerCharge.total > 0" class="summary-row">
+          <span>ค่าไม้แขวน</span>
+          <span>{{ formatCurrency(hangerCharge.total) }}</span>
+        </div>
+        <div class="summary-row">
+          <span>ส่วนลด</span>
+          <span>{{ formatCurrency(discountAmount) }}</span>
+        </div>
+        <div v-if="noteText" class="pt-1 text-[11px] leading-4 text-neutral-700">
+          <p class="font-semibold">หมายเหตุ</p>
+          <p class="mt-1 wrap-break-word">{{ noteText }}</p>
+        </div>
+      </section>
 
-        <div class="receipt-rule mt-4" />
-
+      <template v-if="isMemberOrder && memberEntitlement">
+        <div class="thermal-rule mt-4" />
         <section class="mt-3">
-          <div class="flex items-end justify-between gap-4 text-[16px] font-bold leading-5">
-            <span class="shrink-0 whitespace-nowrap">รวมทั้งสิ้น</span>
-            <span class="shrink-0 whitespace-nowrap text-right">{{ formatCurrency(data.amount) }}</span>
+          <p class="text-center text-[13px] font-bold">สรุปการใช้บริการ</p>
+          <div class="thermal-dash mt-2" />
+
+          <div class="usage-header mt-2 text-[12px] font-bold">
+            <p class="text-left whitespace-nowrap">ครั้งที่</p>
+            <p class="min-w-0 text-left">วันที่ใช้บริการ</p>
+            <p class="text-right whitespace-nowrap">จำนวน(ชิ้น)</p>
           </div>
-          <div class="mt-1 border-b-4 border-double border-black" />
+          <div class="thermal-dash mt-1" />
+
+          <div class="mt-2 space-y-1">
+            <div
+              v-for="row in usageHistory"
+              :key="row.orderId"
+              class="usage-row text-[12px]"
+            >
+              <p class="text-left whitespace-nowrap">
+                {{ row.sessionIndex }}<span v-if="row.isCurrent">*</span>
+              </p>
+              <p class="min-w-0 truncate">{{ formatDate(row.receivedAt) }}</p>
+              <p class="text-right whitespace-nowrap">{{ row.quantity }}</p>
+            </div>
+          </div>
+
+          <div class="thermal-dash mt-2" />
+
+          <div class="usage-row mt-1 text-[12px] font-semibold">
+            <p />
+            <p class="text-left">รวม</p>
+            <p class="text-right">{{ totalUsedCredits }}</p>
+          </div>
+          <div class="usage-row mt-1 text-[12px] font-semibold">
+            <p />
+            <p class="text-left">คงเหลือ(เครดิต)</p>
+            <p class="text-right">
+              {{ memberEntitlement.creditRemaining }}/{{ memberEntitlement.creditInitial }}
+            </p>
+          </div>
+          <div v-if="memberEntitlement.endAt" class="usage-row mt-1 text-[12px]">
+            <p />
+            <p class="text-left">หมดอายุ</p>
+            <p class="text-right whitespace-nowrap">{{ formatDate(memberEntitlement.endAt) }}</p>
+          </div>
         </section>
+      </template>
 
-        <div class="receipt-dash mt-6" />
+      <div class="thermal-rule mt-4" />
 
-        <footer class="pt-4 text-center text-[13px]">
-          <p>ขอบคุณที่ใช้บริการ</p>
-        </footer>
-      </article>
+      <section class="mt-3">
+        <div class="flex items-end justify-between gap-4 text-[16px] font-bold leading-5">
+          <span class="shrink-0 whitespace-nowrap">รวมทั้งสิ้น</span>
+          <span class="shrink-0 whitespace-nowrap text-right">
+            {{ isMemberFreeOrder ? "ใช้สิทธิ์แพ็กเกจ" : formatCurrency(data.amount) }}
+          </span>
+        </div>
+        <div class="mt-1 border-b-4 border-double border-black" />
+      </section>
+
+      <div class="mt-4 flex flex-col items-center">
+        <ThermalLineQr />
+      </div>
+
+      <div class="thermal-dash mt-6" />
+
+      <footer class="pt-4 text-center text-[13px]">
+        <p>ขอบคุณที่ใช้บริการ</p>
+      </footer>
     </template>
-  </UDashboardPanel>
+  </ThermalSlip>
 </template>
 
 <style scoped>
-.receipt-card {
-  width: min(100%, 80mm);
-}
-
-.receipt-rule {
+.thermal-rule {
   border-top: 2px solid #000;
 }
 
-.receipt-dash {
+.thermal-dash {
   border-top: 2px dashed #000;
 }
 
-.receipt-info-row {
-  display: grid;
-  grid-template-columns: 88px minmax(0, 1fr);
-  align-items: start;
-  gap: 12px;
-}
-
-.receipt-info-row > span:first-child {
-  white-space: nowrap;
-}
-
-.receipt-info-row > span:last-child {
-  min-width: 0;
-  text-align: right;
-  white-space: nowrap;
-}
-
-.receipt-item-row {
+.item-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 36px 56px;
   align-items: start;
   gap: 8px;
 }
 
-.receipt-item-name,
-.receipt-item-subtitle {
+.item-name {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-@media print {
-  .receipt-actions {
-    display: none !important;
-  }
+.summary-row {
+  display: grid;
+  grid-template-columns: 88px minmax(0, 1fr);
+  align-items: start;
+  gap: 12px;
+}
 
-  .receipt-card {
-    width: 80mm;
-    max-width: 80mm;
-    border: 0;
-    box-shadow: none;
-    margin: 0 auto;
-    padding-left: 10px;
-    padding-right: 10px;
-  }
+.summary-row > span:first-child {
+  white-space: nowrap;
+}
 
-  :global(body) {
-    background: #fff !important;
-  }
+.summary-row > span:last-child {
+  min-width: 0;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.usage-header,
+.usage-row {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr) 85px;
+  align-items: start;
+  gap: 6px;
 }
 </style>

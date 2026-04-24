@@ -23,15 +23,15 @@ const adminMenu = [
       onSelect: closeSidebar,
     },
     {
-      label: "รายการรับผ้า",
-      icon: "i-lucide-shopping-basket",
-      to: "/admin/service-orders",
-      onSelect: closeSidebar,
-    },
-    {
       label: "รายการขาย",
       icon: "i-lucide-shopping-cart",
       to: "/admin/sales",
+      onSelect: closeSidebar,
+    },
+    {
+      label: "รายการรับผ้า",
+      icon: "i-lucide-shopping-basket",
+      to: "/admin/service-orders",
       onSelect: closeSidebar,
     },
     {

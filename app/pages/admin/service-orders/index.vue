@@ -3,15 +3,16 @@ import { CalendarDate } from "@internationalized/date";
 import { getPaginationRowModel } from "@tanstack/table-core";
 import type { TableColumn } from "@nuxt/ui";
 import { h, resolveComponent } from "vue";
+import OrderItemPhotosField, { type OrderItemPhoto } from "~~/app/components/admin/pos/OrderItemPhotosField.vue";
 import type { PaymentSlipImage } from "~~/app/composables/useAdminPayments";
 import type {
   AdminServiceOrder,
   CreateAdminServiceOrderBody,
 } from "~~/app/composables/useAdminServiceOrders";
 import { orderStatusColors, orderStatusLabels } from "~~/shared/config/orderConfig";
-import { paymentStatusColors, paymentStatusLabels } from "~~/shared/config/paymentConfig";
+import { paymentStatusLabels } from "~~/shared/config/paymentConfig";
 import { formatCurrency, formatDateTime } from "~~/shared/utils/format";
-import type { PaymentMethod, PaymentStatus, ServiceOrderStatus } from "~~/shared/types/enums";
+import type { PaymentStatus, ServiceOrderStatus } from "~~/shared/types/enums";
 
 definePageMeta({
   layout: "admin",
@@ -31,8 +32,14 @@ type TableApi = {
   resetRowSelection: () => void;
 };
 type TableInstance = { tableApi?: TableApi };
-type CustomerTypeFilter = "all" | "walk-in" | "member";
-type FormItemState = { key: string; storefrontPriceId: string; quantity: number };
+type CustomerTypeFilter = "all" | "walk-in" | "member" | "monthly";
+type FormItemState = {
+  key: string;
+  storefrontPriceId: string;
+  quantity: number;
+  notes: string;
+  photos: OrderItemPhoto[];
+};
 type CatalogMenuItem = { label: string; icon: string; onSelect: () => void; description?: string };
 type CustomerOption = {
   label: string;
@@ -41,16 +48,13 @@ type CustomerOption = {
   name?: string | null;
   email?: string | null;
   phoneNumber?: string | null;
-};
-
-const paymentMethodOptions: Array<{ label: string; value: PaymentMethod }> = [
-  { label: "เงินสด", value: "CASH" },
-  { label: "โอน", value: "TRANSFER" },
-];
-
-const paymentMethodBadgeMap: Record<PaymentMethod, { label: string; color: "success" | "info" }> = {
-  CASH: { label: "เงินสด", color: "success" },
-  TRANSFER: { label: "โอน", color: "info" },
+  activeMemberEntitlement?: {
+    id: string;
+    productName: string;
+    creditInitial: number | null;
+    creditRemaining: number | null;
+    endAt: string | null;
+  } | null;
 };
 
 const serviceOrderStatusOptions: Array<{ label: string; value: ServiceOrderStatus }> = [
@@ -82,7 +86,9 @@ const {
   refresh,
   createServiceOrder,
   updateServiceOrder,
+  updateServiceOrderStatus,
   deleteServiceOrder,
+  uploadOrderImage,
 } = useAdminServiceOrders();
 const { customers, isLoading: isCustomersLoading } = useAdminCustomerOptions();
 const { items: catalogItems, isLoading: isCatalogLoading } = useStorefrontCatalog();
@@ -130,9 +136,12 @@ const filteredServiceOrders = computed<AdminServiceOrder[]>(() => {
 
     const matchStatus = statusFilter.value === "all" || order.status === statusFilter.value;
     const matchPaymentStatus = paymentStatusFilter.value === "all" || order.payment?.status === paymentStatusFilter.value;
-    const matchCustomerType =
-      customerTypeFilter.value === "all"
-      || (customerTypeFilter.value === "walk-in" ? order.isWalkIn : !order.isWalkIn);
+    const matchCustomerType = (() => {
+      if (customerTypeFilter.value === "all") return true;
+      if (customerTypeFilter.value === "walk-in") return order.isWalkIn;
+      if (customerTypeFilter.value === "monthly") return Boolean(order.memberEntitlement);
+      return !order.isWalkIn;
+    })();
 
     return matchKeyword && matchStatus && matchPaymentStatus && matchCustomerType;
   });
@@ -183,7 +192,114 @@ const formatItemSummary = (order: AdminServiceOrder) => {
   return items;
 };
 
-const openIntakeSlip = (order: AdminServiceOrder) => navigateTo(`/admin/service-orders/${order.id}/intake`);
+const openReceipt = (order: AdminServiceOrder) => navigateTo(`/admin/service-orders/${order.id}/intake`);
+
+const isStatusOpen = ref(false);
+const isUpdatingStatus = ref(false);
+const statusTarget = ref<AdminServiceOrder | null>(null);
+const statusDraft = ref<ServiceOrderStatus>("RECEIVED");
+const deliveryImageFile = ref<File | null>(null);
+const uploadedDeliveryImage = ref<AdminServiceOrder["image"] | null>(null);
+
+type AddonPickerEntry = {
+  entitlementId: string;
+  productName: string;
+  creditRemaining: number;
+  selected: boolean;
+  credits: number;
+};
+const addonPickerEntries = ref<AddonPickerEntry[]>([]);
+const isLoadingAddons = ref(false);
+
+const loadAddonEntitlements = async (order: AdminServiceOrder) => {
+  addonPickerEntries.value = [];
+  if (order.isWalkIn) return;
+  isLoadingAddons.value = true;
+  try {
+    const result = await $fetch<{
+      addonEntitlements?: Array<{
+        id: string;
+        creditRemaining: number | null;
+        product: { name: string };
+      }>;
+    }>("/api/admin/service-orders/lookup", { query: { q: order.id } });
+    addonPickerEntries.value = (result.addonEntitlements ?? [])
+      .filter((e) => (e.creditRemaining ?? 0) > 0)
+      .map((e) => ({
+        entitlementId: e.id,
+        productName: e.product.name,
+        creditRemaining: e.creditRemaining ?? 0,
+        selected: false,
+        credits: 1,
+      }));
+  } catch {
+    addonPickerEntries.value = [];
+  } finally {
+    isLoadingAddons.value = false;
+  }
+};
+
+const openStatusModal = (order: AdminServiceOrder) => {
+  statusTarget.value = order;
+  statusDraft.value = order.status;
+  deliveryImageFile.value = null;
+  uploadedDeliveryImage.value = order.deliveryImage ?? null;
+  addonPickerEntries.value = [];
+  isStatusOpen.value = true;
+  void loadAddonEntitlements(order);
+};
+const handleRemoveDeliveryImage = () => {
+  deliveryImageFile.value = null;
+  uploadedDeliveryImage.value = null;
+};
+const confirmStatusUpdate = async () => {
+  if (!statusTarget.value) return;
+
+  const addonUsages: Array<{ entitlementId: string; credits: number }> = [];
+  const isTransitionToCompleted = statusDraft.value === "COMPLETED" && statusTarget.value.status !== "COMPLETED";
+  if (isTransitionToCompleted) {
+    for (const entry of addonPickerEntries.value) {
+      if (!entry.selected) continue;
+      const credits = Math.max(0, Math.floor(entry.credits || 0));
+      if (credits <= 0) {
+        notify.validationError(`กรุณากรอกจำนวนเครดิตของ "${entry.productName}"`);
+        return;
+      }
+      if (credits > entry.creditRemaining) {
+        notify.validationError(`"${entry.productName}" คงเหลือ ${entry.creditRemaining} เครดิตเท่านั้น`);
+        return;
+      }
+      addonUsages.push({ entitlementId: entry.entitlementId, credits });
+    }
+  }
+
+  isUpdatingStatus.value = true;
+  let deliveryImageId: string | null | undefined = undefined;
+  if (statusDraft.value === "COMPLETED") {
+    if (deliveryImageFile.value) {
+      const uploaded = await uploadOrderImage(deliveryImageFile.value);
+      if (!uploaded) {
+        isUpdatingStatus.value = false;
+        return;
+      }
+      uploadedDeliveryImage.value = uploaded;
+      deliveryImageId = uploaded.id;
+    } else {
+      deliveryImageId = uploadedDeliveryImage.value?.id ?? null;
+    }
+  } else {
+    deliveryImageId = null;
+  }
+  const ok = await updateServiceOrderStatus(statusTarget.value.id, statusDraft.value, { deliveryImageId, addonUsages });
+  isUpdatingStatus.value = false;
+  if (ok) {
+    isStatusOpen.value = false;
+    statusTarget.value = null;
+    deliveryImageFile.value = null;
+    uploadedDeliveryImage.value = null;
+    addonPickerEntries.value = [];
+  }
+};
 
 const isDeleteOpen = ref(false);
 const isBulkDeleteOpen = ref(false);
@@ -231,6 +347,80 @@ const isSubmitting = ref(false);
 const editingOrder = ref<AdminServiceOrder | null>(null);
 const slipFile = ref<File | null>(null);
 const uploadedSlip = ref<PaymentSlipImage | null>(null);
+const orderImageFile = ref<File | null>(null);
+const uploadedOrderImage = ref<AdminServiceOrder["image"] | null>(null);
+const editDeliveryImageFile = ref<File | null>(null);
+const uploadedEditDeliveryImage = ref<AdminServiceOrder["image"] | null>(null);
+
+const intakeFileInputRef = ref<HTMLInputElement | null>(null);
+const deliveryFileInputRef = ref<HTMLInputElement | null>(null);
+const intakeObjectUrl = ref<string>("");
+const deliveryObjectUrl = ref<string>("");
+const editPhotoPreviewOpen = ref(false);
+const editPhotoPreviewUrl = ref("");
+const editPhotoPreviewTitle = ref("");
+const editPhotoRemoveOpen = ref(false);
+const editPhotoRemoveTarget = ref<"intake" | "delivery" | null>(null);
+
+watch(orderImageFile, (file) => {
+  if (intakeObjectUrl.value && import.meta.client) URL.revokeObjectURL(intakeObjectUrl.value);
+  intakeObjectUrl.value = file && import.meta.client ? URL.createObjectURL(file) : "";
+});
+watch(editDeliveryImageFile, (file) => {
+  if (deliveryObjectUrl.value && import.meta.client) URL.revokeObjectURL(deliveryObjectUrl.value);
+  deliveryObjectUrl.value = file && import.meta.client ? URL.createObjectURL(file) : "";
+});
+
+const intakeDisplayUrl = computed(
+  () => uploadedOrderImage.value?.secureUrl || uploadedOrderImage.value?.url || intakeObjectUrl.value || "",
+);
+const deliveryDisplayUrl = computed(
+  () => uploadedEditDeliveryImage.value?.secureUrl || uploadedEditDeliveryImage.value?.url || deliveryObjectUrl.value || "",
+);
+
+const openIntakePicker = () => intakeFileInputRef.value?.click();
+const openDeliveryPicker = () => deliveryFileInputRef.value?.click();
+const onIntakeFileSelected = (event: Event) => {
+  const input = event.target as HTMLInputElement | null;
+  const file = input?.files?.[0] ?? null;
+  if (!file) return;
+  orderImageFile.value = file;
+  uploadedOrderImage.value = null;
+  form.orderImageId = null;
+  if (input) input.value = "";
+};
+const onDeliveryFileSelected = (event: Event) => {
+  const input = event.target as HTMLInputElement | null;
+  const file = input?.files?.[0] ?? null;
+  if (!file) return;
+  editDeliveryImageFile.value = file;
+  uploadedEditDeliveryImage.value = null;
+  form.deliveryImageId = null;
+  if (input) input.value = "";
+};
+const openEditPhotoPreview = (url: string, title: string) => {
+  if (!url) return;
+  editPhotoPreviewUrl.value = url;
+  editPhotoPreviewTitle.value = title;
+  editPhotoPreviewOpen.value = true;
+};
+const requestRemoveEditPhoto = (target: "intake" | "delivery") => {
+  editPhotoRemoveTarget.value = target;
+  editPhotoRemoveOpen.value = true;
+};
+const performRemoveEditPhoto = () => {
+  if (editPhotoRemoveTarget.value === "intake") {
+    orderImageFile.value = null;
+    uploadedOrderImage.value = null;
+    form.orderImageId = null;
+  } else if (editPhotoRemoveTarget.value === "delivery") {
+    editDeliveryImageFile.value = null;
+    uploadedEditDeliveryImage.value = null;
+    form.deliveryImageId = null;
+  }
+  editPhotoRemoveTarget.value = null;
+  editPhotoRemoveOpen.value = false;
+};
 let itemKeySeed = 0;
 const createItemKey = () => `service-order-item-${++itemKeySeed}`;
 
@@ -240,15 +430,36 @@ const createEmptyForm = () => ({
   walkInName: "",
   walkInPhone: "",
   serviceOrderStatus: "RECEIVED" as ServiceOrderStatus,
-  paymentMethod: "CASH" as PaymentMethod,
-  paymentStatus: "VERIFIED" as PaymentStatus,
   hangerCount: 0,
+  missingHangerCount: 0,
+  memberEntitlementId: null as string | null,
+  orderImageId: null as string | null,
+  deliveryImageId: null as string | null,
   discountAmount: 0,
   note: "",
 });
 
 const form = reactive(createEmptyForm());
 const formItems = ref<FormItemState[]>([]);
+const expandedItems = ref<Set<string>>(new Set());
+const toggleItemExpand = (key: string) => {
+  const next = new Set(expandedItems.value);
+  next.has(key) ? next.delete(key) : next.add(key);
+  expandedItems.value = next;
+};
+const setItemQuantity = (key: string, value: number | string | null | undefined) => {
+  const qty = Math.max(0, Math.floor(Number(value) || 0));
+  const target = formItems.value.find((entry) => entry.key === key);
+  if (!target) return;
+  if (qty === 0) {
+    formItems.value = formItems.value.filter((entry) => entry.key !== key);
+    const next = new Set(expandedItems.value);
+    next.delete(key);
+    expandedItems.value = next;
+    return;
+  }
+  target.quantity = qty;
+};
 const dueDate = shallowRef<CalendarDate | null>(null);
 const dueTime = ref("00:00");
 
@@ -260,9 +471,12 @@ const customerOptions = computed<CustomerOption[]>(() =>
     name: customer.name,
     email: customer.email,
     phoneNumber: customer.phoneNumber,
+    activeMemberEntitlement: customer.activeMemberEntitlement ?? null,
   })),
 );
 const selectedCustomer = computed(() => customerOptions.value.find((item) => item.value === form.customerId) ?? null);
+const activeMemberEntitlement = computed(() => selectedCustomer.value?.activeMemberEntitlement ?? null);
+const canUseMemberPackage = computed(() => !form.isWalkIn && Boolean(activeMemberEntitlement.value));
 
 const catalogOptions = computed(() =>
   (catalogItems.value ?? []).map((item) => ({
@@ -287,6 +501,8 @@ const formLineItems = computed(() =>
         quantity: item.quantity,
         unitPrice: catalog.price,
         totalPrice: catalog.price * item.quantity,
+        notes: item.notes,
+        photos: item.photos,
       };
     })
     .filter((item): item is NonNullable<typeof item> => Boolean(item)),
@@ -295,9 +511,9 @@ const formLineItems = computed(() =>
 const subtotalAmount = computed(() => formLineItems.value.reduce((sum, item) => sum + item.totalPrice, 0));
 const totalQuantity = computed(() => formLineItems.value.reduce((sum, item) => sum + item.quantity, 0));
 const hangerCharge = computed(() => ({
-  count: form.hangerCount,
+  count: form.missingHangerCount,
   pricePerUnit: 2,
-  total: form.hangerCount * 2,
+  total: form.missingHangerCount * 2,
 }));
 const sanitizedDiscountAmount = computed(() => {
   const raw = Number(form.discountAmount || 0);
@@ -320,21 +536,55 @@ const dueAtValue = computed(() => {
   if (!dueDate.value) return null;
   return `${dueDate.value.toString()}T${dueTimeLabel.value}`;
 });
-const totalAmount = computed(() => subtotalAmount.value - sanitizedDiscountAmount.value + hangerCharge.value.total);
-
-watch(totalQuantity, (value) => {
-  if (form.hangerCount < value) form.hangerCount = value;
-}, { immediate: true });
+const dueDateLabel = computed(() => {
+  if (!dueDate.value) return "เลือกวันที่";
+  const dd = String(dueDate.value.day).padStart(2, "0");
+  const mm = String(dueDate.value.month).padStart(2, "0");
+  return `${dd}/${mm}/${dueDate.value.year}`;
+});
+const creditAvailable = computed(() => Math.max(0, Number(activeMemberEntitlement.value?.creditRemaining ?? 0)));
+const creditUsedPreview = computed(() => {
+  if (!form.memberEntitlementId) return 0;
+  return Math.min(totalQuantity.value, creditAvailable.value);
+});
+const cashSubtotal = computed(() => {
+  if (!form.memberEntitlementId) return subtotalAmount.value;
+  let remaining = creditAvailable.value;
+  let total = 0;
+  for (const item of formLineItems.value) {
+    const creditQty = Math.min(item.quantity, remaining);
+    remaining -= creditQty;
+    total += (item.quantity - creditQty) * item.unitPrice;
+  }
+  return total;
+});
+const cashQuantity = computed(() => totalQuantity.value - creditUsedPreview.value);
+const sanitizedCashDiscount = computed(() => {
+  if (!form.memberEntitlementId) return sanitizedDiscountAmount.value;
+  const raw = Number(form.discountAmount || 0);
+  if (!Number.isFinite(raw) || raw <= 0) return 0;
+  return Math.min(raw, cashSubtotal.value);
+});
+const totalAmount = computed(() => (
+  form.memberEntitlementId
+    ? cashSubtotal.value - sanitizedCashDiscount.value + hangerCharge.value.total
+    : subtotalAmount.value - sanitizedDiscountAmount.value + hangerCharge.value.total
+));
 
 watch(() => isFormOpen.value, (open) => {
   if (!open) {
     editingOrder.value = null;
     Object.assign(form, createEmptyForm());
     formItems.value = [];
+    expandedItems.value = new Set();
     dueDate.value = null;
     dueTime.value = "00:00";
     slipFile.value = null;
     uploadedSlip.value = null;
+    orderImageFile.value = null;
+    uploadedOrderImage.value = null;
+    editDeliveryImageFile.value = null;
+    uploadedEditDeliveryImage.value = null;
   }
 });
 
@@ -351,6 +601,8 @@ const addCatalogItemToTop = (storefrontPriceId: string) => {
       key: createItemKey(),
       storefrontPriceId,
       quantity: 1,
+      notes: "",
+      photos: [],
     },
     ...formItems.value,
   ];
@@ -358,6 +610,9 @@ const addCatalogItemToTop = (storefrontPriceId: string) => {
 
 const removeItemRow = (key: string) => {
   formItems.value = formItems.value.filter((item) => item.key !== key);
+  const next = new Set(expandedItems.value);
+  next.delete(key);
+  expandedItems.value = next;
 };
 
 const updateItemField = (key: string, field: "storefrontPriceId" | "quantity", value: string | number) => {
@@ -372,6 +627,19 @@ const updateItemField = (key: string, field: "storefrontPriceId" | "quantity", v
   const nextQuantity = Number(value ?? 1);
   target.quantity = Number.isInteger(nextQuantity) && nextQuantity > 0 ? nextQuantity : 1;
 };
+
+const updateItemNotes = (key: string, value: string) => {
+  const target = formItems.value.find((item) => item.key === key);
+  if (target) target.notes = value;
+};
+
+const updateItemPhotos = (key: string, photos: OrderItemPhoto[]) => {
+  const target = formItems.value.find((item) => item.key === key);
+  if (target) target.photos = photos;
+};
+
+let photoKeySeed = 0;
+const createPhotoKey = () => `edit-order-photo-${Date.now()}-${++photoKeySeed}`;
 
 const catalogDropdownItems = computed<CatalogMenuItem[][]>(() => {
   const items = (catalogItems.value ?? []).map((item) => ({
@@ -420,18 +688,44 @@ const openEditModal = (order: AdminServiceOrder) => {
   form.isWalkIn = order.isWalkIn;
   form.walkInName = order.walkInName || "";
   form.walkInPhone = order.walkInPhone || "";
+  form.memberEntitlementId = order.memberEntitlement?.id ?? null;
   form.serviceOrderStatus = order.status;
-  form.paymentMethod = order.payment?.paymentMethod ?? "CASH";
-  form.paymentStatus = order.payment?.status ?? "PENDING";
   setDueDateTime(order.dueAt);
   form.hangerCount = order.hangerCharge?.count ?? order.items.reduce((sum, item) => sum + item.quantity, 0);
+  form.missingHangerCount = order.hangerCharge?.count ?? 0;
+  form.orderImageId = order.image?.id ?? null;
+  form.deliveryImageId = order.deliveryImage?.id ?? null;
   form.discountAmount = order.discountAmount;
   form.note = order.note || "";
-  formItems.value = order.items.map((item) => ({
-    key: createItemKey(),
-    storefrontPriceId: item.storefrontPriceId,
-    quantity: item.quantity,
-  }));
+  formItems.value = order.items.map((item) => {
+    const existingPhotos: OrderItemPhoto[] = (item.photos ?? []).map((photo) => ({
+      key: createPhotoKey(),
+      file: null,
+      uploadedImageId: photo.imageId,
+      uploadedUrl: photo.secureUrl || photo.url || null,
+      isDamaged: photo.isDamaged,
+    }));
+    if (!existingPhotos.length && item.image) {
+      existingPhotos.push({
+        key: createPhotoKey(),
+        file: null,
+        uploadedImageId: item.image.id,
+        uploadedUrl: item.image.secureUrl || item.image.url || null,
+        isDamaged: true,
+      });
+    }
+    return {
+      key: createItemKey(),
+      storefrontPriceId: item.storefrontPriceId,
+      quantity: item.quantity,
+      notes: item.notes || "",
+      photos: existingPhotos,
+    };
+  });
+  uploadedOrderImage.value = order.image;
+  orderImageFile.value = null;
+  uploadedEditDeliveryImage.value = order.deliveryImage;
+  editDeliveryImageFile.value = null;
   uploadedSlip.value = order.payment?.slipImage
     ? {
         id: order.payment.slipImage.id,
@@ -457,6 +751,66 @@ const uploadSlipIfNeeded = async (): Promise<string | null> => {
   return image.id;
 };
 
+const uploadOrderImagesIfNeeded = async (): Promise<void> => {
+  if (orderImageFile.value) {
+    const image = await uploadOrderImage(orderImageFile.value);
+    if (!image) throw new Error("upload-order-image-failed");
+    uploadedOrderImage.value = image;
+    form.orderImageId = image.id;
+  }
+
+  if (editDeliveryImageFile.value) {
+    const image = await uploadOrderImage(editDeliveryImageFile.value);
+    if (!image) throw new Error("upload-delivery-image-failed");
+    uploadedEditDeliveryImage.value = image;
+    form.deliveryImageId = image.id;
+  }
+
+  for (const item of formItems.value) {
+    for (const photo of item.photos) {
+      if (!photo.file || photo.uploadedImageId) continue;
+      const image = await uploadOrderImage(photo.file);
+      if (!image) throw new Error("upload-item-image-failed");
+      photo.uploadedImageId = image.id;
+      photo.uploadedUrl = image.secureUrl ?? image.url ?? null;
+      photo.file = null;
+    }
+  }
+};
+
+watch(
+  [() => form.isWalkIn, activeMemberEntitlement],
+  () => {
+    if (!canUseMemberPackage.value) {
+      form.memberEntitlementId = null;
+      return;
+    }
+
+    if (form.memberEntitlementId && form.memberEntitlementId !== activeMemberEntitlement.value?.id) {
+      form.memberEntitlementId = activeMemberEntitlement.value?.id ?? null;
+    }
+  },
+  { immediate: true },
+);
+
+watch(
+  () => form.hangerCount,
+  (value) => {
+    if (value !== form.missingHangerCount) {
+      form.missingHangerCount = value;
+    }
+  },
+);
+
+watch(
+  () => form.missingHangerCount,
+  (value) => {
+    if (value !== form.hangerCount) {
+      form.hangerCount = value;
+    }
+  },
+);
+
 const buildBody = async (): Promise<CreateAdminServiceOrderBody | null> => {
   if (!form.isWalkIn && !form.customerId) {
     notify.validationError("กรุณาเลือกลูกค้า");
@@ -468,21 +822,28 @@ const buildBody = async (): Promise<CreateAdminServiceOrderBody | null> => {
     return null;
   }
 
+  const slipImageId = await uploadSlipIfNeeded();
+  await uploadOrderImagesIfNeeded();
+
   const items = formItems.value
-    .map((item) => ({
-      storefrontPriceId: item.storefrontPriceId,
-      quantity: Number(item.quantity ?? 1),
-    }))
+    .map((item) => {
+      const readyPhotos = item.photos.filter((photo) => photo.uploadedImageId);
+      return {
+        storefrontPriceId: item.storefrontPriceId,
+        quantity: Number(item.quantity ?? 1),
+        imageId: readyPhotos[0]?.uploadedImageId ?? null,
+        notes: item.notes.trim() || null,
+        photos: readyPhotos.map((photo, index) => ({
+          imageId: photo.uploadedImageId as string,
+          isDamaged: photo.isDamaged,
+          sortOrder: index,
+        })),
+      };
+    })
     .filter((item) => item.storefrontPriceId);
 
   if (!items.length) {
     notify.validationError("กรุณาเลือกบริการอย่างน้อย 1 รายการ");
-    return null;
-  }
-
-  const slipImageId = await uploadSlipIfNeeded();
-  if (form.paymentMethod === "TRANSFER" && !slipImageId) {
-    notify.validationError("กรุณาอัปโหลดสลิปสำหรับรายการโอน");
     return null;
   }
 
@@ -491,12 +852,13 @@ const buildBody = async (): Promise<CreateAdminServiceOrderBody | null> => {
     isWalkIn: form.isWalkIn,
     walkInName: form.isWalkIn ? form.walkInName.trim() || null : null,
     walkInPhone: form.isWalkIn ? form.walkInPhone.trim() || null : null,
+    memberEntitlementId: form.memberEntitlementId,
+    orderImageId: form.orderImageId,
+    deliveryImageId: form.deliveryImageId,
     items,
-    hangerCount: form.hangerCount,
+    missingHangerCount: form.missingHangerCount,
     dueAt: dueAtValue.value ? new Date(dueAtValue.value).toISOString() : null,
-    discountAmount: sanitizedDiscountAmount.value,
-    paymentMethod: form.paymentMethod,
-    status: form.paymentStatus,
+    discountAmount: form.memberEntitlementId ? sanitizedCashDiscount.value : sanitizedDiscountAmount.value,
     serviceOrderStatus: form.serviceOrderStatus,
     note: form.note.trim() || null,
     slipImageId,
@@ -526,9 +888,8 @@ const handleSubmit = async () => {
 
 const getActionItems = (order: AdminServiceOrder) => [
   [
-    { label: "ดูรายละเอียด", icon: "i-lucide-eye", onSelect: () => openDetailPage(order) },
     { label: "แก้ไขรายการ", icon: "i-lucide-pencil", onSelect: () => openEditModal(order) },
-    { label: "ดูใบรับผ้า", icon: "i-lucide-ticket", onSelect: () => openIntakeSlip(order) },
+    { label: "ดูใบเสร็จ", icon: "i-lucide-receipt", onSelect: () => openReceipt(order) },
   ],
   [
     { label: "ลบรายการ", icon: "i-lucide-trash-2", color: "error", onSelect: () => openDeleteModal(order) },
@@ -565,12 +926,17 @@ const columns: TableColumn<AdminServiceOrder>[] = [
     header: "ลูกค้า",
     cell: ({ row }) => {
       const customer = row.original.customer;
-      return h("div", { class: "flex min-w-0 items-center gap-3" }, [
+      const entitlement = row.original.memberEntitlement;
+      return h("div", { class: "flex items-center gap-3" }, [
         h(UAvatar, { ...getAvatarProps(customer) }),
-        h("div", { class: "min-w-0 max-w-60 space-y-0.5" }, [
-          h("p", { class: "truncate font-medium text-highlighted" }, customer.name || "-"),
-          h("p", { class: "truncate text-sm text-muted" }, customer.email),
-          h("p", { class: "truncate text-xs text-muted" }, customer.phoneNumber || (row.original.isWalkIn ? "ลูกค้าหน้าร้าน" : "-")),
+        h("div", { class: "space-y-0.5" }, [
+          h("div", { class: "flex flex-wrap items-center gap-1.5" }, [
+            h("p", { class: "font-medium text-highlighted" }, customer.name || "-"),
+            entitlement
+              ? h(UBadge, { color: "success", variant: "subtle", size: "xs" }, () => "รายเดือน")
+              : null,
+          ]),
+          h("p", { class: "text-xs text-muted" }, customer.phoneNumber || (row.original.isWalkIn ? "ลูกค้าหน้าร้าน" : customer.email)),
         ]),
       ]);
     },
@@ -581,45 +947,56 @@ const columns: TableColumn<AdminServiceOrder>[] = [
     cell: ({ row }) =>
       h(
         "div",
-        { class: "max-w-72 space-y-1" },
-        formatItemSummary(row.original).map((item) => h("p", { class: "truncate text-sm text-highlighted" }, item)),
+        { class: "space-y-1" },
+        formatItemSummary(row.original).map((item) => h("p", { class: "text-sm text-highlighted" }, item)),
       ),
   },
   {
-    accessorKey: "totalAmount",
-    header: () => h("div", { class: "text-right" }, "ยอดรวม"),
-    cell: ({ row }) => h("div", { class: "text-right font-medium" }, formatCurrency(row.original.totalAmount)),
-  },
-  {
-    id: "payment",
-    header: "ชำระเงิน",
+    id: "amount",
+    header: () => h("div", { class: "text-right" }, "ยอด / เครดิต"),
     cell: ({ row }) => {
-      const payment = row.original.payment;
-      if (!payment) return h("span", { class: "text-sm text-muted" }, "-");
+      const order = row.original;
+      const entitlement = order.memberEntitlement;
+      const total = Number(order.totalAmount ?? 0);
+      const used = order.creditUsed ?? 0;
+      const initial = entitlement?.creditInitial ?? 0;
+      const isMemberZero = Boolean(entitlement) && total === 0;
 
-      return h("div", { class: "space-y-1" }, [
-        h("div", { class: "flex flex-wrap gap-1" }, [
-          h(UBadge, { color: paymentMethodBadgeMap[payment.paymentMethod].color, variant: "subtle" }, () => paymentMethodBadgeMap[payment.paymentMethod].label),
-          h(UBadge, { color: paymentStatusColors[payment.status], variant: "subtle" }, () => paymentStatusLabels[payment.status]),
-        ]),
-        h("p", { class: "text-xs text-muted font-mono" }, payment.paymentNo || "-"),
+      if (isMemberZero) {
+        return h("div", { class: "space-y-0.5 text-right" }, [
+          h("p", { class: "text-sm font-medium text-success" }, "ใช้เครดิต"),
+          h("p", { class: "text-xs text-muted" }, `${used} / ${initial} เครดิต`),
+        ]);
+      }
+
+      return h("div", { class: "space-y-0.5 text-right" }, [
+        h("p", { class: "text-sm font-medium text-highlighted" }, formatCurrency(total)),
+        entitlement ? h("p", { class: "text-xs text-success" }, `ใช้ ${used} เครดิต`) : null,
       ]);
     },
   },
   {
-    accessorKey: "status",
-    header: "สถานะงาน",
-    cell: ({ row }) => h(UBadge, { color: orderStatusColors[row.original.status], variant: "subtle" }, () => orderStatusLabels[row.original.status]),
+    id: "status",
+    header: "สถานะ",
+    cell: ({ row }) => {
+      const order = row.original;
+      return h(UBadge, { color: orderStatusColors[order.status], variant: "subtle" }, () => orderStatusLabels[order.status]);
+    },
   },
   {
-    accessorKey: "dueAt",
-    header: "วันนัดรับ",
-    cell: ({ row }) => h("p", { class: "text-sm" }, row.original.dueAt ? formatDateTime(row.original.dueAt) : "-"),
-  },
-  {
-    accessorKey: "receivedAt",
-    header: "วันที่สร้าง",
-    cell: ({ row }) => h("p", { class: "text-sm" }, formatDateTime(row.original.receivedAt)),
+    id: "dates",
+    header: "วัน",
+    cell: ({ row }) => {
+      const order = row.original;
+      const isCompleted = order.status === "COMPLETED";
+      const deliveredAt = order.payment?.paidAt ?? null;
+      return h("div", { class: "space-y-0.5 text-sm" }, [
+        h("p", { class: "text-highlighted" }, `รับ: ${formatDateTime(order.receivedAt)}`),
+        isCompleted
+          ? (deliveredAt ? h("p", { class: "text-xs text-muted" }, `ส่ง: ${formatDateTime(deliveredAt)}`) : null)
+          : (order.dueAt ? h("p", { class: "text-xs text-muted" }, `นัด: ${formatDateTime(order.dueAt)}`) : null),
+      ]);
+    },
   },
   {
     id: "actions",
@@ -637,12 +1014,12 @@ const columns: TableColumn<AdminServiceOrder>[] = [
           onClick: () => openDetailPage(order),
         }),
         h(UButton, {
-          icon: "i-lucide-pencil",
+          icon: "i-lucide-refresh-ccw",
           size: "xs",
-          color: "neutral",
+          color: "primary",
           variant: "ghost",
-          title: "แก้ไขรายการรับผ้า",
-          onClick: () => openEditModal(order),
+          title: "อัพเดทสถานะงาน",
+          onClick: () => openStatusModal(order),
         }),
         h(
           UDropdownMenu,
@@ -723,6 +1100,7 @@ const columns: TableColumn<AdminServiceOrder>[] = [
                   { label: 'ลูกค้าทุกประเภท', value: 'all' },
                   { label: 'ลูกค้าหน้าร้าน', value: 'walk-in' },
                   { label: 'สมาชิก/ลูกค้าระบบ', value: 'member' },
+                  { label: 'ลูกค้ารายเดือน', value: 'monthly' },
                 ]"
                 value-key="value"
                 class="min-w-40"
@@ -752,7 +1130,7 @@ const columns: TableColumn<AdminServiceOrder>[] = [
             :columns="columns"
             :loading="isLoading"
             :ui="{
-              base: 'table-fixed border-separate border-spacing-0',
+              base: 'border-separate border-spacing-0',
               thead: '[&>tr]:bg-elevated/50 [&>tr]:after:content-none',
               tbody: '[&>tr]:last:[&>td]:border-b-0',
               th: 'border-y border-default py-2 font-medium first:rounded-l-lg first:border-l last:rounded-r-lg last:border-r',
@@ -852,6 +1230,28 @@ const columns: TableColumn<AdminServiceOrder>[] = [
                   </USelectMenu>
                 </UFormField>
 
+                <div
+                  v-if="canUseMemberPackage"
+                  class="rounded-xl border border-success/40 bg-success/10 p-3 md:col-span-2"
+                >
+                  <div class="flex items-start justify-between gap-3">
+                    <div>
+                      <p class="font-medium text-success">{{ activeMemberEntitlement?.productName }}</p>
+                      <p class="text-xs text-muted">
+                        เครดิตคงเหลือ {{ activeMemberEntitlement?.creditRemaining ?? 0 }} | ใช้งานครั้งนี้ {{ creditUsedPreview }} เครดิต
+                        <span v-if="form.memberEntitlementId && cashQuantity > 0">
+                          | คิดเพิ่ม {{ cashQuantity }} ชิ้น ({{ formatCurrency(cashSubtotal) }})
+                        </span>
+                      </p>
+                    </div>
+                    <USwitch
+                      :model-value="Boolean(form.memberEntitlementId)"
+                      color="success"
+                      @update:model-value="form.memberEntitlementId = $event ? activeMemberEntitlement?.id ?? null : null"
+                    />
+                  </div>
+                </div>
+
                 <template v-else>
                   <UFormField label="ชื่อลูกค้าหน้าร้าน" required>
                     <UInput v-model="form.walkInName" class="w-full" placeholder="เช่น คุณสมชาย" />
@@ -863,24 +1263,28 @@ const columns: TableColumn<AdminServiceOrder>[] = [
                 </template>
 
                 <UFormField label="วันนัดรับ">
-                  <div>
-                    <!-- <p class="mb-2 text-sm font-medium text-highlighted">วันนัดรับ</p> -->
-                    <div class="grid grid-cols-2 gap-2">
-                      <UPopover>
-                        <UInputDate v-model="dueDate" icon="i-lucide-calendar" class="w-full" />
-                        <template #content>
-                          <UCalendar v-model="dueDate" locale="th-TH" class="p-2" />
-                        </template>
-                      </UPopover>
-
-                      <USelect
-                        v-model="dueTime"
-                        :items="dueTimeOptions"
-                        value-key="value"
-                        icon="i-lucide-clock"
-                        class="w-full"
+                  <div class="grid grid-cols-2 gap-2">
+                    <UPopover>
+                      <UButton
+                        :label="dueDateLabel"
+                        icon="i-lucide-calendar"
+                        color="neutral"
+                        variant="outline"
+                        block
+                        class="justify-start font-normal"
                       />
-                    </div>
+                      <template #content>
+                        <UCalendar v-model="dueDate" locale="th-TH" class="p-2" />
+                      </template>
+                    </UPopover>
+
+                    <USelect
+                      v-model="dueTime"
+                      :items="dueTimeOptions"
+                      value-key="value"
+                      icon="i-lucide-clock"
+                      class="w-full"
+                    />
                   </div>
                 </UFormField>
 
@@ -916,77 +1320,80 @@ const columns: TableColumn<AdminServiceOrder>[] = [
                 </UDropdownMenu>
               </div>
 
-              <div class="mt-3 space-y-2">
+              <div class="mt-3 space-y-1">
                 <div
-                  v-for="item in formItems"
+                  v-for="item in formLineItems"
                   :key="item.key"
-                  class="grid gap-2 rounded-lg border border-default p-2.5 md:grid-cols-[minmax(0,1fr)_92px_40px]"
                 >
-                  <UFormField label="บริการ">
-                    <USelect
-                      :model-value="item.storefrontPriceId"
-                      :items="catalogOptions"
-                      value-key="value"
-                      :loading="isCatalogLoading"
-                      class="w-full"
-                      placeholder="เลือกบริการ"
-                      @update:model-value="updateItemField(item.key, 'storefrontPriceId', $event as string)"
-                    />
-                  </UFormField>
+                  <div class="flex items-center gap-1.5 rounded-lg px-1.5 py-1 hover:bg-elevated/30">
+                    <div class="flex min-w-0 flex-1 flex-col">
+                      <div class="flex items-center">
+                        <p class="min-w-0 flex-1 truncate text-sm text-highlighted">{{ item.label }}</p>
+                        <div class="flex items-center justify-end">
+                          <span class="w-16 shrink-0 text-right text-xs font-medium text-muted">
+                            {{ form.memberEntitlementId ? `${item.quantity} เครดิต` : formatCurrency(item.totalPrice) }}
+                          </span>
+                          <UButton
+                            :icon="expandedItems.has(item.key) ? 'i-lucide-chevron-up' : 'i-lucide-chevron-down'"
+                            color="neutral"
+                            variant="ghost"
+                            size="xs"
+                            @click="toggleItemExpand(item.key)"
+                          />
+                          <UButton
+                            icon="i-lucide-x"
+                            color="error"
+                            variant="ghost"
+                            size="xs"
+                            @click="removeItemRow(item.key)"
+                          />
+                        </div>
+                      </div>
+                      <div class="flex shrink-0 items-center gap-0.5">
+                        <UInputNumber
+                          :model-value="item.quantity"
+                          :step="1"
+                          size="xs"
+                          class="w-20"
+                          @update:model-value="setItemQuantity(item.key, $event)"
+                        />
+                      </div>
+                    </div>
+                  </div>
 
-                  <UFormField label="จำนวน">
-                    <UInputNumber
-                      :model-value="item.quantity"
-                      :min="1"
-                      :step="1"
-                      orientation="vertical"
+                  <div v-if="expandedItems.has(item.key)" class="mb-1 ml-1.5 space-y-2 border-l-2 border-default pl-3 pt-1">
+                    <p class="text-sm font-medium text-highlighted">{{ item.label }}</p>
+                    <UTextarea
+                      :model-value="item.notes"
+                      :rows="2"
                       class="w-full"
-                      @update:model-value="updateItemField(item.key, 'quantity', Number($event ?? 1))"
+                      placeholder="บันทึกตำหนิหรือรายละเอียดของผ้าชิ้นนี้"
+                      @update:model-value="updateItemNotes(item.key, String($event || ''))"
                     />
-                  </UFormField>
-
-                  <div class="flex items-end">
-                    <UButton
-                      icon="i-lucide-trash-2"
-                      color="error"
-                      variant="ghost"
-                      class="h-9 w-full md:w-10"
-                      @click="removeItemRow(item.key)"
+                    <OrderItemPhotosField
+                      :photos="item.photos"
+                      :disabled="isSubmitting"
+                      @update:photos="updateItemPhotos(item.key, $event)"
                     />
                   </div>
                 </div>
+
+                <p v-if="formLineItems.length === 0" class="rounded-lg border border-dashed border-default p-4 text-center text-sm text-muted">
+                  ยังไม่ได้เลือกบริการ
+                </p>
               </div>
             </div>
           </div>
 
           <div class="space-y-5">
             <div class="rounded-2xl border border-default p-4">
-              <p class="font-medium text-highlighted">การชำระเงิน</p>
+              <p class="font-medium text-highlighted">หลักฐานการชำระเงิน</p>
               <div class="mt-4 space-y-4">
-                <UFormField label="ช่องทางการชำระเงิน">
-                  <USelect
-                    v-model="form.paymentMethod"
-                    :items="paymentMethodOptions"
-                    value-key="value"
-                    class="w-full"
-                  />
-                </UFormField>
-
-                <UFormField label="สถานะชำระเงิน">
-                  <USelect
-                    v-model="form.paymentStatus"
-                    :items="paymentStatusOptions"
-                    value-key="value"
-                    class="w-full"
-                  />
-                </UFormField>
-
                 <UISlipUploadField
-                  label="หลักฐานการโอน"
+                  label="สลิป / หลักฐานชำระเงิน"
                   :file="slipFile"
                   :image-url="uploadedSlip?.secureUrl || uploadedSlip?.url || null"
                   :image-label="uploadedSlip?.secureUrl || uploadedSlip?.url || null"
-                  :blocked-message="form.paymentMethod !== 'TRANSFER' ? 'อัปโหลดสลิปได้เฉพาะเมื่อเลือกการชำระเงินแบบโอน' : null"
                   confirm-remove
                   @update:file="slipFile = $event"
                   @blocked="handleBlockedSlip"
@@ -1008,10 +1415,19 @@ const columns: TableColumn<AdminServiceOrder>[] = [
                   <span class="font-medium text-highlighted">{{ formatCurrency(subtotalAmount) }}</span>
                 </div>
 
+                <div v-if="form.memberEntitlementId" class="flex items-center justify-between gap-3">
+                  <span class="text-muted">ตัดเครดิตรายเดือน</span>
+                  <span class="font-medium text-success">{{ creditUsedPreview }} เครดิต</span>
+                </div>
+                <div v-if="form.memberEntitlementId && cashQuantity > 0" class="flex items-center justify-between gap-3">
+                  <span class="text-muted">เครดิตไม่พอ ({{ cashQuantity }} ชิ้น)</span>
+                  <span class="font-medium text-highlighted">{{ formatCurrency(cashSubtotal) }}</span>
+                </div>
+
                 <div class="flex items-center justify-between gap-3">
                   <span class="text-muted">จำนวนไม้แขวน</span>
                   <UInputNumber
-                    v-model="form.hangerCount"
+                    v-model="form.missingHangerCount"
                     :min="0"
                     :step="1"
                     orientation="vertical"
@@ -1022,6 +1438,92 @@ const columns: TableColumn<AdminServiceOrder>[] = [
                 <div class="flex items-center justify-between gap-3">
                   <span class="text-muted">ค่าไม้แขวน</span>
                   <span class="font-medium text-highlighted">{{ formatCurrency(hangerCharge.total) }}</span>
+                </div>
+
+                <div class="rounded-xl border border-dashed border-default p-4">
+                  <div class="flex items-center justify-between gap-3">
+                    <div>
+                      <p class="font-medium text-highlighted">รูปหลักฐานการรับผ้า</p>
+                      <p v-if="!intakeDisplayUrl" class="text-sm text-muted">ยังไม่ได้แนบรูป</p>
+                    </div>
+                    <UButton
+                      v-if="!intakeDisplayUrl"
+                      label="เพิ่มรูป"
+                      icon="i-lucide-camera"
+                      color="neutral"
+                      variant="solid"
+                      @click="openIntakePicker"
+                    />
+                  </div>
+                  <input
+                    ref="intakeFileInputRef"
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    class="hidden"
+                    @change="onIntakeFileSelected"
+                  >
+                  <div v-if="intakeDisplayUrl" class="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
+                    <div class="group relative overflow-hidden rounded-xl border border-default bg-muted/30">
+                      <img
+                        :src="intakeDisplayUrl"
+                        alt="รูปหลักฐานการรับผ้า"
+                        class="h-28 w-full cursor-pointer object-cover"
+                        @click="openEditPhotoPreview(intakeDisplayUrl, 'รูปหลักฐานการรับผ้า')"
+                      >
+                      <UButton
+                        icon="i-lucide-x"
+                        color="error"
+                        variant="solid"
+                        size="xs"
+                        class="absolute right-1 top-1"
+                        @click.stop="requestRemoveEditPhoto('intake')"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div class="rounded-xl border border-dashed border-default p-4">
+                  <div class="flex items-center justify-between gap-3">
+                    <div>
+                      <p class="font-medium text-highlighted">รูปหลักฐานการส่งผ้า</p>
+                      <p v-if="!deliveryDisplayUrl" class="text-sm text-muted">ยังไม่ได้แนบรูป</p>
+                    </div>
+                    <UButton
+                      v-if="!deliveryDisplayUrl"
+                      label="เพิ่มรูป"
+                      icon="i-lucide-camera"
+                      color="neutral"
+                      variant="solid"
+                      @click="openDeliveryPicker"
+                    />
+                  </div>
+                  <input
+                    ref="deliveryFileInputRef"
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    class="hidden"
+                    @change="onDeliveryFileSelected"
+                  >
+                  <div v-if="deliveryDisplayUrl" class="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
+                    <div class="group relative overflow-hidden rounded-xl border border-default bg-muted/30">
+                      <img
+                        :src="deliveryDisplayUrl"
+                        alt="รูปหลักฐานการส่งผ้า"
+                        class="h-28 w-full cursor-pointer object-cover"
+                        @click="openEditPhotoPreview(deliveryDisplayUrl, 'รูปหลักฐานการส่งผ้า')"
+                      >
+                      <UButton
+                        icon="i-lucide-x"
+                        color="error"
+                        variant="solid"
+                        size="xs"
+                        class="absolute right-1 top-1"
+                        @click.stop="requestRemoveEditPhoto('delivery')"
+                      />
+                    </div>
+                  </div>
                 </div>
 
                 <UFormField label="ส่วนลด">
@@ -1110,6 +1612,87 @@ const columns: TableColumn<AdminServiceOrder>[] = [
       </template>
       </UModal>
 
+      <UModal
+        v-model:open="isStatusOpen"
+        title="อัพเดทสถานะงาน"
+        :description="statusTarget?.orderNo ? `เลขรับผ้า ${statusTarget.orderNo}` : 'เลือกสถานะใหม่สำหรับงานนี้'"
+      >
+        <template #body>
+          <div class="space-y-3">
+            <div v-if="statusTarget" class="flex items-center justify-between gap-3 rounded-xl border border-default px-3 py-2 text-sm">
+              <span class="text-muted">สถานะปัจจุบัน</span>
+              <UBadge :color="orderStatusColors[statusTarget.status]" variant="subtle">{{ orderStatusLabels[statusTarget.status] }}</UBadge>
+            </div>
+            <UFormField label="สถานะใหม่">
+              <USelect
+                v-model="statusDraft"
+                :items="serviceOrderStatusOptions"
+                value-key="value"
+                class="w-full"
+              />
+            </UFormField>
+            <UISlipUploadField
+              v-if="statusDraft === 'COMPLETED'"
+              label="รูปหลักฐานการส่งผ้า"
+              description="ถ่ายรูปตอนส่งคืนผ้าให้ลูกค้า (ไม่บังคับ)"
+              :file="deliveryImageFile"
+              :image-url="uploadedDeliveryImage?.secureUrl || uploadedDeliveryImage?.url || null"
+              :image-label="uploadedDeliveryImage?.secureUrl || uploadedDeliveryImage?.url || null"
+              upload-label="แนบรูป"
+              preview-label="ดูรูป"
+              remove-label="ลบรูป"
+              empty-text="ยังไม่ได้แนบรูป"
+              @update:file="deliveryImageFile = $event"
+              @remove="handleRemoveDeliveryImage"
+            />
+
+            <div
+              v-if="statusDraft === 'COMPLETED' && statusTarget && statusTarget.status !== 'COMPLETED' && (addonPickerEntries.length || isLoadingAddons)"
+              class="space-y-2"
+            >
+              <div>
+                <p class="text-sm font-medium text-highlighted">ใช้สิทธิ์แพ็กเกจรอง</p>
+                <p class="text-xs text-muted">เลือกแพ็กเกจและจำนวนเครดิตที่จะหักเมื่อปิดงาน (ค่าเริ่มต้น 1)</p>
+              </div>
+              <p v-if="isLoadingAddons" class="text-sm text-muted">กำลังโหลดสิทธิ์แพ็กเกจรอง...</p>
+              <div v-else class="space-y-2">
+                <div
+                  v-for="entry in addonPickerEntries"
+                  :key="entry.entitlementId"
+                  class="flex flex-wrap items-center gap-3 rounded-xl border border-default p-3"
+                >
+                  <UCheckbox v-model="entry.selected" />
+                  <div class="min-w-0 flex-1">
+                    <p class="truncate font-medium text-highlighted">{{ entry.productName }}</p>
+                    <p class="text-xs text-muted">คงเหลือ {{ entry.creditRemaining }} เครดิต</p>
+                  </div>
+                  <UInputNumber
+                    v-model="entry.credits"
+                    :min="1"
+                    :max="entry.creditRemaining"
+                    :disabled="!entry.selected"
+                    class="w-28"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        </template>
+        <template #footer>
+          <div class="flex w-full justify-end gap-3">
+            <UButton label="ยกเลิก" color="neutral" variant="outline" @click="isStatusOpen = false" />
+            <UButton
+              label="บันทึกสถานะ"
+              icon="i-lucide-check"
+              color="primary"
+              :loading="isUpdatingStatus"
+              :disabled="!statusTarget || statusDraft === statusTarget?.status"
+              @click="confirmStatusUpdate"
+            />
+          </div>
+        </template>
+      </UModal>
+
       <UIConfirmModal
       v-model:open="isDeleteOpen"
       title="ลบรายการรับผ้า"
@@ -1137,5 +1720,24 @@ const columns: TableColumn<AdminServiceOrder>[] = [
         </div>
       </template>
       </UIConfirmModal>
+
+      <UIImagePreviewModal
+        v-model:open="editPhotoPreviewOpen"
+        :title="editPhotoPreviewTitle"
+        :image-url="editPhotoPreviewUrl"
+        :image-alt="editPhotoPreviewTitle"
+      />
+
+      <UIConfirmModal
+        v-model:open="editPhotoRemoveOpen"
+        title="ลบรูปนี้"
+        icon="i-lucide-trash-2"
+        icon-color="error"
+        confirm-label="ลบรูป"
+        confirm-color="error"
+        message="ต้องการลบรูปนี้หรือไม่"
+        sub-message="หากยืนยันแล้ว รูปจะถูกถอดออกจากรายการ"
+        @confirm="performRemoveEditPhoto"
+      />
     </ClientOnly>
 </template>

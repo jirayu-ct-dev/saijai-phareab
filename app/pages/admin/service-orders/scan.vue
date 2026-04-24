@@ -4,7 +4,7 @@ import SlipUploadField from "~~/app/components/UI/SlipUploadField.vue";
 import type { PaymentSlipImage } from "~~/app/composables/useAdminPayments";
 import type { CreateAdminServiceOrderBody } from "~~/app/composables/useAdminServiceOrders";
 import { orderStatusColors, orderStatusLabels } from "~~/shared/config/orderConfig";
-import { paymentStatusColors, paymentStatusLabels } from "~~/shared/config/paymentConfig";
+import { paymentStatusLabels } from "~~/shared/config/paymentConfig";
 import { formatCurrency, formatDateTime } from "~~/shared/utils/format";
 import type { PaymentMethod, PaymentStatus, ServiceOrderStatus } from "~~/shared/types/enums";
 
@@ -38,6 +38,21 @@ type LookupServiceOrderResponse = {
     endAt: string | null;
     product: { id: string; name: string; packageType: string; credits: number | null; validityDays: number | null };
   } | null;
+  addonEntitlements: Array<{
+    id: string;
+    status: string;
+    creditInitial: number | null;
+    creditRemaining: number | null;
+    endAt: string | null;
+    product: { id: string; name: string; packageType: string; credits: number | null };
+  }>;
+  addonUsages: Array<{
+    entitlementId: string;
+    productId: string;
+    productName: string;
+    credits: number;
+    appliedAt: string;
+  }>;
   items: Array<{
     id: string;
     storefrontPriceId: string;
@@ -72,13 +87,18 @@ definePageMeta({
 const notify = useNotify();
 const route = useRoute();
 const { uploadSlip } = useAdminPayments();
+const { serviceOrders, uploadOrderImage } = useAdminServiceOrders();
+
+const lookupOptions = computed(() =>
+  (serviceOrders.value ?? []).map((so) => ({
+    label: so.orderNo || so.id,
+    value: so.orderNo || so.id,
+    customerName: so.customer.name || so.customer.email,
+    statusLabel: orderStatusLabels[so.status],
+  })),
+);
 
 const orderStatusBadgeColors = orderStatusColors as Record<ServiceOrderStatus, BadgeColor>;
-const paymentStatusBadgeColors = paymentStatusColors as Record<PaymentStatus, BadgeColor>;
-const paymentMethodLabels: Record<PaymentMethod, string> = {
-  CASH: "เงินสด",
-  TRANSFER: "โอน",
-};
 const paymentMethodOptions: Array<{ label: string; value: PaymentMethod }> = [
   { label: "เงินสด", value: "CASH" },
   { label: "โอน", value: "TRANSFER" },
@@ -116,9 +136,21 @@ const editForm = reactive({
 });
 const uploadedSlip = ref<PaymentSlipImage | null>(null);
 const slipFile = ref<File | null>(null);
+const isDeliveryConfirmOpen = ref(false);
+const deliveryImageFile = ref<File | null>(null);
+const uploadedDeliveryImage = ref<{ id: string; secureUrl: string | null; url: string | null } | null>(null);
+const isApplyingCompletion = ref(false);
+
+type AddonPickerEntry = {
+  entitlementId: string;
+  productName: string;
+  creditRemaining: number;
+  selected: boolean;
+  credits: number;
+};
+const addonPickerEntries = ref<AddonPickerEntry[]>([]);
 
 const totalQuantity = computed(() => (order.value?.items ?? []).reduce((sum, item) => sum + item.quantity, 0));
-const latestPayment = computed(() => order.value?.payments[0] ?? null);
 const currentResultTitle = computed(() => order.value?.customer.name || order.value?.customer.email || "-");
 const hasMemberEntitlement = computed(() => Boolean(order.value?.memberEntitlement));
 const memberPackageName = computed(() => order.value?.memberEntitlement?.product.name || "-");
@@ -231,24 +263,25 @@ const handleLookupSubmit = async () => {
   await lookupOrder();
 };
 
-const applyStatus = async (status: ServiceOrderStatus) => {
-  if (!order.value || order.value.status === status) return;
-
-  isApplyingStatus.value = status;
+const patchStatus = async (
+  status: ServiceOrderStatus,
+  deliveryImageId?: string | null,
+  addonUsages?: Array<{ entitlementId: string; credits: number }>,
+) => {
+  if (!order.value) return false;
   try {
+    const body: {
+      status: ServiceOrderStatus;
+      deliveryImageId?: string | null;
+      addonUsages?: Array<{ entitlementId: string; credits: number }>;
+    } = { status };
+    if (deliveryImageId !== undefined) body.deliveryImageId = deliveryImageId;
+    if (addonUsages && addonUsages.length) body.addonUsages = addonUsages;
     const result = await $fetch<{ id: string; orderNo: string | null; status: ServiceOrderStatus; updatedAt: string }>(
       `/api/admin/service-orders/${order.value.id}/status`,
-      {
-        method: "PATCH",
-        body: { status },
-      },
+      { method: "PATCH", body },
     );
-
-    order.value = {
-      ...order.value,
-      status: result.status,
-      updatedAt: result.updatedAt,
-    };
+    order.value = { ...order.value, status: result.status, updatedAt: result.updatedAt };
     syncEditForm(order.value);
     notify.updated(`สถานะงานเป็น ${orderStatusLabels[result.status]}`);
 
@@ -256,14 +289,84 @@ const applyStatus = async (status: ServiceOrderStatus) => {
       clearResult();
       lookupQuery.value = "";
     }
+    return true;
   } catch (error: unknown) {
     const message = error && typeof error === "object" && "data" in error
       ? ((error as { data?: { statusMessage?: string } }).data?.statusMessage || "ไม่สามารถอัปเดตสถานะได้")
       : "ไม่สามารถอัปเดตสถานะได้";
     notify.error(message);
-  } finally {
-    isApplyingStatus.value = null;
+    return false;
   }
+};
+
+const applyStatus = async (status: ServiceOrderStatus) => {
+  if (!order.value || order.value.status === status) return;
+
+  if (status === "COMPLETED") {
+    deliveryImageFile.value = null;
+    uploadedDeliveryImage.value = null;
+    addonPickerEntries.value = (order.value.addonEntitlements ?? [])
+      .filter((e) => (e.creditRemaining ?? 0) > 0)
+      .map((e) => ({
+        entitlementId: e.id,
+        productName: e.product.name,
+        creditRemaining: e.creditRemaining ?? 0,
+        selected: false,
+        credits: 1,
+      }));
+    isDeliveryConfirmOpen.value = true;
+    return;
+  }
+
+  isApplyingStatus.value = status;
+  await patchStatus(status);
+  isApplyingStatus.value = null;
+};
+
+const confirmDeliveryComplete = async () => {
+  if (!order.value) return;
+
+  const addonUsages: Array<{ entitlementId: string; credits: number }> = [];
+  for (const entry of addonPickerEntries.value) {
+    if (!entry.selected) continue;
+    const credits = Math.max(0, Math.floor(entry.credits || 0));
+    if (credits <= 0) {
+      notify.validationError(`กรุณากรอกจำนวนเครดิตของ "${entry.productName}"`);
+      return;
+    }
+    if (credits > entry.creditRemaining) {
+      notify.validationError(`"${entry.productName}" คงเหลือ ${entry.creditRemaining} เครดิตเท่านั้น`);
+      return;
+    }
+    addonUsages.push({ entitlementId: entry.entitlementId, credits });
+  }
+
+  isApplyingCompletion.value = true;
+  let deliveryImageId: string | null = null;
+  if (deliveryImageFile.value) {
+    const uploaded = await uploadOrderImage(deliveryImageFile.value);
+    if (!uploaded) {
+      isApplyingCompletion.value = false;
+      return;
+    }
+    uploadedDeliveryImage.value = uploaded;
+    deliveryImageId = uploaded.id;
+  }
+  isApplyingStatus.value = "COMPLETED";
+  const ok = await patchStatus("COMPLETED", deliveryImageId, addonUsages);
+  isApplyingStatus.value = null;
+  isApplyingCompletion.value = false;
+  if (ok) {
+    isDeliveryConfirmOpen.value = false;
+    deliveryImageFile.value = null;
+    uploadedDeliveryImage.value = null;
+    addonPickerEntries.value = [];
+  }
+};
+
+const handleRemoveDeliveryImage = () => {
+  deliveryImageFile.value = null;
+  uploadedDeliveryImage.value = null;
 };
 
 const openEditDrawer = () => {
@@ -344,9 +447,9 @@ const submitEdit = async () => {
   }
 };
 
-const goBack = () => navigateTo("/admin/service-orders");
-const openDetail = () => order.value ? navigateTo(`/admin/service-orders/${order.value.id}`) : Promise.resolve();
-const openReceipt = () => order.value ? navigateTo(`/admin/service-orders/${order.value.id}/intake`) : Promise.resolve();
+const goBack = () => void navigateTo("/admin/service-orders");
+const openDetail = () => void (order.value && navigateTo(`/admin/service-orders/${order.value.id}`));
+const openReceipt = () => void (order.value && navigateTo(`/admin/service-orders/${order.value.id}/intake`));
 
 watch(
   () => route.query.q,
@@ -389,14 +492,29 @@ watch(
 
             <form class="space-y-4" @submit.prevent="handleLookupSubmit">
               <div class="flex flex-col gap-3 sm:flex-row">
-                <UInput
+                <UInputMenu
                   v-model="lookupQuery"
+                  :items="lookupOptions"
+                  label-key="label"
+                  value-key="value"
+                  create-item
                   autofocus
                   icon="i-lucide-scan-search"
                   class="flex-1"
                   size="xl"
-                  placeholder="สแกน QR / กรอกเลขรับผ้า / รหัสตะกร้า"
-                />
+                  placeholder="สแกน QR / เลือก / พิมพ์เลขรับผ้า"
+                  @create="lookupQuery = $event"
+                >
+                  <template #item="{ item }">
+                    <div class="flex w-full items-center justify-between gap-3">
+                      <span class="font-mono text-xs">{{ item.label }}</span>
+                      <span class="truncate text-xs text-muted">{{ item.customerName }} | {{ item.statusLabel }}</span>
+                    </div>
+                  </template>
+                  <template #empty>
+                    <div class="px-3 py-2 text-sm text-muted">ไม่พบในรายการ กด Enter เพื่อค้นหา</div>
+                  </template>
+                </UInputMenu>
                 <UButton type="submit" label="ค้นหา" icon="i-lucide-search" color="primary" :loading="isLookingUp" />
                 <UButton label="ล้าง" icon="i-lucide-rotate-ccw" color="neutral" variant="outline" @click="clearResult(); lookupQuery = ''" />
               </div>
@@ -426,13 +544,13 @@ watch(
 
                 <div class="flex flex-wrap items-center gap-2">
                   <UButton label="ดูรายละเอียด" color="neutral" variant="outline" icon="i-lucide-eye" @click="openDetail" />
-                  <UButton label="ใบรับผ้า" color="neutral" variant="outline" icon="i-lucide-ticket" @click="openReceipt" />
+                  <UButton label="ใบเสร็จ" color="neutral" variant="outline" icon="i-lucide-receipt" @click="openReceipt" />
                   <UButton label="แก้ไขเพิ่มเติม" color="primary" variant="outline" icon="i-lucide-square-pen" @click="openEditDrawer" />
                 </div>
               </div>
             </template>
 
-            <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+            <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
               <div class="rounded-xl border border-default bg-elevated/30 p-4">
                 <p class="text-xs text-muted">วันนัดรับ</p>
                 <p class="mt-1 font-medium text-highlighted">{{ order.dueAt ? formatDateTime(order.dueAt) : "-" }}</p>
@@ -446,16 +564,13 @@ watch(
                 <p class="mt-1 font-medium text-highlighted">{{ formatCurrency(order.totalAmount || 0) }}</p>
               </div>
               <div v-if="hasMemberEntitlement" class="rounded-xl border border-success/40 bg-success/10 p-4">
-                <p class="text-xs text-muted">เครดิตคงเหลือ</p>
-                <p class="mt-1 font-semibold text-success">{{ remainingCreditLabel }}</p>
-                <p class="text-xs text-muted">{{ memberPackageName }}</p>
+                <p class="text-xs text-muted">เครดิตที่ใช้</p>
+                <p class="mt-1 font-semibold text-success">{{ usedCreditLabel }}</p>
+                <p class="text-xs text-muted">คงเหลือ {{ remainingCreditLabel }} | {{ memberPackageName }}</p>
               </div>
-              <div class="rounded-xl border border-default bg-elevated/30 p-4">
-                <p class="text-xs text-muted">{{ hasMemberEntitlement ? "เครดิตที่ใช้" : "ตะกร้า / QR" }}</p>
-                <p class="mt-1 font-medium text-highlighted">
-                  {{ hasMemberEntitlement ? usedCreditLabel : (order.basket?.label || order.basket?.qrCode || "-") }}
-                </p>
-                <p v-if="hasMemberEntitlement" class="text-xs text-muted">ใช้สิทธิ์จากแพ็กเกจสมาชิก</p>
+              <div v-else class="rounded-xl border border-default bg-elevated/30 p-4">
+                <p class="text-xs text-muted">ตะกร้า / QR</p>
+                <p class="mt-1 font-medium text-highlighted">{{ order.basket?.label || order.basket?.qrCode || "-" }}</p>
               </div>
             </div>
 
@@ -532,38 +647,6 @@ watch(
             </div>
           </UCard>
 
-          <UCard>
-            <template #header>
-              <div>
-                <p class="font-semibold text-highlighted">สรุปการชำระเงิน</p>
-              </div>
-            </template>
-
-            <div v-if="latestPayment" class="space-y-3">
-              <div class="flex flex-wrap items-center gap-2">
-                <UBadge color="info" variant="subtle">{{ paymentMethodLabels[latestPayment.paymentMethod] }}</UBadge>
-                <UBadge :color="paymentStatusBadgeColors[latestPayment.status]" variant="subtle">
-                  {{ paymentStatusLabels[latestPayment.status] }}
-                </UBadge>
-              </div>
-              <div class="space-y-2 text-sm">
-                <div class="flex items-center justify-between gap-3">
-                  <span class="text-muted">เลขชำระเงิน</span>
-                  <span class="font-mono text-highlighted">{{ latestPayment.paymentNo || "-" }}</span>
-                </div>
-                <div class="flex items-center justify-between gap-3">
-                  <span class="text-muted">ยอดชำระ</span>
-                  <span class="font-medium text-highlighted">{{ formatCurrency(latestPayment.amount) }}</span>
-                </div>
-                <div class="flex items-center justify-between gap-3">
-                  <span class="text-muted">ชำระเมื่อ</span>
-                  <span class="text-highlighted">{{ latestPayment.paidAt ? formatDateTime(latestPayment.paidAt) : "-" }}</span>
-                </div>
-              </div>
-            </div>
-
-            <p v-else class="text-sm text-muted">ยังไม่มีรายการชำระเงิน</p>
-          </UCard>
         </div>
       </div>
 
@@ -651,6 +734,69 @@ watch(
           <div class="flex w-full justify-end gap-3">
             <UButton label="ยกเลิก" color="neutral" variant="outline" @click="isEditOpen = false" />
             <UButton label="บันทึกการแก้ไข" icon="i-lucide-save" color="primary" :loading="isSavingEdit" @click="submitEdit" />
+          </div>
+        </template>
+      </UModal>
+
+      <UModal
+        v-model:open="isDeliveryConfirmOpen"
+        title="ยืนยันการส่งผ้าเสร็จสิ้น"
+        description="แนบรูปหลักฐานการส่งผ้า (ไม่บังคับ) แล้วยืนยันเพื่อปิดงาน"
+      >
+        <template #body>
+          <div class="space-y-4">
+            <SlipUploadField
+              label="รูปหลักฐานการส่งผ้า"
+              description="ถ่ายรูปตอนส่งคืนผ้าให้ลูกค้า (ไม่บังคับ)"
+              :file="deliveryImageFile"
+              :image-url="uploadedDeliveryImage?.secureUrl || uploadedDeliveryImage?.url || null"
+              :image-label="uploadedDeliveryImage?.secureUrl || uploadedDeliveryImage?.url || null"
+              upload-label="แนบรูป"
+              preview-label="ดูรูป"
+              remove-label="ลบรูป"
+              empty-text="ยังไม่ได้แนบรูป"
+              @update:file="deliveryImageFile = $event"
+              @remove="handleRemoveDeliveryImage"
+            />
+
+            <div v-if="addonPickerEntries.length" class="space-y-2">
+              <div>
+                <p class="text-sm font-medium text-highlighted">ใช้สิทธิ์แพ็กเกจรอง</p>
+                <p class="text-xs text-muted">เลือกแพ็กเกจและจำนวนเครดิตที่จะหักเมื่อปิดงาน (ค่าเริ่มต้น 1)</p>
+              </div>
+              <div class="space-y-2">
+                <div
+                  v-for="entry in addonPickerEntries"
+                  :key="entry.entitlementId"
+                  class="flex flex-wrap items-center gap-3 rounded-xl border border-default p-3"
+                >
+                  <UCheckbox v-model="entry.selected" />
+                  <div class="min-w-0 flex-1">
+                    <p class="truncate font-medium text-highlighted">{{ entry.productName }}</p>
+                    <p class="text-xs text-muted">คงเหลือ {{ entry.creditRemaining }} เครดิต</p>
+                  </div>
+                  <UInputNumber
+                    v-model="entry.credits"
+                    :min="1"
+                    :max="entry.creditRemaining"
+                    :disabled="!entry.selected"
+                    class="w-28"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        </template>
+        <template #footer>
+          <div class="flex w-full justify-end gap-3">
+            <UButton label="ยกเลิก" color="neutral" variant="outline" @click="isDeliveryConfirmOpen = false" />
+            <UButton
+              label="ยืนยันเสร็จสิ้น"
+              icon="i-lucide-badge-check"
+              color="success"
+              :loading="isApplyingCompletion"
+              @click="confirmDeliveryComplete"
+            />
           </div>
         </template>
       </UModal>

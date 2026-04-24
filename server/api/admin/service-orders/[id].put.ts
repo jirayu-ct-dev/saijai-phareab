@@ -10,14 +10,21 @@ type UpdateServiceOrderBody = {
   isWalkIn?: boolean;
   walkInName?: string | null;
   walkInPhone?: string | null;
+  memberEntitlementId?: string | null;
+  orderImageId?: string | null;
+  deliveryImageId?: string | null;
   items: Array<{
     storefrontPriceId: string;
     quantity: number;
+    imageId?: string | null;
+    notes?: string | null;
+    photos?: Array<{ imageId: string; isDamaged?: boolean; sortOrder?: number }>;
   }>;
   hangerCount?: number;
+  missingHangerCount?: number;
   dueAt?: string | null;
   discountAmount?: number;
-  paymentMethod: PaymentMethod;
+  paymentMethod?: PaymentMethod;
   status?: PaymentStatus;
   serviceOrderStatus?: ServiceOrderStatus;
   note?: string | null;
@@ -29,49 +36,71 @@ export default defineEventHandler(async (event) => {
   const id = getRouterParam(event, "id");
 
   if (!id) {
-    throw createError({ statusCode: 400, statusMessage: "ไม่พบรหัสรายการรับผ้า" });
+    throw createError({ statusCode: 400, statusMessage: "เนเธกเนเธเธเธฃเธซเธฑเธชเธฃเธฒเธขเธเธฒเธฃเธฃเธฑเธเธเนเธฒ" });
   }
 
   const body = await readBody<UpdateServiceOrderBody>(event);
-
   const isWalkIn = Boolean(body.isWalkIn);
   const customerId = body.customerId?.trim() || null;
   const walkInName = body.walkInName?.trim() || null;
   const walkInPhone = body.walkInPhone?.trim() || null;
+  const requestedEntitlementId = body.memberEntitlementId?.trim() || null;
+  const orderImageId = body.orderImageId?.trim() || null;
+  const deliveryImageId = body.deliveryImageId === null ? null : body.deliveryImageId?.trim() || undefined;
 
   if (!isWalkIn && !customerId) {
-    throw createError({ statusCode: 400, statusMessage: "กรุณาเลือกลูกค้า" });
+    throw createError({ statusCode: 400, statusMessage: "เธเธฃเธธเธ“เธฒเน€เธฅเธทเธญเธเธฅเธนเธเธเนเธฒ" });
+  }
+
+  if (isWalkIn && requestedEntitlementId) {
+    throw createError({ statusCode: 400, statusMessage: "ลูกค้าหน้าร้านไม่สามารถใช้เครดิตแพ็กเกจได้" });
   }
 
   if (!Array.isArray(body.items) || body.items.length === 0) {
-    throw createError({ statusCode: 400, statusMessage: "กรุณาเลือกบริการอย่างน้อย 1 รายการ" });
+    throw createError({ statusCode: 400, statusMessage: "เธเธฃเธธเธ“เธฒเน€เธฅเธทเธญเธเธเธฃเธดเธเธฒเธฃเธญเธขเนเธฒเธเธเนเธญเธข 1 เธฃเธฒเธขเธเธฒเธฃ" });
   }
 
   const normalizedItems = body.items
-    .map((item) => ({
-      storefrontPriceId: item.storefrontPriceId,
-      quantity: Number(item.quantity ?? 1),
-    }))
+    .map((item) => {
+      const rawPhotos = Array.isArray(item.photos) ? item.photos : [];
+      const photos = rawPhotos
+        .map((photo, index) => ({
+          imageId: photo.imageId?.trim() || "",
+          isDamaged: Boolean(photo.isDamaged),
+          sortOrder: Number.isFinite(photo.sortOrder) ? Number(photo.sortOrder) : index,
+        }))
+        .filter((photo) => photo.imageId);
+
+      return {
+        storefrontPriceId: item.storefrontPriceId,
+        quantity: Number(item.quantity ?? 1),
+        imageId: item.imageId?.trim() || photos[0]?.imageId || null,
+        notes: item.notes?.trim() || null,
+        photos,
+      };
+    })
     .filter((item) => item.storefrontPriceId);
 
   if (normalizedItems.length === 0) {
-    throw createError({ statusCode: 400, statusMessage: "กรุณาเลือกบริการอย่างน้อย 1 รายการ" });
+    throw createError({ statusCode: 400, statusMessage: "เธเธฃเธธเธ“เธฒเน€เธฅเธทเธญเธเธเธฃเธดเธเธฒเธฃเธญเธขเนเธฒเธเธเนเธญเธข 1 เธฃเธฒเธขเธเธฒเธฃ" });
   }
 
   if (normalizedItems.some((item) => !Number.isInteger(item.quantity) || item.quantity < 1)) {
-    throw createError({ statusCode: 400, statusMessage: "จำนวนรายการต้องมากกว่า 0" });
+    throw createError({ statusCode: 400, statusMessage: "เธเธณเธเธงเธเธฃเธฒเธขเธเธฒเธฃเธ•เนเธญเธเธกเธฒเธเธเธงเนเธฒ 0" });
   }
 
-  if (body.hangerCount !== undefined && (!Number.isInteger(body.hangerCount) || body.hangerCount < 0)) {
-    throw createError({ statusCode: 400, statusMessage: "จำนวนไม้แขวนต้องเป็น 0 หรือมากกว่า" });
+  const missingHangerCount = body.missingHangerCount ?? body.hangerCount ?? 0;
+  if (!Number.isInteger(missingHangerCount) || missingHangerCount < 0) {
+    throw createError({ statusCode: 400, statusMessage: "จำนวนไม้แขวนที่ขาดต้องเป็น 0 หรือมากกว่า" });
   }
 
   if (body.discountAmount !== undefined && (!Number.isFinite(Number(body.discountAmount)) || Number(body.discountAmount) < 0)) {
-    throw createError({ statusCode: 400, statusMessage: "จำนวนส่วนลดต้องเป็น 0 หรือมากกว่า" });
+    throw createError({ statusCode: 400, statusMessage: "เธเธณเธเธงเธเธชเนเธงเธเธฅเธ”เธ•เนเธญเธเน€เธเนเธ 0 เธซเธฃเธทเธญเธกเธฒเธเธเธงเนเธฒ" });
   }
 
-  if (body.paymentMethod !== "CASH" && body.paymentMethod !== "TRANSFER") {
-    throw createError({ statusCode: 400, statusMessage: "ช่องทางการชำระเงินไม่ถูกต้อง" });
+  const paymentMethod: PaymentMethod = body.paymentMethod ?? "CASH";
+  if (paymentMethod !== "CASH" && paymentMethod !== "TRANSFER") {
+    throw createError({ statusCode: 400, statusMessage: "เธเนเธญเธเธ—เธฒเธเธเธฒเธฃเธเธณเธฃเธฐเน€เธเธดเธเนเธกเนเธ–เธนเธเธ•เนเธญเธ" });
   }
 
   try {
@@ -100,13 +129,13 @@ export default defineEventHandler(async (event) => {
     });
 
     if (!existing) {
-      throw createError({ statusCode: 404, statusMessage: "ไม่พบรายการรับผ้าที่ต้องการแก้ไข" });
+      throw createError({ statusCode: 404, statusMessage: "เนเธกเนเธเธเธฃเธฒเธขเธเธฒเธฃเธฃเธฑเธเธเนเธฒเธ—เธตเนเธ•เนเธญเธเธเธฒเธฃเนเธเนเนเธ" });
     }
 
     if (existing.payments.length > 1) {
       throw createError({
         statusCode: 400,
-        statusMessage: "รายการนี้มีข้อมูลการชำระเงินหลายรายการ ระบบยังไม่รองรับการแก้ไขอัตโนมัติ",
+        statusMessage: "เธฃเธฒเธขเธเธฒเธฃเธเธตเนเธกเธตเธเนเธญเธกเธนเธฅเธเธฒเธฃเธเธณเธฃเธฐเน€เธเธดเธเธซเธฅเธฒเธขเธฃเธฒเธขเธเธฒเธฃ เธฃเธฐเธเธเธขเธฑเธเนเธกเนเธฃเธญเธเธฃเธฑเธเธเธฒเธฃเนเธเนเนเธเธญเธฑเธ•เนเธเธกเธฑเธ•เธด",
       });
     }
 
@@ -124,7 +153,7 @@ export default defineEventHandler(async (event) => {
       });
 
       if (!customer) {
-        throw createError({ statusCode: 404, statusMessage: "ไม่พบลูกค้าที่เลือก" });
+        throw createError({ statusCode: 404, statusMessage: "เนเธกเนเธเธเธฅเธนเธเธเนเธฒเธ—เธตเนเน€เธฅเธทเธญเธ" });
       }
     }
 
@@ -160,14 +189,14 @@ export default defineEventHandler(async (event) => {
     });
 
     if (storefrontPrices.length !== priceIds.length) {
-      throw createError({ statusCode: 404, statusMessage: "มีรายการบริการบางรายการไม่ถูกต้องหรือถูกปิดใช้งาน" });
+      throw createError({ statusCode: 404, statusMessage: "เธกเธตเธฃเธฒเธขเธเธฒเธฃเธเธฃเธดเธเธฒเธฃเธเธฒเธเธฃเธฒเธขเธเธฒเธฃเนเธกเนเธ–เธนเธเธ•เนเธญเธเธซเธฃเธทเธญเธ–เธนเธเธเธดเธ”เนเธเนเธเธฒเธ" });
     }
 
     const priceMap = new Map(storefrontPrices.map((item) => [item.id, item]));
     const orderItems = normalizedItems.map((item) => {
       const price = priceMap.get(item.storefrontPriceId);
       if (!price) {
-        throw createError({ statusCode: 404, statusMessage: "ไม่พบบริการที่เลือก" });
+        throw createError({ statusCode: 404, statusMessage: "เนเธกเนเธเธเธเธฃเธดเธเธฒเธฃเธ—เธตเนเน€เธฅเธทเธญเธ" });
       }
 
       const unitPrice = Number(price.price);
@@ -176,36 +205,96 @@ export default defineEventHandler(async (event) => {
         quantity: item.quantity,
         unitPrice,
         totalPrice: unitPrice * item.quantity,
+        imageId: item.imageId,
+        notes: item.notes,
+        photos: item.photos,
       };
     });
 
-    const subtotalAmount = orderItems.reduce((sum, item) => sum + item.totalPrice, 0);
-    const discountAmount = Math.min(Number(body.discountAmount ?? 0), subtotalAmount);
-    const hangerCount = body.hangerCount ?? orderItems.reduce((sum, item) => sum + item.quantity, 0);
     const hangerCharge = {
-      count: hangerCount,
+      count: missingHangerCount,
       pricePerUnit: DEFAULT_HANGER_PRICE_PER_UNIT,
-      total: hangerCount * DEFAULT_HANGER_PRICE_PER_UNIT,
+      total: missingHangerCount * DEFAULT_HANGER_PRICE_PER_UNIT,
     };
-    const totalAmount = subtotalAmount - discountAmount + hangerCharge.total;
 
     const dueAt = body.dueAt ? new Date(body.dueAt) : null;
     if (dueAt && Number.isNaN(dueAt.getTime())) {
-      throw createError({ statusCode: 400, statusMessage: "วันนัดรับไม่ถูกต้อง" });
+      throw createError({ statusCode: 400, statusMessage: "เธงเธฑเธเธเธฑเธ”เธฃเธฑเธเนเธกเนเธ–เธนเธเธ•เนเธญเธ" });
     }
 
-    const paymentStatus = body.status ?? existing.payments[0]?.status ?? (body.paymentMethod === "CASH" ? "VERIFIED" : "PENDING");
     const serviceOrderStatus = body.serviceOrderStatus ?? existing.status;
     const existingSlipImageId = existing.payments[0]?.slipImage?.id ?? null;
     const slipImageId = body.slipImageId !== undefined ? body.slipImageId : existingSlipImageId;
 
-    if (body.paymentMethod === "TRANSFER" && !slipImageId) {
-      throw createError({ statusCode: 400, statusMessage: "กรุณาอัปโหลดสลิปสำหรับรายการโอน" });
-    }
+    type AllocatedItem = (typeof orderItems)[number] & { cashQuantity: number; creditQuantity: number };
+    let allocatedItems: AllocatedItem[] = orderItems.map((item) => ({ ...item, creditQuantity: 0, cashQuantity: item.quantity }));
+    let creditUsed = 0;
+    let subtotalAmount = orderItems.reduce((sum, item) => sum + item.totalPrice, 0);
+    let discountAmount = Math.min(Number(body.discountAmount ?? 0), subtotalAmount);
+    let payableAmount = subtotalAmount - discountAmount + hangerCharge.total;
 
-    const isVerified = paymentStatus === "VERIFIED";
 
     await prisma.$transaction(async (tx) => {
+      if (existing.memberEntitlementId && existing.creditUsed) {
+        await tx.memberEntitlement.update({
+          where: { id: existing.memberEntitlementId },
+          data: {
+            creditRemaining: {
+              increment: existing.creditUsed,
+            },
+          },
+        });
+      }
+
+      let nextEntitlementId: string | null = null;
+
+      if (requestedEntitlementId) {
+        const entitlement = await tx.memberEntitlement.findFirst({
+          where: {
+            id: requestedEntitlementId,
+            customerId: customerId!,
+            deletedAt: null,
+            status: "ACTIVE",
+          },
+          select: {
+            id: true,
+            creditRemaining: true,
+          },
+        });
+
+        if (!entitlement) {
+          throw createError({ statusCode: 404, statusMessage: "ไม่พบสิทธิ์แพ็กเกจรายเดือนที่เลือก" });
+        }
+
+        const creditAvailable = Math.max(0, Number(entitlement.creditRemaining ?? 0));
+        let remainingCredit = creditAvailable;
+        allocatedItems = orderItems.map((item) => {
+          const creditQty = Math.min(item.quantity, remainingCredit);
+          remainingCredit -= creditQty;
+          return { ...item, creditQuantity: creditQty, cashQuantity: item.quantity - creditQty };
+        });
+        creditUsed = creditAvailable - remainingCredit;
+        subtotalAmount = allocatedItems.reduce((sum, item) => sum + item.cashQuantity * item.unitPrice, 0);
+        discountAmount = Math.min(Number(body.discountAmount ?? 0), subtotalAmount);
+        payableAmount = subtotalAmount - discountAmount + hangerCharge.total;
+
+        if (creditUsed > 0) {
+          await tx.memberEntitlement.update({
+            where: { id: entitlement.id },
+            data: {
+              creditRemaining: {
+                decrement: creditUsed,
+              },
+            },
+          });
+        }
+
+        nextEntitlementId = entitlement.id;
+      }
+
+      const paymentStatus: PaymentStatus = body.status ?? existing.payments[0]?.status ?? "PENDING";
+      const isVerified = paymentStatus === "VERIFIED";
+
       const deletedAt = new Date();
 
       await tx.serviceOrder.update({
@@ -217,14 +306,39 @@ export default defineEventHandler(async (event) => {
           isWalkIn,
           walkInName,
           walkInPhone,
+          memberEntitlementId: nextEntitlementId,
+          creditUsed: nextEntitlementId ? creditUsed : null,
           dueAt,
           subtotalAmount,
           discountAmount,
           hangerCharge,
-          totalAmount,
+          totalAmount: payableAmount,
           note: body.note?.trim() || null,
+          imageId: orderImageId,
+          ...(deliveryImageId !== undefined ? { deliveryImageId } : {}),
         },
       });
+
+      const existingItems = await tx.serviceOrderItem.findMany({
+        where: {
+          serviceOrderId: id,
+          deletedAt: null,
+        },
+        select: { id: true },
+      });
+
+      if (existingItems.length > 0) {
+        await tx.serviceOrderItemImage.updateMany({
+          where: {
+            serviceOrderItemId: { in: existingItems.map((item) => item.id) },
+            deletedAt: null,
+          },
+          data: {
+            deletedAt,
+            deletedById: actor.id,
+          },
+        });
+      }
 
       await tx.serviceOrderItem.updateMany({
         where: {
@@ -237,32 +351,55 @@ export default defineEventHandler(async (event) => {
         },
       });
 
-      await tx.serviceOrderItem.createMany({
-        data: orderItems.map((item) => ({
-          serviceOrderId: id,
-          storefrontPriceId: item.price.id,
-          isPackageIncluded: false,
-          quantity: item.quantity,
-          unitPrice: item.unitPrice,
-          totalPrice: item.totalPrice,
-          notes: `${item.price.storefrontService.name} ${item.price.storefrontItem.name}`.trim(),
-        })),
-      });
+      for (const item of allocatedItems) {
+        const rows: Array<{ qty: number; isPackage: boolean; totalPrice: number; attachPhotos: boolean }> = [];
+        if (item.creditQuantity > 0) rows.push({ qty: item.creditQuantity, isPackage: true, totalPrice: 0, attachPhotos: true });
+        if (item.cashQuantity > 0) rows.push({ qty: item.cashQuantity, isPackage: false, totalPrice: item.cashQuantity * item.unitPrice, attachPhotos: item.creditQuantity === 0 });
+        if (rows.length === 0) rows.push({ qty: item.quantity, isPackage: false, totalPrice: item.totalPrice, attachPhotos: true });
+
+        for (const row of rows) {
+          const createdItem = await tx.serviceOrderItem.create({
+            data: {
+              serviceOrderId: id,
+              storefrontPriceId: item.price.id,
+              isPackageIncluded: row.isPackage,
+              quantity: row.qty,
+              unitPrice: item.unitPrice,
+              totalPrice: row.totalPrice,
+              imageId: row.attachPhotos ? item.imageId : null,
+              notes: item.notes,
+            },
+            select: { id: true },
+          });
+
+          if (row.attachPhotos && item.photos.length > 0) {
+            await tx.serviceOrderItemImage.createMany({
+              data: item.photos.map((photo, index) => ({
+                serviceOrderItemId: createdItem.id,
+                imageId: photo.imageId,
+                isDamaged: photo.isDamaged,
+                sortOrder: photo.sortOrder ?? index,
+              })),
+            });
+          }
+        }
+      }
 
       if (existing.payments[0]) {
         await tx.paymentRecord.update({
           where: { id: existing.payments[0].id },
           data: {
             userId: paymentUserId!,
-            amount: totalAmount,
-            paymentMethod: body.paymentMethod,
+            memberEntitlementId: nextEntitlementId,
+            amount: payableAmount,
+            paymentMethod,
             slipImageId: slipImageId ?? null,
             status: paymentStatus,
             note: body.note?.trim() || null,
             paidAt: isVerified ? new Date() : null,
             verifiedById: isVerified ? actor.id : null,
             verifiedAt: isVerified ? new Date() : null,
-            rejectionReason: paymentStatus === "FAILED" ? "อัปเดตรายการโดยผู้ดูแลระบบ" : null,
+            rejectionReason: paymentStatus === "FAILED" ? "เธญเธฑเธเน€เธ”เธ•เธฃเธฒเธขเธเธฒเธฃเนเธ”เธขเธเธนเนเธ”เธนเนเธฅเธฃเธฐเธเธ" : null,
             metadata: {
               updatedByAdminId: actor.id,
               source: "admin-service-orders",
@@ -274,6 +411,9 @@ export default defineEventHandler(async (event) => {
               isWalkIn,
               walkInName,
               walkInPhone,
+              memberEntitlementId: nextEntitlementId,
+              creditUsed: nextEntitlementId ? creditUsed : null,
+              orderImageId,
             },
           },
         });
@@ -282,16 +422,17 @@ export default defineEventHandler(async (event) => {
           data: {
             paymentNo: createPaymentNo(),
             userId: paymentUserId!,
+            memberEntitlementId: nextEntitlementId,
             serviceOrderId: id,
-            amount: totalAmount,
-            paymentMethod: body.paymentMethod,
+            amount: payableAmount,
+            paymentMethod,
             slipImageId: slipImageId ?? null,
             status: paymentStatus,
             note: body.note?.trim() || null,
             paidAt: isVerified ? new Date() : null,
             verifiedById: isVerified ? actor.id : null,
             verifiedAt: isVerified ? new Date() : null,
-            rejectionReason: paymentStatus === "FAILED" ? "บันทึกรายการไม่สำเร็จ" : null,
+            rejectionReason: paymentStatus === "FAILED" ? "เธเธฑเธเธ—เธถเธเธฃเธฒเธขเธเธฒเธฃเนเธกเนเธชเธณเน€เธฃเนเธ" : null,
             metadata: {
               createdByAdminId: actor.id,
               source: "admin-service-orders",
@@ -304,6 +445,9 @@ export default defineEventHandler(async (event) => {
               isWalkIn,
               walkInName,
               walkInPhone,
+              memberEntitlementId: nextEntitlementId,
+              creditUsed: nextEntitlementId ? creditUsed : null,
+              orderImageId,
             },
           },
         });
@@ -319,7 +463,7 @@ export default defineEventHandler(async (event) => {
     console.error("[PUT /api/admin/service-orders/:id]", error);
     throw createError({
       statusCode: 500,
-      statusMessage: "ไม่สามารถอัปเดตรายการรับผ้าได้",
+      statusMessage: "เนเธกเนเธชเธฒเธกเธฒเธฃเธ–เธญเธฑเธเน€เธ”เธ•เธฃเธฒเธขเธเธฒเธฃเธฃเธฑเธเธเนเธฒเนเธ”เน",
     });
   }
 });

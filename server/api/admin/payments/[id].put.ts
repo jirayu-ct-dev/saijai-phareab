@@ -106,8 +106,38 @@ export default defineEventHandler(async (event) => {
       },
     });
 
-    if (!existing || !existing.packageSale) {
+    if (!existing) {
       throw createError({ statusCode: 404, statusMessage: "ไม่พบรายการชำระเงินที่ต้องการแก้ไข" });
+    }
+
+    if (!existing.packageSale) {
+      const nextPaymentMethod = body.paymentMethod ?? existing.paymentMethod;
+      const nextStatus = body.status ?? existing.status;
+      const nextNote = body.note !== undefined ? body.note?.trim() || null : (existing.note ?? null);
+      const nextSlipImageId = body.slipImageId !== undefined ? body.slipImageId : existing.slipImageId;
+
+      if (nextPaymentMethod === "TRANSFER" && !nextSlipImageId) {
+        throw createError({ statusCode: 400, statusMessage: "กรุณาอัปโหลดสลิปสำหรับรายการโอน" });
+      }
+
+      const isVerified = nextStatus === "VERIFIED";
+
+      const updated = await prisma.paymentRecord.update({
+        where: { id },
+        data: {
+          paymentMethod: nextPaymentMethod,
+          slipImageId: nextSlipImageId ?? null,
+          status: nextStatus,
+          note: nextNote,
+          paidAt: isVerified ? (existing.paidAt ?? new Date()) : null,
+          verifiedById: isVerified ? actor.id : null,
+          verifiedAt: isVerified ? new Date() : null,
+          rejectionReason: nextStatus === "FAILED" ? "ระบุโดยผู้ดูแลระบบ" : null,
+          metadata: { updatedByAdminId: actor.id },
+        },
+      });
+
+      return updated;
     }
 
     const existingPackageSale = existing.packageSale;

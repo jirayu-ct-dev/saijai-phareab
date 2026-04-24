@@ -144,6 +144,14 @@ export default defineEventHandler(async (event) => {
                   },
                 },
               },
+              image: {
+                select: { id: true, url: true, secureUrl: true },
+              },
+              photos: {
+                where: { deletedAt: null },
+                include: { image: { select: { id: true, url: true, secureUrl: true } } },
+                orderBy: { sortOrder: "asc" },
+              },
             },
             where: {
               deletedAt: null,
@@ -232,6 +240,15 @@ export default defineEventHandler(async (event) => {
       name: item.storefrontPrice.storefrontItem.name,
     },
     label: `${item.storefrontPrice.storefrontService.name} ${item.storefrontPrice.storefrontItem.name}`.trim(),
+    image: item.image ? { id: item.image.id, url: item.image.url, secureUrl: item.image.secureUrl } : null,
+    photos: item.photos.map((photo) => ({
+      id: photo.id,
+      imageId: photo.imageId,
+      isDamaged: photo.isDamaged,
+      sortOrder: photo.sortOrder,
+      url: photo.image.url,
+      secureUrl: photo.image.secureUrl,
+    })),
   })) ?? [];
 
   const hangerChargeSource = (payment.serviceOrder?.hangerCharge ?? null) as

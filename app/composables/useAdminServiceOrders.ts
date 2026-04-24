@@ -5,14 +5,21 @@ export type CreateAdminServiceOrderBody = {
   isWalkIn?: boolean;
   walkInName?: string | null;
   walkInPhone?: string | null;
+  memberEntitlementId?: string | null;
+  orderImageId?: string | null;
+  deliveryImageId?: string | null;
   items: Array<{
     storefrontPriceId: string;
     quantity: number;
+    imageId?: string | null;
+    notes?: string | null;
+    photos?: Array<{ imageId: string; isDamaged: boolean; sortOrder?: number }>;
   }>;
   hangerCount?: number;
+  missingHangerCount?: number;
   dueAt?: string | null;
   discountAmount?: number;
-  paymentMethod: PaymentMethod;
+  paymentMethod?: PaymentMethod;
   status?: PaymentStatus;
   serviceOrderStatus?: ServiceOrderStatus;
   note?: string | null;
@@ -34,12 +41,37 @@ export type AdminServiceOrder = {
   isWalkIn: boolean;
   walkInName: string | null;
   walkInPhone: string | null;
+  creditUsed: number | null;
   note: string | null;
   receivedAt: string;
   dueAt: string | null;
   subtotalAmount: number;
   discountAmount: number;
   totalAmount: number;
+  image: {
+    id: string;
+    secureUrl: string | null;
+    url: string | null;
+  } | null;
+  deliveryImage: {
+    id: string;
+    secureUrl: string | null;
+    url: string | null;
+  } | null;
+  memberEntitlement: {
+    id: string;
+    status: string;
+    creditInitial: number | null;
+    creditRemaining: number | null;
+    endAt: string | null;
+    product: {
+      id: string;
+      name: string;
+      packageType: string;
+      credits: number | null;
+      validityDays: number | null;
+    };
+  } | null;
   hangerCharge: {
     count: number;
     pricePerUnit: number;
@@ -65,6 +97,20 @@ export type AdminServiceOrder = {
     unitPrice: number;
     totalPrice: number;
     notes: string | null;
+    isPackageIncluded: boolean;
+    image: {
+      id: string;
+      secureUrl: string | null;
+      url: string | null;
+    } | null;
+    photos: Array<{
+      id: string;
+      imageId: string;
+      isDamaged: boolean;
+      sortOrder: number;
+      secureUrl: string | null;
+      url: string | null;
+    }>;
   }>;
   payment: {
     id: string | null;
@@ -79,6 +125,12 @@ export type AdminServiceOrder = {
       url: string | null;
     } | null;
   } | null;
+};
+
+export type AdminServiceOrderImage = {
+  id: string;
+  secureUrl: string | null;
+  url: string | null;
 };
 
 export const useAdminServiceOrders = () => {
@@ -124,6 +176,32 @@ export const useAdminServiceOrders = () => {
     }
   };
 
+  const updateServiceOrderStatus = async (
+    id: string,
+    status: ServiceOrderStatus,
+    options?: {
+      deliveryImageId?: string | null;
+      addonUsages?: Array<{ entitlementId: string; credits: number }>;
+    },
+  ): Promise<boolean> => {
+    try {
+      const body: {
+        status: ServiceOrderStatus;
+        deliveryImageId?: string | null;
+        addonUsages?: Array<{ entitlementId: string; credits: number }>;
+      } = { status };
+      if (options && "deliveryImageId" in options) body.deliveryImageId = options.deliveryImageId ?? null;
+      if (options?.addonUsages?.length) body.addonUsages = options.addonUsages;
+      await $fetch(`/api/admin/service-orders/${id}/status`, { method: "PATCH", body });
+      await refresh();
+      notify.updated("สถานะงาน");
+      return true;
+    } catch (error: unknown) {
+      notify.error(getErrorMessage(error, "ไม่สามารถอัปเดตสถานะงานได้"));
+      return false;
+    }
+  };
+
   const deleteServiceOrder = async (id: string): Promise<boolean> => {
     try {
       await $fetch(`/api/admin/service-orders/${id}`, { method: "DELETE" });
@@ -136,12 +214,29 @@ export const useAdminServiceOrders = () => {
     }
   };
 
+  const uploadOrderImage = async (file: File): Promise<AdminServiceOrderImage | null> => {
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+
+      return await $fetch<AdminServiceOrderImage>("/api/admin/service-orders/upload", {
+        method: "POST",
+        body: formData,
+      });
+    } catch (error: unknown) {
+      notify.error(getErrorMessage(error, "เนเธกเนเธชเธฒเธกเธฒเธฃเธ–เธญเธฑเธเนเธซเธฅเธ”เธฃเธนเธเธฃเธฒเธขเธเธฒเธฃเนเธ”เน"));
+      return null;
+    }
+  };
+
   return {
     serviceOrders,
     isLoading,
     refresh,
     createServiceOrder,
     updateServiceOrder,
+    updateServiceOrderStatus,
     deleteServiceOrder,
+    uploadOrderImage,
   };
 };

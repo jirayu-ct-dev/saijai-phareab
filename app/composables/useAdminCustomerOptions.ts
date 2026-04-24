@@ -5,6 +5,13 @@ export type PosCustomerOption = {
   email: string;
   phoneNumber: string | null;
   image?: string | null;
+  activeMemberEntitlement?: {
+    id: string;
+    productName: string;
+    creditInitial: number | null;
+    creditRemaining: number | null;
+    endAt: string | null;
+  } | null;
 };
 
 export const useAdminCustomerOptions = () => {

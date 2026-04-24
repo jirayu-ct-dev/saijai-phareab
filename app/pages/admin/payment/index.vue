@@ -2,11 +2,9 @@
 import { h, resolveComponent } from "vue";
 import { getPaginationRowModel } from "@tanstack/table-core";
 import type { TableColumn } from "@nuxt/ui";
-import ImagePreviewModal from "~~/app/components/UI/ImagePreviewModal.vue";
 import type { AdminPaymentRecord } from "~~/app/composables/useAdminPayments";
-import { paymentStatusColors, paymentStatusLabels } from "~~/shared/config/paymentConfig";
 import { formatCurrency, formatDateTime } from "~~/shared/utils/format";
-import type { PaymentMethod, PaymentStatus, Role } from "~~/shared/types/enums";
+import type { Role } from "~~/shared/types/enums";
 
 definePageMeta({
   layout: "admin",
@@ -27,26 +25,11 @@ onActivated(async () => {
   await refresh();
 });
 
-const paymentMethodOptions: Array<{ label: string; value: PaymentMethod }> = [
-  { label: "เงินสด", value: "CASH" },
-  { label: "โอน", value: "TRANSFER" },
-];
-
-const paymentMethodBadges: Record<PaymentMethod, { label: string; color: "success" | "info" }> = {
-  CASH: { label: "เงินสด", color: "success" },
-  TRANSFER: { label: "โอน", color: "info" },
-};
-
-const paymentStatusOptions: Array<{ label: string; value: PaymentStatus }> = [
-  { label: paymentStatusLabels.PENDING, value: "PENDING" },
-  { label: paymentStatusLabels.VERIFIED, value: "VERIFIED" },
-  { label: paymentStatusLabels.FAILED, value: "FAILED" },
-];
-
-const saleTypeOptions: Array<{ label: string; value: "all" | "PACKAGE" | "SERVICE" }> = [
+const saleTypeOptions: Array<{ label: string; value: "all" | "PACKAGE" | "SERVICE" | "SERVICE_MEMBER" }> = [
   { label: "ทุกประเภท", value: "all" },
   { label: "แพ็กเกจ", value: "PACKAGE" },
   { label: "งานซักรีด", value: "SERVICE" },
+  { label: "งานซักรีด (รายเดือน)", value: "SERVICE_MEMBER" },
 ];
 
 const getAvatarProps = (customer?: AdminPaymentRecord["customer"] | null) => ({
@@ -72,8 +55,6 @@ const pagination = ref({
 });
 
 const searchQuery = ref("");
-const statusFilter = ref<PaymentStatus | "all">("all");
-const methodFilter = ref<PaymentMethod | "all">("all");
 const saleTypeFilter = ref<(typeof saleTypeOptions)[number]["value"]>("all");
 
 const filteredPayments = computed<AdminPaymentRecord[]>(() => {
@@ -96,13 +77,18 @@ const filteredPayments = computed<AdminPaymentRecord[]>(() => {
           .includes(keyword)
       : true;
 
-    const matchStatus = statusFilter.value === "all" || payment.status === statusFilter.value;
-    const matchMethod = methodFilter.value === "all" || payment.paymentMethod === methodFilter.value;
-    const matchSaleType =
-      saleTypeFilter.value === "all"
-      || (saleTypeFilter.value === "SERVICE" ? Boolean(payment.serviceOrder?.id) : !payment.serviceOrder?.id);
+    const matchSaleType = (() => {
+      if (saleTypeFilter.value === "all") return true;
+      const isService = Boolean(payment.serviceOrder?.id);
+      if (saleTypeFilter.value === "PACKAGE") return !isService;
+      if (saleTypeFilter.value === "SERVICE") return isService;
+      if (saleTypeFilter.value === "SERVICE_MEMBER") {
+        return isService && Boolean(payment.serviceOrder?.memberEntitlementId);
+      }
+      return true;
+    })();
 
-    return matchKeyword && matchStatus && matchMethod && matchSaleType;
+    return matchKeyword && matchSaleType;
   });
 });
 
@@ -131,7 +117,7 @@ const paginationSummary = computed(() => {
   return `แสดง ${start}-${end} จาก ${total} รายการ | เลือก ${selectedRowsCount.value} รายการ`;
 });
 
-watch([searchQuery, statusFilter, methodFilter, saleTypeFilter], () => {
+watch([searchQuery, saleTypeFilter], () => {
   pagination.value.pageIndex = 0;
   rowSelection.value = {};
 });
@@ -140,32 +126,31 @@ watch(() => pagination.value.pageIndex, () => {
   rowSelection.value = {};
 });
 
-const slipPreview = ref<{ url: string; title: string; alt: string } | null>(null);
-const isSlipPreviewOpen = ref(false);
-
-const openSlipPreview = (payment: AdminPaymentRecord) => {
-  const url = payment.slipImage?.secureUrl || payment.slipImage?.url;
-  if (!url) return;
-
-  slipPreview.value = {
-    url,
-    title: `หลักฐานการชำระเงิน ${payment.paymentNo || ""}`.trim(),
-    alt: payment.customer.name || payment.customer.email || "หลักฐานการชำระเงิน",
-  };
-  isSlipPreviewOpen.value = true;
-};
-
 const openPaymentDetail = (payment: AdminPaymentRecord) => navigateTo(`/admin/payment/${payment.id}`);
 const openReceipt = (payment: AdminPaymentRecord) => navigateTo(`/admin/payment/${payment.id}/receipt`);
-const openIntakeSlip = (payment: AdminPaymentRecord) => {
-  if (!payment.serviceOrder?.id) return;
-  return navigateTo(`/admin/service-orders/${payment.serviceOrder.id}/intake`);
-};
 const openMemberDetail = (payment: AdminPaymentRecord) => navigateTo(`/admin/users/${payment.customer.id}`);
+const openServiceOrderDetail = (serviceOrderId: string) => navigateTo(`/admin/service-orders/${serviceOrderId}`);
 
-const getSaleType = (payment: AdminPaymentRecord) => (payment.serviceOrder?.id ? "SERVICE" : "PACKAGE");
-const getSaleTypeLabel = (payment: AdminPaymentRecord) => (getSaleType(payment) === "SERVICE" ? "งานซักรีด" : "แพ็กเกจ");
-const getSaleTypeColor = (payment: AdminPaymentRecord) => (getSaleType(payment) === "SERVICE" ? "warning" : "primary");
+const isServiceMember = (payment: AdminPaymentRecord) =>
+  Boolean(payment.serviceOrder?.id) && Boolean(payment.serviceOrder?.memberEntitlementId);
+const getSaleType = (payment: AdminPaymentRecord) => {
+  if (payment.serviceOrder?.id) {
+    return isServiceMember(payment) ? "SERVICE_MEMBER" : "SERVICE";
+  }
+  return "PACKAGE";
+};
+const getSaleTypeLabel = (payment: AdminPaymentRecord) => {
+  const type = getSaleType(payment);
+  if (type === "SERVICE_MEMBER") return "งานซักรีด (รายเดือน)";
+  if (type === "SERVICE") return "งานซักรีด";
+  return "แพ็กเกจ";
+};
+const getSaleTypeColor = (payment: AdminPaymentRecord) => {
+  const type = getSaleType(payment);
+  if (type === "SERVICE_MEMBER") return "success";
+  if (type === "SERVICE") return "warning";
+  return "primary";
+};
 
 const isDeleteOpen = ref(false);
 const isBulkDeleteOpen = ref(false);
@@ -215,23 +200,16 @@ const getActionItems = (payment: AdminPaymentRecord) => {
     { label: "ดูใบเสร็จ", icon: "i-lucide-receipt", onSelect: () => openReceipt(payment) },
   ];
 
-  if (payment.serviceOrder?.id) {
-    primaryItems.push({ label: "ดูใบรับผ้า", icon: "i-lucide-ticket", onSelect: () => openIntakeSlip(payment) });
+  const serviceOrderId = payment.serviceOrder?.id;
+  if (serviceOrderId) {
     primaryItems.push({
-      label: `เลขรับผ้า ${payment.serviceOrder.orderNo || payment.serviceOrder.id}`,
+      label: `เลขออเดอร์ ${payment.serviceOrder?.orderNo || serviceOrderId}`,
       icon: "i-lucide-package-search",
-      disabled: true,
+      onSelect: () => openServiceOrderDetail(serviceOrderId),
     });
   } else {
     primaryItems.push({ label: "ดูข้อมูลลูกค้า", icon: "i-lucide-user-round-search", onSelect: () => openMemberDetail(payment) });
   }
-
-  primaryItems.push({
-    label: payment.slipImage ? "ดูหลักฐานการโอน" : "ไม่มีหลักฐานการโอน",
-    icon: "i-lucide-image",
-    disabled: !payment.slipImage,
-    onSelect: () => openSlipPreview(payment),
-  });
 
   if (isAdmin.value) {
     return [
@@ -316,20 +294,18 @@ const columns: TableColumn<AdminPaymentRecord>[] = [
   {
     accessorKey: "amount",
     header: () => h("div", { class: "text-right" }, "จำนวนเงิน"),
-    cell: ({ row }) => h("div", { class: "text-right font-medium" }, formatCurrency(row.original.amount)),
-  },
-  {
-    accessorKey: "paymentMethod",
-    header: "ช่องทาง",
     cell: ({ row }) => {
-      const badge = paymentMethodBadges[row.original.paymentMethod];
-      return h(UBadge, { color: badge.color, variant: "subtle" }, () => badge.label);
+      const payment = row.original;
+      const isMemberZero = isServiceMember(payment) && Number(payment.amount ?? 0) === 0;
+      if (isMemberZero) {
+        const credits = Number(payment.serviceOrder?.creditUsed ?? 0);
+        return h("div", { class: "space-y-0.5 text-right" }, [
+          h("p", { class: "text-sm font-medium text-success" }, "ใช้เครดิต"),
+          h("p", { class: "text-xs text-muted" }, `${credits} เครดิต`),
+        ]);
+      }
+      return h("div", { class: "text-right font-medium" }, formatCurrency(payment.amount));
     },
-  },
-  {
-    accessorKey: "status",
-    header: "สถานะ",
-    cell: ({ row }) => h(UBadge, { color: paymentStatusColors[row.original.status], variant: "subtle" }, () => paymentStatusLabels[row.original.status]),
   },
   {
     accessorKey: "createdAt",
@@ -415,18 +391,6 @@ const columns: TableColumn<AdminPaymentRecord>[] = [
               </UButton>
 
               <USelect v-model="saleTypeFilter" :items="saleTypeOptions" value-key="value" class="min-w-36" />
-              <USelect
-                v-model="methodFilter"
-                :items="[{ label: 'ทุกช่องทาง', value: 'all' }, ...paymentMethodOptions]"
-                value-key="value"
-                class="min-w-32"
-              />
-              <USelect
-                v-model="statusFilter"
-                :items="[{ label: 'ทุกสถานะ', value: 'all' }, ...paymentStatusOptions]"
-                value-key="value"
-                class="min-w-32"
-              />
               <UButton
                 icon="i-lucide-refresh-cw"
                 color="neutral"
@@ -570,12 +534,5 @@ const columns: TableColumn<AdminPaymentRecord>[] = [
         </div>
       </template>
     </UIConfirmModal>
-
-    <ImagePreviewModal
-      v-model:open="isSlipPreviewOpen"
-      :title="slipPreview?.title || 'ดูหลักฐานการชำระเงิน'"
-      :image-url="slipPreview?.url || null"
-      :image-alt="slipPreview?.alt || 'หลักฐานการชำระเงิน'"
-    />
   </ClientOnly>
 </template>

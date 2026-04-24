@@ -141,6 +141,21 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 404, statusMessage: "ไม่พบรายการรับผ้าที่ค้นหา" });
   }
 
+  const addonEntitlements = serviceOrder.isWalkIn
+    ? []
+    : await prisma.memberEntitlement.findMany({
+        where: {
+          customerId: serviceOrder.customerId,
+          status: "ACTIVE",
+          deletedAt: null,
+          product: { packageType: "ADDON" },
+        },
+        include: {
+          product: { select: { id: true, name: true, packageType: true, credits: true } },
+        },
+        orderBy: { createdAt: "asc" },
+      });
+
   const hangerCharge = (serviceOrder.hangerCharge ?? null) as
     | { count?: number; pricePerUnit?: number; total?: number }
     | null;
@@ -177,6 +192,15 @@ export default defineEventHandler(async (event) => {
     },
     employee: serviceOrder.employee,
     basket: serviceOrder.basket,
+    addonEntitlements: addonEntitlements.map((e) => ({
+      id: e.id,
+      status: e.status,
+      creditInitial: e.creditInitial,
+      creditRemaining: e.creditRemaining,
+      endAt: e.endAt?.toISOString() ?? null,
+      product: e.product,
+    })),
+    addonUsages: Array.isArray(serviceOrder.addonUsages) ? serviceOrder.addonUsages : [],
     memberEntitlement: serviceOrder.memberEntitlement
       ? {
           id: serviceOrder.memberEntitlement.id,

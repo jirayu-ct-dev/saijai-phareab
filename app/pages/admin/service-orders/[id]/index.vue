@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import type { PaymentMethod, PaymentStatus, ServiceOrderStatus } from "~~/shared/types/enums";
 import { orderStatusColors, orderStatusLabels } from "~~/shared/config/orderConfig";
-import { paymentStatusColors, paymentStatusLabels } from "~~/shared/config/paymentConfig";
 import { formatCurrency, formatDateTime } from "~~/shared/utils/format";
+import ImagePreviewModal from "~~/app/components/UI/ImagePreviewModal.vue";
 
 type BadgeColor = "success" | "info" | "error" | "neutral" | "primary" | "secondary" | "warning";
 type InfoRow = { label: string; value: string; valueClass?: string; dividerBefore?: boolean };
@@ -23,6 +23,8 @@ type ServiceOrderDetailResponse = {
   subtotalAmount: number;
   discountAmount: number;
   totalAmount: number | null;
+  image: { id: string; secureUrl: string | null; url: string | null } | null;
+  deliveryImage: { id: string; secureUrl: string | null; url: string | null } | null;
   hangerCharge: { count: number; pricePerUnit: number; total: number } | null;
   customer: { id: string; name: string | null; email: string; phoneNumber: string | null; image: string | null };
   employee: { id: string; name: string | null; email: string } | null;
@@ -36,6 +38,15 @@ type ServiceOrderDetailResponse = {
     endAt: string | null;
     product: { id: string; name: string; packageType: string; credits: number | null; validityDays: number | null };
   } | null;
+  activeEntitlements: Array<{
+    id: string;
+    status: string;
+    creditInitial: number | null;
+    creditRemaining: number | null;
+    activatedAt: string | null;
+    endAt: string | null;
+    product: { id: string; name: string; packageType: string; credits: number | null; validityDays: number | null };
+  }>;
   items: Array<{
     id: string;
     storefrontPriceId: string;
@@ -44,6 +55,15 @@ type ServiceOrderDetailResponse = {
     totalPrice: number;
     notes: string | null;
     isPackageIncluded: boolean;
+    image: { id: string; secureUrl: string | null; url: string | null } | null;
+    photos: Array<{
+      id: string;
+      imageId: string;
+      isDamaged: boolean;
+      sortOrder: number;
+      secureUrl: string | null;
+      url: string | null;
+    }>;
     service: { id: string; name: string };
     item: { id: string; name: string };
     label: string;
@@ -68,6 +88,7 @@ definePageMeta({
 });
 
 const route = useRoute();
+const notify = useNotify();
 const serviceOrderId = computed(() => String(route.params.id ?? ""));
 const { data, status, refresh, error } = await useFetch<ServiceOrderDetailResponse>(
   () => `/api/admin/service-orders/${serviceOrderId.value}`,
@@ -79,10 +100,18 @@ const { data, status, refresh, error } = await useFetch<ServiceOrderDetailRespon
 const order = computed(() => data.value ?? null);
 const isLoading = computed(() => status.value === "pending");
 const orderStatusBadgeColors = orderStatusColors as Record<ServiceOrderStatus, BadgeColor>;
-const paymentStatusBadgeColors = paymentStatusColors as Record<PaymentStatus, BadgeColor>;
-const paymentMethodLabelMap: Record<PaymentMethod, string> = {
-  CASH: "เงินสด",
-  TRANSFER: "โอน",
+
+const orderNoText = computed(() => order.value?.orderNo || order.value?.id || "");
+const copiedOrderNo = ref(false);
+const copyOrderNo = async () => {
+  try {
+    await navigator.clipboard.writeText(orderNoText.value);
+    copiedOrderNo.value = true;
+    notify.success("คัดลอกเลขรับผ้าแล้ว");
+    setTimeout(() => { copiedOrderNo.value = false; }, 2000);
+  } catch {
+    notify.error("ไม่สามารถคัดลอกได้");
+  }
 };
 
 const goBack = () => {
@@ -96,10 +125,6 @@ const goBack = () => {
 const openReceipt = () => {
   if (!order.value) return;
   void navigateTo(`/admin/service-orders/${order.value.id}/intake`);
-};
-
-const openPaymentDetail = (paymentId: string) => {
-  void navigateTo(`/admin/payment/${paymentId}`);
 };
 
 const getAvatarProps = (target?: ServiceOrderDetailResponse["customer"] | null) => ({
@@ -125,27 +150,38 @@ const customerRows = computed<InfoRow[]>(() => {
 const orderRows = computed<InfoRow[]>(() => {
   if (!order.value) return [];
 
-  return [
+  const isCompleted = order.value.status === "COMPLETED";
+  const deliveredAt = order.value.payments[0]?.paidAt ?? null;
+  const rows: InfoRow[] = [
     { label: "เลขรับผ้า", value: order.value.orderNo || order.value.id, valueClass: "font-mono text-xs" },
     { label: "สถานะงาน", value: orderStatusLabels[order.value.status] },
     { label: "วันที่รับงาน", value: formatDateTime(order.value.receivedAt) },
-    { label: "วันนัดรับ", value: order.value.dueAt ? formatDateTime(order.value.dueAt) : "-" },
-    { label: "สร้างเมื่อ", value: formatDateTime(order.value.createdAt) },
-    { label: "อัปเดตล่าสุด", value: formatDateTime(order.value.updatedAt) },
+    isCompleted
+      ? { label: "วันที่ส่งผ้า", value: deliveredAt ? formatDateTime(deliveredAt) : "-" }
+      : { label: "วันนัดรับ", value: order.value.dueAt ? formatDateTime(order.value.dueAt) : "-" },
   ];
+
+  if (order.value.basket) {
+    rows.push({ label: "ตะกร้า", value: order.value.basket.label || order.value.basket.qrCode || "-" });
+  }
+
+  const active = order.value.activeEntitlements ?? [];
+  if (active.length) {
+    const value = active
+      .map((ent) => `${ent.product.name}`)
+      .join(" , ");
+    rows.push({ label: `แพ็กเกจที่ใช้งานอยู่ (${active.length})`, value, valueClass: "whitespace-pre-line" });
+  } else if (order.value.memberEntitlement) {
+    const ent = order.value.memberEntitlement;
+    rows.push({ label: "แพ็กเกจที่ใช้", value: `${ent.product.name}` });
+  }
+
+  return rows;
 });
 
-const supportRows = computed<InfoRow[]>(() => {
-  if (!order.value) return [];
-
-  return [
-    { label: "ตะกร้า", value: order.value.basket?.label || order.value.basket?.qrCode || "-" },
-    { label: "สถานะตะกร้า", value: order.value.basket?.status || "-" },
-    { label: "แพ็กเกจที่ใช้", value: order.value.memberEntitlement?.product.name || "-" },
-    { label: "เครดิตคงเหลือ", value: order.value.memberEntitlement?.creditRemaining != null ? String(order.value.memberEntitlement.creditRemaining) : "-" },
-    { label: "เครดิตที่ใช้", value: order.value.creditUsed != null ? String(order.value.creditUsed) : "-" },
-  ];
-});
+const isMemberZero = computed(() =>
+  Boolean(order.value?.memberEntitlement) && Number(order.value?.totalAmount ?? 0) === 0,
+);
 
 const totalRows = computed<InfoRow[]>(() => {
   if (!order.value) return [];
@@ -154,18 +190,29 @@ const totalRows = computed<InfoRow[]>(() => {
     { label: "ค่าบริการ", value: formatCurrency(order.value.subtotalAmount) },
   ];
 
-  if (order.value.hangerCharge) {
+  if (order.value.hangerCharge && order.value.hangerCharge.total > 0) {
     rows.push({
       label: `ค่าไม้แขวน (${order.value.hangerCharge.count} ชิ้น)`,
       value: formatCurrency(order.value.hangerCharge.total),
     });
   }
 
-  rows.push({ label: "ส่วนลด", value: formatCurrency(order.value.discountAmount) });
+  if (Number(order.value.discountAmount) > 0) {
+    rows.push({ label: "ส่วนลด", value: `-${formatCurrency(order.value.discountAmount)}` });
+  }
+
+  if (order.value.memberEntitlement) {
+    rows.push({
+      label: "ใช้เครดิตรายเดือน",
+      value: `${order.value.creditUsed ?? 0} เครดิต`,
+      valueClass: "font-medium text-success",
+    });
+  }
+
   rows.push({
     label: "ยอดรวมสุทธิ",
-    value: formatCurrency(order.value.totalAmount || 0),
-    valueClass: "font-semibold text-highlighted",
+    value: isMemberZero.value ? "ใช้สิทธิ์แพ็กเกจ" : formatCurrency(order.value.totalAmount || 0),
+    valueClass: isMemberZero.value ? "font-semibold text-success" : "font-semibold text-primary",
     dividerBefore: true,
   });
 
@@ -173,7 +220,18 @@ const totalRows = computed<InfoRow[]>(() => {
 });
 
 const hasMemberEntitlement = computed(() => Boolean(order.value?.memberEntitlement));
-const memberPackageName = computed(() => order.value?.memberEntitlement?.product.name || "-");
+const memberPackageName = computed(() => {
+  const active = order.value?.activeEntitlements ?? [];
+  if (active.length) {
+    return active
+      .map((ent) => `${ent.product.name}`)
+      .join(" , ");
+  }
+  const ent = order.value?.memberEntitlement;
+  if (!ent) return "-";
+  return `${ent.product.name}`;
+});
+
 const remainingCreditLabel = computed(() => {
   if (order.value?.memberEntitlement?.creditRemaining == null) return "-";
   return `${order.value.memberEntitlement.creditRemaining} เครดิต`;
@@ -185,6 +243,16 @@ const usedCreditLabel = computed(() => {
 const latestPayment = computed(() => order.value?.payments[0] ?? null);
 const itemCountLabel = computed(() => `${order.value?.items.length ?? 0} รายการ`);
 const totalQuantity = computed(() => (order.value?.items ?? []).reduce((sum, item) => sum + item.quantity, 0));
+
+const previewOpen = ref(false);
+const previewUrl = ref("");
+const previewTitle = ref("ดูรูป");
+const openImagePreview = (url: string | null | undefined, title = "ดูรูป") => {
+  if (!url) return;
+  previewUrl.value = url;
+  previewTitle.value = title;
+  previewOpen.value = true;
+};
 </script>
 
 <template>
@@ -198,7 +266,7 @@ const totalQuantity = computed(() => (order.value?.items ?? []).reduce((sum, ite
         <template #right>
           <div class="flex flex-wrap items-center gap-2">
             <UButton label="กลับ" color="neutral" variant="outline" icon="i-lucide-arrow-left" @click="goBack" />
-            <UButton label="ดูใบรับผ้า" color="neutral" variant="outline" icon="i-lucide-ticket" @click="openReceipt" />
+            <UButton label="ดูใบเสร็จ" color="neutral" variant="outline" icon="i-lucide-receipt" @click="openReceipt" />
           </div>
         </template>
       </UDashboardNavbar>
@@ -222,7 +290,7 @@ const totalQuantity = computed(() => (order.value?.items ?? []).reduce((sum, ite
       </div>
 
       <div v-else class="space-y-5">
-        <section class="rounded-2xl border border-default bg-default p-5">
+        <section class="space-y-5 rounded-2xl border border-default bg-default p-5">
           <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
             <div class="flex min-w-0 items-center gap-4">
               <UAvatar size="xl" v-bind="getAvatarProps(order.customer)" />
@@ -231,19 +299,35 @@ const totalQuantity = computed(() => (order.value?.items ?? []).reduce((sum, ite
                   <p class="truncate text-lg font-semibold text-highlighted">
                     {{ order.customer.name || order.customer.email || "-" }}
                   </p>
-                  <UBadge :color="orderStatusBadgeColors[order.status]" variant="subtle">
-                    {{ orderStatusLabels[order.status] }}
-                  </UBadge>
                 </div>
-                <p class="font-mono text-xs text-muted">{{ order.orderNo || order.id }}</p>
+                <div class="flex items-center gap-1">
+                  <p class="font-mono text-xs text-muted">{{ order.orderNo || order.id }}</p>
+                  <UButton
+                    :icon="copiedOrderNo ? 'i-lucide-check' : 'i-lucide-copy'"
+                    size="xs"
+                    :color="copiedOrderNo ? 'success' : 'neutral'"
+                    variant="ghost"
+                    @click="() => copyOrderNo()"
+                  />
+                </div>
                 <p class="text-sm text-muted">
-                  รับงานเมื่อ {{ formatDateTime(order.receivedAt) }}
-                  <span v-if="order.dueAt"> | นัดรับ {{ formatDateTime(order.dueAt) }}</span>
+                  รับงานเมื่อ {{ formatDateTime(order.receivedAt) }}<br>
+                  <span v-if="order.status === 'COMPLETED' && latestPayment?.paidAt">ส่งผ้า {{ formatDateTime(latestPayment.paidAt) }}</span>
+                  <span v-else-if="order.dueAt">นัดรับ {{ formatDateTime(order.dueAt) }}</span>
                 </p>
               </div>
             </div>
 
-            <div class="grid gap-3 sm:grid-cols-3 xl:grid-cols-4">
+            <div class="grid grid-cols-2 gap-3 lg:ml-auto lg:flex lg:flex-wrap lg:justify-end *:min-w-35">
+              <UCard>
+                <div class="space-y-1">
+                  <p class="text-xs text-muted">สถานะล่าสุด</p>
+                  <UBadge :color="orderStatusBadgeColors[order.status]" variant="subtle" size="lg">
+                    {{ orderStatusLabels[order.status] }}
+                  </UBadge>
+                  <p class="text-xs text-muted">อัปเดต {{ formatDateTime(order.updatedAt) }}</p>
+                </div>
+              </UCard>
               <UCard>
                 <div class="space-y-1">
                   <p class="text-xs text-muted">จำนวนรายการ</p>
@@ -254,7 +338,9 @@ const totalQuantity = computed(() => (order.value?.items ?? []).reduce((sum, ite
               <UCard>
                 <div class="space-y-1">
                   <p class="text-xs text-muted">ยอดรวมสุทธิ</p>
-                  <p class="text-lg font-semibold text-primary">{{ formatCurrency(order.totalAmount || 0) }}</p>
+                  <p :class="['text-lg font-semibold', isMemberZero ? 'text-success' : 'text-primary']">
+                    {{ isMemberZero ? "ใช้สิทธิ์แพ็กเกจ" : formatCurrency(order.totalAmount || 0) }}
+                  </p>
                   <p class="text-xs text-muted">
                     {{ hasMemberEntitlement ? "งานนี้ใช้ร่วมกับแพ็กเกจสมาชิก" : "รวมค่าไม้แขวนและส่วนลดแล้ว" }}
                   </p>
@@ -262,197 +348,195 @@ const totalQuantity = computed(() => (order.value?.items ?? []).reduce((sum, ite
               </UCard>
               <UCard v-if="hasMemberEntitlement">
                 <div class="space-y-1">
-                  <p class="text-xs text-muted">เครดิตคงเหลือ</p>
-                  <p class="text-lg font-semibold text-success">{{ remainingCreditLabel }}</p>
-                  <p class="text-xs text-muted">{{ memberPackageName }}</p>
-                </div>
-              </UCard>
-              <UCard>
-                <div class="space-y-1">
-                  <p class="text-xs text-muted">{{ hasMemberEntitlement ? "เครดิตที่ใช้" : "ชำระล่าสุด" }}</p>
-                  <p class="text-lg font-semibold text-highlighted">
-                    {{ hasMemberEntitlement ? usedCreditLabel : (latestPayment ? paymentStatusLabels[latestPayment.status] : "ยังไม่มี") }}
-                  </p>
-                  <p class="text-xs text-muted">
-                    {{ hasMemberEntitlement ? `สถานะแพ็กเกจ ${memberPackageName}` : (latestPayment?.paymentNo || "-") }}
-                  </p>
+                  <p class="text-xs text-muted">เครดิตที่ใช้</p>
+                  <p class="text-lg font-semibold text-highlighted">{{ usedCreditLabel }}</p>
+                  <p class="text-xs text-muted">คงเหลือ {{ remainingCreditLabel }}</p>
                 </div>
               </UCard>
             </div>
           </div>
+
+          <div class="border-t border-default pt-5">
+            <p class="text-sm font-semibold text-highlighted">ข้อมูลลูกค้าและงาน</p>
+            <div class="mt-3 grid gap-x-6 gap-y-3 text-sm lg:grid-cols-2 lg:[&>*:nth-child(odd)]:pr-4 lg:[&>*:nth-child(even)]:border-l lg:[&>*:nth-child(even)]:border-dashed lg:[&>*:nth-child(even)]:border-default lg:[&>*:nth-child(even)]:pl-4">
+              <div v-for="row in customerRows" :key="`c-${row.label}`" class="flex items-start justify-between gap-3">
+                <span class="text-muted">{{ row.label }}</span>
+                <span :class="['max-w-[62%] text-right text-highlighted', row.valueClass]">{{ row.value }}</span>
+              </div>
+              <div v-for="row in orderRows" :key="`o-${row.label}`" class="flex items-start justify-between gap-3">
+                <span class="text-muted">{{ row.label }}</span>
+                <span v-if="row.label === 'เลขรับผ้า'" class="flex items-center gap-1">
+                  <span :class="['text-right text-highlighted', row.valueClass]">{{ row.value }}</span>
+                  <UButton
+                    :icon="copiedOrderNo ? 'i-lucide-check' : 'i-lucide-copy'"
+                    size="xs"
+                    :color="copiedOrderNo ? 'success' : 'neutral'"
+                    variant="ghost"
+                    @click="() => copyOrderNo()"
+                  />
+                </span>
+                <span v-else :class="['max-w-[62%] text-right text-highlighted', row.valueClass]">{{ row.value }}</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="border-t border-default pt-5">
+            <p class="text-sm font-semibold text-highlighted">สรุปยอด</p>
+            <div class="mt-3 space-y-2 text-sm">
+              <div
+                v-for="row in totalRows"
+                :key="row.label"
+                :class="['flex items-center justify-between gap-3', row.dividerBefore ? 'border-t border-default pt-2' : '']"
+              >
+                <span class="text-muted">{{ row.label }}</span>
+                <span :class="row.valueClass || 'font-medium text-highlighted'">{{ row.value }}</span>
+              </div>
+            </div>
+          </div>
+
         </section>
 
-        <div class="grid gap-5 xl:grid-cols-[minmax(0,1.3fr)_360px]">
-          <div class="space-y-5">
-            <UCard>
-              <template #header>
-                <div class="flex items-center justify-between gap-3">
-                  <div>
-                    <p class="font-semibold text-highlighted">รายการบริการ</p>
-                    <p class="text-sm text-muted">{{ itemCountLabel }}</p>
-                  </div>
-                </div>
-              </template>
-
-              <div class="space-y-3">
-                <div
-                  v-for="item in order.items"
-                  :key="item.id"
-                  class="flex flex-col gap-3 rounded-xl border border-default p-4 md:flex-row md:items-start md:justify-between"
-                >
-                  <div class="min-w-0 space-y-1">
-                    <div class="flex flex-wrap items-center gap-2">
-                      <p class="font-medium text-highlighted">{{ item.label }}</p>
-                      <UBadge v-if="item.isPackageIncluded" color="success" variant="subtle">
-                        รวมในแพ็กเกจ
-                      </UBadge>
-                    </div>
-                    <p class="text-sm text-muted">{{ item.service.name }} | {{ item.item.name }}</p>
-                    <p v-if="item.notes" class="text-sm text-muted whitespace-pre-line">{{ item.notes }}</p>
-                  </div>
-
-                  <div class="grid shrink-0 gap-1 text-sm md:text-right">
-                    <p class="text-muted">จำนวน {{ item.quantity }} ชิ้น</p>
-                    <p class="text-muted">{{ formatCurrency(item.unitPrice) }} / ชิ้น</p>
-                    <p class="font-semibold text-highlighted">{{ formatCurrency(item.totalPrice) }}</p>
-                  </div>
-                </div>
+        <UCard>
+          <template #header>
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div>
+                <p class="font-semibold text-highlighted">รายการบริการ</p>
+                <p class="text-sm text-muted">{{ itemCountLabel }}</p>
               </div>
-            </UCard>
 
-          </div>
-
-          <div class="space-y-5">
-            <UCard>
-              <template #header>
-                <div>
-                  <p class="font-semibold text-highlighted">ข้อมูลลูกค้าและงาน</p>
-                </div>
-              </template>
-
-              <div class="grid gap-6 md:grid-cols-2 xl:grid-cols-1">
-                <div class="space-y-3">
-                  <div v-for="row in customerRows" :key="row.label" class="space-y-1">
-                    <p class="text-xs text-muted">{{ row.label }}</p>
-                    <p :class="['text-sm text-highlighted', row.valueClass]">{{ row.value }}</p>
-                  </div>
-                </div>
-                <div class="space-y-3">
-                  <div v-for="row in orderRows" :key="row.label" class="space-y-1">
-                    <p class="text-xs text-muted">{{ row.label }}</p>
-                    <p :class="['text-sm text-highlighted', row.valueClass]">{{ row.value }}</p>
-                  </div>
-                </div>
-              </div>
-            </UCard>
-
-            <UCard>
-              <template #header>
-                <div>
-                  <p class="font-semibold text-highlighted">สรุปยอด</p>
-                </div>
-              </template>
-
-              <div class="space-y-3 text-sm">
-                <div
-                  v-for="row in totalRows"
-                  :key="row.label"
-                  :class="['flex items-center justify-between gap-3', row.dividerBefore ? 'border-t border-default pt-3' : '']"
-                >
-                  <span class="text-muted">{{ row.label }}</span>
-                  <span :class="row.valueClass || 'font-medium text-highlighted'">{{ row.value }}</span>
-                </div>
-              </div>
-            </UCard>
-
-            <UCard>
-              <template #header>
-                <div>
-                  <p class="font-semibold text-highlighted">การชำระเงิน</p>
-                </div>
-              </template>
-
-              <div v-if="order.payments.length" class="space-y-4">
-                <div
-                  v-for="payment in order.payments"
-                  :key="payment.id"
-                  class="space-y-3 rounded-xl border border-default p-4"
-                >
-                  <div class="flex items-start justify-between gap-3">
-                    <div class="min-w-0">
-                      <p class="font-mono text-xs text-muted">{{ payment.paymentNo || payment.id }}</p>
-                      <div class="mt-1 flex flex-wrap items-center gap-2">
-                        <UBadge color="info" variant="subtle">{{ paymentMethodLabelMap[payment.paymentMethod] }}</UBadge>
-                        <UBadge :color="paymentStatusBadgeColors[payment.status]" variant="subtle">
-                          {{ paymentStatusLabels[payment.status] }}
-                        </UBadge>
-                      </div>
-                    </div>
-
-                    <UButton
-                      label="เปิดการชำระ"
-                      size="xs"
-                      color="neutral"
-                      variant="ghost"
-                      icon="i-lucide-external-link"
-                      @click="openPaymentDetail(payment.id)"
-                    />
-                  </div>
-
-                  <div class="space-y-2 text-sm">
-                    <div class="flex items-center justify-between gap-3">
-                      <span class="text-muted">ยอดชำระ</span>
-                      <span class="font-medium text-highlighted">{{ formatCurrency(payment.amount) }}</span>
-                    </div>
-                    <div class="flex items-center justify-between gap-3">
-                      <span class="text-muted">ชำระเมื่อ</span>
-                      <span class="text-highlighted">{{ payment.paidAt ? formatDateTime(payment.paidAt) : "-" }}</span>
-                    </div>
-                    <div class="flex items-center justify-between gap-3">
-                      <span class="text-muted">ตรวจสอบเมื่อ</span>
-                      <span class="text-highlighted">{{ payment.verifiedAt ? formatDateTime(payment.verifiedAt) : "-" }}</span>
-                    </div>
-                    <div class="flex items-center justify-between gap-3">
-                      <span class="text-muted">ผู้ตรวจสอบ</span>
-                      <span class="text-highlighted">{{ payment.verifiedBy?.name || payment.verifiedBy?.email || "-" }}</span>
-                    </div>
-                    <div v-if="payment.note" class="space-y-1">
-                      <p class="text-xs text-muted">หมายเหตุ</p>
-                      <p class="text-sm text-highlighted whitespace-pre-line">{{ payment.note }}</p>
-                    </div>
-                    <div v-if="payment.slipImage" class="space-y-2">
-                      <p class="text-xs text-muted">สลิปการชำระ</p>
+              <div v-if="order.image || order.deliveryImage" class="flex items-center gap-3">
+                <!-- <span class="hidden text-sm font-medium text-muted md:inline">หลักฐาน:</span> -->
+                <div class="flex items-center gap-3">
+                  <div class="flex flex-col items-center gap-1">
+                    <button
+                      v-if="order.image"
+                      type="button"
+                      class="relative block size-12 overflow-hidden rounded-md cursor-pointer"
+                      title="ดูหลักฐานการรับผ้า"
+                      @click="openImagePreview(order.image.secureUrl || order.image.url, 'หลักฐานการรับผ้า')"
+                    >
                       <NuxtImg
-                        :src="payment.slipImage.secureUrl || payment.slipImage.url || ''"
-                        class="w-full rounded-xl border border-default object-cover"
-                        sizes="sm:360px"
+                        :src="order.image.secureUrl || order.image.url || ''"
+                        class="h-full w-full object-cover"
+                        sizes="48px"
                         loading="lazy"
                       />
+                    </button>
+                    <div v-else class="flex size-12 items-center justify-center rounded-lg border border-dashed border-default bg-muted/10 text-xs text-muted" title="ไม่มีรูปรับผ้า">
+                      <UIcon name="i-lucide-image-off" class="size-4" />
                     </div>
+                    <span class="text-[10px] text-muted">รับผ้า</span>
+                  </div>
+                  
+                  <div class="flex flex-col items-center gap-1">
+                    <button
+                      v-if="order.deliveryImage"
+                      type="button"
+                      class="relative block size-12 overflow-hidden rounded-md cursor-pointer"
+                      title="ดูหลักฐานการส่งผ้า"
+                      @click="openImagePreview(order.deliveryImage.secureUrl || order.deliveryImage.url, 'หลักฐานการส่งผ้า')"
+                    >
+                      <NuxtImg
+                        :src="order.deliveryImage.secureUrl || order.deliveryImage.url || ''"
+                        class="h-full w-full object-cover"
+                        sizes="48px"
+                        loading="lazy"
+                      />
+                    </button>
+                    <div v-else class="flex size-12 items-center justify-center rounded-lg border border-dashed border-default bg-muted/10 text-xs text-muted" title="ไม่มีรูปส่งผ้า">
+                      <UIcon name="i-lucide-image-off" class="size-4" />
+                    </div>
+                    <span class="text-[10px] text-muted">ส่งผ้า</span>
                   </div>
                 </div>
               </div>
+            </div>
+          </template>
 
-              <p v-else class="text-sm text-muted">ยังไม่มีรายการชำระเงิน</p>
-            </UCard>
+          <div class="space-y-3">
 
-            <UCard>
-              <template #header>
-                <div>
-                  <p class="font-semibold text-highlighted">ข้อมูลสนับสนุน</p>
-                </div>
-              </template>
 
-              <div class="space-y-3">
-                <div v-for="row in supportRows" :key="row.label" class="space-y-1">
-                  <p class="text-xs text-muted">{{ row.label }}</p>
-                  <p :class="['text-sm text-highlighted', row.valueClass]">{{ row.value }}</p>
-                </div>
-              </div>
-            </UCard>
+            <div class="overflow-x-auto rounded-md border border-default">
+              <table class="w-full min-w-160 text-sm">
+                <thead class="bg-elevated/40 text-xs text-muted">
+                  <tr>
+                    <th class="w-20 px-3 py-2 text-left font-medium">รูป</th>
+                    <th class="px-3 py-2 text-left font-medium">รายการ</th>
+                    <th class="w-28 px-3 py-2 text-right font-medium">ราคา/ชิ้น</th>
+                    <th class="w-24 px-3 py-2 text-right font-medium">จำนวน</th>
+                    <th class="w-28 px-3 py-2 text-right font-medium">รวม</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr
+                    v-for="item in order.items"
+                    :key="item.id"
+                    class="border-t border-default align-top"
+                  >
+                    <td class="px-3 py-3">
+                      <div class="flex flex-wrap gap-1">
+                        <button
+                          v-for="photo in (item.photos?.length ? item.photos : (item.image ? [{ id: item.image.id, imageId: item.image.id, isDamaged: false, sortOrder: 0, secureUrl: item.image.secureUrl, url: item.image.url }] : []))"
+                          :key="photo.id"
+                          type="button"
+                          class="relative size-14 overflow-hidden rounded-lg border border-default bg-muted/30"
+                          @click="openImagePreview(photo.secureUrl || photo.url, `${item.label}`)"
+                        >
+                          <NuxtImg
+                            :src="photo.secureUrl || photo.url || ''"
+                            class="h-full w-full cursor-pointer object-cover"
+                            sizes="56px"
+                            loading="lazy"
+                          />
+                          <UBadge
+                            v-if="photo.isDamaged"
+                            color="error"
+                            variant="solid"
+                            size="xs"
+                            class="absolute left-0.5 top-0.5"
+                          >!</UBadge>
+                        </button>
+                        <div
+                          v-if="!item.photos?.length && !item.image"
+                          class="flex size-14 items-center justify-center rounded-lg border border-dashed border-default text-xs text-muted"
+                        >-</div>
+                      </div>
+                    </td>
+                    <td class="px-3 py-3">
+                      <div class="flex flex-wrap items-center gap-2">
+                        <p class="font-medium text-highlighted">{{ item.label }}</p>
+                        <UBadge v-if="item.isPackageIncluded" color="success" variant="subtle" size="xs">
+                          รวมในแพ็กเกจ
+                        </UBadge>
+                      </div>
+                      <p class="text-xs text-muted">{{ item.service.name }} | {{ item.item.name }}</p>
+                      <p v-if="item.notes" class="mt-1 text-xs text-muted whitespace-pre-line">{{ item.notes }}</p>
+                    </td>
+                    <td class="px-3 py-3 text-right text-muted">
+                      {{ hasMemberEntitlement && item.isPackageIncluded ? "-" : formatCurrency(item.unitPrice) }}
+                    </td>
+                    <td class="px-3 py-3 text-right text-muted">{{ item.quantity }} ชิ้น</td>
+                    <td class="px-3 py-3 text-right">
+                      <span
+                        v-if="hasMemberEntitlement && item.isPackageIncluded"
+                        class="font-semibold text-success"
+                      >{{ item.quantity }} เครดิต</span>
+                      <span v-else class="font-semibold text-highlighted">{{ formatCurrency(item.totalPrice) }}</span>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
           </div>
-        </div>
+        </UCard>
       </div>
     </template>
   </UDashboardPanel>
+
+  <ImagePreviewModal
+    v-model:open="previewOpen"
+    :title="previewTitle"
+    :image-url="previewUrl"
+    image-alt="รูปหลักฐาน"
+  />
 </template>

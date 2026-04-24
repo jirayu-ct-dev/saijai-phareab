@@ -15,7 +15,7 @@ definePageMeta({
   middleware: ["role-employee"],
 });
 
-const activeMode = ref<"packages" | "storefront">("packages");
+const activeMode = ref<"packages" | "storefront">("storefront");
 const saleResultModalOpen = ref(false);
 const latestSaleResult = reactive<CompletedSalePayload>({
   paymentId: "",
@@ -27,14 +27,14 @@ const latestSaleResult = reactive<CompletedSalePayload>({
 
 const modeOptions = [
   {
-    value: "packages" as const,
-    label: "ขายแพ็กเกจ",
-    description: "เลือกลูกค้าและแพ็กเกจหลายรายการในรูปแบบ POS",
-  },
-  {
     value: "storefront" as const,
     label: "รับงานหน้าร้าน",
     description: "รับผ้า นับชิ้น กำหนดวันนัดรับ และคิดค่าบริการในหน้าเดียว",
+  },
+  {
+    value: "packages" as const,
+    label: "ขายแพ็กเกจ",
+    description: "เลือกลูกค้าและแพ็กเกจหลายรายการในรูปแบบ POS",
   },
 ];
 
@@ -62,17 +62,6 @@ const openReceipt = () => {
   closeSaleResultModal();
 };
 
-const openIntakeSlip = () => {
-  if (!latestSaleResult.serviceOrderId) return;
-
-  const target = `/admin/service-orders/${latestSaleResult.serviceOrderId}/intake`;
-  if (import.meta.client) {
-    window.open(target, "_blank", "noopener,noreferrer");
-  }
-
-  closeSaleResultModal();
-};
-
 const goToPaymentPage = async () => {
   closeSaleResultModal();
   await refreshNuxtData("admin-payments");
@@ -82,7 +71,7 @@ const goToPaymentPage = async () => {
 const resultDescription = computed(() =>
   latestSaleResult.saleType === "PACKAGE"
     ? "บันทึกรายการขายแล้ว คุณสามารถเปิดใบเสร็จหรือไปหน้าการชำระเงินต่อได้"
-    : "บันทึกรับงานแล้ว คุณสามารถเปิดใบรับผ้าหรือไปหน้าการชำระเงินต่อได้",
+    : "บันทึกรับงานแล้ว คุณสามารถเปิดใบเสร็จหรือไปหน้าการชำระเงินต่อได้",
 );
 </script>
 
@@ -150,14 +139,6 @@ const resultDescription = computed(() =>
       <div class="flex w-full flex-col-reverse gap-2 sm:flex-row sm:justify-end">
         <UButton label="เสร็จสิ้น" color="neutral" variant="ghost" @click="closeSaleResultModal" />
         <UButton label="ไปหน้าการชำระเงิน" color="neutral" variant="outline" icon="i-lucide-arrow-right" @click="goToPaymentPage" />
-        <UButton
-          v-if="latestSaleResult.saleType === 'STOREFRONT'"
-          label="เปิดใบรับผ้า"
-          color="neutral"
-          variant="outline"
-          icon="i-lucide-ticket"
-          @click="openIntakeSlip"
-        />
         <UButton label="เปิดใบเสร็จ" color="neutral" icon="i-lucide-printer" @click="openReceipt" />
       </div>
     </template>

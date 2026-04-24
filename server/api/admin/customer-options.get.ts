@@ -17,6 +17,28 @@ export default defineEventHandler(async () => {
         email: true,
         phoneNumber: true,
         image: true,
+        memberEntitlements: {
+          where: {
+            deletedAt: null,
+            status: "ACTIVE",
+          },
+          orderBy: [
+            { endAt: "asc" },
+            { createdAt: "desc" },
+          ],
+          take: 1,
+          select: {
+            id: true,
+            creditInitial: true,
+            creditRemaining: true,
+            endAt: true,
+            product: {
+              select: {
+                name: true,
+              },
+            },
+          },
+        },
       },
       orderBy: [
         { name: "asc" },
@@ -24,14 +46,27 @@ export default defineEventHandler(async () => {
       ],
     });
 
-    return users.map((user) => ({
-      id: user.id,
-      label: `${user.name || user.email}${user.phoneNumber ? ` (${user.phoneNumber})` : ""}`,
-      name: user.name,
-      email: user.email,
-      phoneNumber: user.phoneNumber,
-      image: user.image,
-    }));
+    return users.map((user) => {
+      const activeMemberEntitlement = user.memberEntitlements[0] ?? null;
+
+      return {
+        id: user.id,
+        label: `${user.name || user.email}${user.phoneNumber ? ` (${user.phoneNumber})` : ""}`,
+        name: user.name,
+        email: user.email,
+        phoneNumber: user.phoneNumber,
+        image: user.image,
+        activeMemberEntitlement: activeMemberEntitlement
+          ? {
+              id: activeMemberEntitlement.id,
+              productName: activeMemberEntitlement.product.name,
+              creditInitial: activeMemberEntitlement.creditInitial,
+              creditRemaining: activeMemberEntitlement.creditRemaining,
+              endAt: activeMemberEntitlement.endAt?.toISOString() ?? null,
+            }
+          : null,
+      };
+    });
   } catch (error) {
     console.error("[GET /api/admin/customer-options]", error);
     throw createError({

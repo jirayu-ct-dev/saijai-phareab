@@ -1,8 +1,9 @@
 <script setup lang="ts">
+import { useMediaQuery } from "@vueuse/core";
 import PosCatalogCard from "~~/app/components/admin/pos/PosCatalogCard.vue";
 import PosCheckoutPanel from "~~/app/components/admin/pos/PosCheckoutPanel.vue";
 import type { AdminSaleItemInput, AdminSaleSlipImage, CreateAdminSaleBody } from "~~/app/composables/useAdminSales";
-import type { PaymentMethod, PaymentStatus, PackageType } from "~~/shared/types/enums";
+import type { PackageType } from "~~/shared/types/enums";
 import { formatCurrency } from "~~/shared/utils/format";
 
 type FormItemState = {
@@ -73,6 +74,10 @@ const createEmptyForm = () => ({
 
 const form = reactive(createEmptyForm());
 const isSubmitting = ref(false);
+
+const isXl = useMediaQuery("(min-width: 1280px)");
+const isCartOpen = ref(false);
+watch(isXl, (value) => { if (value) isCartOpen.value = false; });
 const slipFile = ref<File | null>(null);
 const uploadedSlip = ref<AdminSaleSlipImage | null>(null);
 
@@ -166,6 +171,31 @@ const removeItem = (key: string) => {
   form.items = form.items.filter((entry) => entry.key !== key);
 };
 
+const setItemQuantity = (key: string, value: number | string | null | undefined) => {
+  const qty = Math.max(0, Math.floor(Number(value) || 0));
+  const item = form.items.find((entry) => entry.key === key);
+  if (!item) return;
+  if (qty === 0) {
+    form.items = form.items.filter((entry) => entry.key !== key);
+    return;
+  }
+  item.quantity = qty;
+};
+
+const setProductQuantity = (productId: string, qty: number) => {
+  const value = Math.max(0, Math.floor(qty));
+  const existing = selectedItemMap.value.get(productId);
+  if (value === 0) {
+    if (existing) form.items = form.items.filter((e) => e.key !== existing.key);
+    return;
+  }
+  if (existing) {
+    existing.quantity = value;
+  } else {
+    form.items.push({ key: createItemKey(), productId, quantity: value });
+  }
+};
+
 const uploadSlipIfNeeded = async () => {
   if (!slipFile.value) return;
   const image = await uploadSlip(slipFile.value);
@@ -220,22 +250,26 @@ const handleSubmit = async () => {
           </div>
 
           <div class="flex flex-wrap items-center gap-2">
-            <UInput v-model="searchQuery" icon="i-lucide-search" placeholder="ค้นหาชื่อแพ็กเกจ" class="w-full md:w-72" />
-            <div class="flex flex-wrap gap-2">
-              <UButton
-                v-for="filter in packageTypeFilters"
-                :key="filter.value"
-                :label="filter.label"
-                color="neutral"
-                :variant="packageTypeFilter === filter.value ? 'solid' : 'outline'"
-                size="sm"
-                @click="packageTypeFilter = filter.value"
-              />
+            <div class="ml-auto flex flex-wrap gap-2">
+              <div class="flex flex-col gap-2">
+                <UInput v-model="searchQuery" icon="i-lucide-search" placeholder="ค้นหาชื่อแพ็กเกจ" class="w-full md:w-72" />
+                <div class="flex ml-auto gap-1">
+                  <UButton
+                  v-for="filter in packageTypeFilters"
+                  :key="filter.value"
+                  :label="filter.label"
+                  color="neutral"
+                  :variant="packageTypeFilter === filter.value ? 'solid' : 'outline'"
+                  size="sm"
+                  @click="packageTypeFilter = filter.value"
+                />
+              </div>
+              </div>
             </div>
           </div>
         </div>
 
-        <div class="mt-5 grid grid-cols-1 gap-4 md:grid-cols-2 2xl:grid-cols-3">
+        <div class="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-3 2xl:grid-cols-4">
           <PosCatalogCard
             v-for="pkg in filteredProducts"
             :key="pkg.id"
@@ -251,6 +285,7 @@ const handleSubmit = async () => {
             @select="incrementProduct(pkg.id)"
             @decrement="decrementProduct(pkg.id)"
             @increment="incrementProduct(pkg.id)"
+            @change="setProductQuantity(pkg.id, $event)"
           />
 
           <div v-if="filteredProducts.length === 0" class="col-span-full rounded-2xl border border-dashed border-default p-10 text-center text-muted">
@@ -260,15 +295,25 @@ const handleSubmit = async () => {
       </section>
     </div>
 
-    <aside class="space-y-6 xl:sticky xl:top-4 xl:self-start">
+    <aside
+      :class="isXl
+        ? 'space-y-6 xl:sticky xl:top-4 xl:self-start'
+        : [
+            'fixed inset-y-0 right-0 z-50 flex w-full max-w-lg flex-col overflow-y-auto border-l border-default bg-default shadow-2xl transition-transform duration-200',
+            isCartOpen ? 'translate-x-0' : 'translate-x-full',
+          ]"
+    >
+      <div v-if="!isXl" class="sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-default bg-default px-4 py-3">
+        <p class="text-base font-semibold text-highlighted">ตะกร้าแพ็กเกจ</p>
+        <UButton icon="i-lucide-x" color="neutral" variant="ghost" size="sm" aria-label="ปิด" @click="isCartOpen = false" />
+      </div>
+      <div :class="!isXl ? 'p-4' : ''">
       <PosCheckoutPanel
         title="ตะกร้าแพ็กเกจ"
         description="เลือกลูกค้า รับชำระ และบันทึกรายการในหน้าเดียว"
         :customer-id="form.customerId"
         :customer-options="customerOptions"
         :customer-loading="isCustomersLoading"
-        :payment-method="form.paymentMethod"
-        :status="form.status"
         :note="form.note"
         total-label="ยอดรวมสุทธิ"
         :total-value="formatCurrency(totalAmount)"
@@ -279,8 +324,6 @@ const handleSubmit = async () => {
         :uploaded-slip-url="uploadedSlip?.secureUrl || uploadedSlip?.url"
         :uploaded-slip-label="uploadedSlip?.secureUrl || uploadedSlip?.url || null"
         @update:customer-id="form.customerId = $event"
-        @update:payment-method="form.paymentMethod = $event"
-        @update:status="form.status = $event"
         @update:note="form.note = $event"
         @update:slip-file="slipFile = $event"
         @remove-slip="resetSlip"
@@ -294,23 +337,23 @@ const handleSubmit = async () => {
               <span class="text-sm text-muted">{{ totalQuantity }} ชิ้น</span>
             </div>
 
-            <div v-if="cartItems.length" class="mt-4 divide-y divide-default">
-              <div v-for="item in cartItems" :key="item.key" class="flex items-center gap-3 py-3 first:pt-0 last:pb-0">
-                <div class="min-w-0 flex-1">
-                  <p class="truncate text-sm font-medium text-highlighted">{{ item.name }}</p>
+            <div v-if="cartItems.length" class="mt-3 space-y-1">
+              <div v-for="item in cartItems" :key="item.key">
+                <div class="flex items-center gap-1.5 rounded-lg px-1.5 py-1 hover:bg-elevated/30">
+                  <p class="min-w-0 flex-1 truncate text-sm text-highlighted">{{ item.name }}</p>
+                  <UInputNumber
+                    :model-value="item.quantity"
+                    :min="0"
+                    :step="1"
+                    size="xs"
+                    class="w-20"
+                    @update:model-value="setItemQuantity(item.key, Number.isFinite($event) ? $event : 0)"
+                  />
+                  <span class="w-16 shrink-0 text-right text-xs font-medium text-muted">
+                    {{ formatCurrency(item.totalPrice) }}
+                  </span>
+                  <UButton icon="i-lucide-x" color="neutral" variant="ghost" size="xs" @click="removeItem(item.key)" />
                 </div>
-
-                <div class="flex items-center gap-1">
-                  <UButton icon="i-lucide-minus" color="neutral" variant="ghost" size="xs" @click="decrementItemByKey(item.key)" />
-                  <span class="min-w-8 text-center text-sm font-medium">{{ item.quantity }}</span>
-                  <UButton icon="i-lucide-plus" color="neutral" variant="ghost" size="xs" @click="incrementItemByKey(item.key)" />
-                </div>
-
-                <div class="min-w-20 text-right text-sm font-semibold text-highlighted">
-                  {{ formatCurrency(item.totalPrice) }}
-                </div>
-
-                <UButton icon="i-lucide-trash-2" color="error" variant="ghost" size="xs" @click="removeItem(item.key)" />
               </div>
             </div>
 
@@ -333,6 +376,29 @@ const handleSubmit = async () => {
           </UFormField>
         </template>
       </PosCheckoutPanel>
+      </div>
     </aside>
   </div>
+
+  <!-- Mobile/Tablet: FAB + backdrop -->
+  <div
+    v-if="!isXl && isCartOpen"
+    class="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm"
+    aria-hidden="true"
+    @click="isCartOpen = false"
+  />
+  <UButton
+    v-if="!isXl"
+    icon="i-lucide-shopping-cart"
+    color="primary"
+    size="xl"
+    class="fixed bottom-6 right-6 z-30 size-14 justify-center rounded-full shadow-lg"
+    aria-label="เปิดตะกร้าแพ็กเกจ"
+    @click="isCartOpen = true"
+  >
+    <span
+      v-if="totalQuantity > 0"
+      class="absolute -right-1 -top-1 inline-flex min-w-5 items-center justify-center rounded-full bg-error px-1.5 text-xs font-semibold text-white"
+    >{{ totalQuantity }}</span>
+  </UButton>
 </template>
