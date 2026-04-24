@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { CalendarDate } from "@internationalized/date";
 import SlipUploadField from "~~/app/components/UI/SlipUploadField.vue";
+import ImagePreviewModal from "~~/app/components/UI/ImagePreviewModal.vue";
 import type { PaymentSlipImage } from "~~/app/composables/useAdminPayments";
 import type { CreateAdminServiceOrderBody } from "~~/app/composables/useAdminServiceOrders";
 import { orderStatusColors, orderStatusLabels } from "~~/shared/config/orderConfig";
@@ -151,6 +152,16 @@ const isDeliveryConfirmOpen = ref(false);
 const deliveryImageFile = ref<File | null>(null);
 const uploadedDeliveryImage = ref<{ id: string; secureUrl: string | null; url: string | null } | null>(null);
 const isApplyingCompletion = ref(false);
+
+const previewOpen = ref(false);
+const previewUrl = ref("");
+const previewTitle = ref("ดูรูป");
+const openImagePreview = (url: string | null | undefined, title = "ดูรูป") => {
+  if (!url) return;
+  previewUrl.value = url;
+  previewTitle.value = title;
+  previewOpen.value = true;
+};
 
 type AddonPickerEntry = {
   entitlementId: string;
@@ -627,23 +638,76 @@ watch(
 
             <div class="mt-4 space-y-2">
               <p class="text-sm font-medium text-highlighted">รายการบริการ</p>
-              <div class="space-y-2">
-                <div
-                  v-for="item in order.items"
-                  :key="item.id"
-                  class="flex flex-col gap-2 rounded-xl border border-default p-3 md:flex-row md:items-center md:justify-between"
-                >
-                  <div class="min-w-0">
-                    <p class="truncate font-medium text-highlighted">{{ item.label }}</p>
-                    <p class="text-xs text-muted">
-                      {{ item.service.name }} | {{ item.item.name }} | {{ formatCurrency(item.unitPrice) }} / ชิ้น
-                    </p>
-                  </div>
-                  <div class="text-sm md:text-right">
-                    <p class="text-muted">จำนวน {{ item.quantity }} ชิ้น</p>
-                    <p class="font-medium text-highlighted">{{ formatCurrency(item.totalPrice) }}</p>
-                  </div>
-                </div>
+              <div class="overflow-x-auto rounded-md border border-default">
+                <table class="w-full min-w-160 text-sm">
+                  <thead class="bg-elevated/40 text-xs text-muted">
+                    <tr>
+                      <th class="w-20 px-3 py-2 text-left font-medium">รูป</th>
+                      <th class="px-3 py-2 text-left font-medium">รายการ</th>
+                      <th class="w-28 px-3 py-2 text-right font-medium">ราคา/ชิ้น</th>
+                      <th class="w-24 px-3 py-2 text-right font-medium">จำนวน</th>
+                      <th class="w-28 px-3 py-2 text-right font-medium">รวม</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr
+                      v-for="item in order.items"
+                      :key="item.id"
+                      class="border-t border-default align-top"
+                    >
+                      <td class="px-3 py-3">
+                        <div class="flex flex-wrap gap-1">
+                          <button
+                            v-for="photo in (item.photos?.length ? item.photos : (item.image ? [{ id: item.image.id, imageId: item.image.id, isDamaged: false, sortOrder: 0, secureUrl: item.image.secureUrl, url: item.image.url }] : []))"
+                            :key="photo.id"
+                            type="button"
+                            class="relative size-14 overflow-hidden rounded-lg border border-default bg-muted/30"
+                            @click="openImagePreview(photo.secureUrl || photo.url, `${item.label}`)"
+                          >
+                            <NuxtImg
+                              :src="photo.secureUrl || photo.url || ''"
+                              class="h-full w-full cursor-pointer object-cover"
+                              sizes="56px"
+                              loading="lazy"
+                            />
+                            <UBadge
+                              v-if="photo.isDamaged"
+                              color="error"
+                              variant="solid"
+                              size="xs"
+                              class="absolute left-0.5 top-0.5"
+                            >!</UBadge>
+                          </button>
+                          <div
+                            v-if="!item.photos?.length && !item.image"
+                            class="flex size-14 items-center justify-center rounded-lg border border-dashed border-default text-xs text-muted"
+                          >-</div>
+                        </div>
+                      </td>
+                      <td class="px-3 py-3">
+                        <div class="flex flex-wrap items-center gap-2">
+                          <p class="font-medium text-highlighted">{{ item.label }}</p>
+                          <UBadge v-if="item.isPackageIncluded" color="success" variant="subtle" size="xs">
+                            รวมในแพ็กเกจ
+                          </UBadge>
+                        </div>
+                        <p class="text-xs text-muted">{{ item.service.name }} | {{ item.item.name }}</p>
+                        <p v-if="item.notes" class="mt-1 text-xs text-muted whitespace-pre-line">{{ item.notes }}</p>
+                      </td>
+                      <td class="px-3 py-3 text-right text-muted">
+                        {{ hasMemberEntitlement && item.isPackageIncluded ? "-" : formatCurrency(item.unitPrice) }}
+                      </td>
+                      <td class="px-3 py-3 text-right text-muted">{{ item.quantity }} ชิ้น</td>
+                      <td class="px-3 py-3 text-right">
+                        <span
+                          v-if="hasMemberEntitlement && item.isPackageIncluded"
+                          class="font-semibold text-success"
+                        >{{ item.quantity }} เครดิต</span>
+                        <span v-else class="font-semibold text-highlighted">{{ formatCurrency(item.totalPrice) }}</span>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
               </div>
             </div>
 
@@ -853,4 +917,11 @@ watch(
       </UModal>
     </template>
   </UDashboardPanel>
+
+  <ImagePreviewModal
+    v-model:open="previewOpen"
+    :title="previewTitle"
+    :image-url="previewUrl"
+    image-alt="รูปหลักฐาน"
+  />
 </template>
