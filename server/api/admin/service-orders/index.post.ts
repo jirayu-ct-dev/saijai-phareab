@@ -49,7 +49,7 @@ export default defineEventHandler(async (event) => {
   const orderImageId = body.orderImageId?.trim() || null;
 
   if (!isWalkIn && !customerId) {
-    throw createError({ statusCode: 400, statusMessage: "เธเธฃเธธเธ“เธฒเน€เธฅเธทเธญเธเธฅเธนเธเธเนเธฒ" });
+    throw createError({ statusCode: 400, statusMessage: "กรุณาเลือกลูกค้า" });
   }
 
   if (isWalkIn && requestedEntitlementId) {
@@ -57,7 +57,7 @@ export default defineEventHandler(async (event) => {
   }
 
   if (!Array.isArray(body.items) || body.items.length === 0) {
-    throw createError({ statusCode: 400, statusMessage: "เธเธฃเธธเธ“เธฒเน€เธฅเธทเธญเธเธเธฃเธดเธเธฒเธฃเธญเธขเนเธฒเธเธเนเธญเธข 1 เธฃเธฒเธขเธเธฒเธฃ" });
+    throw createError({ statusCode: 400, statusMessage: "กรุณาเลือกบริการอย่างน้อย 1 รายการ" });
   }
 
   const normalizedItems = body.items
@@ -82,11 +82,11 @@ export default defineEventHandler(async (event) => {
     .filter((item) => item.storefrontPriceId);
 
   if (normalizedItems.length === 0) {
-    throw createError({ statusCode: 400, statusMessage: "เธเธฃเธธเธ“เธฒเน€เธฅเธทเธญเธเธเธฃเธดเธเธฒเธฃเธญเธขเนเธฒเธเธเนเธญเธข 1 เธฃเธฒเธขเธเธฒเธฃ" });
+    throw createError({ statusCode: 400, statusMessage: "กรุณาเลือกบริการอย่างน้อย 1 รายการ" });
   }
 
   if (normalizedItems.some((item) => !Number.isInteger(item.quantity) || item.quantity < 1)) {
-    throw createError({ statusCode: 400, statusMessage: "เธเธณเธเธงเธเธฃเธฒเธขเธเธฒเธฃเธ•เนเธญเธเธกเธฒเธเธเธงเนเธฒ 0" });
+    throw createError({ statusCode: 400, statusMessage: "จำนวนรายการต้องมากกว่า 0" });
   }
 
   const missingHangerCount = body.missingHangerCount ?? body.hangerCount ?? 0;
@@ -95,12 +95,12 @@ export default defineEventHandler(async (event) => {
   }
 
   if (body.discountAmount !== undefined && (!Number.isFinite(Number(body.discountAmount)) || Number(body.discountAmount) < 0)) {
-    throw createError({ statusCode: 400, statusMessage: "เธเธณเธเธงเธเธชเนเธงเธเธฅเธ”เธ•เนเธญเธเน€เธเนเธ 0 เธซเธฃเธทเธญเธกเธฒเธเธเธงเนเธฒ" });
+    throw createError({ statusCode: 400, statusMessage: "จำนวนส่วนลดต้องเป็น 0 หรือมากกว่า" });
   }
 
   const paymentMethod: PaymentMethod = body.paymentMethod ?? "CASH";
   if (paymentMethod !== "CASH" && paymentMethod !== "TRANSFER") {
-    throw createError({ statusCode: 400, statusMessage: "เธเนเธญเธเธ—เธฒเธเธเธฒเธฃเธเธณเธฃเธฐเน€เธเธดเธเนเธกเนเธ–เธนเธเธ•เนเธญเธ" });
+    throw createError({ statusCode: 400, statusMessage: "ช่องทางการชำระเงินไม่ถูกต้อง" });
   }
 
   const status: PaymentStatus = body.status ?? "PENDING";
@@ -110,7 +110,7 @@ export default defineEventHandler(async (event) => {
   const dueAt = body.dueAt ? new Date(body.dueAt) : null;
 
   if (dueAt && Number.isNaN(dueAt.getTime())) {
-    throw createError({ statusCode: 400, statusMessage: "เธงเธฑเธเธเธฑเธ”เธฃเธฑเธเนเธกเนเธ–เธนเธเธ•เนเธญเธ" });
+    throw createError({ statusCode: 400, statusMessage: "วันนัดรับไม่ถูกต้อง" });
   }
 
   try {
@@ -129,7 +129,7 @@ export default defineEventHandler(async (event) => {
       });
 
       if (!customer) {
-        throw createError({ statusCode: 404, statusMessage: "เนเธกเนเธเธเธฅเธนเธเธเนเธฒเธ—เธตเนเน€เธฅเธทเธญเธ" });
+        throw createError({ statusCode: 404, statusMessage: "ไม่พบลูกค้าที่เลือก" });
       }
     }
 
@@ -165,14 +165,14 @@ export default defineEventHandler(async (event) => {
     });
 
     if (storefrontPrices.length !== priceIds.length) {
-      throw createError({ statusCode: 404, statusMessage: "เธกเธตเธฃเธฒเธขเธเธฒเธฃเธเธฃเธดเธเธฒเธฃเธเธฒเธเธฃเธฒเธขเธเธฒเธฃเนเธกเนเธ–เธนเธเธ•เนเธญเธเธซเธฃเธทเธญเธ–เธนเธเธเธดเธ”เนเธเนเธเธฒเธ" });
+      throw createError({ statusCode: 404, statusMessage: "มีรายการบริการบางรายการไม่ถูกต้องหรือถูกปิดใช้งาน" });
     }
 
     const priceMap = new Map(storefrontPrices.map((item) => [item.id, item]));
     const orderItems = normalizedItems.map((item) => {
       const price = priceMap.get(item.storefrontPriceId);
       if (!price) {
-        throw createError({ statusCode: 404, statusMessage: "เนเธกเนเธเธเธเธฃเธดเธเธฒเธฃเธ—เธตเนเน€เธฅเธทเธญเธ" });
+        throw createError({ statusCode: 404, statusMessage: "ไม่พบบริการที่เลือก" });
       }
 
       const unitPrice = Number(price.price);
@@ -194,57 +194,64 @@ export default defineEventHandler(async (event) => {
       total: missingHangerCount * DEFAULT_HANGER_PRICE_PER_UNIT,
     };
 
-    let memberEntitlement = null as null | {
-      id: string;
-      customerId: string;
-      creditRemaining: number | null;
-    };
-
-    if (requestedEntitlementId) {
-      memberEntitlement = await prisma.memberEntitlement.findFirst({
-        where: {
-          id: requestedEntitlementId,
-          customerId: customerId!,
-          deletedAt: null,
-          status: "ACTIVE",
-        },
-        select: {
-          id: true,
-          customerId: true,
-          creditRemaining: true,
-        },
-      });
-
-      if (!memberEntitlement) {
-        throw createError({ statusCode: 404, statusMessage: "ไม่พบสิทธิ์แพ็กเกจรายเดือนที่เลือก" });
-      }
-    }
-
-    // FIFO allocate credit to items; split rows for partial coverage.
-    const creditAvailable = memberEntitlement ? Math.max(0, Number(memberEntitlement.creditRemaining ?? 0)) : 0;
-    let remainingCredit = creditAvailable;
     type AllocatedItem = typeof orderItems[number] & { cashQuantity: number; creditQuantity: number };
-    const allocatedItems: AllocatedItem[] = orderItems.map((item) => {
-      const creditQty = Math.min(item.quantity, remainingCredit);
-      remainingCredit -= creditQty;
-      return { ...item, creditQuantity: creditQty, cashQuantity: item.quantity - creditQty };
-    });
-    const creditUsed = creditAvailable - remainingCredit;
-    const subtotalAmount = allocatedItems.reduce((sum, item) => sum + item.cashQuantity * item.unitPrice, 0);
-    const discountAmount = Math.min(Number(body.discountAmount ?? 0), subtotalAmount);
-    const payableAmount = subtotalAmount - discountAmount + hangerCharge.total;
-
 
     const created = await prisma.$transaction(async (tx) => {
+      let memberEntitlement = null as null | {
+        id: string;
+        customerId: string;
+        creditRemaining: number | null;
+      };
+
+      if (requestedEntitlementId) {
+        memberEntitlement = await tx.memberEntitlement.findFirst({
+          where: {
+            id: requestedEntitlementId,
+            customerId: customerId!,
+            deletedAt: null,
+            status: "ACTIVE",
+          },
+          select: {
+            id: true,
+            customerId: true,
+            creditRemaining: true,
+          },
+        });
+
+        if (!memberEntitlement) {
+          throw createError({ statusCode: 404, statusMessage: "ไม่พบสิทธิ์แพ็กเกจรายเดือนที่เลือก" });
+        }
+      }
+
+      // FIFO allocate credit to items; split rows for partial coverage.
+      const creditAvailable = memberEntitlement ? Math.max(0, Number(memberEntitlement.creditRemaining ?? 0)) : 0;
+      let remainingCredit = creditAvailable;
+      const allocatedItems: AllocatedItem[] = orderItems.map((item) => {
+        const creditQty = Math.min(item.quantity, remainingCredit);
+        remainingCredit -= creditQty;
+        return { ...item, creditQuantity: creditQty, cashQuantity: item.quantity - creditQty };
+      });
+      const creditUsed = creditAvailable - remainingCredit;
+      const subtotalAmount = allocatedItems.reduce((sum, item) => sum + item.cashQuantity * item.unitPrice, 0);
+      const discountAmount = Math.min(Number(body.discountAmount ?? 0), subtotalAmount);
+      const payableAmount = subtotalAmount - discountAmount + hangerCharge.total;
+
       if (memberEntitlement && creditUsed > 0) {
-        await tx.memberEntitlement.update({
-          where: { id: memberEntitlement.id },
+        const { count } = await tx.memberEntitlement.updateMany({
+          where: {
+            id: memberEntitlement.id,
+            creditRemaining: { gte: creditUsed },
+          },
           data: {
             creditRemaining: {
               decrement: creditUsed,
             },
           },
         });
+
+        if (count === 0) {
+          throw createError({ statusCode: 409, statusMessage: "เครดิตไม่พอ กรุณาลองใหม่" });
+        }
       }
 
       const serviceOrder = await tx.serviceOrder.create({
@@ -325,7 +332,7 @@ export default defineEventHandler(async (event) => {
           paidAt: isVerified ? new Date() : null,
           verifiedById: isVerified ? actor.id : null,
           verifiedAt: isVerified ? new Date() : null,
-          rejectionReason: status === "FAILED" ? "เธเธฑเธเธ—เธถเธเธฃเธฒเธขเธเธฒเธฃเนเธกเนเธชเธณเน€เธฃเนเธ" : null,
+          rejectionReason: status === "FAILED" ? "บันทึกรายการไม่สำเร็จ" : null,
           metadata: {
             createdByAdminId: actor.id,
             source: "admin-service-orders",
@@ -361,7 +368,7 @@ export default defineEventHandler(async (event) => {
     console.error("[POST /api/admin/service-orders]", error);
     throw createError({
       statusCode: 500,
-      statusMessage: "เนเธกเนเธชเธฒเธกเธฒเธฃเธ–เธชเธฃเนเธฒเธเธฃเธฒเธขเธเธฒเธฃเธฃเธฑเธเธเนเธฒเธซเธเนเธฒเธฃเนเธฒเธเนเธ”เน",
+      statusMessage: "ไม่สามารถสร้างรายการรับผ้าหน้าร้านได้",
     });
   }
 });

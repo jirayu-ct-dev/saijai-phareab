@@ -108,6 +108,20 @@ export default defineEventHandler(async (event) => {
           },
         },
       },
+      image: {
+        select: {
+          id: true,
+          secureUrl: true,
+          url: true,
+        },
+      },
+      deliveryImage: {
+        select: {
+          id: true,
+          secureUrl: true,
+          url: true,
+        },
+      },
       serviceOrderItems: {
         where: {
           deletedAt: null,
@@ -116,6 +130,26 @@ export default defineEventHandler(async (event) => {
           createdAt: "asc",
         },
         include: {
+          image: {
+            select: {
+              id: true,
+              secureUrl: true,
+              url: true,
+            },
+          },
+          photos: {
+            where: { deletedAt: null },
+            orderBy: { sortOrder: "asc" },
+            include: {
+              image: {
+                select: {
+                  id: true,
+                  secureUrl: true,
+                  url: true,
+                },
+              },
+            },
+          },
           storefrontPrice: {
             include: {
               storefrontService: {
@@ -212,6 +246,20 @@ export default defineEventHandler(async (event) => {
           product: serviceOrder.memberEntitlement.product,
         }
       : null,
+    image: serviceOrder.image
+      ? {
+          id: serviceOrder.image.id,
+          secureUrl: serviceOrder.image.secureUrl,
+          url: serviceOrder.image.url,
+        }
+      : null,
+    deliveryImage: serviceOrder.deliveryImage
+      ? {
+          id: serviceOrder.deliveryImage.id,
+          secureUrl: serviceOrder.deliveryImage.secureUrl,
+          url: serviceOrder.deliveryImage.url,
+        }
+      : null,
     items: serviceOrder.serviceOrderItems.map((item) => ({
       id: item.id,
       storefrontPriceId: item.storefrontPriceId,
@@ -220,6 +268,21 @@ export default defineEventHandler(async (event) => {
       totalPrice: toNumber(item.totalPrice),
       notes: item.notes,
       isPackageIncluded: item.isPackageIncluded,
+      image: item.image
+        ? {
+            id: item.image.id,
+            secureUrl: item.image.secureUrl,
+            url: item.image.url,
+          }
+        : null,
+      photos: item.photos.map((photo) => ({
+        id: photo.id,
+        imageId: photo.imageId,
+        isDamaged: photo.isDamaged,
+        sortOrder: photo.sortOrder,
+        secureUrl: photo.image?.secureUrl ?? null,
+        url: photo.image?.url ?? null,
+      })),
       service: {
         id: item.storefrontPrice.storefrontService.id,
         name: item.storefrontPrice.storefrontService.name,

@@ -1,5 +1,6 @@
 import { requireRole } from "~~/server/utils/auth";
 import { prisma } from "~~/server/utils/prisma";
+import { refundAddonUsages, refundPrimaryCredit } from "~~/server/utils/serviceOrderCredits";
 
 export default defineEventHandler(async (event) => {
   const actor = requireRole(event, ["EMPLOYEE", "ADMIN"]);
@@ -17,6 +18,9 @@ export default defineEventHandler(async (event) => {
       },
       select: {
         id: true,
+        memberEntitlementId: true,
+        creditUsed: true,
+        addonUsages: true,
       },
     });
 
@@ -27,11 +31,20 @@ export default defineEventHandler(async (event) => {
     await prisma.$transaction(async (tx) => {
       const deletedAt = new Date();
 
+      await refundPrimaryCredit(tx, {
+        memberEntitlementId: existing.memberEntitlementId,
+        creditUsed: existing.creditUsed,
+      });
+      await refundAddonUsages(tx, existing.addonUsages);
+
       await tx.serviceOrder.update({
         where: { id },
         data: {
           deletedAt,
           deletedById: actor.id,
+          creditUsed: null,
+          memberEntitlementId: null,
+          addonUsages: [],
         },
       });
 

@@ -10,7 +10,7 @@ export default defineEventHandler(async (event) => {
   if (!file?.data?.length) {
     throw createError({
       statusCode: 400,
-      statusMessage: "เธเธฃเธธเธ“เธฒเน€เธฅเธทเธญเธเธฃเธนเธ",
+      statusMessage: "กรุณาเลือกรูป",
     });
   }
 

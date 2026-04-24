@@ -224,7 +224,7 @@ export const useAdminServiceOrders = () => {
         body: formData,
       });
     } catch (error: unknown) {
-      notify.error(getErrorMessage(error, "เนเธกเนเธชเธฒเธกเธฒเธฃเธ–เธญเธฑเธเนเธซเธฅเธ”เธฃเธนเธเธฃเธฒเธขเธเธฒเธฃเนเธ”เน"));
+      notify.error(getErrorMessage(error, "ไม่สามารถอัปโหลดรูปรายการได้"));
       return null;
     }
   };

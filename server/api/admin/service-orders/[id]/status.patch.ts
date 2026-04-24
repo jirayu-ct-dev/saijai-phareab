@@ -1,6 +1,7 @@
 import type { ServiceOrderStatus } from "~~/shared/types/enums";
 import { requireRole } from "~~/server/utils/auth";
 import { prisma } from "~~/server/utils/prisma";
+import { refundAddonUsages, refundPrimaryCredit } from "~~/server/utils/serviceOrderCredits";
 
 type AddonUsageInput = {
   entitlementId: string;
@@ -54,6 +55,8 @@ export default defineEventHandler(async (event) => {
       customerId: true,
       orderNo: true,
       addonUsages: true,
+      creditUsed: true,
+      memberEntitlementId: true,
       updatedAt: true,
     },
   });
@@ -64,6 +67,8 @@ export default defineEventHandler(async (event) => {
 
   const deliveryImageIdInput = body.deliveryImageId;
   const isTransitionToCompleted = status === "COMPLETED" && existing.status !== "COMPLETED";
+  const isTransitionToCancelled = status === "CANCELLED" && existing.status !== "CANCELLED";
+  const isTransitionFromCompleted = existing.status === "COMPLETED" && status !== "COMPLETED";
   const rawAddonUsages = Array.isArray(body.addonUsages) ? body.addonUsages : [];
 
   const normalizedAddonUsages = rawAddonUsages
@@ -131,19 +136,34 @@ export default defineEventHandler(async (event) => {
       status: ServiceOrderStatus;
       employeeId: string;
       deliveryImageId?: string | null;
-      addonUsages?: StoredAddonUsage[];
+      addonUsages?: StoredAddonUsage[] | null;
+      creditUsed?: number | null;
+      memberEntitlementId?: string | null;
     } = {
       status,
       employeeId: existing.employeeId ?? actor.id,
     };
+
+    if (isTransitionToCancelled) {
+      await refundPrimaryCredit(tx, {
+        memberEntitlementId: existing.memberEntitlementId,
+        creditUsed: existing.creditUsed,
+      });
+      await refundAddonUsages(tx, existing.addonUsages);
+      updateData.creditUsed = null;
+      updateData.memberEntitlementId = null;
+      updateData.addonUsages = [];
+    } else if (isTransitionFromCompleted) {
+      await refundAddonUsages(tx, existing.addonUsages);
+      updateData.addonUsages = [];
+    }
 
     if (status === "COMPLETED") {
       if (deliveryImageIdInput !== undefined) {
         updateData.deliveryImageId = deliveryImageIdInput || null;
       }
       if (storedUsages.length) {
-        const prior = Array.isArray(existing.addonUsages) ? (existing.addonUsages as unknown as StoredAddonUsage[]) : [];
-        updateData.addonUsages = [...prior, ...storedUsages];
+        updateData.addonUsages = storedUsages;
       }
     } else if (deliveryImageIdInput !== undefined) {
       updateData.deliveryImageId = null;

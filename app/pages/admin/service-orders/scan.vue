@@ -53,6 +53,8 @@ type LookupServiceOrderResponse = {
     credits: number;
     appliedAt: string;
   }>;
+  image: { id: string; secureUrl: string | null; url: string | null } | null;
+  deliveryImage: { id: string; secureUrl: string | null; url: string | null } | null;
   items: Array<{
     id: string;
     storefrontPriceId: string;
@@ -61,6 +63,15 @@ type LookupServiceOrderResponse = {
     totalPrice: number;
     notes: string | null;
     isPackageIncluded: boolean;
+    image: { id: string; secureUrl: string | null; url: string | null } | null;
+    photos: Array<{
+      id: string;
+      imageId: string;
+      isDamaged: boolean;
+      sortOrder: number;
+      secureUrl: string | null;
+      url: string | null;
+    }>;
     service: { id: string; name: string };
     item: { id: string; name: string };
     label: string;
@@ -399,16 +410,56 @@ const buildEditBody = async (): Promise<CreateAdminServiceOrderBody | null> => {
     return null;
   }
 
+  const aggregatedItems = new Map<
+    string,
+    {
+      storefrontPriceId: string;
+      quantity: number;
+      notes: string | null;
+      imageId: string | null;
+      photos: Array<{ imageId: string; isDamaged: boolean; sortOrder: number }>;
+    }
+  >();
+  for (const item of order.value.items) {
+    const existing = aggregatedItems.get(item.storefrontPriceId);
+    if (existing) {
+      existing.quantity += item.quantity;
+      if (!existing.imageId && item.image?.id) existing.imageId = item.image.id;
+      if (!existing.notes && item.notes) existing.notes = item.notes;
+      for (const photo of item.photos) {
+        if (!existing.photos.some((p) => p.imageId === photo.imageId)) {
+          existing.photos.push({
+            imageId: photo.imageId,
+            isDamaged: photo.isDamaged,
+            sortOrder: photo.sortOrder,
+          });
+        }
+      }
+    } else {
+      aggregatedItems.set(item.storefrontPriceId, {
+        storefrontPriceId: item.storefrontPriceId,
+        quantity: item.quantity,
+        notes: item.notes,
+        imageId: item.image?.id ?? null,
+        photos: item.photos.map((photo) => ({
+          imageId: photo.imageId,
+          isDamaged: photo.isDamaged,
+          sortOrder: photo.sortOrder,
+        })),
+      });
+    }
+  }
+
   return {
     customerId: order.value.isWalkIn ? null : order.value.customer.id,
     isWalkIn: order.value.isWalkIn,
     walkInName: order.value.isWalkIn ? order.value.walkInName : null,
     walkInPhone: order.value.isWalkIn ? order.value.walkInPhone : null,
-    items: order.value.items.map((item) => ({
-      storefrontPriceId: item.storefrontPriceId,
-      quantity: item.quantity,
-    })),
-    hangerCount: order.value.hangerCharge?.count ?? totalQuantity.value,
+    memberEntitlementId: order.value.memberEntitlement?.id ?? null,
+    orderImageId: order.value.image?.id ?? null,
+    deliveryImageId: order.value.deliveryImage?.id ?? null,
+    items: Array.from(aggregatedItems.values()),
+    missingHangerCount: order.value.hangerCharge?.count ?? 0,
     dueAt: dueAtValue.value ? new Date(dueAtValue.value).toISOString() : null,
     discountAmount: order.value.discountAmount,
     paymentMethod: editForm.paymentMethod,

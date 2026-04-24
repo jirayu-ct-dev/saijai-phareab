@@ -129,12 +129,6 @@ const employeeMenu = [
       onSelect: closeSidebar,
     },
     {
-      label: "สแกนสถานะผ้า",
-      icon: "i-lucide-scan-line",
-      to: "/admin/service-orders/scan",
-      onSelect: closeSidebar,
-    },
-    {
       label: "รายการขาย",
       icon: "i-lucide-shopping-cart",
       to: "/admin/sales",

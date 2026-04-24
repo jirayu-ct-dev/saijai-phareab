@@ -10,6 +10,7 @@ import type {
   CreateAdminServiceOrderBody,
 } from "~~/app/composables/useAdminServiceOrders";
 import { orderStatusColors, orderStatusLabels } from "~~/shared/config/orderConfig";
+import { DEFAULT_HANGER_PRICE_PER_UNIT } from "~~/shared/config/posConfig";
 import { paymentStatusLabels } from "~~/shared/config/paymentConfig";
 import { formatCurrency, formatDateTime } from "~~/shared/utils/format";
 import type { PaymentStatus, ServiceOrderStatus } from "~~/shared/types/enums";
@@ -512,8 +513,8 @@ const subtotalAmount = computed(() => formLineItems.value.reduce((sum, item) => 
 const totalQuantity = computed(() => formLineItems.value.reduce((sum, item) => sum + item.quantity, 0));
 const hangerCharge = computed(() => ({
   count: form.missingHangerCount,
-  pricePerUnit: 2,
-  total: form.missingHangerCount * 2,
+  pricePerUnit: DEFAULT_HANGER_PRICE_PER_UNIT,
+  total: form.missingHangerCount * DEFAULT_HANGER_PRICE_PER_UNIT,
 }));
 const sanitizedDiscountAmount = computed(() => {
   const raw = Number(form.discountAmount || 0);
@@ -711,7 +712,7 @@ const openEditModal = (order: AdminServiceOrder) => {
         file: null,
         uploadedImageId: item.image.id,
         uploadedUrl: item.image.secureUrl || item.image.url || null,
-        isDamaged: true,
+        isDamaged: false,
       });
     }
     return {
