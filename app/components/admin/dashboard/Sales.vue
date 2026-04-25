@@ -254,8 +254,8 @@ const columns: TableColumn<MockOrder>[] = [
     <!-- Header -->
     <template #header>
       <div class="flex items-center justify-between">
-        <p class="font-semibold">ออเดอร์ล่าสุด</p>
-        <UButton to="/admin/orders" variant="link" color="primary" size="sm" trailing-icon="i-lucide-arrow-right">
+        <p class="font-semibold">รายการรับผ้าล่าสุด</p>
+        <UButton to="/admin/service-orders" variant="link" color="primary" size="sm" trailing-icon="i-lucide-arrow-right">
           ดูทั้งหมด
         </UButton>
       </div>

@@ -1,9 +1,11 @@
 <script setup lang="ts">
-import { CalendarDate } from "@internationalized/date";
+import { parseDate, type CalendarDate } from "@internationalized/date";
+import { useMediaQuery } from "@vueuse/core";
 import PosCatalogCard from "~~/app/components/admin/pos/PosCatalogCard.vue";
 import PosCheckoutPanel from "~~/app/components/admin/pos/PosCheckoutPanel.vue";
+import OrderItemPhotosField, { type OrderItemPhoto } from "~~/app/components/admin/pos/OrderItemPhotosField.vue";
 import type { AdminSaleSlipImage } from "~~/app/composables/useAdminSales";
-import type { PaymentMethod, PaymentStatus } from "~~/shared/types/enums";
+import type { AdminServiceOrderImage } from "~~/app/composables/useAdminServiceOrders";
 import { DEFAULT_HANGER_PRICE_PER_UNIT } from "~~/shared/config/posConfig";
 import { formatCurrency } from "~~/shared/utils/format";
 
@@ -11,7 +13,11 @@ type FormItemState = {
   key: string;
   storefrontPriceId: string;
   quantity: number;
+  notes: string;
+  photos: OrderItemPhoto[];
 };
+
+const BANGKOK_OFFSET_MS = 7 * 60 * 60 * 1000;
 
 const emit = defineEmits<{
   completed: [payload: { paymentId: string; serviceOrderId: string; orderNo: string | null; saleType: "STOREFRONT"; title: string }];
@@ -20,7 +26,7 @@ const emit = defineEmits<{
 const notify = useNotify();
 const { customers, isLoading: isCustomersLoading } = useAdminCustomerOptions();
 const { items, refresh } = useStorefrontCatalog();
-const { createServiceOrder } = useAdminServiceOrders();
+const { createServiceOrder, uploadOrderImage } = useAdminServiceOrders();
 const { uploadSlip } = useAdminPayments();
 
 const searchQuery = ref("");
@@ -34,7 +40,6 @@ const categoryOptions = computed(() => {
   for (const item of items.value ?? []) {
     if (item.categoryId && item.categoryName) map.set(item.categoryId, item.categoryName);
   }
-
   return [{ label: "ทุกหมวดหมู่", value: "all" }, ...Array.from(map.entries()).map(([value, label]) => ({ label, value }))];
 });
 
@@ -43,9 +48,69 @@ const serviceOptions = computed(() => {
   for (const item of items.value ?? []) {
     map.set(item.serviceId, item.serviceName);
   }
-
   return [{ label: "ทุกบริการ", value: "all" }, ...Array.from(map.entries()).map(([value, label]) => ({ label, value }))];
 });
+
+// New catalog item modal
+type PricingRef = {
+  services?: Array<{ id: string; name: string }>;
+  categories?: Array<{ id: string; name: string }>;
+};
+const { data: pricingData, refresh: refreshPricing } = useFetch<PricingRef>("/api/admin/pricing", {
+  key: "admin-pricing-for-pos",
+  default: () => ({ services: [], categories: [] }),
+});
+const newItemModalOpen = ref(false);
+const isSavingNewItem = ref(false);
+const newItemData = ref({ name: "", categoryId: undefined as string | undefined, description: "" });
+const newItemPrices = ref<Record<string, number | string | undefined>>({});
+
+const openNewItemModal = () => {
+  newItemData.value = {
+    name: "",
+    categoryId: pricingData.value?.categories?.[0]?.id ?? undefined,
+    description: "",
+  };
+  newItemPrices.value = {};
+  newItemModalOpen.value = true;
+};
+
+const saveNewItem = async () => {
+  const name = newItemData.value.name.trim();
+  if (!name) return notify.validationError("กรุณากรอกชื่อรายการ");
+  isSavingNewItem.value = true;
+  try {
+    const created = await $fetch<{ id: string }>("/api/admin/pricing/item", {
+      method: "POST",
+      body: {
+        name,
+        categoryId: newItemData.value.categoryId || undefined,
+        description: newItemData.value.description.trim() || undefined,
+      },
+    });
+    const services = pricingData.value?.services ?? [];
+    for (const service of services) {
+      const price = newItemPrices.value[service.id];
+      if (price === null || price === undefined || price === "") continue;
+      await $fetch("/api/admin/pricing/price", {
+        method: "PUT",
+        body: {
+          storefrontItemId: created.id,
+          storefrontServiceId: service.id,
+          price: Number(price),
+        },
+      });
+    }
+    notify.created("รายการซัก");
+    newItemModalOpen.value = false;
+    await Promise.all([refresh(), refreshPricing()]);
+  } catch (error: unknown) {
+    const message = (error as { data?: { statusMessage?: string } })?.data?.statusMessage;
+    notify.error(message || "ไม่สามารถเพิ่มรายการได้");
+  } finally {
+    isSavingNewItem.value = false;
+  }
+};
 
 const customerOptions = computed(() =>
   (customers.value ?? []).map((customer) => ({
@@ -55,17 +120,19 @@ const customerOptions = computed(() =>
     name: customer.name,
     email: customer.email,
     phoneNumber: customer.phoneNumber,
+    activeMemberEntitlement: customer.activeMemberEntitlement ?? null,
   })),
 );
+const selectedCustomer = computed(() => customerOptions.value.find((customer) => customer.value === form.customerId) ?? null);
+const activeMemberEntitlement = computed(() => selectedCustomer.value?.activeMemberEntitlement ?? null);
+const canUseMemberPackage = computed(() => !form.isWalkIn && Boolean(activeMemberEntitlement.value));
 
 const filteredCatalog = computed(() => {
   const keyword = searchQuery.value.trim().toLowerCase();
-
   return (items.value ?? []).filter((item) => {
     if (categoryFilter.value !== "all" && item.categoryId !== categoryFilter.value) return false;
     if (serviceFilter.value !== "all" && item.serviceId !== serviceFilter.value) return false;
     if (!keyword) return true;
-
     return [item.label, item.categoryName ?? "", item.serviceName, item.itemName].join(" ").toLowerCase().includes(keyword);
   });
 });
@@ -75,16 +142,17 @@ const createItemKey = () => `service-pos-item-${++itemKeySeed}`;
 
 const createEmptyForm = () => ({
   customerId: "",
-  isWalkIn: true,
+  isWalkIn: false,
   walkInName: "",
   walkInPhone: "",
+  memberEntitlementId: null as string | null,
   items: [] as FormItemState[],
   hangerCount: 0,
+  missingHangerCount: 0,
   discountAmount: 0,
-  paymentMethod: "CASH" as PaymentMethod,
-  status: "VERIFIED" as PaymentStatus,
   note: "",
   slipImageId: null as string | null,
+  orderImageId: null as string | null,
 });
 
 const form = reactive(createEmptyForm());
@@ -93,6 +161,44 @@ const dueTime = ref("00:00");
 const isSubmitting = ref(false);
 const slipFile = ref<File | null>(null);
 const uploadedSlip = ref<AdminSaleSlipImage | null>(null);
+const orderImageFile = ref<File | null>(null);
+const uploadedOrderImage = ref<AdminServiceOrderImage | null>(null);
+
+const intakeFileInputRef = ref<HTMLInputElement | null>(null);
+const intakeObjectUrl = ref<string>("");
+const intakePreviewOpen = ref(false);
+const intakeRemoveOpen = ref(false);
+
+watch(orderImageFile, (file) => {
+  if (intakeObjectUrl.value && import.meta.client) URL.revokeObjectURL(intakeObjectUrl.value);
+  intakeObjectUrl.value = file && import.meta.client ? URL.createObjectURL(file) : "";
+});
+
+onBeforeUnmount(() => {
+  if (intakeObjectUrl.value && import.meta.client) URL.revokeObjectURL(intakeObjectUrl.value);
+});
+
+const intakeDisplayUrl = computed(
+  () => uploadedOrderImage.value?.secureUrl || uploadedOrderImage.value?.url || intakeObjectUrl.value || "",
+);
+const openIntakePicker = () => { if (isSubmitting.value) return; intakeFileInputRef.value?.click(); };
+const onIntakeFileSelected = (event: Event) => {
+  const input = event.target as HTMLInputElement | null;
+  const file = input?.files?.[0] ?? null;
+  if (!file) return;
+  orderImageFile.value = file;
+  uploadedOrderImage.value = null;
+  form.orderImageId = null;
+  if (input) input.value = "";
+};
+const openIntakePreview = () => { if (!intakeDisplayUrl.value) return; intakePreviewOpen.value = true; };
+const requestRemoveIntake = () => { intakeRemoveOpen.value = true; };
+const performRemoveIntake = () => {
+  orderImageFile.value = null;
+  uploadedOrderImage.value = null;
+  form.orderImageId = null;
+  intakeRemoveOpen.value = false;
+};
 
 const selectedItemMap = computed(() => new Map(form.items.map((item) => [item.storefrontPriceId, item])));
 
@@ -101,7 +207,6 @@ const cartItems = computed(() =>
     .map((item) => {
       const catalog = catalogMap.value.get(item.storefrontPriceId);
       if (!catalog) return null;
-
       return {
         key: item.key,
         storefrontPriceId: item.storefrontPriceId,
@@ -109,6 +214,8 @@ const cartItems = computed(() =>
         quantity: item.quantity,
         unitPrice: catalog.price,
         totalPrice: catalog.price * item.quantity,
+        notes: item.notes,
+        photos: item.photos,
       };
     })
     .filter((item): item is NonNullable<typeof item> => Boolean(item)),
@@ -117,17 +224,9 @@ const cartItems = computed(() =>
 const subtotalAmount = computed(() => cartItems.value.reduce((sum, item) => sum + item.totalPrice, 0));
 const totalQuantity = computed(() => cartItems.value.reduce((sum, item) => sum + item.quantity, 0));
 
-watch(
-  totalQuantity,
-  (value) => {
-    if (form.hangerCount < value) form.hangerCount = value;
-  },
-  { immediate: true },
-);
-
 const hangerCharge = computed(() => ({
-  count: form.hangerCount,
-  total: form.hangerCount * DEFAULT_HANGER_PRICE_PER_UNIT,
+  count: form.missingHangerCount,
+  total: form.missingHangerCount * DEFAULT_HANGER_PRICE_PER_UNIT,
 }));
 
 const sanitizedDiscountAmount = computed(() => {
@@ -144,7 +243,6 @@ const dueTimeOptions = computed(() => {
       options.push({ label: value, value });
     }
   }
-
   return options;
 });
 
@@ -153,15 +251,182 @@ const dueAtValue = computed(() => {
   if (!dueDate.value) return null;
   return `${dueDate.value.toString()}T${dueTimeLabel.value}`;
 });
+const formatDueDateLabel = (value: CalendarDate | null) => {
+  if (!value) return "เลือกวันที่";
+  const dd = String(value.day).padStart(2, "0");
+  const mm = String(value.month).padStart(2, "0");
+  return `${dd}/${mm}/${value.year}`;
+};
+const dueDateLabel = computed(() => formatDueDateLabel(dueDate.value));
 
-const totalAmount = computed(() => subtotalAmount.value - sanitizedDiscountAmount.value + hangerCharge.value.total);
+const setPickupDow = (targetDow: number) => {
+  const now = new Date();
+  const bkk = new Date(now.getTime() + BANGKOK_OFFSET_MS);
+  const currentDow = bkk.getUTCDay();
+  let daysUntil = (targetDow - currentDow + 7) % 7;
+  const hour = bkk.getUTCHours();
+  const minute = bkk.getUTCMinutes();
+  if (daysUntil === 0 && (hour > 17 || (hour === 17 && minute > 0))) daysUntil = 7;
+  const target = new Date(bkk.getTime() + daysUntil * 86400000);
+  const y = target.getUTCFullYear();
+  const m = String(target.getUTCMonth() + 1).padStart(2, "0");
+  const d = String(target.getUTCDate()).padStart(2, "0");
+  dueDate.value = parseDate(`${y}-${m}-${d}`);
+  dueTime.value = "17:00";
+};
+
+const clearDueDate = () => {
+  dueDate.value = null;
+  dueTime.value = "00:00";
+};
+
+const creditAvailable = computed(() => Math.max(0, Number(activeMemberEntitlement.value?.creditRemaining ?? 0)));
+const creditUsedPreview = computed(() => {
+  if (!form.memberEntitlementId) return 0;
+  return Math.min(totalQuantity.value, creditAvailable.value);
+});
+const cashSubtotal = computed(() => {
+  if (!form.memberEntitlementId) return subtotalAmount.value;
+  let remaining = creditAvailable.value;
+  let total = 0;
+  for (const item of cartItems.value) {
+    const creditQty = Math.min(item.quantity, remaining);
+    remaining -= creditQty;
+    total += (item.quantity - creditQty) * item.unitPrice;
+  }
+  return total;
+});
+const cashQuantity = computed(() => totalQuantity.value - creditUsedPreview.value);
+
+const sanitizedCashDiscount = computed(() => {
+  if (!form.memberEntitlementId) return sanitizedDiscountAmount.value;
+  const raw = Number(form.discountAmount || 0);
+  if (!Number.isFinite(raw) || raw <= 0) return 0;
+  return Math.min(raw, cashSubtotal.value);
+});
+
+const totalAmount = computed(() => (
+  form.memberEntitlementId
+    ? cashSubtotal.value - sanitizedCashDiscount.value + hangerCharge.value.total
+    : subtotalAmount.value - sanitizedDiscountAmount.value + hangerCharge.value.total
+));
+
+const isMemberWithZeroTotal = computed(() => Boolean(form.memberEntitlementId) && totalAmount.value === 0);
 
 const normalizedItems = computed(() =>
-  cartItems.value.map((item) => ({
-    storefrontPriceId: item.storefrontPriceId,
-    quantity: item.quantity,
-  })),
+  cartItems.value.map((item) => {
+    const readyPhotos = item.photos.filter((photo) => photo.uploadedImageId);
+    const firstPhoto = readyPhotos[0];
+    return {
+      storefrontPriceId: item.storefrontPriceId,
+      quantity: item.quantity,
+      imageId: firstPhoto?.uploadedImageId ?? null,
+      notes: item.notes.trim() || null,
+      photos: readyPhotos.map((photo, index) => ({
+        imageId: photo.uploadedImageId as string,
+        isDamaged: photo.isDamaged,
+        sortOrder: index,
+      })),
+    };
+  }),
 );
+
+const incrementCatalogItem = (storefrontPriceId: string) => {
+  const existing = selectedItemMap.value.get(storefrontPriceId);
+  if (existing) { existing.quantity += 1; return; }
+  form.items.push({
+    key: createItemKey(),
+    storefrontPriceId,
+    quantity: 1,
+    notes: "",
+    photos: [],
+  });
+};
+
+const decrementCatalogItem = (storefrontPriceId: string) => {
+  const existing = selectedItemMap.value.get(storefrontPriceId);
+  if (!existing) return;
+  if (existing.quantity <= 1) {
+    form.items = form.items.filter((e) => e.key !== existing.key);
+    const next = new Set(expandedItems.value);
+    next.delete(existing.key);
+    expandedItems.value = next;
+    return;
+  }
+  existing.quantity -= 1;
+};
+
+const setCatalogItemQuantity = (storefrontPriceId: string, qty: number) => {
+  const value = Math.max(0, Math.floor(qty));
+  const existing = selectedItemMap.value.get(storefrontPriceId);
+  if (value === 0) {
+    if (existing) {
+      form.items = form.items.filter((e) => e.key !== existing.key);
+      const next = new Set(expandedItems.value);
+      next.delete(existing.key);
+      expandedItems.value = next;
+    }
+    return;
+  }
+  if (existing) {
+    existing.quantity = value;
+  } else {
+    form.items.push({ key: createItemKey(), storefrontPriceId, quantity: value, notes: "", photos: [] });
+  }
+};
+
+// Responsive cart slideover
+const mounted = ref(false);
+onMounted(() => { mounted.value = true; });
+const isXlQuery = useMediaQuery("(min-width: 1280px)");
+const isCompact = computed(() => mounted.value && !isXlQuery.value);
+const isCartOpen = ref(false);
+watch(isCompact, (value) => { if (!value) isCartOpen.value = false; });
+
+// Cart item expand state
+const expandedItems = ref<Set<string>>(new Set());
+const toggleItemExpand = (key: string) => {
+  const next = new Set(expandedItems.value);
+  next.has(key) ? next.delete(key) : next.add(key);
+  expandedItems.value = next;
+};
+const decrementItemByKey = (key: string) => {
+  const item = form.items.find((entry) => entry.key === key);
+  if (!item) return;
+  if (item.quantity <= 1) { form.items = form.items.filter((entry) => entry.key !== key); return; }
+  item.quantity -= 1;
+};
+const incrementItemByKey = (key: string) => {
+  const item = form.items.find((entry) => entry.key === key);
+  if (item) item.quantity += 1;
+};
+const removeItem = (key: string) => {
+  form.items = form.items.filter((entry) => entry.key !== key);
+  const next = new Set(expandedItems.value);
+  next.delete(key);
+  expandedItems.value = next;
+};
+const updateItemNotes = (key: string, value: string) => {
+  const item = form.items.find((entry) => entry.key === key);
+  if (item) item.notes = value;
+};
+const updateItemPhotos = (key: string, photos: OrderItemPhoto[]) => {
+  const item = form.items.find((entry) => entry.key === key);
+  if (item) item.photos = photos;
+};
+const setItemQuantity = (key: string, value: number | string | null | undefined) => {
+  const qty = Math.max(0, Math.floor(Number(value) || 0));
+  const item = form.items.find((entry) => entry.key === key);
+  if (!item) return;
+  if (qty === 0) {
+    form.items = form.items.filter((entry) => entry.key !== key);
+    const next = new Set(expandedItems.value);
+    next.delete(key);
+    expandedItems.value = next;
+    return;
+  }
+  item.quantity = qty;
+};
 
 const resetSlip = () => {
   slipFile.value = null;
@@ -174,80 +439,72 @@ const resetForm = () => {
   dueDate.value = null;
   dueTime.value = "00:00";
   resetSlip();
-};
-
-const addCatalogToCart = (storefrontPriceId: string) => {
-  const existing = selectedItemMap.value.get(storefrontPriceId);
-  if (existing) {
-    existing.quantity += 1;
-    return;
-  }
-
-  form.items.push({ key: createItemKey(), storefrontPriceId, quantity: 1 });
-};
-
-const decrementItemByKey = (key: string) => {
-  const item = form.items.find((entry) => entry.key === key);
-  if (!item) return;
-
-  if (item.quantity <= 1) {
-    form.items = form.items.filter((entry) => entry.key !== key);
-    return;
-  }
-
-  item.quantity -= 1;
-};
-
-const incrementItemByKey = (key: string) => {
-  const item = form.items.find((entry) => entry.key === key);
-  if (item) item.quantity += 1;
-};
-
-const decrementCatalog = (storefrontPriceId: string) => {
-  const item = selectedItemMap.value.get(storefrontPriceId);
-  if (item) decrementItemByKey(item.key);
-};
-
-const removeItem = (key: string) => {
-  form.items = form.items.filter((entry) => entry.key !== key);
+  orderImageFile.value = null;
+  uploadedOrderImage.value = null;
+  expandedItems.value = new Set();
 };
 
 const uploadSlipIfNeeded = async () => {
   if (!slipFile.value) return;
-
   const image = await uploadSlip(slipFile.value);
   if (!image) throw new Error("upload-failed");
-
   uploadedSlip.value = image;
   form.slipImageId = image.id;
 };
 
-const handleSubmit = async () => {
-  if (!form.isWalkIn && !form.customerId) {
-    return notify.validationError("กรุณาเลือกลูกค้า");
+const uploadOrderImagesIfNeeded = async () => {
+  if (orderImageFile.value && !form.orderImageId) {
+    const image = await uploadOrderImage(orderImageFile.value);
+    if (!image) throw new Error("upload-order-image-failed");
+    uploadedOrderImage.value = image;
+    form.orderImageId = image.id;
   }
+  for (const item of form.items) {
+    for (const photo of item.photos) {
+      if (!photo.file || photo.uploadedImageId) continue;
+      const image = await uploadOrderImage(photo.file);
+      if (!image) throw new Error("upload-item-image-failed");
+      photo.uploadedImageId = image.id;
+      photo.uploadedUrl = image.secureUrl ?? image.url ?? null;
+      photo.file = null;
+    }
+  }
+};
 
-  if (normalizedItems.value.length === 0) {
-    return notify.validationError("กรุณาเลือกบริการอย่างน้อย 1 รายการ");
-  }
+watch(
+  [() => form.isWalkIn, activeMemberEntitlement],
+  ([isWalkIn, entitlement]) => {
+    if (isWalkIn || !entitlement) { form.memberEntitlementId = null; return; }
+    form.memberEntitlementId = (entitlement.creditRemaining ?? 0) > 0 ? entitlement.id : null;
+  },
+  { immediate: true },
+);
+
+watch(() => form.hangerCount, (raw) => { const v = Number.isFinite(raw) ? raw : 0; form.hangerCount = v; if (v !== form.missingHangerCount) form.missingHangerCount = v; });
+watch(() => form.missingHangerCount, (raw) => { const v = Number.isFinite(raw) ? raw : 0; form.missingHangerCount = v; if (v !== form.hangerCount) form.hangerCount = v; });
+
+const handleSubmit = async () => {
+  if (!form.isWalkIn && !form.customerId) return notify.validationError("กรุณาเลือกลูกค้า");
+  if (normalizedItems.value.length === 0) return notify.validationError("กรุณาเลือกบริการอย่างน้อย 1 รายการ");
 
   isSubmitting.value = true;
   try {
     await uploadSlipIfNeeded();
+    await uploadOrderImagesIfNeeded();
 
     const result = await createServiceOrder({
       customerId: form.isWalkIn ? null : form.customerId,
       isWalkIn: form.isWalkIn,
       walkInName: form.isWalkIn ? form.walkInName.trim() || null : null,
       walkInPhone: form.isWalkIn ? form.walkInPhone.trim() || null : null,
+      memberEntitlementId: form.memberEntitlementId,
+      orderImageId: form.orderImageId,
       items: normalizedItems.value,
-      hangerCount: form.hangerCount,
+      missingHangerCount: form.missingHangerCount,
       dueAt: dueAtValue.value,
-      discountAmount: sanitizedDiscountAmount.value,
-      paymentMethod: form.paymentMethod,
-      status: form.status,
+      discountAmount: form.memberEntitlementId ? sanitizedCashDiscount.value : sanitizedDiscountAmount.value,
       note: form.note.trim() || null,
-      slipImageId: form.slipImageId,
+      slipImageId: isMemberWithZeroTotal.value ? null : form.slipImageId,
     });
 
     if (result) {
@@ -274,34 +531,42 @@ const handleSubmit = async () => {
     <div class="space-y-6">
       <section class="rounded-2xl border border-default bg-default p-5">
         <div class="flex flex-col gap-4">
-          <div>
-            <p class="text-lg font-semibold text-highlighted">รับงานหน้าร้าน</p>
-            <p class="text-sm text-muted">นับผ้าตามชิ้น กำหนดวันนัดรับ คิดค่าไม้แขวน และใส่ส่วนลดได้ในหน้าเดียว</p>
+          <div class="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <p class="text-lg font-semibold text-highlighted">รับงานหน้าร้าน</p>
+              <p class="text-sm text-muted">นับผ้าตามชิ้น กำหนดวันนัดรับ คิดค่าไม้แขวน และใส่ส่วนลดได้ในหน้าเดียว</p>
+            </div>
+            <UButton
+              label="เพิ่มรายการซักใหม่"
+              icon="i-lucide-plus"
+              color="primary"
+              variant="outline"
+              size="sm"
+              @click="openNewItemModal"
+            />
           </div>
 
-          <div class="flex flex-col gap-2 lg:flex-row lg:items-center">
-            <UInput v-model="searchQuery" icon="i-lucide-search" placeholder="ค้นหาบริการหรือชนิดผ้า" class="w-full lg:w-72" />
-            <USelect v-model="categoryFilter" :items="categoryOptions" value-key="value" class="w-full lg:w-52" />
-            <USelect v-model="serviceFilter" :items="serviceOptions" value-key="value" class="w-full lg:w-52" />
+          <div class="flex flex-wrap gap-2">
+            <UInput v-model="searchQuery" icon="i-lucide-search" placeholder="ค้นหาบริการหรือชนิดผ้า" class="flex-1 min-w-48" />
+            <USelect v-model="categoryFilter" :items="categoryOptions" value-key="value" class="min-w-40" />
+            <USelect v-model="serviceFilter" :items="serviceOptions" value-key="value" class="min-w-40" />
           </div>
         </div>
 
-        <div class="mt-5 grid grid-cols-1 gap-4 md:grid-cols-2 2xl:grid-cols-3">
+        <div class="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-3 2xl:grid-cols-4">
           <PosCatalogCard
             v-for="item in filteredCatalog"
             :key="item.id"
             :title="item.label"
-            :description="item.categoryName || item.serviceName"
+            :description="item.categoryName ? `${item.categoryName} | ${item.serviceName}` : item.serviceName"
             badge-label="ราคาหน้าร้าน"
             badge-color="primary"
             :price-label="formatCurrency(item.price)"
-            :meta-label="item.categoryName ? `${item.categoryName} | ${item.serviceName}` : item.serviceName"
             :quantity="selectedItemMap.get(item.id)?.quantity ?? 0"
             :selected="selectedItemMap.has(item.id)"
-            :decrement-disabled="!selectedItemMap.has(item.id)"
-            @select="addCatalogToCart(item.id)"
-            @decrement="decrementCatalog(item.id)"
-            @increment="addCatalogToCart(item.id)"
+            @increment="incrementCatalogItem(item.id)"
+            @decrement="decrementCatalogItem(item.id)"
+            @change="setCatalogItemQuantity(item.id, $event)"
           />
 
           <div v-if="filteredCatalog.length === 0" class="col-span-full rounded-2xl border border-dashed border-default p-10 text-center text-muted">
@@ -311,7 +576,19 @@ const handleSubmit = async () => {
       </section>
     </div>
 
-    <aside class="space-y-6 xl:sticky xl:top-4 xl:self-start">
+    <aside
+      :class="!isCompact
+        ? 'space-y-6 xl:sticky xl:top-4 xl:self-start'
+        : [
+            'fixed inset-y-0 right-0 z-50 flex w-full max-w-lg flex-col overflow-y-auto border-l border-default bg-default shadow-2xl transition-transform duration-200',
+            isCartOpen ? 'translate-x-0' : 'translate-x-full',
+          ]"
+    >
+      <div v-if="isCompact" class="sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-default bg-default px-4 py-3">
+        <p class="text-base font-semibold text-highlighted">ตะกร้ารับผ้า</p>
+        <UButton icon="i-lucide-x" color="neutral" variant="ghost" size="sm" aria-label="ปิด" @click="isCartOpen = false" />
+      </div>
+      <div :class="isCompact ? 'p-4' : ''">
       <PosCheckoutPanel
         title="ตะกร้ารับผ้า"
         description="สรุปรายการผ้า วันนัดรับ และการชำระเงินในหน้าเดียว"
@@ -322,8 +599,6 @@ const handleSubmit = async () => {
         :is-walk-in="form.isWalkIn"
         :walk-in-name="form.walkInName"
         :walk-in-phone="form.walkInPhone"
-        :payment-method="form.paymentMethod"
-        :status="form.status"
         :note="form.note"
         total-label="ยอดรวมสุทธิ"
         :total-value="formatCurrency(totalAmount)"
@@ -333,12 +608,11 @@ const handleSubmit = async () => {
         :slip-file="slipFile"
         :uploaded-slip-url="uploadedSlip?.secureUrl || uploadedSlip?.url"
         :uploaded-slip-label="uploadedSlip?.secureUrl || uploadedSlip?.url || null"
+        :hide-payment-fields="isMemberWithZeroTotal"
         @update:customer-id="form.customerId = $event"
         @update:is-walk-in="form.isWalkIn = $event"
         @update:walk-in-name="form.walkInName = $event"
         @update:walk-in-phone="form.walkInPhone = $event"
-        @update:payment-method="form.paymentMethod = $event"
-        @update:status="form.status = $event"
         @update:note="form.note = $event"
         @update:slip-file="slipFile = $event"
         @remove-slip="resetSlip"
@@ -352,23 +626,75 @@ const handleSubmit = async () => {
               <span class="text-sm text-muted">{{ totalQuantity }} ชิ้น</span>
             </div>
 
-            <div v-if="cartItems.length" class="mt-4 divide-y divide-default">
-              <div v-for="item in cartItems" :key="item.key" class="flex items-center gap-3 py-3 first:pt-0 last:pb-0">
-                <div class="min-w-0 flex-1">
-                  <p class="truncate text-sm font-medium text-highlighted">{{ item.label }}</p>
+            <div v-if="cartItems.length" class="mt-3 space-y-1">
+              <div
+                v-if="canUseMemberPackage"
+                class="mb-2 rounded-xl border border-success/40 bg-success/10 p-3"
+              >
+                <div class="flex items-start justify-between gap-3">
+                  <div>
+                    <p class="text-sm font-medium text-success">{{ activeMemberEntitlement?.productName }}</p>
+                    <p class="text-xs text-muted">
+                      เครดิตคงเหลือ {{ activeMemberEntitlement?.creditRemaining ?? 0 }} | ใช้ {{ creditUsedPreview }} เครดิต
+                      <span v-if="form.memberEntitlementId && cashQuantity > 0">| คิดเพิ่ม {{ cashQuantity }} ชิ้น ({{ formatCurrency(cashSubtotal) }})</span>
+                    </p>
+                  </div>
+                  <USwitch
+                    :model-value="Boolean(form.memberEntitlementId)"
+                    color="success"
+                    size="sm"
+                    @update:model-value="form.memberEntitlementId = $event ? activeMemberEntitlement?.id ?? null : null"
+                  />
+                </div>
+              </div>
+
+              <div v-for="item in cartItems" :key="item.key">
+                <div class="flex items-center gap-1.5 rounded-lg px-1.5 py-1 hover:bg-elevated/30">
+                  <div class="flex min-w-0 flex-1 flex-col">
+                    <div class="flex items-center">
+                      <p class="min-w-0 flex-1 truncate text-sm text-highlighted">{{ item.label }}</p>
+                      <div class="flex justify-end items-center">
+                        <span class="w-16 shrink-0 text-right text-xs font-medium text-muted">
+                          {{ form.memberEntitlementId ? `${item.quantity} เครดิต` : formatCurrency(item.totalPrice) }}
+                        </span>
+                        <UButton
+                          :icon="expandedItems.has(item.key) ? 'i-lucide-chevron-up' : 'i-lucide-chevron-down'"
+                          color="neutral"
+                          variant="ghost"
+                          size="xs"
+                          @click="toggleItemExpand(item.key)"
+                        />
+                        <UButton icon="i-lucide-x" color="error" variant="ghost" size="xs" @click="removeItem(item.key)" />
+                      </div>
+                    </div>
+                    <div class="flex shrink-0 items-center gap-0.5">
+                      <UInputNumber
+                        :model-value="item.quantity"
+                        :min="0"
+                        :step="1"
+                        size="xs"
+                        class="w-20"
+                        @update:model-value="setItemQuantity(item.key, $event)"
+                      />
+                    </div>
+                  </div>
                 </div>
 
-                <div class="flex items-center gap-1">
-                  <UButton icon="i-lucide-minus" color="neutral" variant="ghost" size="xs" @click="decrementItemByKey(item.key)" />
-                  <span class="min-w-8 text-center text-sm font-medium">{{ item.quantity }}</span>
-                  <UButton icon="i-lucide-plus" color="neutral" variant="ghost" size="xs" @click="incrementItemByKey(item.key)" />
+                <div v-if="expandedItems.has(item.key)" class="mb-1 ml-1.5 space-y-2 border-l-2 border-default pl-3 pt-1">
+                  <p class="text-sm font-medium text-highlighted">{{ item.label }}</p>
+                  <UTextarea
+                    :model-value="item.notes"
+                    :rows="2"
+                    class="w-full"
+                    placeholder="บันทึกตำหนิหรือรายละเอียดผ้าชิ้นนี้"
+                    @update:model-value="updateItemNotes(item.key, String($event || ''))"
+                  />
+                  <OrderItemPhotosField
+                    :photos="item.photos"
+                    :disabled="isSubmitting"
+                    @update:photos="updateItemPhotos(item.key, $event)"
+                  />
                 </div>
-
-                <div class="min-w-20 text-right text-sm font-semibold text-highlighted">
-                  {{ formatCurrency(item.totalPrice) }}
-                </div>
-
-                <UButton icon="i-lucide-trash-2" color="error" variant="ghost" size="xs" @click="removeItem(item.key)" />
               </div>
             </div>
 
@@ -385,6 +711,15 @@ const handleSubmit = async () => {
               <span class="font-medium text-highlighted">{{ formatCurrency(subtotalAmount) }}</span>
             </div>
 
+            <div v-if="form.memberEntitlementId" class="flex items-center justify-between gap-3">
+              <span class="text-muted">ตัดเครดิตรายเดือน</span>
+              <span class="font-medium text-success">{{ creditUsedPreview }} เครดิต</span>
+            </div>
+            <div v-if="form.memberEntitlementId && cashQuantity > 0" class="flex items-center justify-between gap-3">
+              <span class="text-muted">เครดิตไม่พอ ({{ cashQuantity }} ชิ้น)</span>
+              <span class="font-medium text-highlighted">{{ formatCurrency(cashSubtotal) }}</span>
+            </div>
+
             <div class="flex items-center justify-between gap-3">
               <span class="text-muted">ค่าไม้แขวน</span>
               <span class="font-medium text-highlighted">{{ formatCurrency(hangerCharge.total) }}</span>
@@ -393,46 +728,162 @@ const handleSubmit = async () => {
             <div class="flex items-center justify-between gap-3">
               <span class="text-muted">จำนวนไม้แขวน</span>
               <div class="flex items-center gap-2">
-                <UInputNumber v-model="form.hangerCount" :min="0" :step="1" orientation="vertical" class="w-28" />
-                <UButton label="ใช้ตามจำนวนผ้า" color="neutral" variant="outline" @click="form.hangerCount = totalQuantity" />
+                <UInputNumber v-model="form.missingHangerCount" :min="0" :step="1" orientation="horizontal" size="xs" class="w-20" />
+                <UButton label="ตามจำนวนผ้า" color="neutral" variant="outline" size="xs" @click="form.hangerCount = totalQuantity" />
               </div>
             </div>
 
             <div>
-              <p class="mb-2 text-sm font-medium text-highlighted">วันนัดรับ</p>
-              <div class="grid grid-cols-2 gap-2">
+              <div class="mb-2 flex flex-wrap items-center justify-between gap-2">
+                <p class="text-sm font-medium text-highlighted">วันนัดรับ</p>
+                <div class="flex gap-1.5">
+                  <UButton size="xs" color="neutral" variant="soft" label="พุธ" @click="setPickupDow(3)" />
+                  <UButton size="xs" color="neutral" variant="soft" label="เสาร์" @click="setPickupDow(6)" />
+                  <UButton size="xs" color="neutral" :variant="dueDate ? 'ghost' : 'solid'" label="ไม่ระบุ" @click="clearDueDate" />
+                </div>
+              </div>
+              <div v-if="dueDate" class="grid grid-cols-2 gap-2">
                 <UPopover>
-                  <UInputDate v-model="dueDate" icon="i-lucide-calendar" class="w-full" />
+                  <UButton
+                    :label="dueDateLabel"
+                    icon="i-lucide-calendar"
+                    color="neutral"
+                    variant="outline"
+                    block
+                    class="justify-start font-normal"
+                  />
                   <template #content>
                     <UCalendar v-model="dueDate" locale="th-TH" class="p-2" />
                   </template>
                 </UPopover>
-
-                <USelect
-                  v-model="dueTime"
-                  :items="dueTimeOptions"
-                  value-key="value"
-                  icon="i-lucide-clock"
-                  class="w-full"
-                />
+                <USelect v-model="dueTime" :items="dueTimeOptions" value-key="value" icon="i-lucide-clock" class="w-full" />
               </div>
+              <p v-else class="text-xs text-muted">ไม่ระบุวันนัด — กดพุธ / เสาร์ หรือ
+                <button class="underline" @click="setPickupDow(3)">เลือกวัน</button>
+              </p>
             </div>
           </div>
         </template>
 
         <template #discount>
-          <UFormField label="ส่วนลด">
+          <UFormField v-if="!isMemberWithZeroTotal" label="ส่วนลด">
             <UInputNumber
-              v-model="form.discountAmount"
+              :model-value="form.discountAmount"
               :min="0"
               :max="subtotalAmount"
               :step="1"
               :format-options="{ minimumFractionDigits: 0, maximumFractionDigits: 2 }"
               class="w-full"
+              @update:model-value="form.discountAmount = Number.isFinite($event) ? $event : 0"
             />
           </UFormField>
+
+          <div class="rounded-xl border border-dashed border-default p-4">
+            <div class="flex items-center justify-between gap-3">
+              <div>
+                <p class="font-medium text-highlighted">รูปหลักฐานการรับผ้า</p>
+                <p v-if="!intakeDisplayUrl" class="text-sm text-muted">ยังไม่ได้แนบรูป</p>
+              </div>
+              <UButton
+                v-if="!intakeDisplayUrl"
+                label="เพิ่มรูป"
+                icon="i-lucide-camera"
+                color="neutral"
+                variant="solid"
+                :disabled="isSubmitting"
+                @click="openIntakePicker"
+              />
+            </div>
+            <input ref="intakeFileInputRef" type="file" accept="image/*" capture="environment" class="hidden" @change="onIntakeFileSelected">
+            <div v-if="intakeDisplayUrl" class="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
+              <div class="group relative overflow-hidden rounded-xl border border-default bg-muted/30">
+                <img :src="intakeDisplayUrl" alt="รูปหลักฐานการรับผ้า" class="h-28 w-full cursor-pointer object-cover" @click="openIntakePreview">
+                <UButton icon="i-lucide-x" color="error" variant="solid" size="xs" class="absolute right-1 top-1" :disabled="isSubmitting" @click.stop="requestRemoveIntake" />
+              </div>
+            </div>
+          </div>
+
+          <UIImagePreviewModal v-model:open="intakePreviewOpen" title="รูปหลักฐานการรับผ้า" :image-url="intakeDisplayUrl" image-alt="รูปหลักฐานการรับผ้า" />
+          <UIConfirmModal
+            v-model:open="intakeRemoveOpen"
+            title="ลบรูปนี้"
+            icon="i-lucide-trash-2"
+            icon-color="error"
+            confirm-label="ลบรูป"
+            confirm-color="error"
+            message="ต้องการลบรูปหลักฐานการรับผ้าหรือไม่"
+            sub-message="หากยืนยัน ระบบจะถอดรูปนี้ออกจากรายการปัจจุบัน"
+            @confirm="performRemoveIntake"
+          />
         </template>
       </PosCheckoutPanel>
+      </div>
     </aside>
   </div>
+
+  <!-- Mobile/Tablet: FAB + backdrop -->
+  <div
+    v-if="isCompact && isCartOpen"
+    class="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm"
+    aria-hidden="true"
+    @click="isCartOpen = false"
+  />
+  <UButton
+    v-if="isCompact"
+    icon="i-lucide-shopping-cart"
+    color="primary"
+    size="xl"
+    class="fixed bottom-6 right-6 z-30 size-14 justify-center rounded-full shadow-lg"
+    aria-label="เปิดตะกร้ารับผ้า"
+    @click="isCartOpen = true"
+  >
+    <span
+      v-if="totalQuantity > 0"
+      class="absolute -right-1 -top-1 inline-flex min-w-5 items-center justify-center rounded-full bg-error px-1.5 text-xs font-semibold text-white"
+    >{{ totalQuantity }}</span>
+  </UButton>
+
+  <!-- New Catalog Item Modal -->
+  <UModal v-model:open="newItemModalOpen" title="เพิ่มรายการซักใหม่" description="สร้างรายการผ้าใหม่พร้อมราคาต่อบริการ">
+    <template #body>
+      <div class="space-y-4">
+        <UFormField label="ชื่อรายการ" required>
+          <UInput v-model="newItemData.name" class="w-full" placeholder="เช่น เสื้อเชิ้ต, กางเกงยีนส์" />
+        </UFormField>
+
+        <UFormField label="ประเภท / หมวดหมู่">
+          <USelect
+            v-model="newItemData.categoryId"
+            :items="pricingData?.categories || []"
+            label-key="name"
+            value-key="id"
+            class="w-full"
+          />
+        </UFormField>
+
+        <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <UFormField v-for="service in pricingData?.services || []" :key="service.id" :label="service.name">
+            <UInput v-model.number="newItemPrices[service.id]" type="number" class="w-full" placeholder="-" />
+          </UFormField>
+        </div>
+
+        <UFormField label="หมายเหตุ">
+          <UInput v-model="newItemData.description" class="w-full" placeholder="เช่น คิดตามขนาด" />
+        </UFormField>
+      </div>
+    </template>
+    <template #footer>
+      <div class="flex w-full justify-end gap-3">
+        <UButton label="ยกเลิก" color="neutral" variant="outline" @click="newItemModalOpen = false" />
+        <UButton
+          label="บันทึก"
+          color="primary"
+          icon="i-lucide-check"
+          :loading="isSavingNewItem"
+          :disabled="!newItemData.name.trim()"
+          @click="saveNewItem"
+        />
+      </div>
+    </template>
+  </UModal>
 </template>

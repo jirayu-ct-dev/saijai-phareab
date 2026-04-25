@@ -7,7 +7,7 @@ const emit = defineEmits<{
     refresh: [];
 }>();
 
-function handleRefresh(e: Event) {
+const handleRefresh = () => {
     if (props.loading) return;
     emit('refresh');
 }
@@ -19,8 +19,8 @@ function handleRefresh(e: Event) {
         color="neutral"
         variant="outline"
         :loading="loading"
-        @click="handleRefresh"
         aria-label="รีเฟรชข้อมูล"
         label="รีเฟรช"
+        @click="handleRefresh"
     />
 </template>

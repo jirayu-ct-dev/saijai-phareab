@@ -21,6 +21,7 @@ const props = withDefaults(defineProps<{
   confirmTitle?: string;
   confirmMessage?: string;
   confirmSubMessage?: string;
+  capture?: "environment" | "user" | null;
 }>(), {
   label: "หลักฐานการชำระเงิน",
   description: null,
@@ -40,6 +41,7 @@ const props = withDefaults(defineProps<{
   confirmTitle: "ยืนยันการลบรูป",
   confirmMessage: "ต้องการลบรูปนี้หรือไม่",
   confirmSubMessage: "หากยืนยันแล้ว รูปที่เลือกไว้จะถูกยกเลิกหรือถอดออกจากรายการนี้",
+  capture: null,
 });
 
 const emit = defineEmits<{
@@ -150,6 +152,7 @@ const handleRemoveClick = () => {
       ref="fileInputRef"
       type="file"
       :accept="accept"
+      :capture="capture ?? undefined"
       class="hidden"
       @change="onFileSelected"
     >

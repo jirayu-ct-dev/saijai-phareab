@@ -72,6 +72,15 @@ export default defineEventHandler(async (event) => {
               email: true,
             },
           },
+          memberEntitlement: {
+            select: {
+              id: true,
+              creditInitial: true,
+              creditRemaining: true,
+              endAt: true,
+              product: { select: { id: true, name: true } },
+            },
+          },
           serviceOrderItems: {
             include: {
               storefrontPrice: {
@@ -105,6 +114,25 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 404, statusMessage: "Payment not found" });
   }
 
+  const usageHistory = payment.serviceOrder?.memberEntitlementId
+    ? await prisma.serviceOrder.findMany({
+        where: {
+          memberEntitlementId: payment.serviceOrder.memberEntitlementId,
+          deletedAt: null,
+        },
+        orderBy: { receivedAt: "asc" },
+        select: {
+          id: true,
+          orderNo: true,
+          receivedAt: true,
+          serviceOrderItems: {
+            where: { deletedAt: null, isPackageIncluded: true },
+            select: { quantity: true },
+          },
+        },
+      })
+    : [];
+
   const packageItems = payment.packageSale?.items.map((item) => ({
     id: item.id,
     name: item.product.name,
@@ -121,6 +149,7 @@ export default defineEventHandler(async (event) => {
     unitPrice: toNumber(item.unitPrice),
     totalPrice: toNumber(item.totalPrice),
     notes: item.notes,
+    isPackageIncluded: item.isPackageIncluded,
   })) ?? [];
 
   const hangerChargeSource = (payment.serviceOrder?.hangerCharge ?? null) as
@@ -202,6 +231,24 @@ export default defineEventHandler(async (event) => {
                 count: Number(hangerChargeSource.count ?? 0),
                 pricePerUnit: Number(hangerChargeSource.pricePerUnit ?? 0),
                 total: Number(hangerChargeSource.total ?? 0),
+              }
+            : null,
+          creditUsed: payment.serviceOrder.creditUsed ?? 0,
+          usageHistory: usageHistory.map((row, index) => ({
+            sessionIndex: index + 1,
+            orderId: row.id,
+            orderNo: row.orderNo,
+            receivedAt: row.receivedAt.toISOString(),
+            quantity: row.serviceOrderItems.reduce((sum, it) => sum + it.quantity, 0),
+            isCurrent: row.id === payment.serviceOrder!.id,
+          })),
+          memberEntitlement: payment.serviceOrder.memberEntitlement
+            ? {
+                id: payment.serviceOrder.memberEntitlement.id,
+                productName: payment.serviceOrder.memberEntitlement.product.name,
+                creditInitial: payment.serviceOrder.memberEntitlement.creditInitial ?? 0,
+                creditRemaining: payment.serviceOrder.memberEntitlement.creditRemaining ?? 0,
+                endAt: payment.serviceOrder.memberEntitlement.endAt?.toISOString() ?? null,
               }
             : null,
           items: serviceItems,

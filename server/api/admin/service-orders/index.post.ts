@@ -1,4 +1,4 @@
-import type { PaymentMethod, PaymentStatus } from "~~/shared/types/enums";
+import type { PaymentMethod, PaymentStatus, ServiceOrderStatus } from "~~/shared/types/enums";
 import { DEFAULT_HANGER_PRICE_PER_UNIT } from "~~/shared/config/posConfig";
 import { requireRole } from "~~/server/utils/auth";
 import { createPaymentNo } from "~~/server/utils/paymentNo";
@@ -11,20 +11,27 @@ type CreateServiceOrderBody = {
   isWalkIn?: boolean;
   walkInName?: string | null;
   walkInPhone?: string | null;
+  memberEntitlementId?: string | null;
+  orderImageId?: string | null;
   items: Array<{
     storefrontPriceId: string;
     quantity: number;
+    imageId?: string | null;
+    notes?: string | null;
+    photos?: Array<{ imageId: string; isDamaged?: boolean; sortOrder?: number }>;
   }>;
   hangerCount?: number;
+  missingHangerCount?: number;
   dueAt?: string | null;
   discountAmount?: number;
-  paymentMethod: PaymentMethod;
+  paymentMethod?: PaymentMethod;
   status?: PaymentStatus;
+  serviceOrderStatus?: ServiceOrderStatus;
   note?: string | null;
   slipImageId?: string | null;
 };
 
-const getServiceOrderStatus = (status: PaymentStatus) => {
+const getDefaultServiceOrderStatus = (status: PaymentStatus) => {
   if (status === "VERIFIED") return "RECEIVED" as const;
   if (status === "FAILED") return "CANCELLED" as const;
   return "PENDING" as const;
@@ -38,9 +45,15 @@ export default defineEventHandler(async (event) => {
   const customerId = body.customerId?.trim() || null;
   const walkInName = body.walkInName?.trim() || null;
   const walkInPhone = body.walkInPhone?.trim() || null;
+  const requestedEntitlementId = body.memberEntitlementId?.trim() || null;
+  const orderImageId = body.orderImageId?.trim() || null;
 
   if (!isWalkIn && !customerId) {
     throw createError({ statusCode: 400, statusMessage: "กรุณาเลือกลูกค้า" });
+  }
+
+  if (isWalkIn && requestedEntitlementId) {
+    throw createError({ statusCode: 400, statusMessage: "ลูกค้าหน้าร้านไม่สามารถใช้เครดิตแพ็กเกจได้" });
   }
 
   if (!Array.isArray(body.items) || body.items.length === 0) {
@@ -48,10 +61,24 @@ export default defineEventHandler(async (event) => {
   }
 
   const normalizedItems = body.items
-    .map((item) => ({
-      storefrontPriceId: item.storefrontPriceId,
-      quantity: Number(item.quantity ?? 1),
-    }))
+    .map((item) => {
+      const rawPhotos = Array.isArray(item.photos) ? item.photos : [];
+      const photos = rawPhotos
+        .map((photo, index) => ({
+          imageId: photo.imageId?.trim() || "",
+          isDamaged: Boolean(photo.isDamaged),
+          sortOrder: Number.isFinite(photo.sortOrder) ? Number(photo.sortOrder) : index,
+        }))
+        .filter((photo) => photo.imageId);
+
+      return {
+        storefrontPriceId: item.storefrontPriceId,
+        quantity: Number(item.quantity ?? 1),
+        imageId: item.imageId?.trim() || photos[0]?.imageId || null,
+        notes: item.notes?.trim() || null,
+        photos,
+      };
+    })
     .filter((item) => item.storefrontPriceId);
 
   if (normalizedItems.length === 0) {
@@ -62,23 +89,22 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, statusMessage: "จำนวนรายการต้องมากกว่า 0" });
   }
 
-  if (body.hangerCount !== undefined && (!Number.isInteger(body.hangerCount) || body.hangerCount < 0)) {
-    throw createError({ statusCode: 400, statusMessage: "จำนวนไม้แขวนต้องเป็น 0 หรือมากกว่า" });
+  const missingHangerCount = body.missingHangerCount ?? body.hangerCount ?? 0;
+  if (!Number.isInteger(missingHangerCount) || missingHangerCount < 0) {
+    throw createError({ statusCode: 400, statusMessage: "จำนวนไม้แขวนที่ขาดต้องเป็น 0 หรือมากกว่า" });
   }
 
   if (body.discountAmount !== undefined && (!Number.isFinite(Number(body.discountAmount)) || Number(body.discountAmount) < 0)) {
     throw createError({ statusCode: 400, statusMessage: "จำนวนส่วนลดต้องเป็น 0 หรือมากกว่า" });
   }
 
-  if (body.paymentMethod !== "CASH" && body.paymentMethod !== "TRANSFER") {
+  const paymentMethod: PaymentMethod = body.paymentMethod ?? "CASH";
+  if (paymentMethod !== "CASH" && paymentMethod !== "TRANSFER") {
     throw createError({ statusCode: 400, statusMessage: "ช่องทางการชำระเงินไม่ถูกต้อง" });
   }
 
-  if (body.paymentMethod === "TRANSFER" && !body.slipImageId) {
-    throw createError({ statusCode: 400, statusMessage: "กรุณาอัปโหลดสลิปสำหรับรายการโอน" });
-  }
-
-  const status: PaymentStatus = body.status ?? (body.paymentMethod === "CASH" ? "VERIFIED" : "PENDING");
+  const status: PaymentStatus = body.status ?? "PENDING";
+  const serviceOrderStatus: ServiceOrderStatus = body.serviceOrderStatus ?? getDefaultServiceOrderStatus(status);
   const isVerified = status === "VERIFIED";
   const receivedAt = new Date();
   const dueAt = body.dueAt ? new Date(body.dueAt) : null;
@@ -155,58 +181,151 @@ export default defineEventHandler(async (event) => {
         quantity: item.quantity,
         unitPrice,
         totalPrice: unitPrice * item.quantity,
+        imageId: item.imageId,
+        notes: item.notes,
+        photos: item.photos,
       };
     });
 
-    const subtotalAmount = orderItems.reduce((sum, item) => sum + item.totalPrice, 0);
-    const discountAmount = Math.min(Number(body.discountAmount ?? 0), subtotalAmount);
-    const hangerCount = body.hangerCount ?? orderItems.reduce((sum, item) => sum + item.quantity, 0);
+    const totalQuantity = orderItems.reduce((sum, item) => sum + item.quantity, 0);
     const hangerCharge = {
-      count: hangerCount,
+      count: missingHangerCount,
       pricePerUnit: DEFAULT_HANGER_PRICE_PER_UNIT,
-      total: hangerCount * DEFAULT_HANGER_PRICE_PER_UNIT,
+      total: missingHangerCount * DEFAULT_HANGER_PRICE_PER_UNIT,
     };
-    const totalAmount = subtotalAmount - discountAmount + hangerCharge.total;
+
+    type AllocatedItem = typeof orderItems[number] & { cashQuantity: number; creditQuantity: number };
 
     const created = await prisma.$transaction(async (tx) => {
+      let memberEntitlement = null as null | {
+        id: string;
+        customerId: string;
+        creditRemaining: number | null;
+      };
+
+      if (requestedEntitlementId) {
+        memberEntitlement = await tx.memberEntitlement.findFirst({
+          where: {
+            id: requestedEntitlementId,
+            customerId: customerId!,
+            deletedAt: null,
+            status: "ACTIVE",
+          },
+          select: {
+            id: true,
+            customerId: true,
+            creditRemaining: true,
+          },
+        });
+
+        if (!memberEntitlement) {
+          throw createError({ statusCode: 404, statusMessage: "ไม่พบสิทธิ์แพ็กเกจรายเดือนที่เลือก" });
+        }
+      }
+
+      // FIFO allocate credit to items; split rows for partial coverage.
+      const creditAvailable = memberEntitlement ? Math.max(0, Number(memberEntitlement.creditRemaining ?? 0)) : 0;
+      let remainingCredit = creditAvailable;
+      const allocatedItems: AllocatedItem[] = orderItems.map((item) => {
+        const creditQty = Math.min(item.quantity, remainingCredit);
+        remainingCredit -= creditQty;
+        return { ...item, creditQuantity: creditQty, cashQuantity: item.quantity - creditQty };
+      });
+      const creditUsed = creditAvailable - remainingCredit;
+      const subtotalAmount = allocatedItems.reduce((sum, item) => sum + item.cashQuantity * item.unitPrice, 0);
+      const discountAmount = Math.min(Number(body.discountAmount ?? 0), subtotalAmount);
+      const payableAmount = subtotalAmount - discountAmount + hangerCharge.total;
+
+      if (memberEntitlement && creditUsed > 0) {
+        const { count } = await tx.memberEntitlement.updateMany({
+          where: {
+            id: memberEntitlement.id,
+            creditRemaining: { gte: creditUsed },
+          },
+          data: {
+            creditRemaining: {
+              decrement: creditUsed,
+            },
+          },
+        });
+
+        if (count === 0) {
+          throw createError({ statusCode: 409, statusMessage: "เครดิตไม่พอ กรุณาลองใหม่" });
+        }
+      }
+
       const serviceOrder = await tx.serviceOrder.create({
         data: {
           orderNo: createServiceOrderNo(receivedAt),
           customerId: paymentUserId!,
           employeeId: actor.id,
-          status: getServiceOrderStatus(status),
+          status: serviceOrderStatus,
           isWalkIn,
           walkInName,
           walkInPhone,
+          memberEntitlementId: memberEntitlement?.id ?? null,
+          creditUsed: memberEntitlement ? creditUsed : null,
           receivedAt,
           dueAt,
           subtotalAmount,
           discountAmount,
           hangerCharge,
-          totalAmount,
+          totalAmount: payableAmount,
           note: body.note?.trim() || null,
+          imageId: orderImageId,
         },
       });
 
-      await tx.serviceOrderItem.createMany({
-        data: orderItems.map((item) => ({
-          serviceOrderId: serviceOrder.id,
-          storefrontPriceId: item.price.id,
-          isPackageIncluded: false,
-          quantity: item.quantity,
-          unitPrice: item.unitPrice,
-          totalPrice: item.totalPrice,
-          notes: `${item.price.storefrontService.name} ${item.price.storefrontItem.name}`.trim(),
-        })),
-      });
+      for (const item of allocatedItems) {
+        const rows: Array<{ qty: number; isPackage: boolean; totalPrice: number; attachPhotos: boolean }> = [];
+        if (item.creditQuantity > 0) {
+          rows.push({ qty: item.creditQuantity, isPackage: true, totalPrice: 0, attachPhotos: true });
+        }
+        if (item.cashQuantity > 0) {
+          rows.push({
+            qty: item.cashQuantity,
+            isPackage: false,
+            totalPrice: item.cashQuantity * item.unitPrice,
+            attachPhotos: item.creditQuantity === 0,
+          });
+        }
+
+        for (const row of rows) {
+          const createdItem = await tx.serviceOrderItem.create({
+            data: {
+              serviceOrderId: serviceOrder.id,
+              storefrontPriceId: item.price.id,
+              isPackageIncluded: row.isPackage,
+              quantity: row.qty,
+              unitPrice: item.unitPrice,
+              totalPrice: row.totalPrice,
+              imageId: row.attachPhotos ? item.imageId : null,
+              notes: item.notes,
+            },
+            select: { id: true },
+          });
+
+          if (row.attachPhotos && item.photos.length > 0) {
+            await tx.serviceOrderItemImage.createMany({
+              data: item.photos.map((photo, index) => ({
+                serviceOrderItemId: createdItem.id,
+                imageId: photo.imageId,
+                isDamaged: photo.isDamaged,
+                sortOrder: photo.sortOrder ?? index,
+              })),
+            });
+          }
+        }
+      }
 
       const payment = await tx.paymentRecord.create({
         data: {
           paymentNo: createPaymentNo(),
           userId: paymentUserId!,
+          memberEntitlementId: memberEntitlement?.id ?? null,
           serviceOrderId: serviceOrder.id,
-          amount: totalAmount,
-          paymentMethod: body.paymentMethod,
+          amount: payableAmount,
+          paymentMethod,
           slipImageId: body.slipImageId ?? null,
           status,
           note: body.note?.trim() || null,
@@ -226,6 +345,9 @@ export default defineEventHandler(async (event) => {
             isWalkIn,
             walkInName,
             walkInPhone,
+            memberEntitlementId: memberEntitlement?.id ?? null,
+            creditUsed: memberEntitlement ? creditUsed : null,
+            orderImageId,
           },
         },
       });

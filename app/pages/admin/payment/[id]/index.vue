@@ -1,14 +1,14 @@
 ﻿<script setup lang="ts">
 import SlipUploadField from "~~/app/components/UI/SlipUploadField.vue";
 import type { EntitlementStatus, PackageSaleStatus, PaymentMethod, PaymentStatus, ServiceOrderStatus } from "~~/shared/types/enums";
-import { paymentStatusColors, paymentStatusLabels } from "~~/shared/config/paymentConfig";
 import { packageTypeColors, packageTypeLabels } from "~~/shared/config/packageConfig";
 import { formatCurrency, formatDateTime } from "~~/shared/utils/format";
 import { useAdminPayments } from "~~/app/composables/useAdminPayments";
 
 type BadgeColor = "error" | "primary" | "secondary" | "success" | "info" | "warning" | "neutral";
-type InfoRow = { label: string; value: string; valueClass?: string; dividerBefore?: boolean };
-type DetailItem = { id: string; title: string; metaLabel?: string | null; quantityLabel: string; totalLabel: string; badgeLabel?: string | null; badgeColor?: BadgeColor };
+type InfoRow = { label: string; value: string; valueClass?: string; dividerBefore?: boolean; href?: string };
+type DetailItemPhoto = { id: string; isDamaged?: boolean; url: string | null; secureUrl: string | null };
+type DetailItem = { id: string; title: string; metaLabel?: string | null; unitPriceLabel?: string | null; quantityLabel: string; totalLabel: string; badgeLabel?: string | null; badgeColor?: BadgeColor; photos?: DetailItemPhoto[]; notes?: string | null };
 
 type PaymentDetailResponse = {
   id: string;
@@ -64,7 +64,7 @@ type PaymentDetailResponse = {
     employee: { name: string | null; email: string } | null;
     memberEntitlement: { product: { name: string } } | null;
     hangerCharge: { count: number; total: number } | null;
-    items: Array<{ id: string; label: string; quantity: number; unitPrice: number; totalPrice: number; notes: string | null; isPackageIncluded: boolean; service: { name: string } }>;
+    items: Array<{ id: string; label: string; quantity: number; unitPrice: number; totalPrice: number; notes: string | null; isPackageIncluded: boolean; service: { name: string }; image: { id: string; url: string | null; secureUrl: string | null } | null; photos: Array<{ id: string; imageId: string; isDamaged: boolean; sortOrder: number; url: string | null; secureUrl: string | null }> }>;
   } | null;
 };
 
@@ -79,9 +79,7 @@ const { data, status, refresh, error } = await useFetch<PaymentDetailResponse>((
 const payment = computed(() => data.value ?? null);
 const isLoading = computed(() => status.value === "pending");
 const isPackagePayment = computed(() => Boolean(payment.value?.packageSale));
-const canEditPayment = computed(() => Boolean(payment.value?.packageSale));
 
-const paymentMethodLabels: Record<PaymentMethod, string> = { CASH: "เงินสด", TRANSFER: "โอน" };
 const entitlementStatusMap: Record<EntitlementStatus, { label: string; color: BadgeColor }> = {
   ACTIVE: { label: "ใช้งานอยู่", color: "success" },
   PENDING: { label: "รอเปิดใช้งาน", color: "warning" },
@@ -124,6 +122,20 @@ const isDirty = computed(() => {
   return paymentForm.value.paymentMethod !== payment.value.paymentMethod || paymentForm.value.status !== payment.value.status || paymentForm.value.note !== (payment.value.note ?? "") || paymentForm.value.slipImageId !== (payment.value.slipImage?.id ?? null) || hasPendingSlip.value;
 });
 
+const copiedPaymentNo = ref(false);
+const copyPaymentNo = async () => {
+  const text = payment.value?.paymentNo;
+  if (!text) return;
+  try {
+    await navigator.clipboard.writeText(text);
+    copiedPaymentNo.value = true;
+    notify.success("คัดลอกเลขชำระเงินแล้ว");
+    setTimeout(() => { copiedPaymentNo.value = false; }, 2000);
+  } catch {
+    notify.error("ไม่สามารถคัดลอกได้");
+  }
+};
+
 const goBack = () => {
   if (import.meta.client && window.history.length > 1) {
     window.history.back();
@@ -133,15 +145,13 @@ const goBack = () => {
 };
 
 const getAvatarProps = (target?: PaymentDetailResponse["customer"] | null) => ({ as: { img: "img" }, src: target?.image || "", alt: target?.name || target?.email || "ลูกค้า", loading: "lazy" as const });
-const paymentMethodOptions = [{ label: "เงินสด", value: "CASH" }, { label: "โอน", value: "TRANSFER" }];
-const paymentStatusOptions = [{ label: paymentStatusLabels.PENDING, value: "PENDING" }, { label: paymentStatusLabels.VERIFIED, value: "VERIFIED" }, { label: paymentStatusLabels.FAILED, value: "FAILED" }];
 const saleTypeLabel = computed(() => (isPackagePayment.value ? "แพ็กเกจ" : "รายการผ้า"));
 const saleTypeColor = computed<BadgeColor>(() => (isPackagePayment.value ? "primary" : "warning"));
 const purchaseSectionTitle = computed(() => (isPackagePayment.value ? "ข้อมูลการซื้อแพ็กเกจ" : "ข้อมูลรายการผ้า"));
 const totalsSectionTitle = computed(() => (isPackagePayment.value ? "สรุปยอดการซื้อ" : "สรุปยอดรายการผ้า"));
 const itemSectionTitle = computed(() => (isPackagePayment.value ? "รายการแพ็กเกจ" : "รายการผ้า"));
 const itemSectionDescription = computed(() => `${isPackagePayment.value ? payment.value?.packageSale?.items.length ?? 0 : payment.value?.serviceOrder?.items.length ?? 0} รายการ`);
-const paymentManagerDescription = computed(() => canEditPayment.value ? "แก้ไขช่องทางชำระเงิน สถานะ หมายเหตุ และหลักฐานการชำระเงินได้" : "รายการงานผ้ายังแก้ไขการชำระจากหน้านี้ไม่ได้ กรุณาไปที่หน้าจัดการงานผ้า");
+const paymentManagerDescription = "แก้ไขหมายเหตุและหลักฐานการชำระเงินได้";
 
 const customerInfoRows = computed<InfoRow[]>(() => payment.value ? [
   { label: "ชื่อลูกค้า", value: payment.value.customer.name || "-" },
@@ -160,8 +170,13 @@ const purchaseInfoRows = computed<InfoRow[]>(() => {
       { label: "หมายเหตุการขาย", value: payment.value.packageSale.note || "-", valueClass: "whitespace-pre-line" },
     ];
   }
+  const serviceOrderId = payment.value.serviceOrder?.id;
   return [
-    { label: "เลขรับผ้า", value: payment.value.serviceOrder?.orderNo || payment.value.serviceOrder?.id || "-" },
+    {
+      label: "เลขรับผ้า",
+      value: payment.value.serviceOrder?.orderNo || serviceOrderId || "-",
+      href: serviceOrderId ? `/admin/service-orders/${serviceOrderId}` : undefined,
+    },
     { label: "สถานะงาน", value: payment.value.serviceOrder ? serviceOrderStatusMap[payment.value.serviceOrder.status].label : "-" },
     { label: "วันที่รับงาน", value: payment.value.serviceOrder?.receivedAt ? formatDateTime(payment.value.serviceOrder.receivedAt) : "-" },
     { label: "วันนัดรับ", value: payment.value.serviceOrder?.dueAt ? formatDateTime(payment.value.serviceOrder.dueAt) : "-" },
@@ -173,14 +188,8 @@ const purchaseInfoRows = computed<InfoRow[]>(() => {
 
 const paymentInfoRows = computed<InfoRow[]>(() => payment.value ? [
   { label: "เลขชำระเงิน", value: payment.value.paymentNo || "-" },
-  { label: "ช่องทางชำระ", value: paymentMethodLabels[payment.value.paymentMethod] },
-  { label: "สถานะการชำระ", value: paymentStatusLabels[payment.value.status] },
-  { label: "วันที่สร้าง", value: formatDateTime(payment.value.createdAt) },
-  { label: "วันที่ชำระ", value: payment.value.paidAt ? formatDateTime(payment.value.paidAt) : "-" },
-  { label: "ผู้ตรวจสอบ", value: payment.value.verifiedBy?.name || payment.value.verifiedBy?.email || "-" },
-  { label: "เวลาตรวจสอบ", value: payment.value.verifiedAt ? formatDateTime(payment.value.verifiedAt) : "-" },
-  { label: "หมายเหตุการชำระ", value: payment.value.note || "-", valueClass: "whitespace-pre-line" },
-  { label: "เหตุผลที่ไม่ผ่าน", value: payment.value.rejectionReason || "-", valueClass: "whitespace-pre-line" },
+  { label: "วันที่ชำระ", value: formatDateTime(payment.value.paidAt || payment.value.createdAt) },
+  { label: "หมายเหตุ", value: payment.value.note || "-", valueClass: "whitespace-pre-line" },
 ] : []);
 
 const totalRows = computed<InfoRow[]>(() => {
@@ -206,35 +215,46 @@ const totalRows = computed<InfoRow[]>(() => {
 const detailItems = computed<DetailItem[]>(() => {
   if (!payment.value) return [];
   if (payment.value.packageSale) {
-    return payment.value.packageSale.items.map((item) => ({
+    return payment.value.packageSale.items.map<DetailItem>((item) => ({
       id: item.id,
       title: item.product.name,
       metaLabel: [
-        item.product.packageType ? packageTypeLabels[item.product.packageType] : null,
         item.product.credits ? `เครดิต ${item.product.credits}` : null,
         item.product.validityDays ? `อายุ ${item.product.validityDays} วัน` : null,
-        `${formatCurrency(item.unitPrice)} / รายการ`,
       ].filter(Boolean).join(" • "),
+      unitPriceLabel: formatCurrency(item.unitPrice),
       quantityLabel: `${item.quantity} รายการ`,
       totalLabel: formatCurrency(item.totalPrice),
       badgeLabel: packageTypeLabels[item.product.packageType],
       badgeColor: packageTypeColors[item.product.packageType] as BadgeColor,
     }));
   }
-  return (payment.value.serviceOrder?.items || []).map((item) => ({
+  return (payment.value.serviceOrder?.items || []).map<DetailItem>((item) => ({
     id: item.id,
     title: item.label,
-    metaLabel: [
-      item.service.name,
-      item.notes || null,
-      `${formatCurrency(item.unitPrice)} / ชิ้น`,
-    ].filter(Boolean).join(" • "),
+    metaLabel: item.service.name,
+    notes: item.notes,
+    unitPriceLabel: formatCurrency(item.unitPrice),
     quantityLabel: `${item.quantity} ชิ้น`,
     totalLabel: formatCurrency(item.totalPrice),
     badgeLabel: item.isPackageIncluded ? "รวมในแพ็กเกจ" : null,
     badgeColor: item.isPackageIncluded ? "success" : undefined,
+    photos: (item.photos.length
+      ? item.photos
+      : (item.image ? [{ id: item.image.id, isDamaged: false, url: item.image.url, secureUrl: item.image.secureUrl }] : [])
+    ).map((p) => ({ id: p.id, isDamaged: "isDamaged" in p ? p.isDamaged : false, url: p.url, secureUrl: p.secureUrl })),
   }));
 });
+
+const previewOpen = ref(false);
+const previewUrl = ref("");
+const previewTitle = ref("ดูรูป");
+const openItemImagePreview = (url: string | null | undefined, title = "ดูรูป") => {
+  if (!url) return;
+  previewUrl.value = url;
+  previewTitle.value = title;
+  previewOpen.value = true;
+};
 
 const entitlementRows = computed<InfoRow[]>(() => payment.value?.memberEntitlement ? [
   { label: "ชื่อแพ็กเกจ", value: payment.value.memberEntitlement.product.name },
@@ -252,12 +272,7 @@ const handleSlipRemove = () => {
   }
   paymentForm.value.slipImageId = null;
 };
-const showEditBlockedNotice = () => { notify.info("รายการชำระเงินของงานผ้ายังแก้ไขจากหน้านี้ไม่ได้ กรุณาไปที่หน้าจัดการงานผ้า"); };
 const handleSaveButtonClick = () => {
-  if (!canEditPayment.value) {
-    showEditBlockedNotice();
-    return;
-  }
   if (!isDirty.value) {
     notify.info("ยังไม่มีการเปลี่ยนแปลงให้บันทึก");
     return;
@@ -265,11 +280,7 @@ const handleSaveButtonClick = () => {
   void savePaymentChanges();
 };
 const savePaymentChanges = async () => {
-  if (!payment.value || !canEditPayment.value) return;
-  if (paymentForm.value.paymentMethod === "TRANSFER" && !paymentForm.value.slipImageId && !pendingSlipFile.value) {
-    notify.error("กรุณาอัปโหลดหลักฐานการโอน");
-    return;
-  }
+  if (!payment.value) return;
   isSavingPayment.value = true;
   let slipImageId = paymentForm.value.slipImageId;
   if (pendingSlipFile.value) {
@@ -301,7 +312,6 @@ const savePaymentChanges = async () => {
         <template #right>
           <div class="flex flex-wrap items-center gap-2">
             <UButton label="กลับ" color="neutral" variant="outline" icon="i-lucide-arrow-left" @click="goBack" />
-            <UButton v-if="payment?.serviceOrder?.id" label="ใบรับผ้า" color="neutral" variant="outline" icon="i-lucide-ticket" @click="navigateTo(`/admin/service-orders/${payment.serviceOrder.id}/intake`)" />
             <UButton v-if="payment" label="ใบเสร็จ" color="neutral" variant="outline" icon="i-lucide-receipt" @click="navigateTo(`/admin/payment/${payment.id}/receipt`)" />
             <UButton icon="i-lucide-refresh-cw" color="neutral" variant="outline" :loading="isLoading" @click="refresh()" />
           </div>
@@ -335,10 +345,19 @@ const savePaymentChanges = async () => {
                     <p class="truncate text-base font-semibold text-highlighted">{{ payment.customer.name || payment.customer.email || "-" }}</p>
                     <UBadge :color="saleTypeColor" variant="subtle">{{ saleTypeLabel }}</UBadge>
                   </div>
-                  <p class="mt-1 text-sm text-muted">{{ payment.paymentNo || "-" }}</p>
+                  <div class="mt-1 flex items-center gap-1">
+                    <p class="text-sm text-muted">{{ payment.paymentNo || "-" }}</p>
+                    <UButton
+                      v-if="payment.paymentNo"
+                      :icon="copiedPaymentNo ? 'i-lucide-check' : 'i-lucide-copy'"
+                      size="xs"
+                      :color="copiedPaymentNo ? 'success' : 'neutral'"
+                      variant="ghost"
+                      @click="() => copyPaymentNo()"
+                    />
+                  </div>
                 </div>
               </div>
-              <UBadge :color="paymentStatusColors[payment.status] as BadgeColor" variant="subtle">{{ paymentStatusLabels[payment.status] }}</UBadge>
             </div>
 
             <div class="mt-5 space-y-5">
@@ -364,7 +383,16 @@ const savePaymentChanges = async () => {
                 <div class="mt-3 grid gap-x-6 gap-y-2 text-sm lg:grid-cols-2 lg:[&>*:nth-child(odd)]:pr-4 lg:[&>*:nth-child(even)]:border-l lg:[&>*:nth-child(even)]:border-dashed lg:[&>*:nth-child(even)]:border-default lg:[&>*:nth-child(even)]:pl-4">
                   <div v-for="row in purchaseInfoRows" :key="row.label" class="flex items-start justify-between gap-3">
                     <span class="text-muted">{{ row.label }}</span>
-                    <span class="max-w-[62%] text-right" :class="row.valueClass">{{ row.value }}</span>
+                    <NuxtLink
+                      v-if="row.href"
+                      :to="row.href"
+                      class="flex max-w-[62%] items-center gap-1 text-right text-primary hover:underline"
+                      :class="row.valueClass"
+                    >
+                      <span>{{ row.value }}</span>
+                      <UIcon name="i-lucide-external-link" class="size-3.5" />
+                    </NuxtLink>
+                    <span v-else class="max-w-[62%] text-right" :class="row.valueClass">{{ row.value }}</span>
                   </div>
                 </div>
               </section>
@@ -393,18 +421,62 @@ const savePaymentChanges = async () => {
                 <p class="text-base font-semibold text-highlighted">{{ itemSectionTitle }} <span class="text-sm text-muted ml-2">{{ itemSectionDescription }}</span></p>
               </div>
             </div>
-            <div v-if="detailItems.length" class="divide-y divide-default">
-              <div v-for="item in detailItems" :key="item.id" class="flex items-center gap-3 px-5 py-4 text-sm">
-                <div class="min-w-0 flex-1">
-                  <div class="flex items-center gap-2 overflow-hidden">
-                    <p class="truncate font-medium text-highlighted">{{ item.title }}</p>
-                    <UBadge v-if="item.badgeLabel" :color="item.badgeColor || 'neutral'" variant="subtle" size="sm">{{ item.badgeLabel }}</UBadge>
-                  </div>
-                  <p v-if="item.metaLabel" class="truncate text-xs text-muted">{{ item.metaLabel }}</p>
-                </div>
-                <p class="shrink-0 whitespace-nowrap text-muted">{{ item.quantityLabel }}</p>
-                <p class="shrink-0 whitespace-nowrap font-semibold text-highlighted">{{ item.totalLabel }}</p>
-              </div>
+            <div v-if="detailItems.length" class="overflow-x-auto">
+              <table class="w-full min-w-[640px] text-sm">
+                <thead class="bg-elevated/40 text-xs text-muted">
+                  <tr>
+                    <th v-if="!isPackagePayment" class="w-20 px-5 py-2 text-left font-medium">รูป</th>
+                    <th class="px-5 py-2 text-left font-medium">รายการ</th>
+                    <th class="w-28 px-5 py-2 text-right font-medium">ราคา/หน่วย</th>
+                    <th class="w-24 px-5 py-2 text-right font-medium">จำนวน</th>
+                    <th class="w-28 px-5 py-2 text-right font-medium">รวม</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-default">
+                  <tr v-for="item in detailItems" :key="item.id" class="align-top">
+                    <td v-if="!isPackagePayment" class="px-5 py-3">
+                      <div class="flex flex-wrap gap-1">
+                        <button
+                          v-for="photo in item.photos"
+                          :key="photo.id"
+                          type="button"
+                          class="relative size-14 overflow-hidden rounded-lg border border-default bg-muted/30"
+                          @click="openItemImagePreview(photo.secureUrl || photo.url, item.title)"
+                        >
+                          <NuxtImg
+                            :src="photo.secureUrl || photo.url || ''"
+                            class="h-full w-full cursor-pointer object-cover"
+                            sizes="56px"
+                            loading="lazy"
+                          />
+                          <UBadge
+                            v-if="photo.isDamaged"
+                            color="error"
+                            variant="solid"
+                            size="xs"
+                            class="absolute left-0.5 top-0.5"
+                          >!</UBadge>
+                        </button>
+                        <div
+                          v-if="!item.photos?.length"
+                          class="flex size-14 items-center justify-center rounded-lg border border-dashed border-default text-xs text-muted"
+                        >-</div>
+                      </div>
+                    </td>
+                    <td class="px-5 py-3">
+                      <div class="flex flex-wrap items-center gap-2">
+                        <p class="font-medium text-highlighted">{{ item.title }}</p>
+                        <UBadge v-if="item.badgeLabel" :color="item.badgeColor || 'neutral'" variant="subtle" size="xs">{{ item.badgeLabel }}</UBadge>
+                      </div>
+                      <p v-if="item.metaLabel" class="text-xs text-muted">{{ item.metaLabel }}</p>
+                      <p v-if="item.notes" class="mt-1 text-xs text-muted whitespace-pre-line">{{ item.notes }}</p>
+                    </td>
+                    <td class="px-5 py-3 text-right text-muted">{{ item.unitPriceLabel || "-" }}</td>
+                    <td class="px-5 py-3 text-right text-muted">{{ item.quantityLabel }}</td>
+                    <td class="px-5 py-3 text-right font-semibold text-highlighted">{{ item.totalLabel }}</td>
+                  </tr>
+                </tbody>
+              </table>
             </div>
             <div v-else class="px-5 py-10 text-center text-sm text-muted">ไม่พบรายการในบิลนี้</div>
           </UCard>
@@ -433,7 +505,6 @@ const savePaymentChanges = async () => {
                 <p class="text-base font-semibold text-highlighted">การชำระเงิน</p>
                 <p class="text-sm text-muted">{{ paymentManagerDescription }}</p>
               </div>
-              <UBadge :color="paymentStatusColors[payment.status] as BadgeColor" variant="subtle">{{ paymentStatusLabels[payment.status] }}</UBadge>
             </div>
 
             <div class="mt-5 space-y-2 text-sm">
@@ -444,26 +515,8 @@ const savePaymentChanges = async () => {
             </div>
 
             <div class="mt-5 space-y-4 border-t border-default pt-5">
-              <div class="grid grid-cols-2 gap-3">
-                <UFormField label="ช่องทางชำระเงิน">
-                  <div class="relative">
-                    <USelect v-model="paymentForm.paymentMethod" :items="paymentMethodOptions" value-key="value" :disabled="!canEditPayment || isSavingPayment" class="w-full" />
-                    <button v-if="!canEditPayment && !isSavingPayment" type="button" class="absolute inset-0 z-10 cursor-not-allowed rounded-md" aria-label="ไม่สามารถแก้ไขช่องทางชำระเงินได้" @click="showEditBlockedNotice" />
-                  </div>
-                </UFormField>
-                <UFormField label="สถานะการชำระเงิน">
-                  <div class="relative">
-                    <USelect v-model="paymentForm.status" :items="paymentStatusOptions" value-key="value" :disabled="!canEditPayment || isSavingPayment" class="w-full" />
-                    <button v-if="!canEditPayment && !isSavingPayment" type="button" class="absolute inset-0 z-10 cursor-not-allowed rounded-md" aria-label="ไม่สามารถแก้ไขสถานะการชำระเงินได้" @click="showEditBlockedNotice" />
-                  </div>
-                </UFormField>
-              </div>
-
               <UFormField label="หมายเหตุ">
-                <div class="relative">
-                  <UTextarea v-model="paymentForm.note" :disabled="!canEditPayment || isSavingPayment" :rows="4" placeholder="เพิ่มหมายเหตุเกี่ยวกับการชำระเงิน" class="w-full" />
-                  <button v-if="!canEditPayment && !isSavingPayment" type="button" class="absolute inset-0 z-10 cursor-not-allowed rounded-md" aria-label="ไม่สามารถแก้ไขหมายเหตุได้" @click="showEditBlockedNotice" />
-                </div>
+                <UTextarea v-model="paymentForm.note" :disabled="isSavingPayment" :rows="4" placeholder="เพิ่มหมายเหตุเกี่ยวกับการชำระเงิน" class="w-full" />
               </UFormField>
 
               <SlipUploadField
@@ -473,7 +526,6 @@ const savePaymentChanges = async () => {
                 :image-url="currentSlipImageUrl || null"
                 :image-label="currentSlipImageUrl || null"
                 :disabled="isSavingPayment"
-                :blocked-message="!canEditPayment ? 'รายการชำระเงินของงานผ้ายังแก้ไขรูปหลักฐานจากหน้านี้ไม่ได้' : null"
                 :loading="isUploadingSlip"
                 :show-remove="hasPendingSlip || Boolean(currentSlipImage)"
                 confirm-remove
@@ -500,4 +552,11 @@ const savePaymentChanges = async () => {
       </div>
     </template>
   </UDashboardPanel>
+
+  <UIImagePreviewModal
+    v-model:open="previewOpen"
+    :title="previewTitle"
+    :image-url="previewUrl"
+    image-alt="รูปหลักฐาน"
+  />
 </template>
