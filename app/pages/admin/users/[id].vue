@@ -1,13 +1,11 @@
 <script setup lang="ts">
 import { packageTypeColors, packageTypeLabels } from '~~/shared/config/packageConfig'
-import { paymentStatusLabels } from '~~/shared/config/paymentConfig'
 import { orderStatusLabels } from '~~/shared/config/orderConfig'
 import { formatCurrency, formatDateTime } from '~~/shared/utils/format'
 import type {
   EntitlementStatus,
   PackageSaleStatus,
   PaymentMethod,
-  PaymentStatus,
   Role,
   ServiceOrderStatus
 } from '~~/shared/types/enums'
@@ -71,7 +69,7 @@ type UserDetailResponse = {
     id: string
     amount: number
     paymentMethod: PaymentMethod
-    status: PaymentStatus
+    isVerified: boolean
     note: string | null
     createdAt: string
     paidAt: string | null
@@ -530,7 +528,7 @@ const orderItemCount = (order: UserDetailResponse['recentServiceOrders'][number]
                   </div>
                 </div>
                 <div class="flex items-center justify-between gap-2">
-                  <span class="text-sm text-muted">{{ paymentStatusLabels[payment.status] }} · {{ paymentMethodLabelMap[payment.paymentMethod] }}</span>
+                  <span class="text-sm text-muted">{{ payment.isVerified ? "ยืนยันแล้ว" : "รอตรวจสอบ" }} · {{ paymentMethodLabelMap[payment.paymentMethod] }}</span>
                   <p class="mt-1 text-sm text-muted text-right">{{ formatDateTime(payment.createdAt) }}</p>
                 </div>
               </div>

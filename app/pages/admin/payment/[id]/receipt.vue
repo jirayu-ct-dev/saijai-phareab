@@ -14,7 +14,6 @@ type ReceiptPayload = {
   paidAt: string | null;
   amount: number;
   paymentMethod: "CASH" | "TRANSFER";
-  status: "PENDING" | "VERIFIED" | "FAILED";
   note: string | null;
   customer: {
     id: string;
@@ -101,6 +100,7 @@ type ReceiptLineItem = {
   id: string;
   name: string;
   quantity: number;
+  unitPrice: number;
   totalPrice: number;
   subtitle: string | null;
 };
@@ -113,12 +113,7 @@ definePageMeta({
 const route = useRoute();
 const paymentId = computed(() => String(route.params.id ?? ""));
 
-const SHOP_PROFILE = {
-  name: "ร้านใส่ใจผ้าเรียบ",
-  subtitle: "ซัก อบ รีด",
-  address: "หน้าร้านบุรีรัมย์",
-  phone: "เบอร์โทรศัพท์",
-};
+const { settings: shopSettings } = useAdminShopSettings();
 
 const { data, status, refresh, error } = await useFetch<ReceiptPayload>(() => `/api/admin/payments/${paymentId.value}/receipt`, {
   key: () => `payment-receipt-${paymentId.value}`,
@@ -137,6 +132,7 @@ const receiptLines = computed<ReceiptLineItem[]>(() => {
       id: item.id,
       name: item.name,
       quantity: item.quantity,
+      unitPrice: item.unitPrice,
       totalPrice: item.totalPrice,
       subtitle: item.type === "MAIN" ? "แพ็กเกจหลัก" : "แพ็กเกจเสริม",
     }));
@@ -146,6 +142,7 @@ const receiptLines = computed<ReceiptLineItem[]>(() => {
     id: item.id,
     name: item.name,
     quantity: item.quantity,
+    unitPrice: item.unitPrice,
     totalPrice: item.totalPrice,
     subtitle: null,
   })) ?? [];
@@ -178,8 +175,21 @@ const infoRows = computed(() => {
     { label: "เลขรับผ้า", value: d.serviceOrder?.orderNo ?? null },
     { label: "วันที่", value: formatDateTime(d.createdAt), show: !isServiceOrder },
     { label: "วันที่รับผ้า", value: d.serviceOrder?.receivedAt ? formatDateTime(d.serviceOrder.receivedAt) : null },
-    { label: "วันนัดรับ", value: d.serviceOrder?.dueAt ? formatDateTime(d.serviceOrder.dueAt) : null },
-    { label: "วันที่ส่งผ้า", value: d.paidAt ? formatDateTime(d.paidAt) : null, show: isServiceOrder },
+    {
+      label: "วันนัดรับ",
+      value: d.serviceOrder?.status === "COMPLETED"
+        ? null
+        : (d.serviceOrder?.dueAt ? formatDateTime(d.serviceOrder.dueAt) : "ไม่ระบุ"),
+      show: isServiceOrder && d.serviceOrder?.status !== "COMPLETED",
+    },
+    {
+      label: "วันที่ส่งผ้า",
+      value: (() => {
+        const date = d.paidAt ?? d.serviceOrder?.dueAt ?? null;
+        return date ? formatDateTime(date) : "ไม่ระบุ";
+      })(),
+      show: isServiceOrder && d.serviceOrder?.status === "COMPLETED",
+    },
     { label: "แพ็กเกจ", value: memberEntitlement.value?.productName ?? null, show: isMemberOrder.value },
     { label: "รูปแบบ", value: "แพ็กเกจรายเดือน", show: isMemberOrder.value },
     { label: "ชื่อลูกค้า", value: customerName.value },
@@ -204,10 +214,10 @@ const infoRows = computed(() => {
   >
     <template v-if="data">
       <ThermalHeader
-        :name="SHOP_PROFILE.name"
-        :subtitle="SHOP_PROFILE.subtitle"
-        :address="SHOP_PROFILE.address"
-        :phone="SHOP_PROFILE.phone"
+        :name="shopSettings?.name ?? ''"
+        :address="shopSettings?.address ?? ''"
+        :phone="shopSettings?.phone ?? ''"
+        :logo-url="shopSettings?.logoUrl"
       />
 
       <ThermalTitle :text="receiptTitle" />
@@ -219,10 +229,11 @@ const infoRows = computed(() => {
       <div class="thermal-dash mt-3" />
 
       <section class="mt-2">
-        <div class="flex items-start gap-2 text-[12px] font-bold">
-          <p class="min-w-0 flex-1">รายการ</p>
-          <p class="w-10 shrink-0 text-right whitespace-nowrap">จำนวน</p>
-          <p class="w-19.5 shrink-0 text-right whitespace-nowrap">รวม</p>
+        <div class="item-row text-[12px] font-bold">
+          <p class="min-w-0">รายการ</p>
+          <p class="text-right whitespace-nowrap">ราคา/ชิ้น</p>
+          <p class="text-right whitespace-nowrap">จำนวน</p>
+          <p class="text-right whitespace-nowrap">รวม</p>
         </div>
 
         <div class="thermal-dash mt-1" />
@@ -234,6 +245,9 @@ const infoRows = computed(() => {
                 <p class="item-name font-semibold leading-4">{{ item.name }}</p>
                 <p v-if="item.subtitle" class="item-name mt-0.5 text-[11px] leading-4 text-neutral-600">{{ item.subtitle }}</p>
               </div>
+              <p class="text-right whitespace-nowrap">
+                {{ isMemberOrder && item.unitPrice === 0 ? "-" : formatCurrency(item.unitPrice) }}
+              </p>
               <p class="text-right whitespace-nowrap">x{{ item.quantity }}</p>
               <p class="text-right whitespace-nowrap">
                 {{ isMemberOrder && item.totalPrice === 0 ? `${item.quantity} เครดิต` : formatCurrency(item.totalPrice) }}
@@ -334,7 +348,7 @@ const infoRows = computed(() => {
       </section>
 
       <div class="mt-4 flex flex-col items-center">
-        <ThermalLineQr />
+        <ThermalLineQr :image-url="shopSettings?.lineQrImageUrl" />
       </div>
 
       <div class="thermal-dash mt-6" />
@@ -357,15 +371,15 @@ const infoRows = computed(() => {
 
 .item-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 36px 56px;
+  grid-template-columns: minmax(0, 1fr) 52px 36px 56px;
   align-items: start;
-  gap: 8px;
+  gap: 6px;
 }
 
 .item-name {
   overflow: hidden;
   text-overflow: ellipsis;
-  white-space: nowrap;
+  
 }
 
 .summary-row {

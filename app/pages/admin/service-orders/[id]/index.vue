@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { PaymentMethod, PaymentStatus, ServiceOrderStatus } from "~~/shared/types/enums";
+import type { PaymentMethod, ServiceOrderStatus } from "~~/shared/types/enums";
 import { orderStatusColors, orderStatusLabels } from "~~/shared/config/orderConfig";
 import { formatCurrency, formatDateTime } from "~~/shared/utils/format";
 import ImagePreviewModal from "~~/app/components/UI/ImagePreviewModal.vue";
@@ -72,7 +72,7 @@ type ServiceOrderDetailResponse = {
     id: string;
     paymentNo: string | null;
     paymentMethod: PaymentMethod;
-    status: PaymentStatus;
+    isVerified: boolean;
     amount: number;
     note: string | null;
     paidAt: string | null;

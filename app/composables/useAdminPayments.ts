@@ -1,4 +1,4 @@
-import type { PaymentMethod, PaymentStatus } from "~~/shared/types/enums";
+import type { PaymentMethod } from "~~/shared/types/enums";
 
 export type PaymentSlipImage = {
   id: string;
@@ -10,7 +10,7 @@ export type AdminPaymentRecord = {
   id: string;
   paymentNo: string | null;
   amount: number;
-  status: PaymentStatus;
+
   paymentMethod: PaymentMethod;
   note: string | null;
   createdAt: string;
@@ -62,7 +62,7 @@ export type UpdateAdminPaymentBody = {
   productId?: string;
   amount?: number;
   paymentMethod?: PaymentMethod;
-  status?: PaymentStatus;
+
   note?: string | null;
   slipImageId?: string | null;
 };

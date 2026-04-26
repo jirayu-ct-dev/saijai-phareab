@@ -23,11 +23,6 @@ enum PackageType {
   ADDON
 }
 
-enum PaymentStatus {
-  PENDING
-  VERIFIED
-  FAILED
-}
 
 enum PaymentMethod {
   CASH
@@ -471,7 +466,6 @@ model PaymentRecord {
   paymentMethod       PaymentMethod
   slipImageId         String?
   slipImage           Image?             @relation("PaymentSlipImage", fields: [slipImageId], references: [id])
-  status              PaymentStatus      @default(PENDING)
   note                String?
   paidAt              DateTime?
   metadata            Json?
@@ -491,7 +485,6 @@ model PaymentRecord {
   @@index([serviceOrderId])
   @@index([paymentMethod, createdAt])
   @@index([paymentNo])
-  @@index([status, createdAt])
   @@map("payment_record")
 }
 
@@ -516,4 +509,16 @@ model UserAddress {
   @@index([userId])
   @@index([userId, isDefault])
   @@map("user_address")
+}
+
+model ShopSetting {
+  id        String   @id @default("singleton")
+  name      String   @default("")
+  phone     String   @default("")
+  address   String   @default("")
+  logoUrl        String?
+  lineQrImageUrl String?
+  updatedAt      DateTime @updatedAt
+
+  @@map("shop_setting")
 }

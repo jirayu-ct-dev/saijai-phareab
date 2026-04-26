@@ -1,4 +1,4 @@
-import type { PackageSaleStatus, PaymentMethod, PaymentStatus } from "~~/shared/types/enums";
+import type { PackageSaleStatus, PaymentMethod } from "~~/shared/types/enums";
 
 export type AdminSaleSlipImage = {
   id: string;
@@ -37,7 +37,7 @@ export type AdminPackageSaleRecord = {
     id: string;
     amount: number;
     paymentMethod: PaymentMethod;
-    status: PaymentStatus;
+    isVerified: boolean;
     note: string | null;
     paidAt: string | null;
     verifiedAt: string | null;
@@ -55,7 +55,6 @@ export type CreateAdminSaleBody = {
   items: AdminSaleItemInput[];
   discountAmount?: number;
   paymentMethod: PaymentMethod;
-  status?: PaymentStatus;
   note?: string | null;
   slipImageId?: string | null;
 };

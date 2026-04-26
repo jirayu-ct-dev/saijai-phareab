@@ -164,7 +164,6 @@ export default defineEventHandler(async (event) => {
     paidAt: payment.paidAt?.toISOString() ?? null,
     amount: toNumber(payment.amount),
     paymentMethod: payment.paymentMethod,
-    status: payment.status,
     note: payment.note,
     slipImage: payment.slipImage
       ? {

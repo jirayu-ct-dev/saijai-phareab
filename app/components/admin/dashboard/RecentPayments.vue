@@ -8,11 +8,6 @@
 import { h, resolveComponent } from 'vue'
 import type { TableColumn } from '@nuxt/ui'
 import type { Period, Range } from '~~/shared/types/dashboard'
-import type { PaymentStatus } from '~~/shared/types/enums'
-import {
-  paymentStatusLabels,
-  paymentStatusColors
-} from '~~/shared/config/paymentConfig'
 import { formatCurrency, formatDateTime } from '~~/shared/utils/format'
 import { randomInt, randomFrom } from '~~/shared/utils/math'
 
@@ -41,7 +36,7 @@ interface RecentPayment {
   customerAvatar: string
   lineUserId?: string | null
   amount: number
-  status: PaymentStatus
+  isVerified: boolean
   paymentType: 'PACKAGE' | 'ORDER'
   createdAt: Date
 }
@@ -58,8 +53,6 @@ const mockCustomers = [
   { name: 'คุณประเสริฐ สะดวก', avatar: 'PS', lineUserId: 'Ubbcf8a984739434e4c0766983a54ad1a' }
 ]
 
-const mockStatuses: PaymentStatus[] = ['PENDING', 'VERIFIED', 'FAILED']
-
 const generateMockPayments = (count: number): RecentPayment[] => {
   const payments: RecentPayment[] = []
   const now = new Date()
@@ -75,7 +68,7 @@ const generateMockPayments = (count: number): RecentPayment[] => {
       customerAvatar: customer.avatar,
       lineUserId: customer.lineUserId,
       amount: randomInt(500, 5000),
-      status: randomFrom(mockStatuses),
+      isVerified: Math.random() > 0.5,
       paymentType: Math.random() > 0.5 ? 'PACKAGE' : 'ORDER',
       createdAt: date
     })
@@ -135,14 +128,11 @@ const columns: TableColumn<RecentPayment>[] = [
     }
   },
   {
-    accessorKey: 'status',
+    accessorKey: 'isVerified',
     header: 'สถานะ',
     cell: ({ row }) => {
-      const s = row.getValue('status') as PaymentStatus
-      return h(UBadge, {
-        variant: 'subtle',
-        color: paymentStatusColors[s]
-      }, () => paymentStatusLabels[s])
+      const verified = row.getValue('isVerified') as boolean
+      return h(UBadge, { variant: 'subtle', color: verified ? 'success' : 'warning' }, () => verified ? 'ยืนยันแล้ว' : 'รอตรวจสอบ')
     }
   },
   {

@@ -1,4 +1,4 @@
-import type { PaymentMethod, PaymentStatus, Timestamps, SoftDeletable } from "./enums";
+import type { PaymentMethod, Timestamps, SoftDeletable } from "./enums";
 import type { User } from "./auth";
 import type { MemberEntitlement } from "./package";
 import type { Image } from "./image";
@@ -16,7 +16,6 @@ export interface PaymentRecord extends Timestamps, SoftDeletable {
   amount: number | string;
   paymentMethod: PaymentMethod;
   slipImageId: string | null;
-  status: PaymentStatus;
   note: string | null;
   paidAt: Date | null;
   metadata: any | null;

@@ -1,4 +1,4 @@
-import type { PaymentMethod, PaymentStatus, ServiceOrderStatus } from "~~/shared/types/enums";
+import type { PaymentMethod, ServiceOrderStatus } from "~~/shared/types/enums";
 import { DEFAULT_HANGER_PRICE_PER_UNIT } from "~~/shared/config/posConfig";
 import { requireRole } from "~~/server/utils/auth";
 import { createPaymentNo } from "~~/server/utils/paymentNo";
@@ -25,17 +25,12 @@ type CreateServiceOrderBody = {
   dueAt?: string | null;
   discountAmount?: number;
   paymentMethod?: PaymentMethod;
-  status?: PaymentStatus;
+  isVerified?: boolean;
   serviceOrderStatus?: ServiceOrderStatus;
   note?: string | null;
   slipImageId?: string | null;
 };
 
-const getDefaultServiceOrderStatus = (status: PaymentStatus) => {
-  if (status === "VERIFIED") return "RECEIVED" as const;
-  if (status === "FAILED") return "CANCELLED" as const;
-  return "RECEIVED" as const;
-};
 
 export default defineEventHandler(async (event) => {
   const actor = requireRole(event, ["EMPLOYEE", "ADMIN"]);
@@ -103,9 +98,8 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, statusMessage: "ช่องทางการชำระเงินไม่ถูกต้อง" });
   }
 
-  const status: PaymentStatus = body.status ?? "PENDING";
-  const serviceOrderStatus: ServiceOrderStatus = body.serviceOrderStatus ?? getDefaultServiceOrderStatus(status);
-  const isVerified = status === "VERIFIED";
+  const isVerified = body.isVerified ?? false;
+  const serviceOrderStatus: ServiceOrderStatus = body.serviceOrderStatus ?? "RECEIVED";
   const receivedAt = new Date();
   const dueAt = body.dueAt ? new Date(body.dueAt) : null;
 
@@ -327,12 +321,11 @@ export default defineEventHandler(async (event) => {
           amount: payableAmount,
           paymentMethod,
           slipImageId: body.slipImageId ?? null,
-          status,
           note: body.note?.trim() || null,
           paidAt: isVerified ? new Date() : null,
           verifiedById: isVerified ? actor.id : null,
           verifiedAt: isVerified ? new Date() : null,
-          rejectionReason: status === "FAILED" ? "บันทึกรายการไม่สำเร็จ" : null,
+          rejectionReason: null,
           metadata: {
             createdByAdminId: actor.id,
             source: "admin-service-orders",

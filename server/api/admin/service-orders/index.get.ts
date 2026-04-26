@@ -219,7 +219,7 @@ export default defineEventHandler(async (event) => {
               id: payment.id,
               paymentNo: payment.paymentNo,
               paymentMethod: payment.paymentMethod,
-              status: payment.status,
+              isVerified: payment.paidAt !== null,
               amount: toNumber(payment.amount),
               paidAt: payment.paidAt?.toISOString() ?? null,
               slipImage: payment.slipImage

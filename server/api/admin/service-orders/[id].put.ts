@@ -1,4 +1,4 @@
-import type { PaymentMethod, PaymentStatus, ServiceOrderStatus } from "~~/shared/types/enums";
+import type { PaymentMethod, ServiceOrderStatus } from "~~/shared/types/enums";
 import { DEFAULT_HANGER_PRICE_PER_UNIT } from "~~/shared/config/posConfig";
 import { requireRole } from "~~/server/utils/auth";
 import { createPaymentNo } from "~~/server/utils/paymentNo";
@@ -25,7 +25,7 @@ type UpdateServiceOrderBody = {
   dueAt?: string | null;
   discountAmount?: number;
   paymentMethod?: PaymentMethod;
-  status?: PaymentStatus;
+  isVerified?: boolean;
   serviceOrderStatus?: ServiceOrderStatus;
   note?: string | null;
   slipImageId?: string | null;
@@ -299,10 +299,9 @@ export default defineEventHandler(async (event) => {
         nextEntitlementId = entitlement.id;
       }
 
-      const paymentStatus: PaymentStatus = body.status ?? existing.payments[0]?.status ?? "PENDING";
-      const isVerified = paymentStatus === "VERIFIED";
-      const wasVerified = existing.payments[0]?.status === "VERIFIED";
       const existingPayment = existing.payments[0];
+      const wasVerified = existingPayment?.paidAt !== null && existingPayment?.paidAt !== undefined;
+      const isVerified = body.isVerified ?? wasVerified;
 
       const deletedAt = new Date();
 
@@ -403,12 +402,12 @@ export default defineEventHandler(async (event) => {
             amount: payableAmount,
             paymentMethod,
             slipImageId: slipImageId ?? null,
-            status: paymentStatus,
+
             note: body.note?.trim() || null,
             paidAt: isVerified ? (existingPayment?.paidAt ?? new Date()) : null,
             verifiedById: isVerified ? (wasVerified ? existingPayment?.verifiedById ?? actor.id : actor.id) : null,
             verifiedAt: isVerified ? (wasVerified ? existingPayment?.verifiedAt ?? new Date() : new Date()) : null,
-            rejectionReason: paymentStatus === "FAILED" ? "อัปเดตรายการโดยผู้ดูแลระบบ" : null,
+            rejectionReason: null,
             metadata: {
               updatedByAdminId: actor.id,
               source: "admin-service-orders",
@@ -436,12 +435,12 @@ export default defineEventHandler(async (event) => {
             amount: payableAmount,
             paymentMethod,
             slipImageId: slipImageId ?? null,
-            status: paymentStatus,
+
             note: body.note?.trim() || null,
             paidAt: isVerified ? (existingPayment?.paidAt ?? new Date()) : null,
             verifiedById: isVerified ? (wasVerified ? existingPayment?.verifiedById ?? actor.id : actor.id) : null,
             verifiedAt: isVerified ? (wasVerified ? existingPayment?.verifiedAt ?? new Date() : new Date()) : null,
-            rejectionReason: paymentStatus === "FAILED" ? "บันทึกรายการไม่สำเร็จ" : null,
+            rejectionReason: null,
             metadata: {
               createdByAdminId: actor.id,
               source: "admin-service-orders",

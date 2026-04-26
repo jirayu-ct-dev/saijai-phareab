@@ -1,5 +1,5 @@
 import { addDays } from "date-fns";
-import type { PaymentMethod, PaymentStatus } from "~~/shared/types/enums";
+import type { PaymentMethod } from "~~/shared/types/enums";
 import { requireRole } from "~~/server/utils/auth";
 import { prisma } from "~~/server/utils/prisma";
 
@@ -8,7 +8,7 @@ interface UpdatePaymentBody {
   productId?: string;
   amount?: number;
   paymentMethod?: PaymentMethod;
-  status?: PaymentStatus;
+  isVerified?: boolean;
   note?: string | null;
   slipImageId?: string | null;
 }
@@ -16,21 +16,9 @@ interface UpdatePaymentBody {
 const buildEntitlementState = (
   validityDays: number | null | undefined,
   credits: number | null | undefined,
-  paymentStatus: PaymentStatus,
+  isVerified: boolean,
 ) => {
-  if (paymentStatus === "FAILED") {
-    return {
-      status: "CANCELLED" as const,
-      startAt: null,
-      endAt: null,
-      activatedAt: null,
-      suspendedAt: null,
-      creditInitial: null,
-      creditRemaining: null,
-    };
-  }
-
-  if (paymentStatus !== "VERIFIED") {
+  if (!isVerified) {
     return {
       status: "PENDING" as const,
       startAt: null,
@@ -92,12 +80,8 @@ export default defineEventHandler(async (event) => {
                   },
                 },
                 memberEntitlements: {
-                  where: {
-                    deletedAt: null,
-                  },
-                  select: {
-                    id: true,
-                  },
+                  where: { deletedAt: null },
+                  select: { id: true },
                 },
               },
             },
@@ -110,9 +94,10 @@ export default defineEventHandler(async (event) => {
       throw createError({ statusCode: 404, statusMessage: "ไม่พบรายการชำระเงินที่ต้องการแก้ไข" });
     }
 
+    const isVerified = body.isVerified ?? (existing.paidAt !== null);
+
     if (!existing.packageSale) {
       const nextPaymentMethod = body.paymentMethod ?? existing.paymentMethod;
-      const nextStatus = body.status ?? existing.status;
       const nextNote = body.note !== undefined ? body.note?.trim() || null : (existing.note ?? null);
       const nextSlipImageId = body.slipImageId !== undefined ? body.slipImageId : existing.slipImageId;
 
@@ -120,19 +105,16 @@ export default defineEventHandler(async (event) => {
         throw createError({ statusCode: 400, statusMessage: "กรุณาอัปโหลดสลิปสำหรับรายการโอน" });
       }
 
-      const isVerified = nextStatus === "VERIFIED";
-
       const updated = await prisma.paymentRecord.update({
         where: { id },
         data: {
           paymentMethod: nextPaymentMethod,
           slipImageId: nextSlipImageId ?? null,
-          status: nextStatus,
           note: nextNote,
           paidAt: isVerified ? (existing.paidAt ?? new Date()) : null,
           verifiedById: isVerified ? actor.id : null,
           verifiedAt: isVerified ? new Date() : null,
-          rejectionReason: nextStatus === "FAILED" ? "ระบุโดยผู้ดูแลระบบ" : null,
+          rejectionReason: null,
           metadata: { updatedByAdminId: actor.id },
         },
       });
@@ -152,7 +134,6 @@ export default defineEventHandler(async (event) => {
     const nextProductId = body.productId ?? primarySaleItem?.productId ?? null;
     const nextAmount = body.amount ?? Number(existing.amount);
     const nextPaymentMethod = body.paymentMethod ?? existing.paymentMethod;
-    const nextStatus = body.status ?? existing.status;
     const nextNote =
       body.note !== undefined
         ? body.note?.trim() || null
@@ -212,7 +193,7 @@ export default defineEventHandler(async (event) => {
         where: { id: existingPackageSale.id },
         data: {
           customerId: nextCustomerId,
-          status: nextStatus === "VERIFIED" ? "PAID" : nextStatus === "FAILED" ? "CANCELLED" : "PENDING",
+          status: isVerified ? "PAID" : "PENDING",
           subtotalAmount: nextSubtotalAmount,
           discountAmount: nextDiscountAmount,
           totalAmount: nextTotalAmount,
@@ -249,15 +230,13 @@ export default defineEventHandler(async (event) => {
             data: {
               customerId: nextCustomerId,
               productId: itemProductId,
-              ...buildEntitlementState(itemProduct.validityDays, itemProduct.credits, nextStatus),
+              ...buildEntitlementState(itemProduct.validityDays, itemProduct.credits, isVerified),
               deletedAt: null,
               deletedById: null,
             },
           });
         }
       }
-
-      const isVerified = nextStatus === "VERIFIED";
 
       return tx.paymentRecord.update({
         where: { id },
@@ -268,15 +247,12 @@ export default defineEventHandler(async (event) => {
           amount: nextTotalAmount,
           paymentMethod: nextPaymentMethod,
           slipImageId: nextSlipImageId ?? null,
-          status: nextStatus,
           note: nextNote,
           paidAt: isVerified ? new Date() : null,
           verifiedById: isVerified ? actor.id : null,
           verifiedAt: isVerified ? new Date() : null,
-          rejectionReason: nextStatus === "FAILED" ? "ระบุโดยผู้ดูแลระบบ" : null,
-          metadata: {
-            updatedByAdminId: actor.id,
-          },
+          rejectionReason: null,
+          metadata: { updatedByAdminId: actor.id },
         },
       });
     });

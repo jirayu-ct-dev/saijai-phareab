@@ -1,6 +1,5 @@
 ﻿<script setup lang="ts">
-import SlipUploadField from "~~/app/components/UI/SlipUploadField.vue";
-import type { EntitlementStatus, PackageSaleStatus, PaymentMethod, PaymentStatus, ServiceOrderStatus } from "~~/shared/types/enums";
+import type { EntitlementStatus, PackageSaleStatus, PaymentMethod, ServiceOrderStatus } from "~~/shared/types/enums";
 import { packageTypeColors, packageTypeLabels } from "~~/shared/config/packageConfig";
 import { formatCurrency, formatDateTime } from "~~/shared/utils/format";
 import { useAdminPayments } from "~~/app/composables/useAdminPayments";
@@ -14,7 +13,7 @@ type PaymentDetailResponse = {
   id: string;
   paymentNo: string | null;
   amount: number;
-  status: PaymentStatus;
+  isVerified: boolean;
   paymentMethod: PaymentMethod;
   note: string | null;
   paidAt: string | null;
@@ -101,14 +100,14 @@ const serviceOrderStatusMap: Record<ServiceOrderStatus, { label: string; color: 
   CANCELLED: { label: "ยกเลิก", color: "error" },
 };
 
-const paymentForm = ref({ paymentMethod: "CASH" as PaymentMethod, status: "PENDING" as PaymentStatus, note: "", slipImageId: null as string | null });
+const paymentForm = ref({ paymentMethod: "CASH" as PaymentMethod, isVerified: false, note: "", slipImageId: null as string | null });
 const pendingSlipFile = ref<File | null>(null);
 const isUploadingSlip = ref(false);
 const isSavingPayment = ref(false);
 const clearPendingSlip = () => { pendingSlipFile.value = null; };
 watch(payment, (nextPayment) => {
   if (!nextPayment) return;
-  paymentForm.value = { paymentMethod: nextPayment.paymentMethod, status: nextPayment.status, note: nextPayment.note ?? "", slipImageId: nextPayment.slipImage?.id ?? null };
+  paymentForm.value = { paymentMethod: nextPayment.paymentMethod, isVerified: nextPayment.isVerified, note: nextPayment.note ?? "", slipImageId: nextPayment.slipImage?.id ?? null };
   clearPendingSlip();
 }, { immediate: true });
 
@@ -117,7 +116,7 @@ const currentSlipImageUrl = computed(() => currentSlipImage.value?.secureUrl || 
 const hasPendingSlip = computed(() => Boolean(pendingSlipFile.value));
 const isDirty = computed(() => {
   if (!payment.value) return false;
-  return paymentForm.value.paymentMethod !== payment.value.paymentMethod || paymentForm.value.status !== payment.value.status || paymentForm.value.note !== (payment.value.note ?? "") || paymentForm.value.slipImageId !== (payment.value.slipImage?.id ?? null) || hasPendingSlip.value;
+  return paymentForm.value.paymentMethod !== payment.value.paymentMethod || paymentForm.value.isVerified !== payment.value.isVerified || paymentForm.value.note !== (payment.value.note ?? "") || paymentForm.value.slipImageId !== (payment.value.slipImage?.id ?? null) || hasPendingSlip.value;
 });
 
 const copiedPaymentNo = ref(false);
@@ -262,7 +261,6 @@ const entitlementRows = computed<InfoRow[]>(() => payment.value?.memberEntitleme
   { label: "เริ่มใช้งาน", value: payment.value.memberEntitlement.activatedAt ? formatDateTime(payment.value.memberEntitlement.activatedAt) : "-" },
   { label: "หมดอายุ", value: payment.value.memberEntitlement.endAt ? formatDateTime(payment.value.memberEntitlement.endAt) : "-" },
 ] : []);
-const handleSlipFileUpdate = (file: File | null) => { pendingSlipFile.value = file; };
 const handleSlipRemove = () => {
   if (hasPendingSlip.value) {
     clearPendingSlip();
@@ -270,6 +268,23 @@ const handleSlipRemove = () => {
   }
   paymentForm.value.slipImageId = null;
 };
+
+const slipPhotos = computed<import("~~/app/components/UI/PhotoUpload.vue").Photo[]>(() => {
+  if (pendingSlipFile.value) return [{ key: "slip", file: pendingSlipFile.value, url: null }];
+  return currentSlipImageUrl.value ? [{ key: "slip", file: null, url: currentSlipImageUrl.value }] : [];
+});
+
+const onSlipPhotosUpdate = (photos: import("~~/app/components/UI/PhotoUpload.vue").Photo[]) => {
+  const photo = photos[0] ?? null;
+  pendingSlipFile.value = photo?.file ?? null;
+  if (!photo) handleSlipRemove();
+};
+
+const slipDescription = computed(() => {
+  if (hasPendingSlip.value) return "เลือกรูปไว้แล้ว ระบบจะอัปโหลดเมื่อกดบันทึก";
+  if (currentSlipImage.value) return "มีรูปหลักฐานแนบอยู่แล้ว สามารถเลือกไฟล์ใหม่เพื่อแทนที่ได้";
+  return "ยังไม่มีรูปหลักฐานแนบ";
+});
 const handleSaveButtonClick = () => {
   if (!isDirty.value) {
     notify.info("ยังไม่มีการเปลี่ยนแปลงให้บันทึก");
@@ -291,7 +306,7 @@ const savePaymentChanges = async () => {
     }
     slipImageId = uploaded.id;
   }
-  const ok = await updatePayment(payment.value.id, { paymentMethod: paymentForm.value.paymentMethod, status: paymentForm.value.status, note: paymentForm.value.note.trim() || null, slipImageId });
+  const ok = await updatePayment(payment.value.id, { paymentMethod: paymentForm.value.paymentMethod, isVerified: paymentForm.value.isVerified, note: paymentForm.value.note.trim() || null, slipImageId });
   isSavingPayment.value = false;
   if (ok) {
     paymentForm.value.slipImageId = slipImageId;
@@ -513,27 +528,25 @@ const savePaymentChanges = async () => {
             </div>
 
             <div class="mt-5 space-y-4 border-t border-default pt-5">
+              <UFormField label="สถานะการชำระเงิน">
+                <div class="flex items-center gap-2 pt-1">
+                  <USwitch v-model="paymentForm.isVerified" color="success" :disabled="isSavingPayment" />
+                  <span class="text-sm">{{ paymentForm.isVerified ? "ยืนยันแล้ว" : "รอตรวจสอบ" }}</span>
+                </div>
+              </UFormField>
+
               <UFormField label="หมายเหตุ">
                 <UTextarea v-model="paymentForm.note" :disabled="isSavingPayment" :rows="4" placeholder="เพิ่มหมายเหตุเกี่ยวกับการชำระเงิน" class="w-full" />
               </UFormField>
 
-              <SlipUploadField
+              <UIPhotoUpload
                 label="หลักฐานการชำระเงิน"
-                :description="hasPendingSlip ? 'เลือกรูปไว้แล้ว ระบบจะอัปโหลดเมื่อกดบันทึก' : currentSlipImage ? 'มีรูปหลักฐานแนบอยู่แล้ว สามารถเลือกไฟล์ใหม่เพื่อแทนที่ได้' : 'ยังไม่มีรูปหลักฐานแนบ'"
-                :file="pendingSlipFile"
-                :image-url="currentSlipImageUrl || null"
-                :image-label="currentSlipImageUrl || null"
+                :description="slipDescription"
+                :photos="slipPhotos"
+                :max="1"
                 :disabled="isSavingPayment"
-                :loading="isUploadingSlip"
-                :show-remove="hasPendingSlip || Boolean(currentSlipImage)"
                 confirm-remove
-                :remove-label="hasPendingSlip ? 'ล้างไฟล์ที่เลือก' : 'ลบรูปปัจจุบัน'"
-                :confirm-title="hasPendingSlip ? 'ยกเลิกไฟล์ที่เลือก' : 'ลบรูปหลักฐานปัจจุบัน'"
-                :confirm-message="hasPendingSlip ? 'ต้องการล้างไฟล์ที่เลือกไว้หรือไม่' : 'ต้องการลบรูปหลักฐานการชำระเงินปัจจุบันหรือไม่'"
-                :confirm-sub-message="hasPendingSlip ? 'ไฟล์นี้จะไม่ถูกอัปโหลดจนกว่าจะเลือกใหม่อีกครั้ง' : 'เมื่อกดบันทึก รายการนี้จะไม่มีรูปหลักฐานแนบอยู่'"
-                @update:file="handleSlipFileUpdate"
-                @blocked="notify.info($event)"
-                @remove="handleSlipRemove"
+                @update:photos="onSlipPhotosUpdate"
               />
 
               <div class="rounded-xl border border-default p-4 text-sm">

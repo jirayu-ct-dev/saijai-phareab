@@ -3,7 +3,7 @@ import { parseDate, type CalendarDate } from "@internationalized/date";
 import { useMediaQuery } from "@vueuse/core";
 import PosCatalogCard from "~~/app/components/admin/pos/PosCatalogCard.vue";
 import PosCheckoutPanel from "~~/app/components/admin/pos/PosCheckoutPanel.vue";
-import OrderItemPhotosField, { type OrderItemPhoto } from "~~/app/components/admin/pos/OrderItemPhotosField.vue";
+import type { Photo } from "~~/app/components/UI/PhotoUpload.vue";
 import type { AdminSaleSlipImage } from "~~/app/composables/useAdminSales";
 import type { AdminServiceOrderImage } from "~~/app/composables/useAdminServiceOrders";
 import { DEFAULT_HANGER_PRICE_PER_UNIT } from "~~/shared/config/posConfig";
@@ -14,7 +14,7 @@ type FormItemState = {
   storefrontPriceId: string;
   quantity: number;
   notes: string;
-  photos: OrderItemPhoto[];
+  photos: Photo[];
 };
 
 const BANGKOK_OFFSET_MS = 7 * 60 * 60 * 1000;
@@ -163,42 +163,8 @@ const slipFile = ref<File | null>(null);
 const uploadedSlip = ref<AdminSaleSlipImage | null>(null);
 const orderImageFile = ref<File | null>(null);
 const uploadedOrderImage = ref<AdminServiceOrderImage | null>(null);
+const uploadedPhotoIds = ref(new Map<string, string>()); // photoKey → imageId
 
-const intakeFileInputRef = ref<HTMLInputElement | null>(null);
-const intakeObjectUrl = ref<string>("");
-const intakePreviewOpen = ref(false);
-const intakeRemoveOpen = ref(false);
-
-watch(orderImageFile, (file) => {
-  if (intakeObjectUrl.value && import.meta.client) URL.revokeObjectURL(intakeObjectUrl.value);
-  intakeObjectUrl.value = file && import.meta.client ? URL.createObjectURL(file) : "";
-});
-
-onBeforeUnmount(() => {
-  if (intakeObjectUrl.value && import.meta.client) URL.revokeObjectURL(intakeObjectUrl.value);
-});
-
-const intakeDisplayUrl = computed(
-  () => uploadedOrderImage.value?.secureUrl || uploadedOrderImage.value?.url || intakeObjectUrl.value || "",
-);
-const openIntakePicker = () => { if (isSubmitting.value) return; intakeFileInputRef.value?.click(); };
-const onIntakeFileSelected = (event: Event) => {
-  const input = event.target as HTMLInputElement | null;
-  const file = input?.files?.[0] ?? null;
-  if (!file) return;
-  orderImageFile.value = file;
-  uploadedOrderImage.value = null;
-  form.orderImageId = null;
-  if (input) input.value = "";
-};
-const openIntakePreview = () => { if (!intakeDisplayUrl.value) return; intakePreviewOpen.value = true; };
-const requestRemoveIntake = () => { intakeRemoveOpen.value = true; };
-const performRemoveIntake = () => {
-  orderImageFile.value = null;
-  uploadedOrderImage.value = null;
-  form.orderImageId = null;
-  intakeRemoveOpen.value = false;
-};
 
 const selectedItemMap = computed(() => new Map(form.items.map((item) => [item.storefrontPriceId, item])));
 
@@ -315,16 +281,16 @@ const isMemberWithZeroTotal = computed(() => Boolean(form.memberEntitlementId) &
 
 const normalizedItems = computed(() =>
   cartItems.value.map((item) => {
-    const readyPhotos = item.photos.filter((photo) => photo.uploadedImageId);
+    const readyPhotos = item.photos.filter((p) => uploadedPhotoIds.value.has(p.key));
     const firstPhoto = readyPhotos[0];
     return {
       storefrontPriceId: item.storefrontPriceId,
       quantity: item.quantity,
-      imageId: firstPhoto?.uploadedImageId ?? null,
+      imageId: firstPhoto ? (uploadedPhotoIds.value.get(firstPhoto.key) ?? null) : null,
       notes: item.notes.trim() || null,
       photos: readyPhotos.map((photo, index) => ({
-        imageId: photo.uploadedImageId as string,
-        isDamaged: photo.isDamaged,
+        imageId: uploadedPhotoIds.value.get(photo.key) as string,
+        isDamaged: true,
         sortOrder: index,
       })),
     };
@@ -401,6 +367,8 @@ const incrementItemByKey = (key: string) => {
   if (item) item.quantity += 1;
 };
 const removeItem = (key: string) => {
+  const item = form.items.find((e) => e.key === key);
+  if (item) item.photos.forEach((p) => uploadedPhotoIds.value.delete(p.key));
   form.items = form.items.filter((entry) => entry.key !== key);
   const next = new Set(expandedItems.value);
   next.delete(key);
@@ -410,9 +378,12 @@ const updateItemNotes = (key: string, value: string) => {
   const item = form.items.find((entry) => entry.key === key);
   if (item) item.notes = value;
 };
-const updateItemPhotos = (key: string, photos: OrderItemPhoto[]) => {
+const updateItemPhotos = (key: string, photos: Photo[]) => {
   const item = form.items.find((entry) => entry.key === key);
-  if (item) item.photos = photos;
+  if (!item) return;
+  const removedKeys = new Set(item.photos.map((p) => p.key).filter((k) => !photos.some((p) => p.key === k)));
+  removedKeys.forEach((k) => uploadedPhotoIds.value.delete(k));
+  item.photos = photos;
 };
 const setItemQuantity = (key: string, value: number | string | null | undefined) => {
   const qty = Math.max(0, Math.floor(Number(value) || 0));
@@ -441,7 +412,23 @@ const resetForm = () => {
   resetSlip();
   orderImageFile.value = null;
   uploadedOrderImage.value = null;
+  uploadedPhotoIds.value.clear();
   expandedItems.value = new Set();
+};
+
+const intakePhotos = computed<Photo[]>(() => {
+  if (orderImageFile.value) return [{ key: "intake", file: orderImageFile.value, url: null }];
+  const url = uploadedOrderImage.value?.secureUrl ?? uploadedOrderImage.value?.url ?? null;
+  return url ? [{ key: "intake", file: null, url }] : [];
+});
+
+const onIntakePhotosUpdate = (photos: Photo[]) => {
+  const photo = photos[0] ?? null;
+  orderImageFile.value = photo?.file ?? null;
+  if (!photo) {
+    uploadedOrderImage.value = null;
+    form.orderImageId = null;
+  }
 };
 
 const uploadSlipIfNeeded = async () => {
@@ -461,11 +448,11 @@ const uploadOrderImagesIfNeeded = async () => {
   }
   for (const item of form.items) {
     for (const photo of item.photos) {
-      if (!photo.file || photo.uploadedImageId) continue;
+      if (!photo.file || uploadedPhotoIds.value.has(photo.key)) continue;
       const image = await uploadOrderImage(photo.file);
       if (!image) throw new Error("upload-item-image-failed");
-      photo.uploadedImageId = image.id;
-      photo.uploadedUrl = image.secureUrl ?? image.url ?? null;
+      uploadedPhotoIds.value.set(photo.key, image.id);
+      photo.url = image.secureUrl ?? image.url ?? null;
       photo.file = null;
     }
   }
@@ -649,7 +636,7 @@ const handleSubmit = async () => {
               </div>
 
               <div v-for="item in cartItems" :key="item.key">
-                <div class="flex items-center gap-1.5 rounded-lg px-1.5 py-1 hover:bg-elevated/30">
+                <div class="flex cursor-pointer items-center gap-1.5 rounded-lg px-1.5 py-1 hover:bg-elevated/30" @click="toggleItemExpand(item.key)">
                   <div class="flex min-w-0 flex-1 flex-col">
                     <div class="flex items-center">
                       <p class="min-w-0 flex-1 truncate text-sm text-highlighted">{{ item.label }}</p>
@@ -662,12 +649,12 @@ const handleSubmit = async () => {
                           color="neutral"
                           variant="ghost"
                           size="xs"
-                          @click="toggleItemExpand(item.key)"
+                          @click.stop="toggleItemExpand(item.key)"
                         />
-                        <UButton icon="i-lucide-x" color="error" variant="ghost" size="xs" @click="removeItem(item.key)" />
+                        <UButton icon="i-lucide-x" color="error" variant="ghost" size="xs" @click.stop="removeItem(item.key)" />
                       </div>
                     </div>
-                    <div class="flex shrink-0 items-center gap-0.5">
+                    <div class="flex shrink-0 items-center gap-0.5" @click.stop>
                       <UInputNumber
                         :model-value="item.quantity"
                         :min="0"
@@ -689,9 +676,12 @@ const handleSubmit = async () => {
                     placeholder="บันทึกตำหนิหรือรายละเอียดผ้าชิ้นนี้"
                     @update:model-value="updateItemNotes(item.key, String($event || ''))"
                   />
-                  <OrderItemPhotosField
+                  <UIPhotoUpload
+                    label="รูปผ้าชำรุด"
+                    description="แนบรูปเฉพาะผ้าที่มีตำหนิหรือชำรุด"
                     :photos="item.photos"
                     :disabled="isSubmitting"
+                    capture="environment"
                     @update:photos="updateItemPhotos(item.key, $event)"
                   />
                 </div>
@@ -778,42 +768,14 @@ const handleSubmit = async () => {
             />
           </UFormField>
 
-          <div class="rounded-xl border border-dashed border-default p-4">
-            <div class="flex items-center justify-between gap-3">
-              <div>
-                <p class="font-medium text-highlighted">รูปหลักฐานการรับผ้า</p>
-                <p v-if="!intakeDisplayUrl" class="text-sm text-muted">ยังไม่ได้แนบรูป</p>
-              </div>
-              <UButton
-                v-if="!intakeDisplayUrl"
-                label="เพิ่มรูป"
-                icon="i-lucide-camera"
-                color="neutral"
-                variant="solid"
-                :disabled="isSubmitting"
-                @click="openIntakePicker"
-              />
-            </div>
-            <input ref="intakeFileInputRef" type="file" accept="image/*" capture="environment" class="hidden" @change="onIntakeFileSelected">
-            <div v-if="intakeDisplayUrl" class="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
-              <div class="group relative overflow-hidden rounded-xl border border-default bg-muted/30">
-                <img :src="intakeDisplayUrl" alt="รูปหลักฐานการรับผ้า" class="h-28 w-full cursor-pointer object-cover" @click="openIntakePreview">
-                <UButton icon="i-lucide-x" color="error" variant="solid" size="xs" class="absolute right-1 top-1" :disabled="isSubmitting" @click.stop="requestRemoveIntake" />
-              </div>
-            </div>
-          </div>
-
-          <UIImagePreviewModal v-model:open="intakePreviewOpen" title="รูปหลักฐานการรับผ้า" :image-url="intakeDisplayUrl" image-alt="รูปหลักฐานการรับผ้า" />
-          <UIConfirmModal
-            v-model:open="intakeRemoveOpen"
-            title="ลบรูปนี้"
-            icon="i-lucide-trash-2"
-            icon-color="error"
-            confirm-label="ลบรูป"
-            confirm-color="error"
-            message="ต้องการลบรูปหลักฐานการรับผ้าหรือไม่"
-            sub-message="หากยืนยัน ระบบจะถอดรูปนี้ออกจากรายการปัจจุบัน"
-            @confirm="performRemoveIntake"
+          <UIPhotoUpload
+            label="รูปหลักฐานการรับผ้า"
+            :photos="intakePhotos"
+            :max="1"
+            :disabled="isSubmitting"
+            capture="environment"
+            confirm-remove
+            @update:photos="onIntakePhotosUpdate"
           />
         </template>
       </PosCheckoutPanel>
