@@ -54,6 +54,7 @@ type ReceiptPayload = {
     status: string;
     note: string | null;
     receivedAt: string;
+    deliveredAt: string | null;
     dueAt: string | null;
     subtotalAmount: number;
     discountAmount: number;
@@ -185,7 +186,7 @@ const infoRows = computed(() => {
     {
       label: "วันที่ส่งผ้า",
       value: (() => {
-        const date = d.paidAt ?? d.serviceOrder?.dueAt ?? null;
+        const date = d.serviceOrder?.deliveredAt ?? d.paidAt ?? d.serviceOrder?.dueAt ?? null;
         return date ? formatDateTime(date) : "ไม่ระบุ";
       })(),
       show: isServiceOrder && d.serviceOrder?.status === "COMPLETED",

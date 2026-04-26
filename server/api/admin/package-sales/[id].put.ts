@@ -246,7 +246,7 @@ export default defineEventHandler(async (event) => {
               customerId: body.customerId,
               sourceSaleItemId: saleItem.id,
               productId: saleItem.product.id,
-              ...buildEntitlementState(saleItem.product.validityDays, saleItem.product.credits, status),
+              ...buildEntitlementState(saleItem.product.validityDays, saleItem.product.credits, isVerified),
             },
           });
 

@@ -5,6 +5,7 @@ import { createPaymentNo } from "~~/server/utils/paymentNo";
 import { prisma } from "~~/server/utils/prisma";
 import { createServiceOrderNo } from "~~/server/utils/serviceOrderNo";
 import { ensureWalkInCustomer } from "~~/server/utils/walkInCustomer";
+import { notifyServiceOrderCreated } from "~~/server/utils/notify";
 
 type CreateServiceOrderBody = {
   customerId?: string | null;
@@ -351,6 +352,8 @@ export default defineEventHandler(async (event) => {
         paymentId: payment.id,
       };
     });
+
+    void notifyServiceOrderCreated({ serviceOrderId: created.id });
 
     return created;
   } catch (error) {

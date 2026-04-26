@@ -1,4 +1,5 @@
 import type { PaymentMethod, ServiceOrderStatus } from "~~/shared/types/enums";
+import { notifyServiceOrderStatusChanged } from "~~/server/utils/notify";
 import { DEFAULT_HANGER_PRICE_PER_UNIT } from "~~/shared/config/posConfig";
 import { requireRole } from "~~/server/utils/auth";
 import { createPaymentNo } from "~~/server/utils/paymentNo";
@@ -461,6 +462,14 @@ export default defineEventHandler(async (event) => {
         });
       }
     });
+
+    if (existing.status !== serviceOrderStatus) {
+      void notifyServiceOrderStatusChanged({
+        serviceOrderId: existing.id,
+        fromStatus: existing.status,
+        toStatus: serviceOrderStatus,
+      });
+    }
 
     return { success: true };
   } catch (error) {

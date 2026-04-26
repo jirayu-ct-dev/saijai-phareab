@@ -3,6 +3,7 @@ import type { PaymentMethod } from "~~/shared/types/enums";
 import { requireRole } from "~~/server/utils/auth";
 import { createPaymentNo } from "~~/server/utils/paymentNo";
 import { prisma } from "~~/server/utils/prisma";
+import { notifyReceipt } from "~~/server/utils/notify";
 
 type CreatePackageSaleBody = {
   customerId: string;
@@ -168,7 +169,7 @@ export default defineEventHandler(async (event) => {
               customerId: body.customerId,
               sourceSaleItemId: saleItem.id,
               productId: saleItem.product.id,
-              ...buildEntitlementState(saleItem.product.validityDays, saleItem.product.credits, status),
+              ...buildEntitlementState(saleItem.product.validityDays, saleItem.product.credits, isVerified),
             },
           });
         }
@@ -196,6 +197,8 @@ export default defineEventHandler(async (event) => {
 
       return { id: packageSale.id, paymentId: payment.id };
     });
+
+    void notifyReceipt({ paymentId: created.paymentId });
 
     return created;
   } catch (error) {
