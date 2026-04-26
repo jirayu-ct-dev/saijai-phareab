@@ -11,9 +11,8 @@ import type {
 } from "~~/app/composables/useAdminServiceOrders";
 import { orderStatusColors, orderStatusLabels } from "~~/shared/config/orderConfig";
 import { DEFAULT_HANGER_PRICE_PER_UNIT } from "~~/shared/config/posConfig";
-import { paymentStatusLabels } from "~~/shared/config/paymentConfig";
 import { formatCurrency, formatDateTime } from "~~/shared/utils/format";
-import type { PaymentStatus, ServiceOrderStatus } from "~~/shared/types/enums";
+import type { ServiceOrderStatus } from "~~/shared/types/enums";
 
 definePageMeta({
   layout: "admin",
@@ -60,18 +59,10 @@ type CustomerOption = {
 
 const serviceOrderStatusOptions: Array<{ label: string; value: ServiceOrderStatus }> = [
   { label: orderStatusLabels.RECEIVED, value: "RECEIVED" },
-  { label: orderStatusLabels.PENDING, value: "PENDING" },
-  { label: orderStatusLabels.CHECKING, value: "CHECKING" },
   { label: orderStatusLabels.PROCESSING, value: "PROCESSING" },
-  { label: orderStatusLabels.PENDING_REVIEW, value: "PENDING_REVIEW" },
+  { label: orderStatusLabels.DELIVERING, value: "DELIVERING" },
   { label: orderStatusLabels.COMPLETED, value: "COMPLETED" },
   { label: orderStatusLabels.CANCELLED, value: "CANCELLED" },
-];
-
-const paymentStatusOptions: Array<{ label: string; value: PaymentStatus }> = [
-  { label: paymentStatusLabels.PENDING, value: "PENDING" },
-  { label: paymentStatusLabels.VERIFIED, value: "VERIFIED" },
-  { label: paymentStatusLabels.FAILED, value: "FAILED" },
 ];
 
 const table = useTemplateRef<TableInstance>("table");
@@ -103,7 +94,6 @@ onActivated(async () => {
 
 const searchQuery = ref("");
 const statusFilter = ref<ServiceOrderStatus | "all">("all");
-const paymentStatusFilter = ref<PaymentStatus | "all">("all");
 const customerTypeFilter = ref<CustomerTypeFilter>("all");
 
 watch(
@@ -136,7 +126,6 @@ const filteredServiceOrders = computed<AdminServiceOrder[]>(() => {
       : true;
 
     const matchStatus = statusFilter.value === "all" || order.status === statusFilter.value;
-    const matchPaymentStatus = paymentStatusFilter.value === "all" || order.payment?.status === paymentStatusFilter.value;
     const matchCustomerType = (() => {
       if (customerTypeFilter.value === "all") return true;
       if (customerTypeFilter.value === "walk-in") return order.isWalkIn;
@@ -144,7 +133,7 @@ const filteredServiceOrders = computed<AdminServiceOrder[]>(() => {
       return !order.isWalkIn;
     })();
 
-    return matchKeyword && matchStatus && matchPaymentStatus && matchCustomerType;
+    return matchKeyword && matchStatus && matchCustomerType;
   });
 });
 
@@ -155,7 +144,7 @@ const selectedOrders = computed<AdminServiceOrder[]>(() => selectedRows.value.ma
 const selectedRowsCount = computed(() => selectedOrders.value.length);
 const filteredRowCount = computed(() => filteredServiceOrders.value.length);
 
-watch([searchQuery, statusFilter, paymentStatusFilter, customerTypeFilter], () => {
+watch([searchQuery, statusFilter, customerTypeFilter], () => {
   pagination.value.pageIndex = 0;
   rowSelection.value = {};
 });
@@ -867,6 +856,10 @@ const buildBody = async (): Promise<CreateAdminServiceOrderBody | null> => {
 };
 
 const openDetailPage = (order: AdminServiceOrder) => navigateTo(`/admin/service-orders/${order.id}`);
+const openCustomerPage = (order: AdminServiceOrder, e: MouseEvent) => {
+  e.stopPropagation();
+  if (order.customer?.id) navigateTo(`/admin/users/${order.customer.id}`);
+};
 
 const handleSubmit = async () => {
   isSubmitting.value = true;
@@ -920,7 +913,7 @@ const columns: TableColumn<AdminServiceOrder>[] = [
   {
     accessorKey: "orderNo",
     header: "เลขรับผ้า",
-    cell: ({ row }) => h("div", { class: "font-mono text-xs text-muted" }, row.original.orderNo || row.original.id),
+    cell: ({ row }) => h("div", { class: "font-mono text-xs text-muted cursor-pointer", onClick: () => openDetailPage(row.original) }, row.original.orderNo || row.original.id),
   },
   {
     accessorKey: "customer",
@@ -928,11 +921,11 @@ const columns: TableColumn<AdminServiceOrder>[] = [
     cell: ({ row }) => {
       const customer = row.original.customer;
       const entitlement = row.original.memberEntitlement;
-      return h("div", { class: "flex items-center gap-3" }, [
+      return h("div", { class: "flex items-center gap-3 cursor-pointer", onClick: (e: MouseEvent) => openCustomerPage(row.original, e) }, [
         h(UAvatar, { ...getAvatarProps(customer) }),
         h("div", { class: "space-y-0.5" }, [
           h("div", { class: "flex flex-wrap items-center gap-1.5" }, [
-            h("p", { class: "font-medium text-highlighted" }, customer.name || "-"),
+            h("p", { class: "font-medium text-highlighted hover:underline" }, customer.name || "-"),
             entitlement
               ? h(UBadge, { color: "success", variant: "subtle", size: "xs" }, () => "รายเดือน")
               : null,
@@ -948,7 +941,7 @@ const columns: TableColumn<AdminServiceOrder>[] = [
     cell: ({ row }) =>
       h(
         "div",
-        { class: "space-y-1" },
+        { class: "space-y-1 cursor-pointer", onClick: () => openDetailPage(row.original) },
         formatItemSummary(row.original).map((item) => h("p", { class: "text-sm text-highlighted" }, item)),
       ),
   },
@@ -964,13 +957,13 @@ const columns: TableColumn<AdminServiceOrder>[] = [
       const isMemberZero = Boolean(entitlement) && total === 0;
 
       if (isMemberZero) {
-        return h("div", { class: "space-y-0.5 text-right" }, [
+        return h("div", { class: "space-y-0.5 text-right cursor-pointer", onClick: () => openDetailPage(order) }, [
           h("p", { class: "text-sm font-medium text-success" }, "ใช้เครดิต"),
           h("p", { class: "text-xs text-muted" }, `${used} / ${initial} เครดิต`),
         ]);
       }
 
-      return h("div", { class: "space-y-0.5 text-right" }, [
+      return h("div", { class: "space-y-0.5 text-right cursor-pointer", onClick: () => openDetailPage(order) }, [
         h("p", { class: "text-sm font-medium text-highlighted" }, formatCurrency(total)),
         entitlement ? h("p", { class: "text-xs text-success" }, `ใช้ ${used} เครดิต`) : null,
       ]);
@@ -981,7 +974,7 @@ const columns: TableColumn<AdminServiceOrder>[] = [
     header: "สถานะ",
     cell: ({ row }) => {
       const order = row.original;
-      return h(UBadge, { color: orderStatusColors[order.status], variant: "subtle" }, () => orderStatusLabels[order.status]);
+      return h(UBadge, { color: orderStatusColors[order.status], variant: "subtle", class: "cursor-pointer", onClick: (e: MouseEvent) => { e.stopPropagation(); openStatusModal(order); } }, () => orderStatusLabels[order.status]);
     },
   },
   {
@@ -991,7 +984,7 @@ const columns: TableColumn<AdminServiceOrder>[] = [
       const order = row.original;
       const isCompleted = order.status === "COMPLETED";
       const deliveredAt = order.payment?.paidAt ?? null;
-      return h("div", { class: "space-y-0.5 text-sm" }, [
+      return h("div", { class: "space-y-0.5 text-sm cursor-pointer", onClick: () => openDetailPage(order) }, [
         h("p", { class: "text-highlighted" }, `รับ: ${formatDateTime(order.receivedAt)}`),
         isCompleted
           ? (deliveredAt ? h("p", { class: "text-xs text-muted" }, `ส่ง: ${formatDateTime(deliveredAt)}`) : null)
@@ -1103,12 +1096,6 @@ const columns: TableColumn<AdminServiceOrder>[] = [
                   { label: 'สมาชิก/ลูกค้าระบบ', value: 'member' },
                   { label: 'ลูกค้ารายเดือน', value: 'monthly' },
                 ]"
-                value-key="value"
-                class="min-w-40"
-              />
-              <USelect
-                v-model="paymentStatusFilter"
-                :items="[{ label: 'ทุกสถานะชำระเงิน', value: 'all' }, ...paymentStatusOptions]"
                 value-key="value"
                 class="min-w-40"
               />

@@ -8,10 +8,8 @@ export type OrderType = "PACKAGE" | "STOREFRONT";
 
 export type ServiceOrderStatus =
     | "RECEIVED"
-    | "PENDING"
-    | "CHECKING"
     | "PROCESSING"
-    | "PENDING_REVIEW"
+    | "DELIVERING"
     | "COMPLETED"
     | "CANCELLED";
 

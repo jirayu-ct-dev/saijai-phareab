@@ -56,10 +56,8 @@ enum EntitlementStatus {
 
 enum ServiceOrderStatus {
   RECEIVED
-  PENDING
-  CHECKING
   PROCESSING
-  PENDING_REVIEW
+  DELIVERING
   COMPLETED
   CANCELLED
 }
@@ -373,7 +371,7 @@ model ServiceOrder {
     customer             User               @relation("ServiceOrderCustomer", fields: [customerId], references: [id])
     employeeId           String?
     employee             User?              @relation("ServiceOrderEmployee", fields: [employeeId], references: [id])
-    status               ServiceOrderStatus @default(PENDING)
+    status               ServiceOrderStatus @default(RECEIVED)
   isWalkIn             Boolean            @default(false)
   walkInName           String?
   walkInPhone          String?

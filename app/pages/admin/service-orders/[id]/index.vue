@@ -296,9 +296,12 @@ const openImagePreview = (url: string | null | undefined, title = "ดูรู�
               <UAvatar size="xl" v-bind="getAvatarProps(order.customer)" />
               <div class="min-w-0 space-y-1">
                 <div class="flex flex-wrap items-center gap-2">
-                  <p class="truncate text-lg font-semibold text-highlighted">
+                  <button
+                    class="truncate text-lg font-semibold text-highlighted hover:underline cursor-pointer"
+                    @click="navigateTo(`/admin/users/${order.customer.id}`)"
+                  >
                     {{ order.customer.name || order.customer.email || "-" }}
-                  </p>
+                  </button>
                 </div>
                 <div class="flex items-center gap-1">
                   <p class="font-mono text-xs text-muted">{{ order.orderNo || order.id }}</p>

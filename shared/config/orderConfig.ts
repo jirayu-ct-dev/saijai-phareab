@@ -1,21 +1,17 @@
 import type { OrderStatus, OrderType } from '../types/enums'
 
 export const orderStatusLabels: Record<OrderStatus, string> = {
-    RECEIVED: 'รับผ้าแล้ว',
-    PENDING: 'รอดำเนินการ',
-    CHECKING: 'กำลังตรวจสอบ',
-    PROCESSING: 'กำลังซัก',
-    PENDING_REVIEW: 'รอตรวจสอบ',
+    RECEIVED: 'รับผ้า',
+    PROCESSING: 'ดำเนินการ',
+    DELIVERING: 'กำลังส่ง/รอรับ',
     COMPLETED: 'เสร็จสิ้น',
     CANCELLED: 'ยกเลิก',
 }
 
 export const orderStatusColors: Record<OrderStatus, string> = {
     RECEIVED: 'info',
-    PENDING: 'neutral',
-    CHECKING: 'warning',
     PROCESSING: 'primary',
-    PENDING_REVIEW: 'secondary',
+    DELIVERING: 'warning',
     COMPLETED: 'success',
     CANCELLED: 'error',
 }

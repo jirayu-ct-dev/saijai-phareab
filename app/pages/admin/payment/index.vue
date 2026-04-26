@@ -244,17 +244,17 @@ const columns: TableColumn<AdminPaymentRecord>[] = [
   {
     accessorKey: "paymentNo",
     header: "เลขชำระ",
-    cell: ({ row }) => h("div", { class: "font-mono text-xs text-muted" }, row.original.paymentNo || "-"),
+    cell: ({ row }) => h("div", { class: "font-mono text-xs text-muted cursor-pointer", onClick: () => openPaymentDetail(row.original) }, row.original.paymentNo || "-"),
   },
   {
     accessorKey: "customer",
     header: "ลูกค้า",
     cell: ({ row }) => {
       const customer = row.original.customer;
-      return h("div", { class: "flex min-w-0 items-center gap-3" }, [
+      return h("div", { class: "flex min-w-0 items-center gap-3 cursor-pointer", onClick: (e: MouseEvent) => { e.stopPropagation(); openMemberDetail(row.original); } }, [
         h(UAvatar, { ...getAvatarProps(customer) }),
         h("div", { class: "min-w-0 max-w-60 space-y-0.5" }, [
-          h("p", { class: "truncate font-medium text-highlighted" }, customer.name || "-"),
+          h("p", { class: "truncate font-medium text-highlighted hover:underline" }, customer.name || "-"),
           h("p", { class: "truncate text-sm text-muted" }, customer.email),
         ]),
       ]);
@@ -272,10 +272,17 @@ const columns: TableColumn<AdminPaymentRecord>[] = [
       const payment = row.original;
       const items = payment.packageSale.items;
 
+      const serviceOrderId = payment.serviceOrder?.id;
+      const handleClick = (e: MouseEvent) => {
+        e.stopPropagation();
+        if (serviceOrderId) openServiceOrderDetail(serviceOrderId);
+        else openPaymentDetail(payment);
+      };
+
       if (items.length > 0) {
         return h(
           "div",
-          { class: "space-y-1" },
+          { class: "space-y-1 cursor-pointer", onClick: handleClick },
           items.map((item) =>
             h("div", { key: `${item.productId}-${item.quantity}`, class: "flex items-center gap-3 text-sm" }, [
               h("span", { class: "text-highlighted" }, item.productName),
@@ -285,7 +292,7 @@ const columns: TableColumn<AdminPaymentRecord>[] = [
         );
       }
 
-      return h("div", { class: "flex items-center gap-3 text-sm" }, [
+      return h("div", { class: "flex items-center gap-3 text-sm cursor-pointer", onClick: handleClick }, [
         h("span", { class: "text-highlighted" }, "รายการผ้า"),
         h("span", { class: "shrink-0 whitespace-nowrap text-muted" }, `${payment.serviceOrder?.itemCount ?? 0} รายการ`),
       ]);
@@ -299,18 +306,18 @@ const columns: TableColumn<AdminPaymentRecord>[] = [
       const isMemberZero = isServiceMember(payment) && Number(payment.amount ?? 0) === 0;
       if (isMemberZero) {
         const credits = Number(payment.serviceOrder?.creditUsed ?? 0);
-        return h("div", { class: "space-y-0.5 text-right" }, [
+        return h("div", { class: "space-y-0.5 text-right cursor-pointer", onClick: () => openPaymentDetail(payment) }, [
           h("p", { class: "text-sm font-medium text-success" }, "ใช้เครดิต"),
           h("p", { class: "text-xs text-muted" }, `${credits} เครดิต`),
         ]);
       }
-      return h("div", { class: "text-right font-medium" }, formatCurrency(payment.amount));
+      return h("div", { class: "text-right font-medium cursor-pointer", onClick: () => openPaymentDetail(payment) }, formatCurrency(payment.amount));
     },
   },
   {
     accessorKey: "createdAt",
     header: "วันที่สร้าง",
-    cell: ({ row }) => h("p", { class: "text-sm" }, formatDateTime(row.original.createdAt)),
+    cell: ({ row }) => h("p", { class: "text-sm cursor-pointer", onClick: () => openPaymentDetail(row.original) }, formatDateTime(row.original.createdAt)),
   },
   {
     id: "actions",

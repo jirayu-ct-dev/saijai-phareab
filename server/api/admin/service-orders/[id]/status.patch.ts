@@ -34,10 +34,8 @@ export default defineEventHandler(async (event) => {
   const status = body.status;
   const allowedStatuses: ServiceOrderStatus[] = [
     "RECEIVED",
-    "PENDING",
-    "CHECKING",
     "PROCESSING",
-    "PENDING_REVIEW",
+    "DELIVERING",
     "COMPLETED",
     "CANCELLED",
   ];

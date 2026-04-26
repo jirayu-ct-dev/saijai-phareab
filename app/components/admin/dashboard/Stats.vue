@@ -51,7 +51,7 @@ const baseStats = [
   {
     title: 'รอดำเนินการ',
     icon: 'i-lucide-clock',
-    to: '/admin/service-orders?status=pending',
+    to: '/admin/service-orders?status=RECEIVED',
     minValue: 3,
     maxValue: 15,
     minVariation: -20,

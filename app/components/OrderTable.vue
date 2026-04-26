@@ -63,7 +63,7 @@ const mockCustomers = [
   'คุณธนา รักดี'
 ]
 
-const mockStatuses: OrderStatus[] = ['RECEIVED', 'PENDING', 'CHECKING', 'PROCESSING', 'PENDING_REVIEW', 'COMPLETED', 'CANCELLED']
+const mockStatuses: OrderStatus[] = ['RECEIVED', 'PROCESSING', 'DELIVERING', 'COMPLETED', 'CANCELLED']
 const mockOrderTypes: OrderType[] = ['PACKAGE', 'STOREFRONT']
 
 const allOrders = ref<any[]>([])

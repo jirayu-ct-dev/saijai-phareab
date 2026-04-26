@@ -34,7 +34,7 @@ type CreateServiceOrderBody = {
 const getDefaultServiceOrderStatus = (status: PaymentStatus) => {
   if (status === "VERIFIED") return "RECEIVED" as const;
   if (status === "FAILED") return "CANCELLED" as const;
-  return "PENDING" as const;
+  return "RECEIVED" as const;
 };
 
 export default defineEventHandler(async (event) => {

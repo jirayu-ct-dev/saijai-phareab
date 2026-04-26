@@ -122,10 +122,8 @@ const paymentStatusOptions: Array<{ label: string; value: PaymentStatus }> = [
 ];
 const quickStatusOptions: Array<{ label: string; value: ServiceOrderStatus; icon: string; color: BadgeColor }> = [
   { label: orderStatusLabels.RECEIVED, value: "RECEIVED", icon: "i-lucide-inbox", color: "info" },
-  { label: orderStatusLabels.PENDING, value: "PENDING", icon: "i-lucide-hourglass", color: "neutral" },
-  { label: orderStatusLabels.CHECKING, value: "CHECKING", icon: "i-lucide-search-check", color: "warning" },
   { label: orderStatusLabels.PROCESSING, value: "PROCESSING", icon: "i-lucide-washing-machine", color: "primary" },
-  { label: orderStatusLabels.PENDING_REVIEW, value: "PENDING_REVIEW", icon: "i-lucide-clipboard-check", color: "secondary" },
+  { label: orderStatusLabels.DELIVERING, value: "DELIVERING", icon: "i-lucide-truck", color: "warning" },
   { label: orderStatusLabels.COMPLETED, value: "COMPLETED", icon: "i-lucide-badge-check", color: "success" },
   { label: orderStatusLabels.CANCELLED, value: "CANCELLED", icon: "i-lucide-ban", color: "error" },
 ];
@@ -523,6 +521,89 @@ watch(
   },
   { immediate: true },
 );
+
+// Camera scan
+const isCameraOpen = ref(false);
+const isCameraStarting = ref(false);
+const cameraError = ref("");
+const isBarcodeDetectorSupported = ref(false);
+const cameraVideoEl = useTemplateRef<HTMLVideoElement>("cameraVideo");
+
+let cameraStream: MediaStream | null = null;
+let cameraDetector: InstanceType<typeof BarcodeDetector> | null = null;
+let cameraFrameHandle: number | null = null;
+
+const stopCameraScan = () => {
+  if (cameraFrameHandle !== null) {
+    cancelAnimationFrame(cameraFrameHandle);
+    cameraFrameHandle = null;
+  }
+  if (cameraStream) {
+    cameraStream.getTracks().forEach((t) => t.stop());
+    cameraStream = null;
+  }
+};
+
+const closeCameraScan = () => {
+  stopCameraScan();
+  isCameraOpen.value = false;
+  cameraError.value = "";
+};
+
+const handleScannedValue = (value: string) => {
+  closeCameraScan();
+  lookupQuery.value = value;
+  void lookupOrder(value);
+};
+
+const scanFrame = () => {
+  const video = cameraVideoEl.value;
+  if (!video || !cameraDetector || video.readyState < 2) {
+    cameraFrameHandle = requestAnimationFrame(scanFrame);
+    return;
+  }
+  cameraDetector.detect(video).then((barcodes) => {
+    if (barcodes.length > 0 && barcodes[0].rawValue) {
+      handleScannedValue(barcodes[0].rawValue);
+    } else {
+      cameraFrameHandle = requestAnimationFrame(scanFrame);
+    }
+  }).catch(() => {
+    cameraFrameHandle = requestAnimationFrame(scanFrame);
+  });
+};
+
+const openCameraScan = async () => {
+  cameraError.value = "";
+  isCameraOpen.value = true;
+  isCameraStarting.value = true;
+  try {
+    cameraDetector = new BarcodeDetector({ formats: ["qr_code"] });
+    cameraStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+    await nextTick();
+    if (cameraVideoEl.value) {
+      cameraVideoEl.value.srcObject = cameraStream;
+      await cameraVideoEl.value.play();
+    }
+    cameraFrameHandle = requestAnimationFrame(scanFrame);
+  } catch (err: unknown) {
+    cameraError.value = err instanceof Error ? err.message : "ไม่สามารถเปิดกล้องได้";
+    stopCameraScan();
+  } finally {
+    isCameraStarting.value = false;
+  }
+};
+
+onMounted(() => {
+  isBarcodeDetectorSupported.value = typeof BarcodeDetector !== "undefined";
+  if (isBarcodeDetectorSupported.value && !route.query.q && window.matchMedia("(max-width: 768px)").matches) {
+    void openCameraScan();
+  }
+});
+
+onBeforeUnmount(() => {
+  stopCameraScan();
+});
 </script>
 
 <template>
@@ -579,6 +660,7 @@ watch(
                 </UInputMenu>
                 <UButton type="submit" label="ค้นหา" icon="i-lucide-search" color="primary" :loading="isLookingUp" />
                 <UButton label="ล้าง" icon="i-lucide-rotate-ccw" color="neutral" variant="outline" @click="clearResult(); lookupQuery = ''" />
+                <UButton v-if="isBarcodeDetectorSupported" label="เปิดกล้องสแกน" icon="i-lucide-camera" color="neutral" variant="outline" @click="openCameraScan" />
               </div>
 
               <div class="flex flex-wrap items-center justify-between gap-3">
@@ -924,4 +1006,18 @@ watch(
     :image-url="previewUrl"
     image-alt="รูปหลักฐาน"
   />
+
+  <UModal v-model:open="isCameraOpen" title="สแกน QR ด้วยกล้อง" @update:open="(v) => !v && closeCameraScan()">
+    <template #body>
+      <div class="space-y-3">
+        <div v-if="cameraError" class="text-sm text-error">{{ cameraError }}</div>
+        <div v-else class="relative overflow-hidden rounded-lg bg-black aspect-video flex items-center justify-center">
+          <video ref="cameraVideo" class="w-full h-full object-cover" autoplay muted playsinline />
+          <div class="absolute inset-0 border-4 border-white/30 rounded-lg pointer-events-none" />
+          <div v-if="isCameraStarting" class="absolute inset-0 flex items-center justify-center bg-black/50 text-white text-sm">กำลังเปิดกล้อง...</div>
+        </div>
+        <UButton label="ปิดกล้อง" icon="i-lucide-x" color="neutral" variant="outline" block @click="closeCameraScan" />
+      </div>
+    </template>
+  </UModal>
 </template>

@@ -94,11 +94,9 @@ const packageSaleStatusMap: Record<PackageSaleStatus, { label: string; color: Ba
   CANCELLED: { label: "ยกเลิก", color: "error" },
 };
 const serviceOrderStatusMap: Record<ServiceOrderStatus, { label: string; color: BadgeColor }> = {
-  RECEIVED: { label: "รับงานแล้ว", color: "info" },
-  PENDING: { label: "รอดำเนินการ", color: "warning" },
-  CHECKING: { label: "กำลังตรวจสอบ", color: "info" },
-  PROCESSING: { label: "กำลังดำเนินการ", color: "warning" },
-  PENDING_REVIEW: { label: "รอตรวจทาน", color: "warning" },
+  RECEIVED: { label: "รับผ้า", color: "info" },
+  PROCESSING: { label: "ดำเนินการ", color: "primary" },
+  DELIVERING: { label: "กำลังส่ง/รอรับ", color: "warning" },
   COMPLETED: { label: "เสร็จสิ้น", color: "success" },
   CANCELLED: { label: "ยกเลิก", color: "error" },
 };

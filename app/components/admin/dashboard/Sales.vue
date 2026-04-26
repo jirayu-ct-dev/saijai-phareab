@@ -71,7 +71,7 @@ const mockCustomers = [
   { name: 'คุณประเสริฐ สะดวก', image: null, phoneNumber: '095-333-4444', lineUserId: null }
 ]
 
-const mockStatuses: OrderStatus[] = ['RECEIVED', 'PENDING', 'CHECKING', 'PROCESSING', 'PENDING_REVIEW', 'COMPLETED', 'CANCELLED']
+const mockStatuses: OrderStatus[] = ['RECEIVED', 'PROCESSING', 'DELIVERING', 'COMPLETED', 'CANCELLED']
 const mockOrderTypes: OrderType[] = ['PACKAGE', 'STOREFRONT']
 
 const generateMockOrders = (count: number): MockOrder[] => {
