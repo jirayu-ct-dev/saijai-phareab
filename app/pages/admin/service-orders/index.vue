@@ -727,10 +727,33 @@ const openEditModal = (order: AdminServiceOrder) => {
   isFormOpen.value = true;
 };
 
-const handleBlockedSlip = (message: string) => notify.warning(message);
 const handleRemoveSlip = () => {
   slipFile.value = null;
   uploadedSlip.value = null;
+};
+
+const slipPhotos = computed<import("~~/app/components/UI/PhotoUpload.vue").Photo[]>(() => {
+  if (slipFile.value) return [{ key: "slip", file: slipFile.value, url: null }];
+  const url = uploadedSlip.value?.secureUrl ?? uploadedSlip.value?.url ?? null;
+  return url ? [{ key: "slip", file: null, url }] : [];
+});
+
+const onSlipPhotosUpdate = (photos: import("~~/app/components/UI/PhotoUpload.vue").Photo[]) => {
+  const photo = photos[0] ?? null;
+  slipFile.value = photo?.file ?? null;
+  if (!photo) uploadedSlip.value = null;
+};
+
+const deliveryPhotos = computed<import("~~/app/components/UI/PhotoUpload.vue").Photo[]>(() => {
+  if (deliveryImageFile.value) return [{ key: "delivery", file: deliveryImageFile.value, url: null }];
+  const url = uploadedDeliveryImage.value?.secureUrl ?? uploadedDeliveryImage.value?.url ?? null;
+  return url ? [{ key: "delivery", file: null, url }] : [];
+});
+
+const onDeliveryPhotosUpdate = (photos: import("~~/app/components/UI/PhotoUpload.vue").Photo[]) => {
+  const photo = photos[0] ?? null;
+  deliveryImageFile.value = photo?.file ?? null;
+  if (!photo) uploadedDeliveryImage.value = null;
 };
 
 const uploadSlipIfNeeded = async (): Promise<string | null> => {
@@ -983,7 +1006,7 @@ const columns: TableColumn<AdminServiceOrder>[] = [
     cell: ({ row }) => {
       const order = row.original;
       const isCompleted = order.status === "COMPLETED";
-      const deliveredAt = order.payment?.paidAt ?? null;
+      const deliveredAt = order.payment?.paidAt ?? order.dueAt ?? null;
       return h("div", { class: "space-y-0.5 text-sm cursor-pointer", onClick: () => openDetailPage(order) }, [
         h("p", { class: "text-highlighted" }, `รับ: ${formatDateTime(order.receivedAt)}`),
         isCompleted
@@ -1158,7 +1181,7 @@ const columns: TableColumn<AdminServiceOrder>[] = [
                 <USkeleton class="h-10 w-28" />
               </div>
             </div>
-            <USkeleton class="h-[420px] w-full rounded-xl" />
+            <USkeleton class="h-105 w-full rounded-xl" />
           </div>
         </template>
       </ClientOnly>
@@ -1377,15 +1400,12 @@ const columns: TableColumn<AdminServiceOrder>[] = [
             <div class="rounded-2xl border border-default p-4">
               <p class="font-medium text-highlighted">หลักฐานการชำระเงิน</p>
               <div class="mt-4 space-y-4">
-                <UISlipUploadField
+                <UIPhotoUpload
                   label="สลิป / หลักฐานชำระเงิน"
-                  :file="slipFile"
-                  :image-url="uploadedSlip?.secureUrl || uploadedSlip?.url || null"
-                  :image-label="uploadedSlip?.secureUrl || uploadedSlip?.url || null"
+                  :photos="slipPhotos"
+                  :max="1"
                   confirm-remove
-                  @update:file="slipFile = $event"
-                  @blocked="handleBlockedSlip"
-                  @remove="handleRemoveSlip"
+                  @update:photos="onSlipPhotosUpdate"
                 />
               </div>
             </div>
@@ -1619,19 +1639,13 @@ const columns: TableColumn<AdminServiceOrder>[] = [
                 class="w-full"
               />
             </UFormField>
-            <UISlipUploadField
+            <UIPhotoUpload
               v-if="statusDraft === 'COMPLETED'"
               label="รูปหลักฐานการส่งผ้า"
               description="ถ่ายรูปตอนส่งคืนผ้าให้ลูกค้า (ไม่บังคับ)"
-              :file="deliveryImageFile"
-              :image-url="uploadedDeliveryImage?.secureUrl || uploadedDeliveryImage?.url || null"
-              :image-label="uploadedDeliveryImage?.secureUrl || uploadedDeliveryImage?.url || null"
-              upload-label="แนบรูป"
-              preview-label="ดูรูป"
-              remove-label="ลบรูป"
-              empty-text="ยังไม่ได้แนบรูป"
-              @update:file="deliveryImageFile = $event"
-              @remove="handleRemoveDeliveryImage"
+              :photos="deliveryPhotos"
+              :max="1"
+              @update:photos="onDeliveryPhotosUpdate"
             />
 
             <div

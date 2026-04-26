@@ -164,7 +164,6 @@ export default defineEventHandler(async (event) => {
     paidAt: payment.paidAt?.toISOString() ?? null,
     amount: toNumber(payment.amount),
     paymentMethod: payment.paymentMethod,
-    status: payment.status,
     note: payment.note,
     slipImage: payment.slipImage
       ? {
@@ -215,6 +214,9 @@ export default defineEventHandler(async (event) => {
           status: payment.serviceOrder.status,
           note: payment.serviceOrder.note,
           receivedAt: payment.serviceOrder.receivedAt.toISOString(),
+          deliveredAt: payment.serviceOrder.status === "COMPLETED"
+            ? payment.serviceOrder.updatedAt.toISOString()
+            : null,
           dueAt: payment.serviceOrder.dueAt?.toISOString() ?? null,
           subtotalAmount: toNumber(payment.serviceOrder.subtotalAmount),
           discountAmount: toNumber(payment.serviceOrder.discountAmount),

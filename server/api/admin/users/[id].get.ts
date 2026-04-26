@@ -71,7 +71,6 @@ export default defineEventHandler(async (event) => {
             id: true,
             amount: true,
             paymentMethod: true,
-            status: true,
             note: true,
             createdAt: true,
             paidAt: true,
@@ -136,7 +135,7 @@ export default defineEventHandler(async (event) => {
                 id: true,
                 amount: true,
                 paymentMethod: true,
-                status: true,
+                paidAt: true,
                 createdAt: true,
               },
             },
@@ -201,7 +200,7 @@ export default defineEventHandler(async (event) => {
       return sum + Math.max(creditInitial - creditRemaining, 0);
     }, 0);
     const totalSpent = user.paymentRecords
-      .filter((payment) => payment.status === "VERIFIED")
+      .filter((payment) => payment.paidAt !== null)
       .reduce((sum, payment) => sum + Number(payment.amount), 0);
 
     return {
@@ -257,7 +256,7 @@ export default defineEventHandler(async (event) => {
         id: payment.id,
         amount: Number(payment.amount),
         paymentMethod: payment.paymentMethod,
-        status: payment.status,
+        isVerified: payment.paidAt !== null,
         note: payment.note,
         createdAt: payment.createdAt,
         paidAt: payment.paidAt,
@@ -299,7 +298,7 @@ export default defineEventHandler(async (event) => {
               id: sale.payments[0].id,
               amount: Number(sale.payments[0].amount),
               paymentMethod: sale.payments[0].paymentMethod,
-              status: sale.payments[0].status,
+              isVerified: sale.payments[0].paidAt !== null,
               createdAt: sale.payments[0].createdAt,
             }
           : null,

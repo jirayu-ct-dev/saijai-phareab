@@ -2,6 +2,7 @@ import type { ServiceOrderStatus } from "~~/shared/types/enums";
 import { requireRole } from "~~/server/utils/auth";
 import { prisma } from "~~/server/utils/prisma";
 import { refundAddonUsages, refundPrimaryCredit } from "~~/server/utils/serviceOrderCredits";
+import { notifyServiceOrderStatusChanged } from "~~/server/utils/notify";
 
 type AddonUsageInput = {
   entitlementId: string;
@@ -178,6 +179,14 @@ export default defineEventHandler(async (event) => {
       },
     });
   });
+
+  if (existing.status !== updated.status) {
+    void notifyServiceOrderStatusChanged({
+      serviceOrderId: updated.id,
+      fromStatus: existing.status,
+      toStatus: updated.status,
+    });
+  }
 
   return {
     id: updated.id,

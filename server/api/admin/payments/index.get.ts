@@ -110,7 +110,7 @@ export default defineEventHandler(async () => {
         id: row.id,
         paymentNo: row.paymentNo,
         amount: Number(row.amount),
-        status: row.status,
+        isVerified: row.paidAt !== null,
         paymentMethod: row.paymentMethod,
         note: row.note ?? row.packageSale?.note ?? null,
         createdAt: row.createdAt,

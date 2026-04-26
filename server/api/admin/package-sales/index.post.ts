@@ -1,8 +1,9 @@
 import { addDays } from "date-fns";
-import type { PaymentMethod, PaymentStatus } from "~~/shared/types/enums";
+import type { PaymentMethod } from "~~/shared/types/enums";
 import { requireRole } from "~~/server/utils/auth";
 import { createPaymentNo } from "~~/server/utils/paymentNo";
 import { prisma } from "~~/server/utils/prisma";
+import { notifyReceipt } from "~~/server/utils/notify";
 
 type CreatePackageSaleBody = {
   customerId: string;
@@ -12,7 +13,7 @@ type CreatePackageSaleBody = {
   }>;
   discountAmount?: number;
   paymentMethod: PaymentMethod;
-  status?: PaymentStatus;
+  isVerified?: boolean;
   note?: string | null;
   slipImageId?: string | null;
 };
@@ -20,21 +21,9 @@ type CreatePackageSaleBody = {
 const buildEntitlementState = (
   validityDays: number | null | undefined,
   credits: number | null | undefined,
-  paymentStatus: PaymentStatus,
+  isVerified: boolean,
 ) => {
-  if (paymentStatus === "FAILED") {
-    return {
-      status: "CANCELLED" as const,
-      startAt: null,
-      endAt: null,
-      activatedAt: null,
-      suspendedAt: null,
-      creditInitial: null,
-      creditRemaining: null,
-    };
-  }
-
-  if (paymentStatus !== "VERIFIED") {
+  if (!isVerified) {
     return {
       status: "PENDING" as const,
       startAt: null,
@@ -60,11 +49,6 @@ const buildEntitlementState = (
   };
 };
 
-const getSaleStatus = (status: PaymentStatus) => {
-  if (status === "VERIFIED") return "PAID" as const;
-  if (status === "FAILED") return "CANCELLED" as const;
-  return "PENDING" as const;
-};
 
 export default defineEventHandler(async (event) => {
   const actor = requireRole(event, ["EMPLOYEE", "ADMIN"]);
@@ -105,8 +89,7 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, statusMessage: "ส่วนลดต้องมากกว่าหรือเท่ากับ 0" });
   }
 
-  const status: PaymentStatus = body.status ?? (body.paymentMethod === "CASH" ? "VERIFIED" : "PENDING");
-  const isVerified = status === "VERIFIED";
+  const isVerified = body.isVerified ?? body.paymentMethod === "CASH";
 
   try {
     const customer = await prisma.user.findFirst({
@@ -156,7 +139,7 @@ export default defineEventHandler(async (event) => {
         data: {
           customerId: body.customerId,
           soldById: actor.id,
-          status: getSaleStatus(status),
+          status: isVerified ? "PAID" : "PENDING",
           subtotalAmount,
           discountAmount,
           totalAmount,
@@ -186,7 +169,7 @@ export default defineEventHandler(async (event) => {
               customerId: body.customerId,
               sourceSaleItemId: saleItem.id,
               productId: saleItem.product.id,
-              ...buildEntitlementState(saleItem.product.validityDays, saleItem.product.credits, status),
+              ...buildEntitlementState(saleItem.product.validityDays, saleItem.product.credits, isVerified),
             },
           });
         }
@@ -200,12 +183,11 @@ export default defineEventHandler(async (event) => {
           amount: totalAmount,
           paymentMethod: body.paymentMethod,
           slipImageId: body.slipImageId ?? null,
-          status,
           note: body.note?.trim() || null,
           paidAt: isVerified ? new Date() : null,
           verifiedById: isVerified ? actor.id : null,
           verifiedAt: isVerified ? new Date() : null,
-          rejectionReason: status === "FAILED" ? "บันทึกรายการไม่สำเร็จ" : null,
+          rejectionReason: null,
           metadata: {
             createdByAdminId: actor.id,
             source: "admin-package-sales",
@@ -215,6 +197,8 @@ export default defineEventHandler(async (event) => {
 
       return { id: packageSale.id, paymentId: payment.id };
     });
+
+    void notifyReceipt({ paymentId: created.paymentId });
 
     return created;
   } catch (error) {

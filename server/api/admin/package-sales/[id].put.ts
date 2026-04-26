@@ -1,5 +1,5 @@
 import { addDays } from "date-fns";
-import type { PaymentMethod, PaymentStatus } from "~~/shared/types/enums";
+import type { PaymentMethod } from "~~/shared/types/enums";
 import { requireRole } from "~~/server/utils/auth";
 import { createPaymentNo } from "~~/server/utils/paymentNo";
 import { prisma } from "~~/server/utils/prisma";
@@ -12,7 +12,7 @@ type UpdatePackageSaleBody = {
   }>;
   discountAmount?: number;
   paymentMethod: PaymentMethod;
-  status?: PaymentStatus;
+  isVerified?: boolean;
   note?: string | null;
   slipImageId?: string | null;
 };
@@ -20,21 +20,9 @@ type UpdatePackageSaleBody = {
 const buildEntitlementState = (
   validityDays: number | null | undefined,
   credits: number | null | undefined,
-  paymentStatus: PaymentStatus,
+  isVerified: boolean,
 ) => {
-  if (paymentStatus === "FAILED") {
-    return {
-      status: "CANCELLED" as const,
-      startAt: null,
-      endAt: null,
-      activatedAt: null,
-      suspendedAt: null,
-      creditInitial: null,
-      creditRemaining: null,
-    };
-  }
-
-  if (paymentStatus !== "VERIFIED") {
+  if (!isVerified) {
     return {
       status: "PENDING" as const,
       startAt: null,
@@ -60,11 +48,6 @@ const buildEntitlementState = (
   };
 };
 
-const getSaleStatus = (status: PaymentStatus) => {
-  if (status === "VERIFIED") return "PAID" as const;
-  if (status === "FAILED") return "CANCELLED" as const;
-  return "PENDING" as const;
-};
 
 export default defineEventHandler(async (event) => {
   const actor = requireRole(event, ["EMPLOYEE", "ADMIN"]);
@@ -110,8 +93,7 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, statusMessage: "ส่วนลดต้องมากกว่าหรือเท่ากับ 0" });
   }
 
-  const status: PaymentStatus = body.status ?? (body.paymentMethod === "CASH" ? "VERIFIED" : "PENDING");
-  const isVerified = status === "VERIFIED";
+  const isVerified = body.isVerified ?? body.paymentMethod === "CASH";
 
   try {
     const existingSale = await prisma.packageSale.findFirst({
@@ -222,7 +204,7 @@ export default defineEventHandler(async (event) => {
         where: { id },
         data: {
           customerId: body.customerId,
-          status: getSaleStatus(status),
+          status: isVerified ? "PAID" : "PENDING",
           subtotalAmount,
           discountAmount,
           totalAmount,
@@ -264,7 +246,7 @@ export default defineEventHandler(async (event) => {
               customerId: body.customerId,
               sourceSaleItemId: saleItem.id,
               productId: saleItem.product.id,
-              ...buildEntitlementState(saleItem.product.validityDays, saleItem.product.credits, status),
+              ...buildEntitlementState(saleItem.product.validityDays, saleItem.product.credits, isVerified),
             },
           });
 
@@ -285,12 +267,11 @@ export default defineEventHandler(async (event) => {
             amount: totalAmount,
             paymentMethod: body.paymentMethod,
             slipImageId: body.slipImageId ?? null,
-            status,
             note: body.note?.trim() || null,
             paidAt: isVerified ? new Date() : null,
             verifiedById: isVerified ? actor.id : null,
             verifiedAt: isVerified ? new Date() : null,
-            rejectionReason: status === "FAILED" ? "ระบุโดยผู้ดูแลระบบ" : null,
+            rejectionReason: null,
             metadata: {
               updatedByAdminId: actor.id,
               source: "admin-package-sales",
@@ -307,12 +288,11 @@ export default defineEventHandler(async (event) => {
             amount: totalAmount,
             paymentMethod: body.paymentMethod,
             slipImageId: body.slipImageId ?? null,
-            status,
             note: body.note?.trim() || null,
             paidAt: isVerified ? new Date() : null,
             verifiedById: isVerified ? actor.id : null,
             verifiedAt: isVerified ? new Date() : null,
-            rejectionReason: status === "FAILED" ? "ระบุโดยผู้ดูแลระบบ" : null,
+            rejectionReason: null,
             metadata: {
               updatedByAdminId: actor.id,
               source: "admin-package-sales",

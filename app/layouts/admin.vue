@@ -66,6 +66,13 @@ const adminMenu = [
       type: "trigger",
       children: [
         {
+          label: "ข้อมูลร้าน",
+          icon: "i-lucide-store",
+          to: "/admin/settings/shop",
+          exact: true,
+          onSelect: closeSidebar,
+        },
+        {
           label: "ข้อมูลส่วนตัว",
           icon: "i-lucide-user",
           to: "/admin/settings/profile",

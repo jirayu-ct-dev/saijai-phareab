@@ -17,7 +17,13 @@ type LineImageMessage = {
   previewImageUrl: string;
 };
 
-type LineMessage = LineTextMessage | LineImageMessage;
+type LineFlexMessage = {
+  type: "flex";
+  altText: string;
+  contents: Record<string, unknown>;
+};
+
+export type LineMessage = LineTextMessage | LineImageMessage | LineFlexMessage;
 
 type LineReplyMessageRequest = {
   replyToken: string;
@@ -112,12 +118,12 @@ const getLineMessagingOauthIssueTokenV3Url = (): string => {
   return configured || "https://api.line.me/oauth2/v3/token";
 };
 
-const getLineChannelId = (): string => getRequiredEnv("LINE_MESSAGING_CHANNEL_ID");
+const getLineChannelId = (): string => getRequiredEnv("LINE_CHANNEL_ID");
 
-const getLineChannelSecret = (): string => getRequiredEnv("LINE_MESSAGING_CHANNEL_SECRET");
+const getLineChannelSecret = (): string => getRequiredEnv("LINE_CHANNEL_SECRET");
 
 const getConfiguredChannelAccessToken = (): string | null => {
-  const token = process.env.LINE_MESSAGING_ACCESS_TOKEN?.trim();
+  const token = process.env.LINE_CHANNEL_ACCESS_TOKEN?.trim();
   return token || null;
 };
 
@@ -177,7 +183,7 @@ const getLineAccessToken = async (): Promise<string> => {
     return await issueStatelessChannelAccessToken();
   } catch (error) {
     if (staticToken) {
-      console.warn("[LINE messaging] Fallback to LINE_MESSAGING_ACCESS_TOKEN", error);
+      console.warn("[LINE messaging] Fallback to LINE_CHANNEL_ACCESS_TOKEN", error);
       return staticToken;
     }
 

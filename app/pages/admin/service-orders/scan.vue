@@ -1,13 +1,11 @@
 <script setup lang="ts">
 import { CalendarDate } from "@internationalized/date";
-import SlipUploadField from "~~/app/components/UI/SlipUploadField.vue";
 import ImagePreviewModal from "~~/app/components/UI/ImagePreviewModal.vue";
 import type { PaymentSlipImage } from "~~/app/composables/useAdminPayments";
 import type { CreateAdminServiceOrderBody } from "~~/app/composables/useAdminServiceOrders";
 import { orderStatusColors, orderStatusLabels } from "~~/shared/config/orderConfig";
-import { paymentStatusLabels } from "~~/shared/config/paymentConfig";
 import { formatCurrency, formatDateTime } from "~~/shared/utils/format";
-import type { PaymentMethod, PaymentStatus, ServiceOrderStatus } from "~~/shared/types/enums";
+import type { PaymentMethod, ServiceOrderStatus } from "~~/shared/types/enums";
 
 type BadgeColor = "success" | "info" | "error" | "neutral" | "primary" | "secondary" | "warning";
 type LookupServiceOrderResponse = {
@@ -81,7 +79,7 @@ type LookupServiceOrderResponse = {
     id: string;
     paymentNo: string | null;
     paymentMethod: PaymentMethod;
-    status: PaymentStatus;
+    isVerified: boolean;
     amount: number;
     note: string | null;
     paidAt: string | null;
@@ -115,11 +113,6 @@ const paymentMethodOptions: Array<{ label: string; value: PaymentMethod }> = [
   { label: "เงินสด", value: "CASH" },
   { label: "โอน", value: "TRANSFER" },
 ];
-const paymentStatusOptions: Array<{ label: string; value: PaymentStatus }> = [
-  { label: paymentStatusLabels.PENDING, value: "PENDING" },
-  { label: paymentStatusLabels.VERIFIED, value: "VERIFIED" },
-  { label: paymentStatusLabels.FAILED, value: "FAILED" },
-];
 const quickStatusOptions: Array<{ label: string; value: ServiceOrderStatus; icon: string; color: BadgeColor }> = [
   { label: orderStatusLabels.RECEIVED, value: "RECEIVED", icon: "i-lucide-inbox", color: "info" },
   { label: orderStatusLabels.PROCESSING, value: "PROCESSING", icon: "i-lucide-washing-machine", color: "primary" },
@@ -141,7 +134,7 @@ const dueTime = ref("00:00");
 const editForm = reactive({
   serviceOrderStatus: "RECEIVED" as ServiceOrderStatus,
   paymentMethod: "CASH" as PaymentMethod,
-  paymentStatus: "PENDING" as PaymentStatus,
+  isVerified: false,
   note: "",
 });
 const uploadedSlip = ref<PaymentSlipImage | null>(null);
@@ -224,7 +217,7 @@ const setDueDateTime = (value: string | null) => {
 const syncEditForm = (target: LookupServiceOrderResponse | null) => {
   editForm.serviceOrderStatus = target?.status ?? "RECEIVED";
   editForm.paymentMethod = target?.payments[0]?.paymentMethod ?? "CASH";
-  editForm.paymentStatus = target?.payments[0]?.status ?? "PENDING";
+  editForm.isVerified = target?.payments[0]?.isVerified ?? false;
   editForm.note = target?.note ?? "";
   uploadedSlip.value = target?.payments[0]?.slipImage
     ? {
@@ -400,7 +393,29 @@ const handleRemoveSlip = () => {
   uploadedSlip.value = null;
 };
 
-const handleBlockedSlip = (message: string) => notify.warning(message);
+const slipPhotos = computed<import("~~/app/components/UI/PhotoUpload.vue").Photo[]>(() => {
+  if (slipFile.value) return [{ key: "slip", file: slipFile.value, url: null }];
+  const url = uploadedSlip.value?.secureUrl ?? uploadedSlip.value?.url ?? null;
+  return url ? [{ key: "slip", file: null, url }] : [];
+});
+
+const onSlipPhotosUpdate = (photos: import("~~/app/components/UI/PhotoUpload.vue").Photo[]) => {
+  const photo = photos[0] ?? null;
+  slipFile.value = photo?.file ?? null;
+  if (!photo) uploadedSlip.value = null;
+};
+
+const deliveryPhotos = computed<import("~~/app/components/UI/PhotoUpload.vue").Photo[]>(() => {
+  if (deliveryImageFile.value) return [{ key: "delivery", file: deliveryImageFile.value, url: null }];
+  const url = uploadedDeliveryImage.value?.secureUrl ?? uploadedDeliveryImage.value?.url ?? null;
+  return url ? [{ key: "delivery", file: null, url }] : [];
+});
+
+const onDeliveryPhotosUpdate = (photos: import("~~/app/components/UI/PhotoUpload.vue").Photo[]) => {
+  const photo = photos[0] ?? null;
+  deliveryImageFile.value = photo?.file ?? null;
+  if (!photo) uploadedDeliveryImage.value = null;
+};
 
 const uploadSlipIfNeeded = async (): Promise<string | null> => {
   if (!slipFile.value) return uploadedSlip.value?.id ?? null;
@@ -472,7 +487,7 @@ const buildEditBody = async (): Promise<CreateAdminServiceOrderBody | null> => {
     dueAt: dueAtValue.value ? new Date(dueAtValue.value).toISOString() : null,
     discountAmount: order.value.discountAmount,
     paymentMethod: editForm.paymentMethod,
-    status: editForm.paymentStatus,
+    isVerified: editForm.isVerified,
     serviceOrderStatus: editForm.serviceOrderStatus,
     note: editForm.note.trim() || null,
     slipImageId,
@@ -900,20 +915,21 @@ onBeforeUnmount(() => {
               </UFormField>
 
               <UFormField label="สถานะชำระเงิน">
-                <USelect v-model="editForm.paymentStatus" :items="paymentStatusOptions" value-key="value" class="w-full" />
+                <div class="flex items-center gap-2 pt-1">
+                  <USwitch v-model="editForm.isVerified" color="success" />
+                  <span class="text-sm">{{ editForm.isVerified ? "ยืนยันแล้ว" : "รอตรวจสอบ" }}</span>
+                </div>
               </UFormField>
             </div>
 
-            <SlipUploadField
+            <UIPhotoUpload
               label="หลักฐานการชำระเงิน"
-              :file="slipFile"
-              :image-url="uploadedSlip?.secureUrl || uploadedSlip?.url || null"
-              :image-label="uploadedSlip?.secureUrl || uploadedSlip?.url || null"
-              :blocked-message="editForm.paymentMethod !== 'TRANSFER' ? 'อัปโหลดสลิปได้เฉพาะเมื่อเลือกการชำระเงินแบบโอน' : null"
+              :photos="slipPhotos"
+              :max="1"
+              :disabled="editForm.paymentMethod !== 'TRANSFER'"
+              :description="editForm.paymentMethod !== 'TRANSFER' ? 'อัปโหลดสลิปได้เฉพาะเมื่อเลือกการชำระเงินแบบโอน' : undefined"
               confirm-remove
-              @update:file="slipFile = $event"
-              @blocked="handleBlockedSlip"
-              @remove="handleRemoveSlip"
+              @update:photos="onSlipPhotosUpdate"
             />
 
             <UFormField label="หมายเหตุ">
@@ -942,18 +958,12 @@ onBeforeUnmount(() => {
       >
         <template #body>
           <div class="space-y-4">
-            <SlipUploadField
+            <UIPhotoUpload
               label="รูปหลักฐานการส่งผ้า"
               description="ถ่ายรูปตอนส่งคืนผ้าให้ลูกค้า (ไม่บังคับ)"
-              :file="deliveryImageFile"
-              :image-url="uploadedDeliveryImage?.secureUrl || uploadedDeliveryImage?.url || null"
-              :image-label="uploadedDeliveryImage?.secureUrl || uploadedDeliveryImage?.url || null"
-              upload-label="แนบรูป"
-              preview-label="ดูรูป"
-              remove-label="ลบรูป"
-              empty-text="ยังไม่ได้แนบรูป"
-              @update:file="deliveryImageFile = $event"
-              @remove="handleRemoveDeliveryImage"
+              :photos="deliveryPhotos"
+              :max="1"
+              @update:photos="onDeliveryPhotosUpdate"
             />
 
             <div v-if="addonPickerEntries.length" class="space-y-2">

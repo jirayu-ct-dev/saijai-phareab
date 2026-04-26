@@ -67,7 +67,7 @@ const createEmptyForm = () => ({
   items: [] as FormItemState[],
   discountAmount: 0,
   paymentMethod: "CASH" as PaymentMethod,
-  status: "VERIFIED" as PaymentStatus,
+  isVerified: true,
   note: "",
   slipImageId: null as string | null,
 });
@@ -216,7 +216,7 @@ const handleSubmit = async () => {
       items: normalizedItems.value,
       discountAmount: sanitizedDiscountAmount.value,
       paymentMethod: form.paymentMethod,
-      status: form.status,
+      isVerified: form.isVerified,
       note: form.note.trim() || null,
       slipImageId: form.slipImageId,
     };

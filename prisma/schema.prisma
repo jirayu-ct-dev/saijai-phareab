@@ -23,11 +23,6 @@ enum PackageType {
   ADDON
 }
 
-enum PaymentStatus {
-  PENDING
-  VERIFIED
-  FAILED
-}
 
 enum PaymentMethod {
   CASH
@@ -70,6 +65,7 @@ model User {
   image         String?
   role          Role      @default(USER)
   phoneNumber   String?
+  lineNotifyEnabled Boolean @default(true)
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
   deletedAt     DateTime?
@@ -104,6 +100,8 @@ model User {
   deletedServiceOrderItemImages ServiceOrderItemImage[] @relation("ServiceOrderItemImageDeletedBy")
   deletedPaymentRecords       PaymentRecord[]      @relation("PaymentRecordDeletedBy")
   deletedUserAddresses        UserAddress[]        @relation("UserAddressDeletedBy")
+
+  notificationSubscriber NotificationSubscriber?
 
   @@map("user")
 }
@@ -471,7 +469,6 @@ model PaymentRecord {
   paymentMethod       PaymentMethod
   slipImageId         String?
   slipImage           Image?             @relation("PaymentSlipImage", fields: [slipImageId], references: [id])
-  status              PaymentStatus      @default(PENDING)
   note                String?
   paidAt              DateTime?
   metadata            Json?
@@ -491,7 +488,6 @@ model PaymentRecord {
   @@index([serviceOrderId])
   @@index([paymentMethod, createdAt])
   @@index([paymentNo])
-  @@index([status, createdAt])
   @@map("payment_record")
 }
 
@@ -516,4 +512,44 @@ model UserAddress {
   @@index([userId])
   @@index([userId, isDefault])
   @@map("user_address")
+}
+
+model ShopSetting {
+  id        String   @id @default("singleton")
+  name      String   @default("")
+  phone     String   @default("")
+  address   String   @default("")
+  logoUrl        String?
+  lineQrImageUrl String?
+  updatedAt      DateTime @updatedAt
+
+  @@map("shop_setting")
+}
+
+model NotificationSetting {
+  id                          String   @id @default("singleton")
+  notifyCustomerOnReceived    Boolean  @default(true)
+  notifyCustomerOnProcessing  Boolean  @default(true)
+  notifyCustomerOnDelivering  Boolean  @default(true)
+  notifyCustomerOnCompleted   Boolean  @default(true)
+  notifyCustomerOnCancelled   Boolean  @default(true)
+  notifyCustomerReceipt       Boolean  @default(true)
+  notifyStaffOnNewOrder       Boolean  @default(true)
+  updatedAt                   DateTime @updatedAt
+
+  @@map("notification_setting")
+}
+
+model NotificationSubscriber {
+  id                  String   @id @default(cuid())
+  userId              String   @unique
+  user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  isActive            Boolean  @default(true)
+  receiveNewOrder     Boolean  @default(true)
+  receiveStatusChange Boolean  @default(true)
+  receiveReceipt      Boolean  @default(true)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  @@map("notification_subscriber")
 }
