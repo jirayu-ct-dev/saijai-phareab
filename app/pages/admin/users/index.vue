@@ -412,12 +412,8 @@ const columns: TableColumn<AdminUser>[] = [
       const visiblePackages = currentPackages.slice(0, 2)
       const remainingCount = currentPackages.length - visiblePackages.length
 
-      return h('div', { class: 'max-w-72 space-y-2' }, [
-        ...visiblePackages.map((entitlement) =>
-          h('div', { key: entitlement.id, class: 'space-y-0.5' }, [
-            h('p', { class: 'truncate font-medium text-highlighted' }, entitlement.product.name),
-            h('p', { class: 'truncate text-xs text-muted' }, getPackageSummary(entitlement))
-          ])
+      return h('div', { class: 'max-w-72 space-x-2 flex' }, [
+        ...visiblePackages.map((entitlement) => h('p', { class: 'truncate font-medium text-highlighted' }, entitlement.product.name),
         ),
         ...(remainingCount > 0 ? [h('p', { class: 'text-xs text-muted' }, `+ อีก ${remainingCount} แพ็กเกจ`)] : [])
       ])

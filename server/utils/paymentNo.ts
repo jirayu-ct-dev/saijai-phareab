@@ -18,7 +18,9 @@ const getBangkokDateParts = (date = new Date()) => {
 
 const randomSuffix = () => Math.random().toString(36).slice(2, 8).toUpperCase();
 
-export const createPaymentNo = (date = new Date()) => {
+export const createPaymentNo = async (date = new Date()) => {
+  const { getBusinessSetting } = await import("./businessSetting");
+  const { paymentNoPrefix } = await getBusinessSetting();
   const { year, month, day } = getBangkokDateParts(date);
-  return `PAY-${year}${month}${day}-${randomSuffix()}`;
+  return `${paymentNoPrefix}${year}${month}${day}-${randomSuffix()}`;
 };

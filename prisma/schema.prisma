@@ -526,6 +526,20 @@ model ShopSetting {
   @@map("shop_setting")
 }
 
+model BusinessSetting {
+  id                  String   @id @default("singleton")
+  hangerPricePerUnit  Decimal  @default(10)
+  vatRate             Decimal  @default(0)
+  vatIncluded         Boolean  @default(false)
+  paymentNoPrefix     String   @default("PAY-")
+  orderNoPrefix       String   @default("ORD-")
+  minimumOrderAmount  Decimal  @default(0)
+  packageRefundDays   Int      @default(7)
+  updatedAt           DateTime @updatedAt
+
+  @@map("business_setting")
+}
+
 model NotificationSetting {
   id                          String   @id @default("singleton")
   notifyCustomerOnReceived    Boolean  @default(true)

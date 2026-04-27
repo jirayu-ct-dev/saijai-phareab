@@ -4,6 +4,8 @@ import { requireRole } from "~~/server/utils/auth";
 import { createPaymentNo } from "~~/server/utils/paymentNo";
 import { prisma } from "~~/server/utils/prisma";
 import { notifyReceipt } from "~~/server/utils/notify";
+import { getBusinessSetting } from "~~/server/utils/businessSetting";
+import { computeVat } from "~~/server/utils/vat";
 
 type CreatePackageSaleBody = {
   customerId: string;
@@ -132,7 +134,10 @@ export default defineEventHandler(async (event) => {
 
     const subtotalAmount = saleItems.reduce((sum, item) => sum + item.totalPrice, 0);
     const discountAmount = Math.min(Number(body.discountAmount ?? 0), subtotalAmount);
-    const totalAmount = subtotalAmount - discountAmount;
+    const beforeVat = subtotalAmount - discountAmount;
+    const business = await getBusinessSetting();
+    const vat = computeVat({ amount: beforeVat, rate: business.vatRate, included: business.vatIncluded });
+    const totalAmount = vat.totalAmount;
 
     const created = await prisma.$transaction(async (tx) => {
       const packageSale = await tx.packageSale.create({
@@ -177,7 +182,7 @@ export default defineEventHandler(async (event) => {
 
       const payment = await tx.paymentRecord.create({
         data: {
-          paymentNo: createPaymentNo(),
+          paymentNo: await createPaymentNo(),
           userId: body.customerId,
           packageSaleId: packageSale.id,
           amount: totalAmount,
@@ -191,6 +196,14 @@ export default defineEventHandler(async (event) => {
           metadata: {
             createdByAdminId: actor.id,
             source: "admin-package-sales",
+            subtotalAmount,
+            discountAmount,
+            vat: {
+              rate: vat.vatRate,
+              amount: vat.vatAmount,
+              included: vat.vatIncluded,
+              baseAmount: vat.baseAmount,
+            },
           },
         },
       });

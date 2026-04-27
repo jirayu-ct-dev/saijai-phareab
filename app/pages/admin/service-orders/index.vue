@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { CalendarDate } from "@internationalized/date";
+import { CalendarDate, parseDate } from "@internationalized/date";
 import { getPaginationRowModel } from "@tanstack/table-core";
 import type { TableColumn } from "@nuxt/ui";
 import { h, resolveComponent } from "vue";
@@ -10,7 +10,7 @@ import type {
   CreateAdminServiceOrderBody,
 } from "~~/app/composables/useAdminServiceOrders";
 import { orderStatusColors, orderStatusLabels } from "~~/shared/config/orderConfig";
-import { DEFAULT_HANGER_PRICE_PER_UNIT } from "~~/shared/config/posConfig";
+import { useBusinessSetting } from "~~/app/composables/useBusinessSetting";
 import { formatCurrency, formatDateTime } from "~~/shared/utils/format";
 import type { ServiceOrderStatus } from "~~/shared/types/enums";
 
@@ -144,8 +144,12 @@ const selectedOrders = computed<AdminServiceOrder[]>(() => selectedRows.value.ma
 const selectedRowsCount = computed(() => selectedOrders.value.length);
 const filteredRowCount = computed(() => filteredServiceOrders.value.length);
 
+const setPage = (page: number) => {
+  pagination.value = { ...pagination.value, pageIndex: page - 1 };
+};
+
 watch([searchQuery, statusFilter, customerTypeFilter], () => {
-  pagination.value.pageIndex = 0;
+  pagination.value = { ...pagination.value, pageIndex: 0 };
   rowSelection.value = {};
 });
 
@@ -500,10 +504,11 @@ const formLineItems = computed(() =>
 
 const subtotalAmount = computed(() => formLineItems.value.reduce((sum, item) => sum + item.totalPrice, 0));
 const totalQuantity = computed(() => formLineItems.value.reduce((sum, item) => sum + item.quantity, 0));
+const { hangerPricePerUnit } = useBusinessSetting();
 const hangerCharge = computed(() => ({
   count: form.missingHangerCount,
-  pricePerUnit: DEFAULT_HANGER_PRICE_PER_UNIT,
-  total: form.missingHangerCount * DEFAULT_HANGER_PRICE_PER_UNIT,
+  pricePerUnit: hangerPricePerUnit.value,
+  total: form.missingHangerCount * hangerPricePerUnit.value,
 }));
 const sanitizedDiscountAmount = computed(() => {
   const raw = Number(form.discountAmount || 0);
@@ -532,6 +537,27 @@ const dueDateLabel = computed(() => {
   const mm = String(dueDate.value.month).padStart(2, "0");
   return `${dd}/${mm}/${dueDate.value.year}`;
 });
+
+const BANGKOK_OFFSET_MS = 7 * 60 * 60 * 1000;
+const setPickupDow = (targetDow: number) => {
+  const now = new Date();
+  const bkk = new Date(now.getTime() + BANGKOK_OFFSET_MS);
+  const currentDow = bkk.getUTCDay();
+  let daysUntil = (targetDow - currentDow + 7) % 7;
+  const hour = bkk.getUTCHours();
+  const minute = bkk.getUTCMinutes();
+  if (daysUntil === 0 && (hour > 17 || (hour === 17 && minute > 0))) daysUntil = 7;
+  const target = new Date(bkk.getTime() + daysUntil * 86400000);
+  const y = target.getUTCFullYear();
+  const m = String(target.getUTCMonth() + 1).padStart(2, "0");
+  const d = String(target.getUTCDate()).padStart(2, "0");
+  dueDate.value = parseDate(`${y}-${m}-${d}`);
+  dueTime.value = "17:00";
+};
+const clearDueDate = () => {
+  dueDate.value = null;
+  dueTime.value = "00:00";
+};
 const creditAvailable = computed(() => Math.max(0, Number(activeMemberEntitlement.value?.creditRemaining ?? 0)));
 const creditUsedPreview = computed(() => {
   if (!form.memberEntitlementId) return 0;
@@ -662,14 +688,6 @@ const setDueDateTime = (value: string | null) => {
 
   dueDate.value = new CalendarDate(parsed.getFullYear(), parsed.getMonth() + 1, parsed.getDate());
   dueTime.value = `${String(parsed.getHours()).padStart(2, "0")}:${String(parsed.getMinutes()).padStart(2, "0")}`;
-};
-
-const openCreateModal = () => {
-  editingOrder.value = null;
-  Object.assign(form, createEmptyForm());
-  formItems.value = [];
-  setDueDateTime(null);
-  isFormOpen.value = true;
 };
 
 const openEditModal = (order: AdminServiceOrder) => {
@@ -1079,7 +1097,7 @@ const columns: TableColumn<AdminServiceOrder>[] = [
               label="เพิ่มรายการรับผ้า"
               icon="i-lucide-plus"
               color="primary"
-              @click="openCreateModal"
+              to="/admin/sales"
             />
           </div>
         </template>
@@ -1166,7 +1184,7 @@ const columns: TableColumn<AdminServiceOrder>[] = [
               :page="pagination.pageIndex + 1"
               :items-per-page="pagination.pageSize"
               :total="filteredRowCount"
-              @update:page="(page: number) => { pagination.pageIndex = page - 1 }"
+              @update:page="setPage"
             />
           </div>
         </div>
@@ -1191,8 +1209,8 @@ const columns: TableColumn<AdminServiceOrder>[] = [
     <ClientOnly>
       <UModal
       v-model:open="isFormOpen"
-      :title="editingOrder ? 'แก้ไขรายการรับผ้า' : 'เพิ่มรายการรับผ้า'"
-      :description="editingOrder ? 'อัปเดตรายการ บริการ และข้อมูลชำระเงินของงานนี้' : 'สร้างรายการรับผ้าใหม่พร้อมข้อมูลลูกค้าและการชำระเงิน'"
+      title="แก้ไขรายการรับผ้า"
+      description="อัปเดตรายการ บริการ และข้อมูลชำระเงินของงานนี้"
       :ui="{ content: 'max-w-5xl' }"
     >
       <template #body>
@@ -1274,28 +1292,37 @@ const columns: TableColumn<AdminServiceOrder>[] = [
                 </template>
 
                 <UFormField label="วันนัดรับ">
-                  <div class="grid grid-cols-2 gap-2">
-                    <UPopover>
-                      <UButton
-                        :label="dueDateLabel"
-                        icon="i-lucide-calendar"
-                        color="neutral"
-                        variant="outline"
-                        block
-                        class="justify-start font-normal"
+                  <div class="space-y-2">
+                    <div class="flex flex-wrap gap-1.5">
+                      <UButton size="xs" color="neutral" variant="soft" label="พุธ" @click="setPickupDow(3)" />
+                      <UButton size="xs" color="neutral" variant="soft" label="เสาร์" @click="setPickupDow(6)" />
+                      <UButton size="xs" color="neutral" :variant="dueDate ? 'ghost' : 'solid'" label="ไม่ระบุ" @click="clearDueDate" />
+                    </div>
+                    <div v-if="dueDate" class="grid grid-cols-2 gap-2">
+                      <UPopover>
+                        <UButton
+                          :label="dueDateLabel"
+                          icon="i-lucide-calendar"
+                          color="neutral"
+                          variant="outline"
+                          block
+                          class="justify-start font-normal"
+                        />
+                        <template #content>
+                          <UCalendar v-model="dueDate" locale="th-TH" class="p-2" />
+                        </template>
+                      </UPopover>
+                      <USelect
+                        v-model="dueTime"
+                        :items="dueTimeOptions"
+                        value-key="value"
+                        icon="i-lucide-clock"
+                        class="w-full"
                       />
-                      <template #content>
-                        <UCalendar v-model="dueDate" locale="th-TH" class="p-2" />
-                      </template>
-                    </UPopover>
-
-                    <USelect
-                      v-model="dueTime"
-                      :items="dueTimeOptions"
-                      value-key="value"
-                      icon="i-lucide-clock"
-                      class="w-full"
-                    />
+                    </div>
+                    <p v-else class="text-xs text-muted">ไม่ระบุวันนัด — กดพุธ / เสาร์ หรือ
+                      <button class="underline" type="button" @click="setPickupDow(3)">เลือกวัน</button>
+                    </p>
                   </div>
                 </UFormField>
 
@@ -1397,19 +1424,6 @@ const columns: TableColumn<AdminServiceOrder>[] = [
           </div>
 
           <div class="space-y-5">
-            <div class="rounded-2xl border border-default p-4">
-              <p class="font-medium text-highlighted">หลักฐานการชำระเงิน</p>
-              <div class="mt-4 space-y-4">
-                <UIPhotoUpload
-                  label="สลิป / หลักฐานชำระเงิน"
-                  :photos="slipPhotos"
-                  :max="1"
-                  confirm-remove
-                  @update:photos="onSlipPhotosUpdate"
-                />
-              </div>
-            </div>
-
             <div class="rounded-2xl border border-default p-4">
               <p class="font-medium text-highlighted">สรุปรายการ</p>
               <div class="mt-4 space-y-3 text-sm">
@@ -1567,8 +1581,8 @@ const columns: TableColumn<AdminServiceOrder>[] = [
         <div class="flex w-full justify-end gap-3">
           <UButton label="ยกเลิก" color="neutral" variant="outline" @click="isFormOpen = false" />
           <UButton
-            :label="editingOrder ? 'บันทึกการแก้ไข' : 'สร้างรายการรับผ้า'"
-            :icon="editingOrder ? 'i-lucide-save' : 'i-lucide-plus'"
+            label="บันทึกการแก้ไข"
+            icon="i-lucide-save"
             color="primary"
             :loading="isSubmitting"
             @click="handleSubmit"

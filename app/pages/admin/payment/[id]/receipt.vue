@@ -15,6 +15,12 @@ type ReceiptPayload = {
   amount: number;
   paymentMethod: "CASH" | "TRANSFER";
   note: string | null;
+  vat: {
+    rate: number;
+    amount: number;
+    included: boolean;
+    baseAmount: number;
+  } | null;
   customer: {
     id: string;
     name: string | null;
@@ -281,6 +287,16 @@ const infoRows = computed(() => {
           <span>ส่วนลด</span>
           <span>{{ formatCurrency(discountAmount) }}</span>
         </div>
+        <template v-if="data.vat">
+          <div class="summary-row">
+            <span>{{ data.vat.included ? `ราคารวม VAT ${data.vat.rate}% แล้ว` : `ราคาก่อน VAT` }}</span>
+            <span>{{ formatCurrency(data.vat.baseAmount) }}</span>
+          </div>
+          <div class="summary-row">
+            <span>VAT {{ data.vat.rate }}%</span>
+            <span>{{ formatCurrency(data.vat.amount) }}</span>
+          </div>
+        </template>
         <div v-if="noteText" class="pt-1 text-[11px] leading-4 text-neutral-700">
           <p class="font-semibold">หมายเหตุ</p>
           <p class="mt-1 wrap-break-word">{{ noteText }}</p>

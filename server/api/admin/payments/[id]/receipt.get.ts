@@ -165,6 +165,17 @@ export default defineEventHandler(async (event) => {
     amount: toNumber(payment.amount),
     paymentMethod: payment.paymentMethod,
     note: payment.note,
+    vat: (() => {
+      const meta = (payment.metadata ?? null) as { vat?: { rate?: number; amount?: number; included?: boolean; baseAmount?: number } } | null;
+      const v = meta?.vat;
+      if (!v || !Number.isFinite(Number(v.rate)) || Number(v.rate) <= 0) return null;
+      return {
+        rate: Number(v.rate),
+        amount: Number(v.amount ?? 0),
+        included: Boolean(v.included),
+        baseAmount: Number(v.baseAmount ?? 0),
+      };
+    })(),
     slipImage: payment.slipImage
       ? {
           id: payment.slipImage.id,

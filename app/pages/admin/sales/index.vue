@@ -91,6 +91,15 @@ const resultDescription = computed(() =>
             variant="outline"
             @click="navigateTo('/admin/payment')"
           />
+
+          <UButton
+            label="ดูรายงานการขาย"
+            icon="i-lucide-shopping-basket"
+            color="neutral"
+            variant="outline"
+            class="ml-2"
+            @click="navigateTo('/admin/service-orders')"
+          />
         </template>
       </UDashboardNavbar>
     </template>
@@ -138,7 +147,15 @@ const resultDescription = computed(() =>
     <template #footer>
       <div class="flex w-full flex-col-reverse gap-2 sm:flex-row sm:justify-end">
         <UButton label="เสร็จสิ้น" color="neutral" variant="ghost" @click="closeSaleResultModal" />
-        <UButton label="ไปหน้าการชำระเงิน" color="neutral" variant="outline" icon="i-lucide-arrow-right" @click="goToPaymentPage" />
+        <!-- <UButton label="ไปหน้าการชำระเงิน" color="neutral" variant="outline" icon="i-lucide-arrow-right" @click="goToPaymentPage" /> -->
+        <UButton
+          v-if="latestSaleResult.saleType === 'STOREFRONT'"
+          label="ดูรายละเอียดงาน"
+          color="neutral"
+          variant="outline"
+          icon="i-lucide-eye"
+          @click="navigateTo(`/admin/service-orders/${latestSaleResult.serviceOrderId}`)"
+        />
         <UButton label="เปิดใบเสร็จ" color="neutral" icon="i-lucide-printer" @click="openReceipt" />
       </div>
     </template>

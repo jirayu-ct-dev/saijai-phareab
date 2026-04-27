@@ -13,4 +13,8 @@ const formatBangkokDate = (date: Date) =>
 
 const createSuffix = () => Math.random().toString(36).slice(2, 8).toUpperCase();
 
-export const createServiceOrderNo = (date = new Date()) => `ORD-${formatBangkokDate(date)}-${createSuffix()}`;
+export const createServiceOrderNo = async (date = new Date()) => {
+  const { getBusinessSetting } = await import("./businessSetting");
+  const { orderNoPrefix } = await getBusinessSetting();
+  return `${orderNoPrefix}${formatBangkokDate(date)}-${createSuffix()}`;
+};

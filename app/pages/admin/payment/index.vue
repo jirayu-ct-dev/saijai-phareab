@@ -117,8 +117,12 @@ const paginationSummary = computed(() => {
   return `แสดง ${start}-${end} จาก ${total} รายการ | เลือก ${selectedRowsCount.value} รายการ`;
 });
 
+const setPage = (page: number) => {
+  pagination.value = { ...pagination.value, pageIndex: page - 1 };
+};
+
 watch([searchQuery, saleTypeFilter], () => {
-  pagination.value.pageIndex = 0;
+  pagination.value = { ...pagination.value, pageIndex: 0 };
   rowSelection.value = {};
 });
 
@@ -443,7 +447,7 @@ const columns: TableColumn<AdminPaymentRecord>[] = [
               :page="pagination.pageIndex + 1"
               :items-per-page="pagination.pageSize"
               :total="filteredRowCount"
-              @update:page="(page: number) => { pagination.pageIndex = page - 1 }"
+              @update:page="setPage"
             />
           </div>
         </div>
@@ -458,7 +462,7 @@ const columns: TableColumn<AdminPaymentRecord>[] = [
                 <USkeleton class="h-10 w-28" />
               </div>
             </div>
-            <USkeleton class="h-[420px] w-full rounded-xl" />
+            <USkeleton class="h-105 w-full rounded-xl" />
           </div>
         </template>
       </ClientOnly>

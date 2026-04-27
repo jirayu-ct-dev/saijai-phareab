@@ -32,6 +32,7 @@ const { createSale } = useAdminSales();
 const { customers, isLoading: isCustomersLoading } = useAdminCustomerOptions();
 const { products, refresh } = usePackageCatalog();
 const { uploadSlip } = useAdminPayments();
+const { vatRate, vatIncluded, computeVatPreview } = useBusinessSetting();
 
 const searchQuery = ref("");
 const packageTypeFilter = ref<"all" | PackageType>("all");
@@ -111,7 +112,9 @@ const sanitizedDiscountAmount = computed(() => {
 
   return Math.min(raw, subtotalAmount.value);
 });
-const totalAmount = computed(() => subtotalAmount.value - sanitizedDiscountAmount.value);
+const beforeVatAmount = computed(() => subtotalAmount.value - sanitizedDiscountAmount.value);
+const vatPreview = computed(() => computeVatPreview(beforeVatAmount.value));
+const totalAmount = computed(() => vatPreview.value.totalAmount);
 const totalQuantity = computed(() => cartItems.value.reduce((sum, item) => sum + item.quantity, 0));
 
 const normalizedItems = computed<AdminSaleItemInput[]>(() =>
@@ -374,6 +377,11 @@ const handleSubmit = async () => {
               class="w-full"
             />
           </UFormField>
+
+          <div v-if="vatRate > 0" class="mt-2 flex items-center justify-between text-sm">
+            <span class="text-muted">{{ vatIncluded ? `รวม VAT ${vatRate}%` : `VAT ${vatRate}%` }}</span>
+            <span class="font-medium text-highlighted">{{ formatCurrency(vatPreview.vatAmount) }}</span>
+          </div>
         </template>
       </PosCheckoutPanel>
       </div>

@@ -6,7 +6,7 @@ import PosCheckoutPanel from "~~/app/components/admin/pos/PosCheckoutPanel.vue";
 import type { Photo } from "~~/app/components/UI/PhotoUpload.vue";
 import type { AdminSaleSlipImage } from "~~/app/composables/useAdminSales";
 import type { AdminServiceOrderImage } from "~~/app/composables/useAdminServiceOrders";
-import { DEFAULT_HANGER_PRICE_PER_UNIT } from "~~/shared/config/posConfig";
+import { useBusinessSetting } from "~~/app/composables/useBusinessSetting";
 import { formatCurrency } from "~~/shared/utils/format";
 
 type FormItemState = {
@@ -25,6 +25,7 @@ const emit = defineEmits<{
 
 const notify = useNotify();
 const { customers, isLoading: isCustomersLoading } = useAdminCustomerOptions();
+const { hangerPricePerUnit, vatRate, vatIncluded, computeVatPreview } = useBusinessSetting();
 const { items, refresh } = useStorefrontCatalog();
 const { createServiceOrder, uploadOrderImage } = useAdminServiceOrders();
 const { uploadSlip } = useAdminPayments();
@@ -192,7 +193,7 @@ const totalQuantity = computed(() => cartItems.value.reduce((sum, item) => sum +
 
 const hangerCharge = computed(() => ({
   count: form.missingHangerCount,
-  total: form.missingHangerCount * DEFAULT_HANGER_PRICE_PER_UNIT,
+  total: form.missingHangerCount * hangerPricePerUnit.value,
 }));
 
 const sanitizedDiscountAmount = computed(() => {
@@ -271,11 +272,13 @@ const sanitizedCashDiscount = computed(() => {
   return Math.min(raw, cashSubtotal.value);
 });
 
-const totalAmount = computed(() => (
+const beforeVatAmount = computed(() => (
   form.memberEntitlementId
     ? cashSubtotal.value - sanitizedCashDiscount.value + hangerCharge.value.total
     : subtotalAmount.value - sanitizedDiscountAmount.value + hangerCharge.value.total
 ));
+const vatPreview = computed(() => computeVatPreview(beforeVatAmount.value));
+const totalAmount = computed(() => vatPreview.value.totalAmount);
 
 const isMemberWithZeroTotal = computed(() => Boolean(form.memberEntitlementId) && totalAmount.value === 0);
 
@@ -713,6 +716,11 @@ const handleSubmit = async () => {
             <div class="flex items-center justify-between gap-3">
               <span class="text-muted">ค่าไม้แขวน</span>
               <span class="font-medium text-highlighted">{{ formatCurrency(hangerCharge.total) }}</span>
+            </div>
+
+            <div v-if="vatRate > 0" class="flex items-center justify-between gap-3">
+              <span class="text-muted">{{ vatIncluded ? `รวม VAT ${vatRate}%` : `VAT ${vatRate}%` }}</span>
+              <span class="font-medium text-highlighted">{{ formatCurrency(vatPreview.vatAmount) }}</span>
             </div>
 
             <div class="flex items-center justify-between gap-3">

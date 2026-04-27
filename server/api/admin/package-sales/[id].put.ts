@@ -3,6 +3,8 @@ import type { PaymentMethod } from "~~/shared/types/enums";
 import { requireRole } from "~~/server/utils/auth";
 import { createPaymentNo } from "~~/server/utils/paymentNo";
 import { prisma } from "~~/server/utils/prisma";
+import { getBusinessSetting } from "~~/server/utils/businessSetting";
+import { computeVat } from "~~/server/utils/vat";
 
 type UpdatePackageSaleBody = {
   customerId: string;
@@ -179,7 +181,10 @@ export default defineEventHandler(async (event) => {
 
     const subtotalAmount = saleItems.reduce((sum, item) => sum + item.totalPrice, 0);
     const discountAmount = Math.min(Number(body.discountAmount ?? 0), subtotalAmount);
-    const totalAmount = subtotalAmount - discountAmount;
+    const beforeVat = subtotalAmount - discountAmount;
+    const business = await getBusinessSetting();
+    const vat = computeVat({ amount: beforeVat, rate: business.vatRate, included: business.vatIncluded });
+    const totalAmount = vat.totalAmount;
     const existingItemIds = existingSale.items.map((item) => item.id);
 
     await prisma.$transaction(async (tx) => {
@@ -275,13 +280,21 @@ export default defineEventHandler(async (event) => {
             metadata: {
               updatedByAdminId: actor.id,
               source: "admin-package-sales",
+              subtotalAmount,
+              discountAmount,
+              vat: {
+                rate: vat.vatRate,
+                amount: vat.vatAmount,
+                included: vat.vatIncluded,
+                baseAmount: vat.baseAmount,
+              },
             },
           },
         });
       } else {
         await tx.paymentRecord.create({
           data: {
-            paymentNo: createPaymentNo(),
+            paymentNo: await createPaymentNo(),
             userId: body.customerId,
             memberEntitlementId: primaryEntitlementId,
             packageSaleId: id,
@@ -296,6 +309,14 @@ export default defineEventHandler(async (event) => {
             metadata: {
               updatedByAdminId: actor.id,
               source: "admin-package-sales",
+              subtotalAmount,
+              discountAmount,
+              vat: {
+                rate: vat.vatRate,
+                amount: vat.vatAmount,
+                included: vat.vatIncluded,
+                baseAmount: vat.baseAmount,
+              },
             },
           },
         });

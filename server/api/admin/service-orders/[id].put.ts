@@ -1,6 +1,7 @@
 import type { PaymentMethod, ServiceOrderStatus } from "~~/shared/types/enums";
 import { notifyServiceOrderStatusChanged } from "~~/server/utils/notify";
-import { DEFAULT_HANGER_PRICE_PER_UNIT } from "~~/shared/config/posConfig";
+import { getBusinessSetting } from "~~/server/utils/businessSetting";
+import { computeVat } from "~~/server/utils/vat";
 import { requireRole } from "~~/server/utils/auth";
 import { createPaymentNo } from "~~/server/utils/paymentNo";
 import { prisma } from "~~/server/utils/prisma";
@@ -212,10 +213,11 @@ export default defineEventHandler(async (event) => {
       };
     });
 
+    const business = await getBusinessSetting();
     const hangerCharge = {
       count: missingHangerCount,
-      pricePerUnit: DEFAULT_HANGER_PRICE_PER_UNIT,
-      total: missingHangerCount * DEFAULT_HANGER_PRICE_PER_UNIT,
+      pricePerUnit: business.hangerPricePerUnit,
+      total: missingHangerCount * business.hangerPricePerUnit,
     };
 
     const dueAt = body.dueAt ? new Date(body.dueAt) : null;
@@ -232,7 +234,9 @@ export default defineEventHandler(async (event) => {
     let creditUsed = 0;
     let subtotalAmount = orderItems.reduce((sum, item) => sum + item.totalPrice, 0);
     let discountAmount = Math.min(Number(body.discountAmount ?? 0), subtotalAmount);
-    let payableAmount = subtotalAmount - discountAmount + hangerCharge.total;
+    let beforeVat = subtotalAmount - discountAmount + hangerCharge.total;
+    let vat = computeVat({ amount: beforeVat, rate: business.vatRate, included: business.vatIncluded });
+    let payableAmount = vat.totalAmount;
 
 
     await prisma.$transaction(async (tx) => {
@@ -277,7 +281,9 @@ export default defineEventHandler(async (event) => {
         creditUsed = creditAvailable - remainingCredit;
         subtotalAmount = allocatedItems.reduce((sum, item) => sum + item.cashQuantity * item.unitPrice, 0);
         discountAmount = Math.min(Number(body.discountAmount ?? 0), subtotalAmount);
-        payableAmount = subtotalAmount - discountAmount + hangerCharge.total;
+        beforeVat = subtotalAmount - discountAmount + hangerCharge.total;
+        vat = computeVat({ amount: beforeVat, rate: business.vatRate, included: business.vatIncluded });
+        payableAmount = vat.totalAmount;
 
         if (creditUsed > 0) {
           const { count } = await tx.memberEntitlement.updateMany({
@@ -416,6 +422,12 @@ export default defineEventHandler(async (event) => {
               subtotalAmount,
               discountAmount,
               hangerCharge,
+              vat: {
+                rate: vat.vatRate,
+                amount: vat.vatAmount,
+                included: vat.vatIncluded,
+                baseAmount: vat.baseAmount,
+              },
               dueAt,
               isWalkIn,
               walkInName,
@@ -429,7 +441,7 @@ export default defineEventHandler(async (event) => {
       } else {
         await tx.paymentRecord.create({
           data: {
-            paymentNo: createPaymentNo(),
+            paymentNo: await createPaymentNo(),
             userId: paymentUserId!,
             memberEntitlementId: nextEntitlementId,
             serviceOrderId: id,
@@ -449,6 +461,12 @@ export default defineEventHandler(async (event) => {
               subtotalAmount,
               discountAmount,
               hangerCharge,
+              vat: {
+                rate: vat.vatRate,
+                amount: vat.vatAmount,
+                included: vat.vatIncluded,
+                baseAmount: vat.baseAmount,
+              },
               receivedAt: existing.receivedAt,
               dueAt,
               isWalkIn,

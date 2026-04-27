@@ -1,5 +1,6 @@
 import type { PaymentMethod, ServiceOrderStatus } from "~~/shared/types/enums";
-import { DEFAULT_HANGER_PRICE_PER_UNIT } from "~~/shared/config/posConfig";
+import { getBusinessSetting } from "~~/server/utils/businessSetting";
+import { computeVat } from "~~/server/utils/vat";
 import { requireRole } from "~~/server/utils/auth";
 import { createPaymentNo } from "~~/server/utils/paymentNo";
 import { prisma } from "~~/server/utils/prisma";
@@ -183,10 +184,11 @@ export default defineEventHandler(async (event) => {
     });
 
     const totalQuantity = orderItems.reduce((sum, item) => sum + item.quantity, 0);
+    const business = await getBusinessSetting();
     const hangerCharge = {
       count: missingHangerCount,
-      pricePerUnit: DEFAULT_HANGER_PRICE_PER_UNIT,
-      total: missingHangerCount * DEFAULT_HANGER_PRICE_PER_UNIT,
+      pricePerUnit: business.hangerPricePerUnit,
+      total: missingHangerCount * business.hangerPricePerUnit,
     };
 
     type AllocatedItem = typeof orderItems[number] & { cashQuantity: number; creditQuantity: number };
@@ -229,7 +231,9 @@ export default defineEventHandler(async (event) => {
       const creditUsed = creditAvailable - remainingCredit;
       const subtotalAmount = allocatedItems.reduce((sum, item) => sum + item.cashQuantity * item.unitPrice, 0);
       const discountAmount = Math.min(Number(body.discountAmount ?? 0), subtotalAmount);
-      const payableAmount = subtotalAmount - discountAmount + hangerCharge.total;
+      const beforeVat = subtotalAmount - discountAmount + hangerCharge.total;
+      const vat = computeVat({ amount: beforeVat, rate: business.vatRate, included: business.vatIncluded });
+      const payableAmount = vat.totalAmount;
 
       if (memberEntitlement && creditUsed > 0) {
         const { count } = await tx.memberEntitlement.updateMany({
@@ -251,7 +255,7 @@ export default defineEventHandler(async (event) => {
 
       const serviceOrder = await tx.serviceOrder.create({
         data: {
-          orderNo: createServiceOrderNo(receivedAt),
+          orderNo: await createServiceOrderNo(receivedAt),
           customerId: paymentUserId!,
           employeeId: actor.id,
           status: serviceOrderStatus,
@@ -315,7 +319,7 @@ export default defineEventHandler(async (event) => {
 
       const payment = await tx.paymentRecord.create({
         data: {
-          paymentNo: createPaymentNo(),
+          paymentNo: await createPaymentNo(),
           userId: paymentUserId!,
           memberEntitlementId: memberEntitlement?.id ?? null,
           serviceOrderId: serviceOrder.id,
@@ -334,6 +338,12 @@ export default defineEventHandler(async (event) => {
             subtotalAmount,
             discountAmount,
             hangerCharge,
+            vat: {
+              rate: vat.vatRate,
+              amount: vat.vatAmount,
+              included: vat.vatIncluded,
+              baseAmount: vat.baseAmount,
+            },
             receivedAt,
             dueAt,
             isWalkIn,

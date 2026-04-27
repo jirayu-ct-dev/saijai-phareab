@@ -346,7 +346,7 @@ const loadServiceOrderForNotify = async (id: string) =>
       payments: {
         where: { deletedAt: null },
         orderBy: { createdAt: "asc" },
-        select: { id: true, paidAt: true },
+        select: { id: true, paidAt: true, metadata: true },
       },
     },
   });
@@ -438,6 +438,15 @@ const buildOrderBody = async (params: {
     if (discount > 0) {
       rows.push(kvRow("ส่วนลด", `- ฿${formatCurrency(discount)}`));
     }
+
+    const paymentMeta = (order.payments[0]?.metadata ?? null) as { vat?: { rate?: number; amount?: number; included?: boolean } } | null;
+    const vat = paymentMeta?.vat;
+    if (vat && Number(vat.rate ?? 0) > 0) {
+      const vatAmount = Number(vat.amount ?? 0);
+      const label = vat.included ? `รวม VAT ${vat.rate}%` : `VAT ${vat.rate}%`;
+      rows.push(kvRow(label, `฿${formatCurrency(vatAmount)}`));
+    }
+
     rows.push(kvRow("ยอดสุทธิ", `฿${formatCurrency(totalAmount)}`));
 
     if (order.note) {
@@ -700,6 +709,7 @@ export const notifyReceipt = async (params: { paymentId: string }): Promise<void
         paymentMethod: true,
         userId: true,
         user: { select: { name: true, email: true } },
+        metadata: true,
         memberEntitlementId: true,
         packageSale: {
           select: {
@@ -743,8 +753,14 @@ export const notifyReceipt = async (params: { paymentId: string }): Promise<void
       kvRow("เลขที่บิล", receiptCode),
       kvRow("ลูกค้า", customerName),
       kvRow("ช่องทางชำระ", methodLabel),
-      kvRow("ยอดรวม", `฿${formatCurrency(totalAmount)}`),
     ];
+
+    const paymentMeta = (payment.metadata ?? null) as { vat?: { rate?: number; amount?: number; included?: boolean; baseAmount?: number } } | null;
+    const vatInfo = paymentMeta?.vat;
+    if (vatInfo && Number(vatInfo.rate ?? 0) > 0) {
+      body.push(kvRow(vatInfo.included ? `รวม VAT ${vatInfo.rate}%` : `VAT ${vatInfo.rate}%`, `฿${formatCurrency(Number(vatInfo.amount ?? 0))}`));
+    }
+    body.push(kvRow("ยอดรวม", `฿${formatCurrency(totalAmount)}`));
 
     if (payment.packageSale && payment.packageSale.items.length) {
       body.push(divider());
