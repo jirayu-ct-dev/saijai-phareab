@@ -92,7 +92,10 @@ const period = ref<Period>("daily");
           </UPageGrid>
         </template>
       </ClientOnly>
-      <AdminDashboardChart :period="period" :range="range" />
+      <div class="grid grid-cols-1 xl:grid-cols-2 gap-4">
+        <AdminDashboardChart :period="period" :range="range" />
+        <AdminDashboardOrderTypeChart :period="period" :range="range" />
+      </div>
       <div class="flex flex-col gap-4">
         <ClientOnly>
           <AdminDashboardRecentPayments :period="period" :range="range" />

@@ -92,7 +92,7 @@ const template = (d: DataRecord) => `${formatLabel(d.date)}: ${formatCurrency(d.
       <UIcon name="i-lucide-loader-2" class="size-8 animate-spin text-primary" />
     </div>
 
-    <VisXYContainer v-else :data="data" :padding="{ top: 40 }" class="h-96" :width="width">
+    <VisXYContainer v-else :data="data" :padding="{ top: 40, bottom: 32 }" class="h-96" :width="width">
       <VisLine :x="x" :y="y" color="var(--ui-primary)" />
       <VisArea :x="x" :y="y" color="var(--ui-primary)" :opacity="0.1" />
       <VisAxis type="x" :x="x" :tick-format="xTicks" />

@@ -18,7 +18,6 @@ const props = defineProps<{
 
 const UBadge = resolveComponent('UBadge')
 const UAvatar = resolveComponent('UAvatar')
-const UButton = resolveComponent('UButton')
 
 interface RecentOrder {
   id: string
@@ -37,6 +36,8 @@ interface RecentOrder {
     lineUserId: string | null
   }
 }
+
+const router = useRouter()
 
 const { data, status } = useAsyncData<RecentOrder[]>(
   'recent-orders',
@@ -57,7 +58,7 @@ const columns: TableColumn<RecentOrder>[] = [
     cell: ({ row }) => {
       const c = row.original.customer
       return h('div', { class: 'flex items-center gap-2' }, [
-        h(UAvatar, { src: c.image, alt: c.name, size: 'sm' }),
+        h(UAvatar, { as: { img: 'img' }, src: c.image ?? '', alt: c.name, size: 'sm', loading: 'lazy' }),
         h('div', { class: 'min-w-0' }, [
           h('p', { class: 'font-medium text-sm truncate' }, c.name),
           h('p', { class: 'text-xs text-muted truncate' }, c.phoneNumber ?? ''),
@@ -110,20 +111,8 @@ const columns: TableColumn<RecentOrder>[] = [
     cell: ({ row }) => {
       const lineUserId = row.original.customer.lineUserId
       if (!lineUserId) return h('span')
-      return h(resolveComponent('UIButtonChatLine'), { lineUserId })
+      return h(resolveComponent('UIButtonChatLine'), { lineUserId, iconOnly: true })
     },
-  },
-  {
-    accessorKey: 'id',
-    header: '',
-    cell: ({ row }) =>
-      h(UButton, {
-        to: `/admin/service-orders/${row.original.id}`,
-        variant: 'ghost',
-        color: 'neutral',
-        icon: 'i-lucide-chevron-right',
-        size: 'xs',
-      }),
   },
 ]
 </script>
@@ -152,10 +141,11 @@ const columns: TableColumn<RecentOrder>[] = [
       :ui="{
         base: 'table-fixed border-separate border-spacing-0',
         thead: '[&>tr]:bg-elevated/50 [&>tr]:after:content-none',
-        tbody: '[&>tr]:last:[&>td]:border-b-0',
+        tbody: '[&>tr]:last:[&>td]:border-b-0 [&>tr]:cursor-pointer [&>tr]:transition-colors [&>tr]:hover:bg-elevated/60',
         th: 'first:rounded-l-lg last:rounded-r-lg border-y border-default first:border-l last:border-r',
         td: 'border-b border-default',
       }"
+      @select="(row) => router.push(`/admin/service-orders/${row.id}`)"
     >
       <template #empty>
         <div class="flex flex-col items-center justify-center py-8 text-muted">

@@ -67,12 +67,12 @@ export default defineEventHandler(async (event) => {
 
   return [
     {
-      title: "ยอดออเดอร์ผ้า",
-      icon: "i-lucide-shirt",
-      to: "/admin/service-orders",
-      value: orderAmt,
-      variation: calcVariation(orderAmt, prevOrderAmt),
-      isCurrency: true,
+      title: "ลูกค้าใหม่",
+      icon: "i-lucide-user-plus",
+      to: "/admin/users",
+      value: currentNewUsers,
+      variation: calcVariation(currentNewUsers, prevNewUsers),
+      isCurrency: false,
     },
     {
       title: "ยอดซื้อแพ็กเกจ",
@@ -83,11 +83,12 @@ export default defineEventHandler(async (event) => {
       isCurrency: true,
     },
     {
-      title: "ลูกค้าใหม่",
-      icon: "i-lucide-user-plus",
-      to: "/admin/users",
-      value: currentNewUsers,
-      variation: calcVariation(currentNewUsers, prevNewUsers),
+      title: "ยอดออเดอร์ผ้า",
+      icon: "i-lucide-shirt",
+      to: "/admin/service-orders",
+      value: orderAmt,
+      variation: calcVariation(orderAmt, prevOrderAmt),
+      isCurrency: true,
     },
   ];
 });

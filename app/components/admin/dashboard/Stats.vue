@@ -16,6 +16,10 @@ interface StatItem {
   isCurrency?: boolean
 }
 
+interface DisplayStat extends StatItem {
+  isTotal?: boolean
+}
+
 const { data: stats, status } = useAsyncData<StatItem[]>(
   'dashboard-stats',
   () => $fetch('/api/admin/dashboard/stats', {
@@ -33,11 +37,26 @@ const { data: stats, status } = useAsyncData<StatItem[]>(
 
 const isPending = computed(() => status.value === 'pending')
 
-const totalRevenue = computed(() =>
-  (stats.value ?? [])
+// ลำดับ: ลูกค้าใหม่ → ยอดซื้อแพ็กเกจ → ยอดออเดอร์ → ยอดรวม
+const displayStats = computed<DisplayStat[]>(() => {
+  const list = stats.value ?? []
+  const totalRevenue = list
     .filter((s) => s.isCurrency)
     .reduce((sum, s) => sum + s.value, 0)
-)
+
+  return [
+    ...list,
+    {
+      title: 'ยอดรวม',
+      icon: 'i-lucide-wallet',
+      to: '/admin/payment',
+      value: totalRevenue,
+      variation: 0,
+      isCurrency: true,
+      isTotal: true,
+    },
+  ]
+})
 
 const cardUi = {
   container: 'gap-y-1.5',
@@ -68,25 +87,10 @@ const cardUi = {
       </UPageCard>
     </template>
 
-    <!-- ยอดรวม + stats -->
+    <!-- Stats cards -->
     <template v-else>
       <UPageCard
-        icon="i-lucide-wallet"
-        title="ยอดรวม"
-        to="/admin/payment"
-        variant="subtle"
-        :ui="cardUi"
-        class="lg:rounded-none first:rounded-l-lg last:rounded-r-lg hover:z-1"
-      >
-        <div class="flex items-center gap-2">
-          <span class="text-2xl font-semibold text-highlighted">
-            {{ formatCurrency(totalRevenue) }}
-          </span>
-        </div>
-      </UPageCard>
-
-      <UPageCard
-        v-for="(stat, index) in stats"
+        v-for="(stat, index) in displayStats"
         :key="index"
         :icon="stat.icon"
         :title="stat.title"
@@ -100,6 +104,7 @@ const cardUi = {
             {{ stat.isCurrency ? formatCurrency(stat.value) : formatNumber(stat.value) }}
           </span>
           <UBadge
+            v-if="!stat.isTotal"
             :color="stat.variation > 0 ? 'success' : stat.variation < 0 ? 'error' : 'neutral'"
             variant="subtle"
             class="text-xs"
