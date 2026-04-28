@@ -33,13 +33,6 @@ export default defineEventHandler(async (event) => {
           secureUrl: true,
         },
       },
-      verifiedBy: {
-        select: {
-          id: true,
-          name: true,
-          email: true,
-        },
-      },
       memberEntitlement: {
         include: {
           product: {
@@ -259,12 +252,8 @@ export default defineEventHandler(async (event) => {
     id: payment.id,
     paymentNo: payment.paymentNo,
     amount: toNumber(payment.amount),
-    isVerified: payment.paidAt !== null,
-    paymentMethod: payment.paymentMethod,
     note: payment.note,
     paidAt: payment.paidAt?.toISOString() ?? null,
-    verifiedAt: payment.verifiedAt?.toISOString() ?? null,
-    rejectionReason: payment.rejectionReason,
     metadata: payment.metadata,
     createdAt: payment.createdAt.toISOString(),
     updatedAt: payment.updatedAt.toISOString(),
@@ -275,13 +264,6 @@ export default defineEventHandler(async (event) => {
       phoneNumber: payment.serviceOrder?.isWalkIn ? payment.serviceOrder.walkInPhone : payment.user.phoneNumber,
       image: payment.serviceOrder?.isWalkIn ? null : payment.user.image,
     },
-    verifiedBy: payment.verifiedBy
-      ? {
-          id: payment.verifiedBy.id,
-          name: payment.verifiedBy.name,
-          email: payment.verifiedBy.email,
-        }
-      : null,
     slipImage: payment.slipImage
       ? {
           id: payment.slipImage.id,

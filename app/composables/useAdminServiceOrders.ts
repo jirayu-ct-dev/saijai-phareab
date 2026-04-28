@@ -1,4 +1,4 @@
-import type { PaymentMethod, ServiceOrderStatus } from "~~/shared/types/enums";
+import type { ServiceOrderStatus } from "~~/shared/types/enums";
 
 export type CreateAdminServiceOrderBody = {
   customerId?: string | null;
@@ -23,8 +23,6 @@ export type CreateAdminServiceOrderBody = {
   missingHangerCount?: number;
   dueAt?: string | null;
   discountAmount?: number;
-  paymentMethod?: PaymentMethod;
-
   serviceOrderStatus?: ServiceOrderStatus;
   note?: string | null;
   slipImageId?: string | null;
@@ -123,8 +121,6 @@ export type AdminServiceOrder = {
   payment: {
     id: string | null;
     paymentNo: string | null;
-    paymentMethod: PaymentMethod;
-  
     amount: number;
     paidAt: string | null;
     slipImage: {

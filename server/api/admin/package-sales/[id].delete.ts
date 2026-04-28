@@ -70,7 +70,6 @@ export default defineEventHandler(async (event) => {
           data: {
             deletedAt: new Date(),
             deletedById: actor.id,
-            rejectionReason: "ยกเลิกรายการขายโดยผู้ดูแลระบบ",
           },
         });
       }

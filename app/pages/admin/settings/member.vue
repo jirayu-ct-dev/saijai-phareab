@@ -88,6 +88,12 @@ const onConfirmDelete = async () => {
   }
 };
 
+const getAvatarProps = (image: string | null, name: string | null, email: string) => ({
+  as: { img: "img" as const },
+  src: image || "",
+  alt: name || email,
+  loading: "lazy" as const,
+});
 const formatCurrency = (n: number) =>
   new Intl.NumberFormat("th-TH", { minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(n);
 
@@ -145,7 +151,7 @@ const isExpiringSoon = (s: string | null) => {
             :to="`/admin/users/${m.id}`"
             class="flex items-center gap-3 min-w-0 flex-1 hover:opacity-80 transition"
           >
-            <UAvatar :src="m.image || undefined" :alt="m.name || m.email" size="md" />
+            <UAvatar v-bind="getAvatarProps(m.image, m.name, m.email)" size="md" />
             <div class="min-w-0">
               <div class="flex items-center gap-2 flex-wrap">
                 <p class="font-medium truncate">{{ m.name || m.email }}</p>

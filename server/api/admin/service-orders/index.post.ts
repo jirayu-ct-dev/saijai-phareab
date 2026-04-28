@@ -1,4 +1,4 @@
-import type { PaymentMethod, ServiceOrderStatus } from "~~/shared/types/enums";
+import type { ServiceOrderStatus } from "~~/shared/types/enums";
 import { getBusinessSetting } from "~~/server/utils/businessSetting";
 import { computeVat } from "~~/server/utils/vat";
 import { requireRole } from "~~/server/utils/auth";
@@ -30,8 +30,6 @@ type CreateServiceOrderBody = {
   missingHangerCount?: number;
   dueAt?: string | null;
   discountAmount?: number;
-  paymentMethod?: PaymentMethod;
-  isVerified?: boolean;
   serviceOrderStatus?: ServiceOrderStatus;
   note?: string | null;
   slipImageId?: string | null;
@@ -107,12 +105,6 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, statusMessage: "จำนวนส่วนลดต้องเป็น 0 หรือมากกว่า" });
   }
 
-  const paymentMethod: PaymentMethod = body.paymentMethod ?? "CASH";
-  if (paymentMethod !== "CASH" && paymentMethod !== "TRANSFER") {
-    throw createError({ statusCode: 400, statusMessage: "ช่องทางการชำระเงินไม่ถูกต้อง" });
-  }
-
-  const isVerified = body.isVerified ?? false;
   const serviceOrderStatus: ServiceOrderStatus = body.serviceOrderStatus ?? "RECEIVED";
   const receivedAt = new Date();
   const dueAt = body.dueAt ? new Date(body.dueAt) : null;
@@ -360,13 +352,9 @@ export default defineEventHandler(async (event) => {
           memberEntitlementId: memberEntitlement?.id ?? null,
           serviceOrderId: serviceOrder.id,
           amount: payableAmount,
-          paymentMethod,
           slipImageId: body.slipImageId ?? null,
           note: body.note?.trim() || null,
-          paidAt: isVerified ? new Date() : null,
-          verifiedById: isVerified ? actor.id : null,
-          verifiedAt: isVerified ? new Date() : null,
-          rejectionReason: null,
+          paidAt: new Date(),
           metadata: {
             createdByAdminId: actor.id,
             source: "admin-service-orders",

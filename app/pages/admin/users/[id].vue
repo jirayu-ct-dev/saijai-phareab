@@ -5,7 +5,6 @@ import { formatCurrency, formatDateTime } from '~~/shared/utils/format'
 import type {
   EntitlementStatus,
   PackageSaleStatus,
-  PaymentMethod,
   Role,
   ServiceOrderStatus
 } from '~~/shared/types/enums'
@@ -68,8 +67,6 @@ type UserDetailResponse = {
   recentPayments: Array<{
     id: string
     amount: number
-    paymentMethod: PaymentMethod
-    isVerified: boolean
     note: string | null
     createdAt: string
     paidAt: string | null
@@ -170,10 +167,7 @@ const saleStatusMap: Record<PackageSaleStatus, { label: string; color: BadgeColo
   CANCELLED: { label: 'ยกเลิก', color: 'error' }
 }
 
-const paymentMethodLabelMap: Record<PaymentMethod, string> = {
-  CASH: 'เงินสด',
-  TRANSFER: 'โอน'
-}
+
 
 const getAvatarProps = (target?: UserDetailResponse['user'] | null) => ({
   as: { img: 'img' },
@@ -528,7 +522,7 @@ const orderItemCount = (order: UserDetailResponse['recentServiceOrders'][number]
                   </div>
                 </div>
                 <div class="flex items-center justify-between gap-2">
-                  <span class="text-sm text-muted">{{ payment.isVerified ? "ยืนยันแล้ว" : "รอตรวจสอบ" }} · {{ paymentMethodLabelMap[payment.paymentMethod] }}</span>
+                  <span class="text-sm text-muted">{{ payment.paidAt ? "ชำระแล้ว" : "รอดำเนินการ" }}</span>
                   <p class="mt-1 text-sm text-muted text-right">{{ formatDateTime(payment.createdAt) }}</p>
                 </div>
               </div>

@@ -70,7 +70,6 @@ export default defineEventHandler(async (event) => {
           select: {
             id: true,
             amount: true,
-            paymentMethod: true,
             note: true,
             createdAt: true,
             paidAt: true,
@@ -134,7 +133,6 @@ export default defineEventHandler(async (event) => {
               select: {
                 id: true,
                 amount: true,
-                paymentMethod: true,
                 paidAt: true,
                 createdAt: true,
               },
@@ -255,8 +253,6 @@ export default defineEventHandler(async (event) => {
       recentPayments: user.paymentRecords.map((payment) => ({
         id: payment.id,
         amount: Number(payment.amount),
-        paymentMethod: payment.paymentMethod,
-        isVerified: payment.paidAt !== null,
         note: payment.note,
         createdAt: payment.createdAt,
         paidAt: payment.paidAt,
@@ -297,8 +293,6 @@ export default defineEventHandler(async (event) => {
           ? {
               id: sale.payments[0].id,
               amount: Number(sale.payments[0].amount),
-              paymentMethod: sale.payments[0].paymentMethod,
-              isVerified: sale.payments[0].paidAt !== null,
               createdAt: sale.payments[0].createdAt,
             }
           : null,

@@ -45,11 +45,8 @@ export default defineEventHandler(async (event) => {
           select: {
             id: true,
             amount: true,
-            paymentMethod: true,
-            status: true,
             note: true,
             paidAt: true,
-            verifiedAt: true,
             slipImage: {
               select: {
                 id: true,
@@ -87,11 +84,8 @@ export default defineEventHandler(async (event) => {
         ? {
             id: sale.payments[0].id,
             amount: Number(sale.payments[0].amount),
-            paymentMethod: sale.payments[0].paymentMethod,
-            status: sale.payments[0].status,
             note: sale.payments[0].note,
             paidAt: sale.payments[0].paidAt,
-            verifiedAt: sale.payments[0].verifiedAt,
             slipImage: sale.payments[0].slipImage
               ? {
                   id: sale.payments[0].slipImage.id,

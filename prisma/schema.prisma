@@ -24,11 +24,6 @@ enum PackageType {
 }
 
 
-enum PaymentMethod {
-  CASH
-  TRANSFER
-}
-
 enum PackageSaleStatus {
   DRAFT
   PENDING
@@ -82,7 +77,6 @@ model User {
   employeeServiceOrders ServiceOrder[]      @relation("ServiceOrderEmployee")
   memberEntitlements    MemberEntitlement[] @relation("MemberEntitlementOwner")
   paymentRecords        PaymentRecord[]     @relation("PaymentUser")
-  verifiedPayments      PaymentRecord[]     @relation("PaymentVerifier")
   userAddresses         UserAddress[]
   uploadedImages        Image[]             @relation("ImageOwner")
 
@@ -470,16 +464,11 @@ model PaymentRecord {
   serviceOrderId      String?
   serviceOrder        ServiceOrder?      @relation(fields: [serviceOrderId], references: [id])
   amount              Decimal
-  paymentMethod       PaymentMethod
   slipImageId         String?
   slipImage           Image?             @relation("PaymentSlipImage", fields: [slipImageId], references: [id])
   note                String?
   paidAt              DateTime?
   metadata            Json?
-  rejectionReason     String?
-  verifiedById        String?
-  verifiedBy          User?              @relation("PaymentVerifier", fields: [verifiedById], references: [id])
-  verifiedAt          DateTime?
   createdAt           DateTime           @default(now())
   updatedAt           DateTime           @updatedAt
   deletedAt           DateTime?
@@ -490,7 +479,6 @@ model PaymentRecord {
   @@index([memberEntitlementId])
   @@index([packageSaleId])
   @@index([serviceOrderId])
-  @@index([paymentMethod, createdAt])
   @@index([paymentNo])
   @@map("payment_record")
 }

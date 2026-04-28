@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { PaymentMethod, ServiceOrderStatus } from "~~/shared/types/enums";
+import type { ServiceOrderStatus } from "~~/shared/types/enums";
 import { orderStatusColors, orderStatusLabels } from "~~/shared/config/orderConfig";
 import { formatCurrency, formatDateTime } from "~~/shared/utils/format";
 import ImagePreviewModal from "~~/app/components/UI/ImagePreviewModal.vue";
@@ -71,8 +71,6 @@ type ServiceOrderDetailResponse = {
   payments: Array<{
     id: string;
     paymentNo: string | null;
-    paymentMethod: PaymentMethod;
-    isVerified: boolean;
     amount: number;
     note: string | null;
     paidAt: string | null;
@@ -276,8 +274,8 @@ const openImagePreview = (url: string | null | undefined, title = "ดูรู�
       <div v-if="isLoading" class="space-y-4">
         <USkeleton class="h-32 w-full rounded-2xl" />
         <div class="grid gap-4 xl:grid-cols-[minmax(0,1.3fr)_360px]">
-          <USkeleton class="h-[520px] w-full rounded-2xl" />
-          <USkeleton class="h-[520px] w-full rounded-2xl" />
+          <USkeleton class="h-130 w-full rounded-2xl" />
+          <USkeleton class="h-130 w-full rounded-2xl" />
         </div>
       </div>
 

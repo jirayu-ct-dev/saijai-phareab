@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { h, resolveComponent, ref, computed, watch } from "vue";
+import { getPaginationRowModel } from "@tanstack/table-core";
 import type { TableColumn } from "@nuxt/ui";
 
 import type { Package } from "~~/shared/types/package";
@@ -137,7 +138,7 @@ const columns: TableColumn<Package>[] = [
     cell: ({ row }) => {
       const pkg = row.original;
 
-      return h("div", { class: "flex items-center gap-3" }, [
+      return h("div", { class: "flex items-center gap-3 cursor-pointer", onClick: () => row.toggleExpanded() }, [
         h(
           "div",
           {
@@ -170,9 +171,9 @@ const columns: TableColumn<Package>[] = [
     cell: ({ row }) => {
       const type = row.getValue("packageType") as PackageType;
       return h(
-        UBadge,
-        { variant: "subtle", color: packageTypeColors[type] },
-        () => packageTypeLabels[type],
+        "div",
+        { class: "cursor-pointer", onClick: () => row.toggleExpanded() },
+        h(UBadge, { variant: "subtle", color: packageTypeColors[type] }, () => packageTypeLabels[type]),
       );
     },
   },
@@ -199,7 +200,7 @@ const columns: TableColumn<Package>[] = [
       const price = Number(row.original.price);
       return h(
         "span",
-        { class: price === 0 ? "text-success font-medium" : "font-medium" },
+        { class: [price === 0 ? "text-success font-medium" : "font-medium", "cursor-pointer"], onClick: () => row.toggleExpanded() },
         price === 0 ? "ฟรี" : formatCurrency(price),
       );
     },
@@ -208,13 +209,13 @@ const columns: TableColumn<Package>[] = [
     accessorKey: "credits",
     header: "เครดิต",
     cell: ({ row }) =>
-      h("span", { class: "font-medium text-primary" }, formatCredits(row.original.credits)),
+      h("span", { class: "font-medium text-primary cursor-pointer", onClick: () => row.toggleExpanded() }, formatCredits(row.original.credits)),
   },
   {
     accessorKey: "validityDays",
     header: "ระยะเวลา",
     cell: ({ row }) =>
-      h("span", { class: "text-muted" }, formatDays(row.getValue("validityDays") as number | null)),
+      h("span", { class: "text-muted cursor-pointer", onClick: () => row.toggleExpanded() }, formatDays(row.getValue("validityDays") as number | null)),
   },
   {
     accessorKey: "isActive",
@@ -222,7 +223,11 @@ const columns: TableColumn<Package>[] = [
     cell: ({ row }) => {
       const isActive = row.getValue("isActive") as boolean;
       const config = isActive ? packageActiveConfig.active : packageActiveConfig.inactive;
-      return h(UBadge, { variant: "subtle", color: config.color }, () => config.label);
+      return h(
+        "div",
+        { class: "cursor-pointer", onClick: () => row.toggleExpanded() },
+        h(UBadge, { variant: "subtle", color: config.color }, () => config.label),
+      );
     },
   },
   {
@@ -302,12 +307,14 @@ const columns: TableColumn<Package>[] = [
       </div>
     </div>
 
+    <ClientOnly>
     <UTable
       ref="table"
       v-model:column-visibility="columnVisibility"
       v-model:row-selection="rowSelection"
       v-model:pagination="pagination"
       v-model:expanded="expanded"
+      :pagination-options="{ getPaginationRowModel: getPaginationRowModel() }"
       class="shrink-0"
       :data="filteredPackages"
       :columns="columns"
@@ -405,13 +412,13 @@ const columns: TableColumn<Package>[] = [
 
       <div class="flex items-center gap-1.5">
         <UPagination
-          v-if="table?.tableApi?.getPageCount()"
-          :default-page="(table?.tableApi?.getState().pagination.pageIndex || 0) + 1"
-          :items-per-page="table?.tableApi?.getState().pagination.pageSize"
+          :page="pagination.pageIndex + 1"
+          :items-per-page="pagination.pageSize"
           :total="filteredRowCount"
-          @update:page="(page: number) => table?.tableApi?.setPageIndex(page - 1)"
+          @update:page="(page: number) => { pagination = { ...pagination, pageIndex: page - 1 } }"
         />
       </div>
     </div>
+    </ClientOnly>
   </div>
 </template>

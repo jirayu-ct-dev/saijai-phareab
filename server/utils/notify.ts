@@ -738,7 +738,6 @@ export const notifyReceipt = async (params: { paymentId: string }): Promise<void
         id: true,
         paymentNo: true,
         amount: true,
-        paymentMethod: true,
         userId: true,
         user: { select: { name: true, email: true } },
         metadata: true,
@@ -778,13 +777,11 @@ export const notifyReceipt = async (params: { paymentId: string }): Promise<void
     const customerName = payment.user.name || payment.user.email || "ลูกค้า";
     const receiptCode = payment.paymentNo || `PAY-${payment.id.slice(-8).toUpperCase()}`;
     const totalAmount = Number(payment.amount);
-    const methodLabel = payment.paymentMethod === "CASH" ? "เงินสด" : "โอน";
     const receiptUrl = `${getBaseUrl()}/admin/payment/${payment.id}/receipt`;
 
     const body: FlexBox[] = [
       kvRow("เลขที่บิล", receiptCode),
       kvRow("ลูกค้า", customerName),
-      kvRow("ช่องทางชำระ", methodLabel),
     ];
 
     const paymentMeta = (payment.metadata ?? null) as { vat?: { rate?: number; amount?: number; included?: boolean; baseAmount?: number } } | null;

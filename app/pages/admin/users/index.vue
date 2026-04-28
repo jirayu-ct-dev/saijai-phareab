@@ -4,6 +4,7 @@ definePageMeta({
 })
 
 import { h, resolveComponent } from 'vue'
+import { getPaginationRowModel } from '@tanstack/table-core'
 import type { TableColumn } from '@nuxt/ui'
 import type { AdminUser, AdminUserMemberEntitlement, CreateAdminUserBody } from '~~/app/composables/useAdminUsers'
 import type { Role } from '~~/shared/types/enums'
@@ -17,6 +18,7 @@ const UBadge = resolveComponent('UBadge')
 const UCheckbox = resolveComponent('UCheckbox')
 const UDropdownMenu = resolveComponent('UDropdownMenu')
 const UIButtonChatLine = resolveComponent('UIButtonChatLine')
+const UPopover = resolveComponent('UPopover')
 
 const notify = useNotify()
 const { users, isLoading, refresh, createUser, updateUser, deleteUser } = useAdminUsers()
@@ -280,6 +282,13 @@ const handleCreateUser = async () => {
   }
 }
 
+const quickRoleOpenMap = ref<Record<string, boolean>>({})
+
+const handleQuickRoleChange = async (user: AdminUser, role: Role) => {
+  quickRoleOpenMap.value[user.id] = false
+  await updateUser(user.id, { role } as CreateAdminUserBody)
+}
+
 const isFormOpen = ref(false)
 const isSubmitting = ref(false)
 const editingUser = ref<AdminUser | null>(null)
@@ -364,27 +373,64 @@ const columns: TableColumn<AdminUser>[] = [
     },
     cell: ({ row }) => {
       const user = row.original
-      return h('div', { class: 'flex items-center gap-3' }, [
-        h(UAvatar, getAvatarProps(user)),
-        h('div', { class: 'w-44 space-y-1 sm:w-60' }, [
-          h('p', { class: 'truncate font-medium text-highlighted' }, user.name || '-'),
-          h('p', { class: 'truncate text-sm text-muted' }, user.email)
-        ])
-      ])
+      return h(
+        'a',
+        { href: `/admin/users/${user.id}`, class: 'flex items-center gap-3 hover:opacity-75 transition-opacity' },
+        [
+          h(UAvatar, getAvatarProps(user)),
+          h('div', { class: 'w-44 space-y-1 sm:w-60' }, [
+            h('p', { class: 'truncate font-medium text-highlighted' }, user.name || '-'),
+            h('p', { class: 'truncate text-sm text-muted' }, user.email)
+          ])
+        ]
+      )
     }
   },
   {
     accessorKey: 'role',
     header: 'สิทธิ์',
     cell: ({ row }) => {
-      const badge = ROLE_BADGE_MAP[row.original.role]
-      return h(UBadge, { color: badge.color, variant: 'subtle' }, () => badge.label)
+      const user = row.original
+      const badge = ROLE_BADGE_MAP[user.role]
+      const roleItems = [
+        { label: 'ผู้ใช้งาน', value: 'USER' as Role },
+        { label: 'พนักงาน', value: 'EMPLOYEE' as Role },
+        { label: 'แอดมิน', value: 'ADMIN' as Role }
+      ]
+
+      return h(
+        UPopover,
+        {
+          open: quickRoleOpenMap.value[user.id] ?? false,
+          'onUpdate:open': (v: boolean) => { quickRoleOpenMap.value[user.id] = v },
+          content: { align: 'start' }
+        },
+        {
+          default: () => h(UBadge, { color: badge.color, variant: 'subtle', class: 'cursor-pointer' }, () => badge.label),
+          content: () => h('div', { class: 'p-1 space-y-0.5' },
+            roleItems.map((item) =>
+              h(UButton, {
+                label: item.label,
+                color: item.value === user.role ? 'primary' : 'neutral',
+                variant: item.value === user.role ? 'subtle' : 'ghost',
+                size: 'xs',
+                class: 'w-full justify-start',
+                onClick: () => handleQuickRoleChange(user, item.value)
+              })
+            )
+          )
+        }
+      )
     }
   },
   {
     accessorKey: 'phoneNumber',
     header: 'เบอร์โทร',
-    cell: ({ row }) => row.original.phoneNumber || '-'
+    cell: ({ row }) => {
+      const user = row.original
+      if (!user.phoneNumber) return h('span', { class: 'text-muted' }, '-')
+      return h('a', { href: `/admin/users/${user.id}`, class: 'hover:underline' }, user.phoneNumber)
+    }
   },
   {
     accessorKey: 'memberEntitlements',
@@ -423,9 +469,12 @@ const columns: TableColumn<AdminUser>[] = [
     accessorKey: 'emailVerified',
     header: 'อีเมล',
     cell: ({ row }) => {
-      const status = row.original.emailVerified ? 'verified' : 'pending'
+      const user = row.original
+      const status = user.emailVerified ? 'verified' : 'pending'
       const badge = EMAIL_STATUS_BADGE_MAP[status]
-      return h(UBadge, { variant: 'subtle', color: badge.color }, () => badge.label)
+      return h('a', { href: `/admin/users/${user.id}`, class: 'hover:opacity-75 transition-opacity' },
+        h(UBadge, { variant: 'subtle', color: badge.color }, () => badge.label)
+      )
     }
   },
   {
@@ -628,6 +677,7 @@ const columns: TableColumn<AdminUser>[] = [
             v-model:column-visibility="columnVisibility"
             v-model:row-selection="rowSelection"
             v-model:pagination="pagination"
+            :pagination-options="{ getPaginationRowModel: getPaginationRowModel() }"
             class="shrink-0"
             :data="filteredUsers"
             :columns="columns"
@@ -657,10 +707,10 @@ const columns: TableColumn<AdminUser>[] = [
 
           <div class="flex items-center gap-1.5">
             <UPagination
-              :default-page="(table?.tableApi?.getState().pagination.pageIndex || 0) + 1"
-              :items-per-page="table?.tableApi?.getState().pagination.pageSize"
+              :page="pagination.pageIndex + 1"
+              :items-per-page="pagination.pageSize"
               :total="filteredRowCount"
-              @update:page="(page: number) => table?.tableApi?.setPageIndex(page - 1)"
+              @update:page="(page: number) => { pagination = { ...pagination, pageIndex: page - 1 } }"
             />
           </div>
         </div>

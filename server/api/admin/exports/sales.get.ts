@@ -17,12 +17,10 @@ export default defineEventHandler(async (event) => {
       createdAt: true,
       paidAt: true,
       amount: true,
-      paymentMethod: true,
       note: true,
       packageSaleId: true,
       serviceOrderId: true,
       user: { select: { name: true, email: true, phoneNumber: true } },
-      verifiedBy: { select: { name: true, email: true } },
     },
   });
 
@@ -34,17 +32,14 @@ export default defineEventHandler(async (event) => {
     "ลูกค้า": p.user.name ?? "",
     "อีเมล": p.user.email,
     "เบอร์": p.user.phoneNumber ?? "",
-    "ช่องทางชำระ": p.paymentMethod === "CASH" ? "เงินสด" : "โอน",
     "ยอด": Number(p.amount),
-    "สถานะ": p.paidAt ? "ชำระแล้ว" : "รอตรวจสอบ",
-    "ผู้ยืนยัน": p.verifiedBy?.name ?? "",
     "หมายเหตุ": p.note ?? "",
   }));
 
   const headers = [
     "เลขที่บิล", "วันที่สร้าง", "วันที่ชำระ", "ประเภท",
     "ลูกค้า", "อีเมล", "เบอร์",
-    "ช่องทางชำระ", "ยอด", "สถานะ", "ผู้ยืนยัน", "หมายเหตุ",
+    "ยอด", "หมายเหตุ",
   ];
   const csv = buildCsv(headers, rows);
   const fromTag = from.toISOString().slice(0, 10);

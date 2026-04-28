@@ -33,13 +33,6 @@ export default defineEventHandler(async (event) => {
           secureUrl: true,
         },
       },
-      verifiedBy: {
-        select: {
-          id: true,
-          name: true,
-          email: true,
-        },
-      },
       packageSale: {
         include: {
           soldBy: {
@@ -166,7 +159,6 @@ export default defineEventHandler(async (event) => {
     createdAt: payment.createdAt.toISOString(),
     paidAt: payment.paidAt?.toISOString() ?? null,
     amount: toNumber(payment.amount),
-    paymentMethod: payment.paymentMethod,
     note: payment.note,
     vat: (() => {
       const meta = (payment.metadata ?? null) as { vat?: { rate?: number; amount?: number; included?: boolean; baseAmount?: number } } | null;
@@ -193,13 +185,6 @@ export default defineEventHandler(async (event) => {
       phoneNumber: payment.serviceOrder?.isWalkIn ? payment.serviceOrder.walkInPhone : payment.user.phoneNumber,
       image: payment.serviceOrder?.isWalkIn ? null : payment.user.image,
     },
-    verifiedBy: payment.verifiedBy
-      ? {
-          id: payment.verifiedBy.id,
-          name: payment.verifiedBy.name,
-          email: payment.verifiedBy.email,
-        }
-      : null,
     packageSale: payment.packageSale
       ? {
           id: payment.packageSale.id,

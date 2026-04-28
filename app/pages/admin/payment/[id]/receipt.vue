@@ -13,7 +13,6 @@ type ReceiptPayload = {
   createdAt: string;
   paidAt: string | null;
   amount: number;
-  paymentMethod: "CASH" | "TRANSFER";
   note: string | null;
   vat: {
     rate: number;
@@ -28,11 +27,6 @@ type ReceiptPayload = {
     phoneNumber: string | null;
     image: string | null;
   };
-  verifiedBy: {
-    id: string;
-    name: string | null;
-    email: string;
-  } | null;
   packageSale: {
     id: string;
     status: string;
@@ -136,7 +130,7 @@ const isLoading = computed(() => status.value === "pending");
 const hasError = computed(() => Boolean(error.value) || !data.value);
 const receiptCode = computed(() => data.value?.paymentNo || `PAY-${paymentId.value.slice(-8).toUpperCase()}`);
 const sellerName = computed(
-  () => data.value?.packageSale?.soldBy?.name ?? data.value?.serviceOrder?.employee?.name ?? data.value?.verifiedBy?.name ?? "-",
+  () => data.value?.packageSale?.soldBy?.name ?? data.value?.serviceOrder?.employee?.name ?? "-",
 );
 const customerName = computed(() => data.value?.customer.name || data.value?.customer.email || "-");
 const receiptLines = computed<ReceiptLineItem[]>(() => {
