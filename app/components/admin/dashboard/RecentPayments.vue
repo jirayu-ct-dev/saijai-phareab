@@ -30,7 +30,7 @@ const router = useRouter()
 
 const { data, status } = useAsyncData<RecentPayment[]>(
   'recent-payments',
-  () => $fetch('/api/admin/dashboard/recent-payments'),
+  () => $fetch<RecentPayment[]>('/api/admin/dashboard/recent-payments'),
   { server: false, default: () => [] }
 )
 
@@ -110,7 +110,7 @@ const columns: TableColumn<RecentPayment>[] = [
         th: 'first:rounded-l-lg last:rounded-r-lg border-y border-default first:border-l last:border-r',
         td: 'border-b border-default',
       }"
-      @select="(row) => router.push(`/admin/payment/${row.id}`)"
+      @select="(_e: Event, row) => router.push(`/admin/payment/${row.original.id}`)"
     >
       <template #empty>
         <div class="flex flex-col items-center justify-center py-8 text-muted">

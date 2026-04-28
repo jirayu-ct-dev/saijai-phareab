@@ -138,7 +138,7 @@ const columns: TableColumn<Package>[] = [
     cell: ({ row }) => {
       const pkg = row.original;
 
-      return h("div", { class: "flex items-center gap-3 cursor-pointer", onClick: () => row.toggleExpanded() }, [
+      return h("div", { class: "flex items-center gap-3" }, [
         h(
           "div",
           {
@@ -170,11 +170,7 @@ const columns: TableColumn<Package>[] = [
     header: "ประเภท",
     cell: ({ row }) => {
       const type = row.getValue("packageType") as PackageType;
-      return h(
-        "div",
-        { class: "cursor-pointer", onClick: () => row.toggleExpanded() },
-        h(UBadge, { variant: "subtle", color: packageTypeColors[type] }, () => packageTypeLabels[type]),
-      );
+      return h(UBadge, { variant: "subtle", color: packageTypeColors[type] }, () => packageTypeLabels[type]);
     },
   },
   {
@@ -200,7 +196,7 @@ const columns: TableColumn<Package>[] = [
       const price = Number(row.original.price);
       return h(
         "span",
-        { class: [price === 0 ? "text-success font-medium" : "font-medium", "cursor-pointer"], onClick: () => row.toggleExpanded() },
+        { class: price === 0 ? "text-success font-medium" : "font-medium" },
         price === 0 ? "ฟรี" : formatCurrency(price),
       );
     },
@@ -209,13 +205,13 @@ const columns: TableColumn<Package>[] = [
     accessorKey: "credits",
     header: "เครดิต",
     cell: ({ row }) =>
-      h("span", { class: "font-medium text-primary cursor-pointer", onClick: () => row.toggleExpanded() }, formatCredits(row.original.credits)),
+      h("span", { class: "font-medium text-primary" }, formatCredits(row.original.credits)),
   },
   {
     accessorKey: "validityDays",
     header: "ระยะเวลา",
     cell: ({ row }) =>
-      h("span", { class: "text-muted cursor-pointer", onClick: () => row.toggleExpanded() }, formatDays(row.getValue("validityDays") as number | null)),
+      h("span", { class: "text-muted" }, formatDays(row.getValue("validityDays") as number | null)),
   },
   {
     accessorKey: "isActive",
@@ -223,11 +219,7 @@ const columns: TableColumn<Package>[] = [
     cell: ({ row }) => {
       const isActive = row.getValue("isActive") as boolean;
       const config = isActive ? packageActiveConfig.active : packageActiveConfig.inactive;
-      return h(
-        "div",
-        { class: "cursor-pointer", onClick: () => row.toggleExpanded() },
-        h(UBadge, { variant: "subtle", color: config.color }, () => config.label),
-      );
+      return h(UBadge, { variant: "subtle", color: config.color }, () => config.label);
     },
   },
   {
@@ -322,11 +314,12 @@ const columns: TableColumn<Package>[] = [
       :ui="{
         base: 'table-fixed border-separate border-spacing-0',
         thead: '[&>tr]:bg-elevated/50 [&>tr]:after:content-none',
-        tbody: '[&>tr]:last:[&>td]:border-b-0',
+        tbody: '[&>tr]:last:[&>td]:border-b-0 [&>tr]:cursor-pointer [&>tr]:transition-colors [&>tr]:hover:bg-elevated/60',
         th: 'py-2 font-medium first:rounded-l-lg last:rounded-r-lg border-y border-default first:border-l last:border-r',
         td: 'border-b border-default',
         separator: 'h-0',
       }"
+      @select="(_e: Event, row) => row.toggleExpanded()"
     >
       <template #empty>
         <div class="flex flex-col items-center justify-center py-12 text-center text-muted">

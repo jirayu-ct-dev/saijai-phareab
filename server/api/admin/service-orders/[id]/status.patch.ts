@@ -1,6 +1,7 @@
 import type { ServiceOrderStatus } from "~~/shared/types/enums";
 import { requireRole } from "~~/server/utils/auth";
 import { prisma } from "~~/server/utils/prisma";
+import { Prisma } from "~~/app/generated/prisma/client";
 import { refundAddonUsages, refundPrimaryCredit } from "~~/server/utils/serviceOrderCredits";
 import { notifyServiceOrderStatusChanged } from "~~/server/utils/notify";
 
@@ -135,7 +136,7 @@ export default defineEventHandler(async (event) => {
       status: ServiceOrderStatus;
       employeeId: string;
       deliveryImageId?: string | null;
-      addonUsages?: StoredAddonUsage[] | null;
+      addonUsages?: StoredAddonUsage[] | typeof Prisma.DbNull;
       creditUsed?: number | null;
       memberEntitlementId?: string | null;
     } = {
@@ -151,10 +152,10 @@ export default defineEventHandler(async (event) => {
       await refundAddonUsages(tx, existing.addonUsages);
       updateData.creditUsed = null;
       updateData.memberEntitlementId = null;
-      updateData.addonUsages = [];
+      updateData.addonUsages = Prisma.DbNull;
     } else if (isTransitionFromCompleted) {
       await refundAddonUsages(tx, existing.addonUsages);
-      updateData.addonUsages = [];
+      updateData.addonUsages = Prisma.DbNull;
     }
 
     if (status === "COMPLETED") {

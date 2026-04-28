@@ -248,7 +248,7 @@ const columns: TableColumn<AdminPaymentRecord>[] = [
   {
     accessorKey: "paymentNo",
     header: "เลขชำระ",
-    cell: ({ row }) => h("div", { class: "font-mono text-xs text-muted cursor-pointer", onClick: () => openPaymentDetail(row.original) }, row.original.paymentNo || "-"),
+    cell: ({ row }) => h("div", { class: "font-mono text-xs text-muted" }, row.original.paymentNo || "-"),
   },
   {
     accessorKey: "customer",
@@ -310,18 +310,18 @@ const columns: TableColumn<AdminPaymentRecord>[] = [
       const isMemberZero = isServiceMember(payment) && Number(payment.amount ?? 0) === 0;
       if (isMemberZero) {
         const credits = Number(payment.serviceOrder?.creditUsed ?? 0);
-        return h("div", { class: "space-y-0.5 text-right cursor-pointer", onClick: () => openPaymentDetail(payment) }, [
+        return h("div", { class: "space-y-0.5 text-right" }, [
           h("p", { class: "text-sm font-medium text-success" }, "ใช้เครดิต"),
           h("p", { class: "text-xs text-muted" }, `${credits} เครดิต`),
         ]);
       }
-      return h("div", { class: "text-right font-medium cursor-pointer", onClick: () => openPaymentDetail(payment) }, formatCurrency(payment.amount));
+      return h("div", { class: "text-right font-medium" }, formatCurrency(payment.amount));
     },
   },
   {
     accessorKey: "createdAt",
     header: "วันที่สร้าง",
-    cell: ({ row }) => h("p", { class: "text-sm cursor-pointer", onClick: () => openPaymentDetail(row.original) }, formatDateTime(row.original.createdAt)),
+    cell: ({ row }) => h("p", { class: "text-sm" }, formatDateTime(row.original.createdAt)),
   },
   {
     id: "actions",
@@ -424,11 +424,12 @@ const columns: TableColumn<AdminPaymentRecord>[] = [
             :ui="{
               base: 'table-fixed border-separate border-spacing-0',
               thead: '[&>tr]:bg-elevated/50 [&>tr]:after:content-none',
-              tbody: '[&>tr]:last:[&>td]:border-b-0',
+              tbody: '[&>tr]:last:[&>td]:border-b-0 [&>tr]:cursor-pointer [&>tr]:transition-colors [&>tr]:hover:bg-elevated/60',
               th: 'border-y border-default py-2 font-medium first:rounded-l-lg first:border-l last:rounded-r-lg last:border-r',
               td: 'border-b border-default',
               separator: 'h-0'
             }"
+            @select="(_e: Event, row) => openPaymentDetail(row.original)"
           >
             <template #empty>
               <div class="flex flex-col items-center justify-center py-12 text-center text-muted">

@@ -145,7 +145,7 @@ const columns: TableColumn<RecentOrder>[] = [
         th: 'first:rounded-l-lg last:rounded-r-lg border-y border-default first:border-l last:border-r',
         td: 'border-b border-default',
       }"
-      @select="(row) => router.push(`/admin/service-orders/${row.id}`)"
+      @select="(_e: Event, row) => router.push(`/admin/service-orders/${row.original.id}`)"
     >
       <template #empty>
         <div class="flex flex-col items-center justify-center py-8 text-muted">

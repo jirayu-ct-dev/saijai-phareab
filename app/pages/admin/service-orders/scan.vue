@@ -567,8 +567,9 @@ const scanFrame = () => {
     return;
   }
   cameraDetector.detect(video).then((barcodes) => {
-    if (barcodes.length > 0 && barcodes[0].rawValue) {
-      handleScannedValue(barcodes[0].rawValue);
+    const barcode = barcodes[0];
+    if (barcode?.rawValue) {
+      handleScannedValue(barcode.rawValue);
     } else {
       cameraFrameHandle = requestAnimationFrame(scanFrame);
     }
