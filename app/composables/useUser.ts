@@ -45,6 +45,11 @@ export const useUser = () => {
 
       await refreshSession();
       notify.success("เข้าสู่ระบบสำเร็จ");
+
+      // Redirect to admin page if user is admin
+      if (user.value?.role === "ADMIN") {
+        await navigateTo("/admin");
+      }
     } catch (error: any) {
       console.error(error);
       notify.error(error.message || "เกิดข้อผิดพลาดในการเข้าสู่ระบบ");

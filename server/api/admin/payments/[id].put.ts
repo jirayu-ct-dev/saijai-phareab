@@ -1,5 +1,4 @@
 import { addDays } from "date-fns";
-import type { PaymentMethod } from "~~/shared/types/enums";
 import { requireRole } from "~~/server/utils/auth";
 import { prisma } from "~~/server/utils/prisma";
 
@@ -7,32 +6,13 @@ interface UpdatePaymentBody {
   customerId?: string;
   productId?: string;
   amount?: number;
-  paymentMethod?: PaymentMethod;
-  isVerified?: boolean;
   note?: string | null;
   slipImageId?: string | null;
 }
 
-const buildEntitlementState = (
-  validityDays: number | null | undefined,
-  credits: number | null | undefined,
-  isVerified: boolean,
-) => {
-  if (!isVerified) {
-    return {
-      status: "PENDING" as const,
-      startAt: null,
-      endAt: null,
-      activatedAt: null,
-      suspendedAt: null,
-      creditInitial: null,
-      creditRemaining: null,
-    };
-  }
-
+const buildEntitlementState = (validityDays: number | null | undefined, credits: number | null | undefined) => {
   const startAt = new Date();
   const creditTotal = credits ?? 0;
-
   return {
     status: "ACTIVE" as const,
     startAt,
@@ -94,27 +74,16 @@ export default defineEventHandler(async (event) => {
       throw createError({ statusCode: 404, statusMessage: "ไม่พบรายการชำระเงินที่ต้องการแก้ไข" });
     }
 
-    const isVerified = body.isVerified ?? (existing.paidAt !== null);
-
     if (!existing.packageSale) {
-      const nextPaymentMethod = body.paymentMethod ?? existing.paymentMethod;
       const nextNote = body.note !== undefined ? body.note?.trim() || null : (existing.note ?? null);
       const nextSlipImageId = body.slipImageId !== undefined ? body.slipImageId : existing.slipImageId;
-
-      if (nextPaymentMethod === "TRANSFER" && !nextSlipImageId) {
-        throw createError({ statusCode: 400, statusMessage: "กรุณาอัปโหลดสลิปสำหรับรายการโอน" });
-      }
 
       const updated = await prisma.paymentRecord.update({
         where: { id },
         data: {
-          paymentMethod: nextPaymentMethod,
           slipImageId: nextSlipImageId ?? null,
           note: nextNote,
-          paidAt: isVerified ? (existing.paidAt ?? new Date()) : null,
-          verifiedById: isVerified ? actor.id : null,
-          verifiedAt: isVerified ? new Date() : null,
-          rejectionReason: null,
+          paidAt: existing.paidAt ?? new Date(),
           metadata: { updatedByAdminId: actor.id },
         },
       });
@@ -133,7 +102,6 @@ export default defineEventHandler(async (event) => {
     const nextCustomerId = body.customerId ?? existingPackageSale.customerId ?? existing.userId;
     const nextProductId = body.productId ?? primarySaleItem?.productId ?? null;
     const nextAmount = body.amount ?? Number(existing.amount);
-    const nextPaymentMethod = body.paymentMethod ?? existing.paymentMethod;
     const nextNote =
       body.note !== undefined
         ? body.note?.trim() || null
@@ -147,10 +115,6 @@ export default defineEventHandler(async (event) => {
 
     if (!Number.isFinite(Number(nextAmount)) || Number(nextAmount) < 0) {
       throw createError({ statusCode: 400, statusMessage: "กรุณาระบุจำนวนเงินให้ถูกต้อง" });
-    }
-
-    if (nextPaymentMethod === "TRANSFER" && !nextSlipImageId) {
-      throw createError({ statusCode: 400, statusMessage: "กรุณาอัปโหลดสลิปสำหรับรายการโอน" });
     }
 
     if (isStructureUpdateRequested && (!primarySaleItem || saleItems.length !== 1 || primarySaleItem.qty !== 1)) {
@@ -193,7 +157,7 @@ export default defineEventHandler(async (event) => {
         where: { id: existingPackageSale.id },
         data: {
           customerId: nextCustomerId,
-          status: isVerified ? "PAID" : "PENDING",
+          status: "PAID",
           subtotalAmount: nextSubtotalAmount,
           discountAmount: nextDiscountAmount,
           totalAmount: nextTotalAmount,
@@ -230,7 +194,7 @@ export default defineEventHandler(async (event) => {
             data: {
               customerId: nextCustomerId,
               productId: itemProductId,
-              ...buildEntitlementState(itemProduct.validityDays, itemProduct.credits, isVerified),
+              ...buildEntitlementState(itemProduct.validityDays, itemProduct.credits),
               deletedAt: null,
               deletedById: null,
             },
@@ -245,13 +209,9 @@ export default defineEventHandler(async (event) => {
           memberEntitlementId: primaryEntitlementId,
           packageSaleId: existingPackageSale.id,
           amount: nextTotalAmount,
-          paymentMethod: nextPaymentMethod,
           slipImageId: nextSlipImageId ?? null,
           note: nextNote,
-          paidAt: isVerified ? new Date() : null,
-          verifiedById: isVerified ? actor.id : null,
-          verifiedAt: isVerified ? new Date() : null,
-          rejectionReason: null,
+          paidAt: new Date(),
           metadata: { updatedByAdminId: actor.id },
         },
       });

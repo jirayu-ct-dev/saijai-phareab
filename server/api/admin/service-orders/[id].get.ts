@@ -69,13 +69,6 @@ export default defineEventHandler(async (event) => {
               url: true,
             },
           },
-          verifiedBy: {
-            select: {
-              id: true,
-              name: true,
-              email: true,
-            },
-          },
         },
       },
       serviceOrderItems: {
@@ -281,19 +274,9 @@ export default defineEventHandler(async (event) => {
     payments: serviceOrder.payments.map((payment) => ({
       id: payment.id,
       paymentNo: payment.paymentNo,
-      paymentMethod: payment.paymentMethod,
-      isVerified: payment.paidAt !== null,
       amount: toNumber(payment.amount),
       note: payment.note,
       paidAt: payment.paidAt?.toISOString() ?? null,
-      verifiedAt: payment.verifiedAt?.toISOString() ?? null,
-      verifiedBy: payment.verifiedBy
-        ? {
-            id: payment.verifiedBy.id,
-            name: payment.verifiedBy.name,
-            email: payment.verifiedBy.email,
-          }
-        : null,
       slipImage: payment.slipImage
         ? {
             id: payment.slipImage.id,

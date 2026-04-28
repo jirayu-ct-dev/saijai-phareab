@@ -5,7 +5,7 @@ import type { PaymentSlipImage } from "~~/app/composables/useAdminPayments";
 import type { CreateAdminServiceOrderBody } from "~~/app/composables/useAdminServiceOrders";
 import { orderStatusColors, orderStatusLabels } from "~~/shared/config/orderConfig";
 import { formatCurrency, formatDateTime } from "~~/shared/utils/format";
-import type { PaymentMethod, ServiceOrderStatus } from "~~/shared/types/enums";
+import type { ServiceOrderStatus } from "~~/shared/types/enums";
 
 type BadgeColor = "success" | "info" | "error" | "neutral" | "primary" | "secondary" | "warning";
 type LookupServiceOrderResponse = {
@@ -78,8 +78,6 @@ type LookupServiceOrderResponse = {
   payments: Array<{
     id: string;
     paymentNo: string | null;
-    paymentMethod: PaymentMethod;
-    isVerified: boolean;
     amount: number;
     note: string | null;
     paidAt: string | null;
@@ -93,6 +91,11 @@ definePageMeta({
   layout: "admin",
   middleware: ["role-employee"],
 });
+
+interface BarcodeDetector {
+  detect(source: HTMLVideoElement): Promise<Array<{ rawValue: string }>>;
+}
+declare var BarcodeDetector: { new(options?: { formats: string[] }): BarcodeDetector };
 
 const notify = useNotify();
 const route = useRoute();
@@ -109,10 +112,6 @@ const lookupOptions = computed(() =>
 );
 
 const orderStatusBadgeColors = orderStatusColors as Record<ServiceOrderStatus, BadgeColor>;
-const paymentMethodOptions: Array<{ label: string; value: PaymentMethod }> = [
-  { label: "เงินสด", value: "CASH" },
-  { label: "โอน", value: "TRANSFER" },
-];
 const quickStatusOptions: Array<{ label: string; value: ServiceOrderStatus; icon: string; color: BadgeColor }> = [
   { label: orderStatusLabels.RECEIVED, value: "RECEIVED", icon: "i-lucide-inbox", color: "info" },
   { label: orderStatusLabels.PROCESSING, value: "PROCESSING", icon: "i-lucide-washing-machine", color: "primary" },
@@ -133,8 +132,6 @@ const dueDate = shallowRef<CalendarDate | null>(null);
 const dueTime = ref("00:00");
 const editForm = reactive({
   serviceOrderStatus: "RECEIVED" as ServiceOrderStatus,
-  paymentMethod: "CASH" as PaymentMethod,
-  isVerified: false,
   note: "",
 });
 const uploadedSlip = ref<PaymentSlipImage | null>(null);
@@ -216,8 +213,6 @@ const setDueDateTime = (value: string | null) => {
 
 const syncEditForm = (target: LookupServiceOrderResponse | null) => {
   editForm.serviceOrderStatus = target?.status ?? "RECEIVED";
-  editForm.paymentMethod = target?.payments[0]?.paymentMethod ?? "CASH";
-  editForm.isVerified = target?.payments[0]?.isVerified ?? false;
   editForm.note = target?.note ?? "";
   uploadedSlip.value = target?.payments[0]?.slipImage
     ? {
@@ -429,10 +424,6 @@ const buildEditBody = async (): Promise<CreateAdminServiceOrderBody | null> => {
   if (!order.value) return null;
 
   const slipImageId = await uploadSlipIfNeeded();
-  if (editForm.paymentMethod === "TRANSFER" && !slipImageId) {
-    notify.validationError("กรุณาอัปโหลดสลิปสำหรับรายการโอน");
-    return null;
-  }
 
   const aggregatedItems = new Map<
     string,
@@ -486,8 +477,6 @@ const buildEditBody = async (): Promise<CreateAdminServiceOrderBody | null> => {
     missingHangerCount: order.value.hangerCharge?.count ?? 0,
     dueAt: dueAtValue.value ? new Date(dueAtValue.value).toISOString() : null,
     discountAmount: order.value.discountAmount,
-    paymentMethod: editForm.paymentMethod,
-    isVerified: editForm.isVerified,
     serviceOrderStatus: editForm.serviceOrderStatus,
     note: editForm.note.trim() || null,
     slipImageId,
@@ -910,24 +899,12 @@ onBeforeUnmount(() => {
                 />
               </UFormField>
 
-              <UFormField label="ช่องทางชำระเงิน">
-                <USelect v-model="editForm.paymentMethod" :items="paymentMethodOptions" value-key="value" class="w-full" />
-              </UFormField>
-
-              <UFormField label="สถานะชำระเงิน">
-                <div class="flex items-center gap-2 pt-1">
-                  <USwitch v-model="editForm.isVerified" color="success" />
-                  <span class="text-sm">{{ editForm.isVerified ? "ยืนยันแล้ว" : "รอตรวจสอบ" }}</span>
-                </div>
-              </UFormField>
             </div>
 
             <UIPhotoUpload
               label="หลักฐานการชำระเงิน"
               :photos="slipPhotos"
               :max="1"
-              :disabled="editForm.paymentMethod !== 'TRANSFER'"
-              :description="editForm.paymentMethod !== 'TRANSFER' ? 'อัปโหลดสลิปได้เฉพาะเมื่อเลือกการชำระเงินแบบโอน' : undefined"
               confirm-remove
               @update:photos="onSlipPhotosUpdate"
             />

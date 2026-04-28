@@ -36,7 +36,6 @@ interface RecentPayment {
   customerAvatar: string
   lineUserId?: string | null
   amount: number
-  isVerified: boolean
   paymentType: 'PACKAGE' | 'ORDER'
   createdAt: Date
 }
@@ -68,7 +67,6 @@ const generateMockPayments = (count: number): RecentPayment[] => {
       customerAvatar: customer.avatar,
       lineUserId: customer.lineUserId,
       amount: randomInt(500, 5000),
-      isVerified: Math.random() > 0.5,
       paymentType: Math.random() > 0.5 ? 'PACKAGE' : 'ORDER',
       createdAt: date
     })
@@ -125,14 +123,6 @@ const columns: TableColumn<RecentPayment>[] = [
     cell: ({ row }) => {
       const amount = Number(row.getValue('amount'))
       return h('div', { class: 'text-right font-medium' }, formatCurrency(amount))
-    }
-  },
-  {
-    accessorKey: 'isVerified',
-    header: 'สถานะ',
-    cell: ({ row }) => {
-      const verified = row.getValue('isVerified') as boolean
-      return h(UBadge, { variant: 'subtle', color: verified ? 'success' : 'warning' }, () => verified ? 'ยืนยันแล้ว' : 'รอตรวจสอบ')
     }
   },
   {

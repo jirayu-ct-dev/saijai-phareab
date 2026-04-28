@@ -27,3 +27,7 @@ logs
 
 .claude
 CLAUDE*.md
+claude*
+.gemini
+GEMINI*.md
+gemini*.md

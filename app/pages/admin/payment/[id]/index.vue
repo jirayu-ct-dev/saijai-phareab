@@ -1,5 +1,5 @@
 ﻿<script setup lang="ts">
-import type { EntitlementStatus, PackageSaleStatus, PaymentMethod, ServiceOrderStatus } from "~~/shared/types/enums";
+import type { EntitlementStatus, PackageSaleStatus, ServiceOrderStatus } from "~~/shared/types/enums";
 import { packageTypeColors, packageTypeLabels } from "~~/shared/config/packageConfig";
 import { formatCurrency, formatDateTime } from "~~/shared/utils/format";
 import { useAdminPayments } from "~~/app/composables/useAdminPayments";
@@ -13,17 +13,12 @@ type PaymentDetailResponse = {
   id: string;
   paymentNo: string | null;
   amount: number;
-  isVerified: boolean;
-  paymentMethod: PaymentMethod;
   note: string | null;
   paidAt: string | null;
-  verifiedAt: string | null;
-  rejectionReason: string | null;
   createdAt: string;
   updatedAt: string;
   metadata: unknown;
   customer: { id: string; name: string | null; email: string; phoneNumber: string | null; image: string | null };
-  verifiedBy: { name: string | null; email: string } | null;
   slipImage: { id: string; url: string | null; secureUrl: string | null } | null;
   memberEntitlement: {
     id: string;
@@ -100,14 +95,14 @@ const serviceOrderStatusMap: Record<ServiceOrderStatus, { label: string; color: 
   CANCELLED: { label: "ยกเลิก", color: "error" },
 };
 
-const paymentForm = ref({ paymentMethod: "CASH" as PaymentMethod, isVerified: false, note: "", slipImageId: null as string | null });
+const paymentForm = ref({ note: "", slipImageId: null as string | null });
 const pendingSlipFile = ref<File | null>(null);
 const isUploadingSlip = ref(false);
 const isSavingPayment = ref(false);
 const clearPendingSlip = () => { pendingSlipFile.value = null; };
 watch(payment, (nextPayment) => {
   if (!nextPayment) return;
-  paymentForm.value = { paymentMethod: nextPayment.paymentMethod, isVerified: nextPayment.isVerified, note: nextPayment.note ?? "", slipImageId: nextPayment.slipImage?.id ?? null };
+  paymentForm.value = { note: nextPayment.note ?? "", slipImageId: nextPayment.slipImage?.id ?? null };
   clearPendingSlip();
 }, { immediate: true });
 
@@ -116,7 +111,7 @@ const currentSlipImageUrl = computed(() => currentSlipImage.value?.secureUrl || 
 const hasPendingSlip = computed(() => Boolean(pendingSlipFile.value));
 const isDirty = computed(() => {
   if (!payment.value) return false;
-  return paymentForm.value.paymentMethod !== payment.value.paymentMethod || paymentForm.value.isVerified !== payment.value.isVerified || paymentForm.value.note !== (payment.value.note ?? "") || paymentForm.value.slipImageId !== (payment.value.slipImage?.id ?? null) || hasPendingSlip.value;
+  return paymentForm.value.note !== (payment.value.note ?? "") || paymentForm.value.slipImageId !== (payment.value.slipImage?.id ?? null) || hasPendingSlip.value;
 });
 
 const copiedPaymentNo = ref(false);
@@ -306,7 +301,7 @@ const savePaymentChanges = async () => {
     }
     slipImageId = uploaded.id;
   }
-  const ok = await updatePayment(payment.value.id, { paymentMethod: paymentForm.value.paymentMethod, isVerified: paymentForm.value.isVerified, note: paymentForm.value.note.trim() || null, slipImageId });
+  const ok = await updatePayment(payment.value.id, { note: paymentForm.value.note.trim() || null, slipImageId });
   isSavingPayment.value = false;
   if (ok) {
     paymentForm.value.slipImageId = slipImageId;
@@ -435,7 +430,7 @@ const savePaymentChanges = async () => {
               </div>
             </div>
             <div v-if="detailItems.length" class="overflow-x-auto">
-              <table class="w-full min-w-[640px] text-sm">
+              <table class="w-full min-w-160 text-sm">
                 <thead class="bg-elevated/40 text-xs text-muted">
                   <tr>
                     <th v-if="!isPackagePayment" class="w-20 px-5 py-2 text-left font-medium">รูป</th>
@@ -528,13 +523,6 @@ const savePaymentChanges = async () => {
             </div>
 
             <div class="mt-5 space-y-4 border-t border-default pt-5">
-              <UFormField label="สถานะการชำระเงิน">
-                <div class="flex items-center gap-2 pt-1">
-                  <USwitch v-model="paymentForm.isVerified" color="success" :disabled="isSavingPayment" />
-                  <span class="text-sm">{{ paymentForm.isVerified ? "ยืนยันแล้ว" : "รอตรวจสอบ" }}</span>
-                </div>
-              </UFormField>
-
               <UFormField label="หมายเหตุ">
                 <UTextarea v-model="paymentForm.note" :disabled="isSavingPayment" :rows="4" placeholder="เพิ่มหมายเหตุเกี่ยวกับการชำระเงิน" class="w-full" />
               </UFormField>

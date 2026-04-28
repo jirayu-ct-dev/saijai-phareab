@@ -138,6 +138,12 @@ const onRemoveSubscriber = async (sub: Subscriber) => {
   }
 };
 
+const getAvatarProps = (image: string | null, name: string | null, email: string) => ({
+  as: { img: "img" as const },
+  src: image || "",
+  alt: name || email,
+  loading: "lazy" as const,
+});
 const roleLabel = (role: "ADMIN" | "EMPLOYEE" | "USER") =>
   role === "ADMIN" ? "ผู้ดูแล" : role === "EMPLOYEE" ? "พนักงาน" : "ลูกค้า";
 </script>
@@ -253,7 +259,7 @@ const roleLabel = (role: "ADMIN" | "EMPLOYEE" | "USER") =>
           >
             <div class="flex items-center justify-between gap-3 flex-wrap">
               <div class="flex items-center gap-3">
-                <UAvatar :src="sub.user.image || undefined" :alt="sub.user.name || sub.user.email" size="md" />
+                <UAvatar v-bind="getAvatarProps(sub.user.image, sub.user.name, sub.user.email)" size="md" />
                 <div>
                   <p class="font-medium">{{ sub.user.name || sub.user.email }}</p>
                   <p class="text-xs text-muted">{{ sub.user.email }} · {{ roleLabel(sub.user.role) }}</p>

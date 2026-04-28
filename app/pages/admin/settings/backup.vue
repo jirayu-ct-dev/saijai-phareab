@@ -15,7 +15,7 @@ const reports = [
   {
     key: "sales",
     label: "รายงานยอดขาย",
-    description: "ทุก PaymentRecord ในช่วงเวลา (เลขที่บิล, ลูกค้า, ยอด, ช่องทาง, สถานะ)",
+    description: "ทุก PaymentRecord ในช่วงเวลา (เลขที่บิล, ลูกค้า, ยอด)",
     icon: "i-lucide-receipt",
     endpoint: "/api/admin/exports/sales",
   },

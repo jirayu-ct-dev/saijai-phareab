@@ -30,8 +30,6 @@ export type BasketStatus = "AVAILABLE" | "IN_USE";
 
 export type PackageType = "MAIN" | "ADDON";
 
-export type PaymentMethod = "CASH" | "TRANSFER";
-
 // ============================
 // SOFT DELETE (shared fields)
 // ============================

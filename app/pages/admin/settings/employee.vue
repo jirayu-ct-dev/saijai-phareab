@@ -91,6 +91,12 @@ const onDelete = async (emp: Employee) => {
   }
 };
 
+const getAvatarProps = (image: string | null, name: string | null, email: string) => ({
+  as: { img: "img" as const },
+  src: image || "",
+  alt: name || email,
+  loading: "lazy" as const,
+});
 const roleLabel = (r: string) => (r === "ADMIN" ? "ผู้ดูแล" : "พนักงาน");
 const roleColor = (r: string) => (r === "ADMIN" ? "primary" : "neutral");
 
@@ -121,7 +127,8 @@ const formatDate = (s: string) => new Date(s).toLocaleDateString("th-TH", { date
           class="flex items-center justify-between gap-3 rounded-lg border border-default p-3 flex-wrap"
         >
           <div class="flex items-center gap-3 min-w-0">
-            <UAvatar :src="emp.image || undefined" :alt="emp.name || emp.email" size="md" />
+            <UAvatar v-bind="getAvatarProps(emp.image, emp.name, emp.email)" size="md" />
+            
             <div class="min-w-0">
               <div class="flex items-center gap-2 flex-wrap">
                 <p class="font-medium truncate">{{ emp.name || emp.email }}</p>
