@@ -1002,7 +1002,7 @@ const columns: TableColumn<AdminServiceOrder>[] = [
   {
     accessorKey: "orderNo",
     header: "เลขรับผ้า",
-    cell: ({ row }) => h("div", { class: "font-mono text-xs text-muted cursor-pointer", onClick: () => openDetailPage(row.original) }, row.original.orderNo || row.original.id),
+    cell: ({ row }) => h("div", { class: "font-mono text-xs text-muted" }, row.original.orderNo || row.original.id),
   },
   {
     accessorKey: "customer",
@@ -1030,7 +1030,7 @@ const columns: TableColumn<AdminServiceOrder>[] = [
     cell: ({ row }) =>
       h(
         "div",
-        { class: "space-y-1 cursor-pointer", onClick: () => openDetailPage(row.original) },
+        { class: "space-y-1" },
         formatItemSummary(row.original).map((item) => h("p", { class: "text-sm text-highlighted" }, item)),
       ),
   },
@@ -1046,13 +1046,13 @@ const columns: TableColumn<AdminServiceOrder>[] = [
       const isMemberZero = Boolean(entitlement) && total === 0;
 
       if (isMemberZero) {
-        return h("div", { class: "space-y-0.5 text-right cursor-pointer", onClick: () => openDetailPage(order) }, [
+        return h("div", { class: "space-y-0.5 text-right" }, [
           h("p", { class: "text-sm font-medium text-success" }, "ใช้เครดิต"),
           h("p", { class: "text-xs text-muted" }, `${used} / ${initial} เครดิต`),
         ]);
       }
 
-      return h("div", { class: "space-y-0.5 text-right cursor-pointer", onClick: () => openDetailPage(order) }, [
+      return h("div", { class: "space-y-0.5 text-right" }, [
         h("p", { class: "text-sm font-medium text-highlighted" }, formatCurrency(total)),
         entitlement ? h("p", { class: "text-xs text-success" }, `ใช้ ${used} เครดิต`) : null,
       ]);
@@ -1073,7 +1073,7 @@ const columns: TableColumn<AdminServiceOrder>[] = [
       const order = row.original;
       const isCompleted = order.status === "COMPLETED";
       const deliveredAt = order.payment?.paidAt ?? order.dueAt ?? null;
-      return h("div", { class: "space-y-0.5 text-sm cursor-pointer", onClick: () => openDetailPage(order) }, [
+      return h("div", { class: "space-y-0.5 text-sm" }, [
         h("p", { class: "text-highlighted" }, `รับ: ${formatDateTime(order.receivedAt)}`),
         isCompleted
           ? (deliveredAt ? h("p", { class: "text-xs text-muted" }, `ส่ง: ${formatDateTime(deliveredAt)}`) : null)
@@ -1209,11 +1209,12 @@ const columns: TableColumn<AdminServiceOrder>[] = [
             :ui="{
               base: 'border-separate border-spacing-0',
               thead: '[&>tr]:bg-elevated/50 [&>tr]:after:content-none',
-              tbody: '[&>tr]:last:[&>td]:border-b-0',
+              tbody: '[&>tr]:last:[&>td]:border-b-0 [&>tr]:cursor-pointer [&>tr]:transition-colors [&>tr]:hover:bg-elevated/60',
               th: 'border-y border-default py-2 font-medium first:rounded-l-lg first:border-l last:rounded-r-lg last:border-r',
               td: 'border-b border-default',
               separator: 'h-0'
             }"
+            @select="(_e: Event, row) => openDetailPage(row.original)"
           >
             <template #empty>
               <div class="flex flex-col items-center justify-center py-12 text-center text-muted">

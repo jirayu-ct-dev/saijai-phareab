@@ -20,6 +20,7 @@ const adminMenu = [
       label: "แดชบอร์ด",
       icon: "i-lucide-house",
       to: "/admin",
+      exact: true,
       onSelect: closeSidebar,
     },
     {

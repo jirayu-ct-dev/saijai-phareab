@@ -96,3 +96,4 @@ export const formatCredits = (credits: number | null | undefined): string => {
 export const formatDays = (days: number | null | undefined): string => {
   return days ? `${days} วัน` : "—";
 };
+
