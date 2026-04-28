@@ -42,7 +42,7 @@ async function handleSignOut() {
 </script>
 
 <template>
-    <div class="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 p-4">
+    <div class="min-h-screen flex items-center justify-center p-4">
         <!-- แสดงข้อมูล Session (ถ้า login แล้ว) -->
         <div v-if="isPending" class="text-gray-500">กำลังโหลด...</div>
 
