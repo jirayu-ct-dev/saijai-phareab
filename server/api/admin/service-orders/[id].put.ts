@@ -22,6 +22,7 @@ type UpdateServiceOrderBody = {
     notes?: string | null;
     photos?: Array<{ imageId: string; isDamaged?: boolean; sortOrder?: number }>;
   }>;
+  washFold?: { weightKg: number; notes?: string | null } | null;
   hangerCount?: number;
   missingHangerCount?: number;
   dueAt?: string | null;
@@ -58,8 +59,16 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, statusMessage: "ลูกค้าหน้าร้านไม่สามารถใช้เครดิตแพ็กเกจได้" });
   }
 
+  const washFoldInput = body.washFold && Number.isFinite(Number(body.washFold.weightKg))
+    ? { weightKg: Number(body.washFold.weightKg), notes: body.washFold.notes?.trim() || null }
+    : null;
+
   if (!Array.isArray(body.items) || body.items.length === 0) {
     throw createError({ statusCode: 400, statusMessage: "กรุณาเลือกบริการอย่างน้อย 1 รายการ" });
+  }
+
+  if (washFoldInput && requestedEntitlementId) {
+    throw createError({ statusCode: 400, statusMessage: "โหมดซัก-พับชั่งกิโลใช้แพ็กเกจรายเดือนไม่ได้" });
   }
 
   const normalizedItems = body.items
@@ -214,11 +223,27 @@ export default defineEventHandler(async (event) => {
     });
 
     const business = await getBusinessSetting();
-    const hangerCharge = {
-      count: missingHangerCount,
-      pricePerUnit: business.hangerPricePerUnit,
-      total: missingHangerCount * business.hangerPricePerUnit,
-    };
+
+    if (washFoldInput) {
+      if (washFoldInput.weightKg <= 0) {
+        throw createError({ statusCode: 400, statusMessage: "น้ำหนักต้องมากกว่า 0" });
+      }
+      if (business.washFoldMinKg > 0 && washFoldInput.weightKg < business.washFoldMinKg) {
+        throw createError({ statusCode: 400, statusMessage: `น้ำหนักขั้นต่ำ ${business.washFoldMinKg} กก.` });
+      }
+    }
+
+    const hangerCharge = washFoldInput
+      ? { count: 0, pricePerUnit: 0, total: 0 }
+      : {
+          count: missingHangerCount,
+          pricePerUnit: business.hangerPricePerUnit,
+          total: missingHangerCount * business.hangerPricePerUnit,
+        };
+
+    const washFoldSubtotal = washFoldInput
+      ? Math.round(washFoldInput.weightKg * business.washFoldPricePerKg * 100) / 100
+      : 0;
 
     const dueAt = body.dueAt ? new Date(body.dueAt) : null;
     if (dueAt && Number.isNaN(dueAt.getTime())) {
@@ -232,7 +257,9 @@ export default defineEventHandler(async (event) => {
     type AllocatedItem = (typeof orderItems)[number] & { cashQuantity: number; creditQuantity: number };
     let allocatedItems: AllocatedItem[] = orderItems.map((item) => ({ ...item, creditQuantity: 0, cashQuantity: item.quantity }));
     let creditUsed = 0;
-    let subtotalAmount = orderItems.reduce((sum, item) => sum + item.totalPrice, 0);
+    let subtotalAmount = washFoldInput
+      ? washFoldSubtotal
+      : orderItems.reduce((sum, item) => sum + item.totalPrice, 0);
     let discountAmount = Math.min(Number(body.discountAmount ?? 0), subtotalAmount);
     let beforeVat = subtotalAmount - discountAmount + hangerCharge.total;
     let vat = computeVat({ amount: beforeVat, rate: business.vatRate, included: business.vatIncluded });
@@ -328,6 +355,8 @@ export default defineEventHandler(async (event) => {
           discountAmount,
           hangerCharge,
           totalAmount: payableAmount,
+          weightKg: washFoldInput?.weightKg ?? null,
+          washFoldPricePerKgSnapshot: washFoldInput ? business.washFoldPricePerKg : null,
           note: body.note?.trim() || null,
           imageId: orderImageId,
           ...(deliveryImageId !== undefined ? { deliveryImageId } : {}),
@@ -369,8 +398,8 @@ export default defineEventHandler(async (event) => {
       for (const item of allocatedItems) {
         const rows: Array<{ qty: number; isPackage: boolean; totalPrice: number; attachPhotos: boolean }> = [];
         if (item.creditQuantity > 0) rows.push({ qty: item.creditQuantity, isPackage: true, totalPrice: 0, attachPhotos: true });
-        if (item.cashQuantity > 0) rows.push({ qty: item.cashQuantity, isPackage: false, totalPrice: item.cashQuantity * item.unitPrice, attachPhotos: item.creditQuantity === 0 });
-        if (rows.length === 0) rows.push({ qty: item.quantity, isPackage: false, totalPrice: item.totalPrice, attachPhotos: true });
+        if (item.cashQuantity > 0) rows.push({ qty: item.cashQuantity, isPackage: false, totalPrice: washFoldInput ? 0 : item.cashQuantity * item.unitPrice, attachPhotos: item.creditQuantity === 0 });
+        if (rows.length === 0) rows.push({ qty: item.quantity, isPackage: false, totalPrice: washFoldInput ? 0 : item.totalPrice, attachPhotos: true });
 
         for (const row of rows) {
           const createdItem = await tx.serviceOrderItem.create({

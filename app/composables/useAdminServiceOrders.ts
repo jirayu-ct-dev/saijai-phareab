@@ -8,13 +8,17 @@ export type CreateAdminServiceOrderBody = {
   memberEntitlementId?: string | null;
   orderImageId?: string | null;
   deliveryImageId?: string | null;
-  items: Array<{
+  items?: Array<{
     storefrontPriceId: string;
     quantity: number;
     imageId?: string | null;
     notes?: string | null;
     photos?: Array<{ imageId: string; isDamaged: boolean; sortOrder?: number }>;
   }>;
+  washFold?: {
+    weightKg: number;
+    notes?: string | null;
+  } | null;
   hangerCount?: number;
   missingHangerCount?: number;
   dueAt?: string | null;
@@ -48,6 +52,8 @@ export type AdminServiceOrder = {
   subtotalAmount: number;
   discountAmount: number;
   totalAmount: number;
+  weightKg: number | null;
+  washFoldPricePerKgSnapshot: number | null;
   image: {
     id: string;
     secureUrl: string | null;
@@ -91,13 +97,15 @@ export type AdminServiceOrder = {
   } | null;
   items: Array<{
     id: string;
-    storefrontPriceId: string;
+    storefrontPriceId: string | null;
     label: string;
     quantity: number;
     unitPrice: number;
     totalPrice: number;
     notes: string | null;
     isPackageIncluded: boolean;
+    weightKg?: number | null;
+    weightLabel?: string | null;
     image: {
       id: string;
       secureUrl: string | null;

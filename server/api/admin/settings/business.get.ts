@@ -13,6 +13,8 @@ export default defineEventHandler(async (event) => {
   return {
     id: setting.id,
     hangerPricePerUnit: Number(setting.hangerPricePerUnit),
+    washFoldPricePerKg: Number(setting.washFoldPricePerKg),
+    washFoldMinKg: Number(setting.washFoldMinKg),
     vatRate: Number(setting.vatRate),
     vatIncluded: setting.vatIncluded,
     paymentNoPrefix: setting.paymentNoPrefix,

@@ -170,7 +170,7 @@ const kvRow = (label: string, value: string): FlexBox => ({
   ],
 });
 
-const itemRow = (name: string, qty: number, total: number, isPackage: boolean): FlexBox => ({
+const itemRow = (name: string, qty: number, total: number, isPackage: boolean, isWashFold = false): FlexBox => ({
   type: "box",
   layout: "horizontal",
   spacing: "sm",
@@ -179,9 +179,9 @@ const itemRow = (name: string, qty: number, total: number, isPackage: boolean): 
     { type: "text", text: `x${qty}`, size: "sm", color: "#6B7280", flex: 1, align: "end" },
     {
       type: "text",
-      text: isPackage ? "ใช้แพ็กเกจ" : `฿${formatCurrency(total)}`,
+      text: isWashFold ? "ชั่งกิโล" : (isPackage ? "ใช้แพ็กเกจ" : `฿${formatCurrency(total)}`),
       size: "sm",
-      color: isPackage ? "#16A34A" : "#111827",
+      color: isWashFold ? "#F59E0B" : (isPackage ? "#16A34A" : "#111827"),
       flex: 3,
       align: "end",
     },
@@ -308,6 +308,8 @@ const loadServiceOrderForNotify = async (id: string) =>
       discountAmount: true,
       totalAmount: true,
       hangerCharge: true,
+      weightKg: true,
+      washFoldPricePerKgSnapshot: true,
       note: true,
       customer: { select: { name: true, email: true } },
       image: { select: { secureUrl: true, url: true } },
@@ -330,6 +332,8 @@ const loadServiceOrderForNotify = async (id: string) =>
           totalPrice: true,
           isPackageIncluded: true,
           notes: true,
+          weightKg: true,
+          weightLabel: true,
           storefrontPrice: {
             select: {
               storefrontItem: { select: { name: true } },
@@ -398,7 +402,12 @@ const buildOrderBody = async (params: {
   const rows: FlexBox[] = [
     kvRow("เลขรับผ้า", orderNo),
     kvRow("ชื่อลูกค้า", customerName),
-    kvRow("รูปแบบบริการ", isPackage ? "แพ็กเกจรายเดือน" : "ราคาหน้าร้าน"),
+    kvRow(
+      "รูปแบบบริการ",
+      order.weightKg != null
+        ? "ซัก-พับ ชั่งกิโล"
+        : isPackage ? "แพ็กเกจรายเดือน" : "ราคาหน้าร้าน",
+    ),
     kvRow("วันที่รับผ้า", formatDateTime(order.receivedAt.toISOString())),
   ];
 
@@ -411,15 +420,38 @@ const buildOrderBody = async (params: {
   }
 
   rows.push(kvRow("จำนวนผ้า", `${totalQty} ชิ้น`));
+  if (order.weightKg != null) {
+    rows.push(kvRow("น้ำหนัก", `${Number(order.weightKg).toFixed(1)} กก.`));
+  }
 
   if (detailed) {
     rows.push(divider());
     rows.push(sectionHeading("รายการบริการ"));
+    const isWashFoldMode = order.weightKg != null;
     for (const item of order.serviceOrderItems) {
-      const itemName = item.storefrontPrice.storefrontItem.name;
-      const serviceName = item.storefrontPrice.storefrontService.name;
+      if (item.storefrontPrice) {
+        const itemName = item.storefrontPrice.storefrontItem.name;
+        const serviceName = item.storefrontPrice.storefrontService.name;
+        rows.push(
+          itemRow(
+            `${itemName} (${serviceName})`,
+            item.quantity,
+            Number(item.totalPrice),
+            isWashFoldMode ? false : item.isPackageIncluded,
+            isWashFoldMode,
+          ),
+        );
+      }
+    }
+    if (isWashFoldMode && order.washFoldPricePerKgSnapshot != null) {
+      rows.push(divider());
       rows.push(
-        itemRow(`${itemName} (${serviceName})`, item.quantity, Number(item.totalPrice), item.isPackageIncluded),
+        itemRow(
+          `ซัก-พับ ${Number(order.weightKg).toFixed(1)} กก. × ${formatCurrency(Number(order.washFoldPricePerKgSnapshot))}`,
+          1,
+          Number(order.subtotalAmount),
+          false,
+        ),
       );
     }
 

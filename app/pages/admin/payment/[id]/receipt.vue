@@ -62,6 +62,8 @@ type ReceiptPayload = {
     receivedAt: string;
     deliveredAt: string | null;
     dueAt: string | null;
+    weightKg: number | null;
+    washFoldPricePerKg: number | null;
     subtotalAmount: number;
     discountAmount: number;
     totalAmount: number;
@@ -83,6 +85,8 @@ type ReceiptPayload = {
       totalPrice: number;
       notes: string | null;
       isPackageIncluded: boolean;
+      isWashFold?: boolean;
+      weightKg?: number | null;
     }>;
     creditUsed: number;
     usageHistory: Array<{
@@ -110,6 +114,8 @@ type ReceiptLineItem = {
   unitPrice: number;
   totalPrice: number;
   subtitle: string | null;
+  isWashFold?: boolean;
+  weightKg?: number | null;
 };
 
 definePageMeta({
@@ -152,7 +158,19 @@ const receiptLines = computed<ReceiptLineItem[]>(() => {
     unitPrice: item.unitPrice,
     totalPrice: item.totalPrice,
     subtitle: null,
+    isWashFold: item.isWashFold,
+    weightKg: item.weightKg,
   })) ?? [];
+});
+
+const washFoldInfo = computed(() => {
+  const so = data.value?.serviceOrder;
+  if (!so?.weightKg) return null;
+  return {
+    weightKg: so.weightKg,
+    pricePerKg: so.washFoldPricePerKg ?? 0,
+    total: so.subtotalAmount,
+  };
 });
 const totalItemQuantity = computed(() => receiptLines.value.reduce((sum, item) => sum + item.quantity, 0));
 const subtotalAmount = computed(() => data.value?.packageSale?.subtotalAmount ?? data.value?.serviceOrder?.subtotalAmount ?? 0);
@@ -253,11 +271,11 @@ const infoRows = computed(() => {
                 <p v-if="item.subtitle" class="item-name mt-0.5 text-[11px] leading-4 text-neutral-600">{{ item.subtitle }}</p>
               </div>
               <p class="text-right whitespace-nowrap">
-                {{ isMemberOrder && item.unitPrice === 0 ? "-" : formatCurrency(item.unitPrice) }}
+                {{ item.isWashFold ? "—" : (isMemberOrder && item.unitPrice === 0 ? "-" : formatCurrency(item.unitPrice)) }}
               </p>
               <p class="text-right whitespace-nowrap">x{{ item.quantity }}</p>
               <p class="text-right whitespace-nowrap">
-                {{ isMemberOrder && item.totalPrice === 0 ? `${item.quantity} เครดิต` : formatCurrency(item.totalPrice) }}
+                {{ item.isWashFold ? "ชั่งกิโล" : (isMemberOrder && item.totalPrice === 0 ? `${item.quantity} เครดิต` : formatCurrency(item.totalPrice)) }}
               </p>
             </div>
           </div>
@@ -271,7 +289,11 @@ const infoRows = computed(() => {
           <span>รวมจำนวนรายการ</span>
           <span>{{ totalItemQuantity }} ชิ้น</span>
         </div>
-        <div v-if="hangerCharge" class="summary-row">
+        <div v-if="washFoldInfo" class="summary-row">
+          <span>ซัก-พับ ชั่งกิโล</span>
+          <span>{{ washFoldInfo.weightKg.toFixed(1) }} กก. × {{ formatCurrency(washFoldInfo.pricePerKg) }}</span>
+        </div>
+        <div v-if="hangerCharge && !washFoldInfo" class="summary-row">
           <span>รวมไม้แขวน</span>
           <span>{{ hangerCharge?.count ?? 0 }} ชิ้น</span>
         </div>

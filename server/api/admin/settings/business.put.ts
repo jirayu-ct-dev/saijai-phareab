@@ -5,6 +5,8 @@ import { invalidateBusinessSettingCache } from "~~/server/utils/businessSetting"
 
 const schema = z.object({
   hangerPricePerUnit: z.number().min(0).max(10000),
+  washFoldPricePerKg: z.number().min(0).max(10000),
+  washFoldMinKg: z.number().min(0).max(1000),
   vatRate: z.number().min(0).max(100),
   vatIncluded: z.boolean(),
   paymentNoPrefix: z.string().trim().min(1).max(20),

@@ -142,14 +142,17 @@ export default defineEventHandler(async (event) => {
     totalPrice: toNumber(item.totalPrice),
   })) ?? [];
 
+  const isWashFoldOrder = payment.serviceOrder?.weightKg != null;
   const serviceItems = payment.serviceOrder?.serviceOrderItems.map((item) => ({
     id: item.id,
-    name: `${item.storefrontPrice.storefrontService.name} ${item.storefrontPrice.storefrontItem.name}`.trim(),
+    name: `${item.storefrontPrice?.storefrontService.name ?? ""} ${item.storefrontPrice?.storefrontItem.name ?? ""}`.trim(),
     quantity: item.quantity,
     unitPrice: toNumber(item.unitPrice),
     totalPrice: toNumber(item.totalPrice),
     notes: item.notes,
     isPackageIncluded: item.isPackageIncluded,
+    isWashFold: isWashFoldOrder,
+    weightKg: null as number | null,
   })) ?? [];
 
   const hangerChargeSource = (payment.serviceOrder?.hangerCharge ?? null) as
@@ -230,6 +233,10 @@ export default defineEventHandler(async (event) => {
             : null,
           dueAt: payment.serviceOrder.dueAt?.toISOString() ?? null,
           subtotalAmount: toNumber(payment.serviceOrder.subtotalAmount),
+          weightKg: payment.serviceOrder.weightKg != null ? toNumber(payment.serviceOrder.weightKg) : null,
+          washFoldPricePerKg: payment.serviceOrder.washFoldPricePerKgSnapshot != null
+            ? toNumber(payment.serviceOrder.washFoldPricePerKgSnapshot)
+            : null,
           discountAmount: toNumber(payment.serviceOrder.discountAmount),
           totalAmount: toNumber(payment.serviceOrder.totalAmount),
           employee: payment.serviceOrder.employee

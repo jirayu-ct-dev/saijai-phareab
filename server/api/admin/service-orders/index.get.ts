@@ -150,6 +150,8 @@ export default defineEventHandler(async (event) => {
         subtotalAmount: toNumber(row.subtotalAmount),
         discountAmount: toNumber(row.discountAmount),
         totalAmount: toNumber(row.totalAmount),
+        weightKg: row.weightKg != null ? toNumber(row.weightKg) : null,
+        washFoldPricePerKgSnapshot: row.washFoldPricePerKgSnapshot != null ? toNumber(row.washFoldPricePerKgSnapshot) : null,
         image: row.image
           ? {
               id: row.image.id,
@@ -192,12 +194,16 @@ export default defineEventHandler(async (event) => {
         items: row.serviceOrderItems.map((item) => ({
           id: item.id,
           storefrontPriceId: item.storefrontPriceId,
-          label: `${item.storefrontPrice.storefrontService.name} ${item.storefrontPrice.storefrontItem.name}`.trim(),
+          label: item.weightKg != null
+            ? (item.weightLabel || "ซัก-พับ ชั่งกิโล")
+            : `${item.storefrontPrice?.storefrontService.name ?? ""} ${item.storefrontPrice?.storefrontItem.name ?? ""}`.trim(),
           quantity: item.quantity,
           unitPrice: toNumber(item.unitPrice),
           totalPrice: toNumber(item.totalPrice),
           notes: item.notes,
           isPackageIncluded: item.isPackageIncluded,
+          weightKg: item.weightKg != null ? toNumber(item.weightKg) : null,
+          weightLabel: item.weightLabel ?? null,
           image: item.image
             ? {
                 id: item.image.id,

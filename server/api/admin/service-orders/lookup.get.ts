@@ -283,15 +283,13 @@ export default defineEventHandler(async (event) => {
         secureUrl: photo.image?.secureUrl ?? null,
         url: photo.image?.url ?? null,
       })),
-      service: {
-        id: item.storefrontPrice.storefrontService.id,
-        name: item.storefrontPrice.storefrontService.name,
-      },
-      item: {
-        id: item.storefrontPrice.storefrontItem.id,
-        name: item.storefrontPrice.storefrontItem.name,
-      },
-      label: `${item.storefrontPrice.storefrontService.name} ${item.storefrontPrice.storefrontItem.name}`.trim(),
+      service: item.storefrontPrice
+        ? { id: item.storefrontPrice.storefrontService.id, name: item.storefrontPrice.storefrontService.name }
+        : null,
+      item: item.storefrontPrice
+        ? { id: item.storefrontPrice.storefrontItem.id, name: item.storefrontPrice.storefrontItem.name }
+        : null,
+      label: `${item.storefrontPrice?.storefrontService.name ?? ""} ${item.storefrontPrice?.storefrontItem.name ?? ""}`.trim(),
     })),
     payments: serviceOrder.payments.map((payment) => ({
       id: payment.id,

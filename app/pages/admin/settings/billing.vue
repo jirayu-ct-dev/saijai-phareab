@@ -8,6 +8,8 @@ const { settings, isLoading, updateSettings } = useBusinessSetting();
 
 const form = reactive({
   hangerPricePerUnit: 10,
+  washFoldPricePerKg: 60,
+  washFoldMinKg: 0,
   vatRate: 0,
   vatIncluded: false,
   paymentNoPrefix: "PAY-",
@@ -21,6 +23,8 @@ watch(
   (val) => {
     if (!val) return;
     form.hangerPricePerUnit = val.hangerPricePerUnit;
+    form.washFoldPricePerKg = val.washFoldPricePerKg;
+    form.washFoldMinKg = val.washFoldMinKg;
     form.vatRate = val.vatRate;
     form.vatIncluded = val.vatIncluded;
     form.paymentNoPrefix = val.paymentNoPrefix;
@@ -37,6 +41,8 @@ const onSubmit = async () => {
   try {
     await updateSettings({
       hangerPricePerUnit: Number(form.hangerPricePerUnit) || 0,
+      washFoldPricePerKg: Number(form.washFoldPricePerKg) || 0,
+      washFoldMinKg: Number(form.washFoldMinKg) || 0,
       vatRate: Number(form.vatRate) || 0,
       vatIncluded: form.vatIncluded,
       paymentNoPrefix: form.paymentNoPrefix.trim(),
@@ -71,6 +77,27 @@ const onSubmit = async () => {
         <UFormField label="ค่าไม้แขวน/ชิ้น (บาท)" required>
           <UInputNumber v-model="form.hangerPricePerUnit" :min="0" :step="1" class="w-full" />
         </UFormField>
+      </UCard>
+
+      <UCard>
+        <template #header>
+          <div>
+            <p class="font-semibold">ซัก-พับ ชั่งกิโล</p>
+            <p class="text-xs text-muted mt-1">ใช้กับโหมด "ซัก-พับ ชั่งกิโล" บนหน้า POS</p>
+          </div>
+        </template>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <UFormField label="ราคา/กิโล (บาท)" required>
+            <UInputNumber v-model="form.washFoldPricePerKg" :min="0" :step="1" class="w-full" />
+          </UFormField>
+          <UFormField label="กิโลขั้นต่ำ (กก.)">
+            <UInputNumber v-model="form.washFoldMinKg" :min="0" :step="0.5" class="w-full" />
+            <template #help>
+              <span class="text-xs text-muted">0 = ไม่จำกัด</span>
+            </template>
+          </UFormField>
+        </div>
       </UCard>
 
       <UCard>

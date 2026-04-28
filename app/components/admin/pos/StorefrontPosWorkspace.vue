@@ -25,7 +25,7 @@ const emit = defineEmits<{
 
 const notify = useNotify();
 const { customers, isLoading: isCustomersLoading } = useAdminCustomerOptions();
-const { hangerPricePerUnit, vatRate, vatIncluded, computeVatPreview } = useBusinessSetting();
+const { hangerPricePerUnit, washFoldPricePerKg, washFoldMinKg, vatRate, vatIncluded, computeVatPreview } = useBusinessSetting();
 const { items, refresh } = useStorefrontCatalog();
 const { createServiceOrder, uploadOrderImage } = useAdminServiceOrders();
 const { uploadSlip } = useAdminPayments();
@@ -148,6 +148,9 @@ const createEmptyForm = () => ({
   walkInPhone: "",
   memberEntitlementId: null as string | null,
   items: [] as FormItemState[],
+  washFoldMode: false,
+  washFoldWeightKg: 0,
+  washFoldNotes: "",
   hangerCount: 0,
   missingHangerCount: 0,
   discountAmount: 0,
@@ -188,13 +191,34 @@ const cartItems = computed(() =>
     .filter((item): item is NonNullable<typeof item> => Boolean(item)),
 );
 
-const subtotalAmount = computed(() => cartItems.value.reduce((sum, item) => sum + item.totalPrice, 0));
+const washFoldSubtotal = computed(() =>
+  form.washFoldMode ? Math.round(Number(form.washFoldWeightKg || 0) * washFoldPricePerKg.value * 100) / 100 : 0,
+);
+
+const subtotalAmount = computed(() =>
+  form.washFoldMode ? washFoldSubtotal.value : cartItems.value.reduce((sum, item) => sum + item.totalPrice, 0),
+);
 const totalQuantity = computed(() => cartItems.value.reduce((sum, item) => sum + item.quantity, 0));
 
-const hangerCharge = computed(() => ({
-  count: form.missingHangerCount,
-  total: form.missingHangerCount * hangerPricePerUnit.value,
-}));
+const hangerCharge = computed(() =>
+  form.washFoldMode
+    ? { count: 0, total: 0 }
+    : {
+        count: form.missingHangerCount,
+        total: form.missingHangerCount * hangerPricePerUnit.value,
+      },
+);
+
+watch(() => form.washFoldMode, (enabled) => {
+  if (enabled) {
+    form.memberEntitlementId = null;
+    form.missingHangerCount = 0;
+    form.hangerCount = 0;
+  } else {
+    form.washFoldWeightKg = 0;
+    form.washFoldNotes = "";
+  }
+});
 
 const sanitizedDiscountAmount = computed(() => {
   const raw = Number(form.discountAmount || 0);
@@ -477,6 +501,14 @@ const handleSubmit = async () => {
   if (!form.isWalkIn && !form.customerId) return notify.validationError("กรุณาเลือกลูกค้า");
   if (normalizedItems.value.length === 0) return notify.validationError("กรุณาเลือกบริการอย่างน้อย 1 รายการ");
 
+  if (form.washFoldMode) {
+    const w = Number(form.washFoldWeightKg || 0);
+    if (w <= 0) return notify.validationError("กรุณากรอกน้ำหนักผ้า");
+    if (washFoldMinKg.value > 0 && w < washFoldMinKg.value) {
+      return notify.validationError(`น้ำหนักขั้นต่ำ ${washFoldMinKg.value} กก.`);
+    }
+  }
+
   isSubmitting.value = true;
   try {
     await uploadSlipIfNeeded();
@@ -487,12 +519,17 @@ const handleSubmit = async () => {
       isWalkIn: form.isWalkIn,
       walkInName: form.isWalkIn ? form.walkInName.trim() || null : null,
       walkInPhone: form.isWalkIn ? form.walkInPhone.trim() || null : null,
-      memberEntitlementId: form.memberEntitlementId,
+      memberEntitlementId: form.washFoldMode ? null : form.memberEntitlementId,
       orderImageId: form.orderImageId,
       items: normalizedItems.value,
-      missingHangerCount: form.missingHangerCount,
+      washFold: form.washFoldMode
+        ? { weightKg: Number(form.washFoldWeightKg), notes: form.washFoldNotes.trim() || null }
+        : null,
+      missingHangerCount: form.washFoldMode ? 0 : form.missingHangerCount,
       dueAt: dueAtValue.value,
-      discountAmount: form.memberEntitlementId ? sanitizedCashDiscount.value : sanitizedDiscountAmount.value,
+      discountAmount: form.washFoldMode
+        ? sanitizedDiscountAmount.value
+        : (form.memberEntitlementId ? sanitizedCashDiscount.value : sanitizedDiscountAmount.value),
       note: form.note.trim() || null,
       slipImageId: isMemberWithZeroTotal.value ? null : form.slipImageId,
     });
@@ -534,6 +571,26 @@ const handleSubmit = async () => {
               size="sm"
               @click="openNewItemModal"
             />
+          </div>
+
+          <div class="rounded-xl border border-default bg-elevated/30 p-3">
+            <div class="flex items-center justify-between gap-3 flex-wrap">
+              <div>
+                <p class="text-sm font-medium text-highlighted">โหมดซัก-พับ ชั่งกิโล</p>
+                <p class="text-xs text-muted">
+                  คิดราคา {{ formatCurrency(washFoldPricePerKg) }} / กก.<span v-if="washFoldMinKg > 0"> · ขั้นต่ำ {{ washFoldMinKg }} กก.</span> · ไม่นับไม้แขวน · ใช้แพ็กเกจไม่ได้
+                </p>
+              </div>
+              <USwitch v-model="form.washFoldMode" color="warning" />
+            </div>
+            <div v-if="form.washFoldMode" class="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3">
+              <UFormField label="น้ำหนัก (กก.)" required>
+                <UInputNumber v-model="form.washFoldWeightKg" :min="0" :step="0.5" class="w-full" />
+              </UFormField>
+              <UFormField label="หมายเหตุ">
+                <UInput v-model="form.washFoldNotes" placeholder="เช่น แยกซัก สีอ่อน-เข้ม" class="w-full" />
+              </UFormField>
+            </div>
           </div>
 
           <div class="flex flex-wrap gap-2">
@@ -610,6 +667,16 @@ const handleSubmit = async () => {
         @reset="resetForm"
       >
         <template #cart>
+          <div v-if="form.washFoldMode" class="rounded-2xl border border-warning/30 bg-warning/5 p-4 mb-3">
+            <div class="flex items-center justify-between gap-3">
+              <p class="font-medium text-highlighted">ซัก-พับ ชั่งกิโล</p>
+              <span class="text-sm text-muted">{{ formatCurrency(washFoldPricePerKg) }} / กก.</span>
+            </div>
+            <div class="mt-2 space-y-1 text-sm">
+              <div class="flex justify-between font-medium"><span>รวม</span><span>{{ formatCurrency(washFoldSubtotal) }}</span></div>
+            </div>
+          </div>
+
           <div class="rounded-2xl border border-default bg-default p-4">
             <div class="flex items-center justify-between gap-3">
               <p class="font-medium text-highlighted">รายการที่เลือก</p>
@@ -644,8 +711,8 @@ const handleSubmit = async () => {
                     <div class="flex items-center">
                       <p class="min-w-0 flex-1 truncate text-sm text-highlighted">{{ item.label }}</p>
                       <div class="flex justify-end items-center">
-                        <span class="w-16 shrink-0 text-right text-xs font-medium text-muted">
-                          {{ form.memberEntitlementId ? `${item.quantity} เครดิต` : formatCurrency(item.totalPrice) }}
+                        <span class="w-20 shrink-0 text-right text-xs font-medium text-muted">
+                          {{ form.washFoldMode ? "ชั่งกิโล" : (form.memberEntitlementId ? `${item.quantity} เครดิต` : formatCurrency(item.totalPrice)) }}
                         </span>
                         <UButton
                           :icon="expandedItems.has(item.key) ? 'i-lucide-chevron-up' : 'i-lucide-chevron-down'"
@@ -713,7 +780,7 @@ const handleSubmit = async () => {
               <span class="font-medium text-highlighted">{{ formatCurrency(cashSubtotal) }}</span>
             </div>
 
-            <div class="flex items-center justify-between gap-3">
+            <div v-if="!form.washFoldMode" class="flex items-center justify-between gap-3">
               <span class="text-muted">ค่าไม้แขวน</span>
               <span class="font-medium text-highlighted">{{ formatCurrency(hangerCharge.total) }}</span>
             </div>
@@ -723,7 +790,7 @@ const handleSubmit = async () => {
               <span class="font-medium text-highlighted">{{ formatCurrency(vatPreview.vatAmount) }}</span>
             </div>
 
-            <div class="flex items-center justify-between gap-3">
+            <div v-if="!form.washFoldMode" class="flex items-center justify-between gap-3">
               <span class="text-muted">จำนวนไม้แขวน</span>
               <div class="flex items-center gap-2">
                 <UInputNumber v-model="form.missingHangerCount" :min="0" :step="1" orientation="horizontal" size="xs" class="w-20" />

@@ -1,123 +1,121 @@
 <script setup lang="ts">
-import type { DropdownMenuItem } from '@nuxt/ui'
+import type { DropdownMenuItem } from "@nuxt/ui";
 
 defineProps<{
-    collapsed?: boolean
-}>()
+  collapsed?: boolean;
+}>();
 
-const colorMode = useColorMode()
-const { user, userAvatar } = useUser()
+const colorMode = useColorMode();
+const { user, userAvatar, logout } = useUser();
 
-const userMenuName = computed(() => user.value?.name || 'ผู้ใช้งาน')
+const userMenuName = computed(() => user.value?.name || "ผู้ใช้งาน");
+const isStaff = computed(() => {
+  const role = user.value?.role;
+  return role === "ADMIN" || role === "EMPLOYEE";
+});
 
-const items = computed<DropdownMenuItem[][]>(() => (
-    [
-        [
-            {
-                type: 'label',
-                label: userMenuName.value,
-                avatar: userAvatar.value
-            }
-        ],
-        [
-            {
-                label: 'โปรไฟล์',
-                icon: 'i-lucide-user'
-            },
-            {
-                label: 'ตั้งค่า',
-                icon: 'i-lucide-settings',
-                to: '/settings'
-            }
-        ],
-        [
-            {
-                label: 'หน้าแรก',
-                icon: 'i-lucide-house',
-                to: '/'
-            },
-            {
-                label: 'member',
-                icon: 'i-lucide-users',
-                to: '/member'
-            },
-            {
-                label: 'employee',
-                icon: 'i-lucide-user-cog',
-                to: '/employee'
-            },
-            {
-                label: 'admin',
-                icon: 'i-lucide-user-cog',
-                to: '/admin'
-            },
-        ],
-        [
-            {
-                label: 'ธีม',
-                icon: 'i-lucide-sun-moon',
-                class: 'cursor-pointer',
-                children: [
-                    {
-                        label: 'สว่าง',
-                        icon: 'i-lucide-sun',
-                        type: 'checkbox',
-                        checked: colorMode.value === 'light',
-                        class: 'cursor-pointer',
-                        onSelect(e: Event) {
-                            e.preventDefault()
+const profileRoute = computed(() => (isStaff.value ? "/admin/settings/profile" : "/settings/notification"));
+const settingsRoute = computed(() => (isStaff.value ? "/admin/settings/profile" : "/settings/notification"));
+const homeRoute = computed(() => (isStaff.value ? "/admin" : "/"));
 
-                            colorMode.preference = 'light'
-                        }
-                    },
-                    {
-                        label: 'มืด',
-                        icon: 'i-lucide-moon',
-                        type: 'checkbox',
-                        checked: colorMode.value === 'dark',
-                        class: 'cursor-pointer',
-                        onUpdateChecked(checked: boolean) {
-                            if (checked) {
-                                colorMode.preference = 'dark'
-                            }
-                        },
-                        onSelect(e: Event) {
-                            e.preventDefault()
-                        }
-                    }
-                ]
-            }
-        ],
-        [
-            {
-                label: 'Log out',
-                icon: 'i-lucide-log-out',
-                color: 'error',
-                class: 'cursor-pointer'
-            }
-        ]
-    ]
-))
+const handleLogout = async (e: Event) => {
+  e.preventDefault();
+  try {
+    await logout();
+    await navigateTo("/auth/login");
+  } catch (error) {
+    console.error("[UserMenu] logout failed", error);
+  }
+};
+
+const items = computed<DropdownMenuItem[][]>(() => [
+  [
+    {
+      type: "label",
+      label: userMenuName.value,
+      avatar: userAvatar.value,
+    },
+  ],
+  [
+    {
+      label: "ข้อมูลส่วนตัว",
+      icon: "i-lucide-user",
+      to: profileRoute.value,
+    },
+    {
+      label: "ตั้งค่า",
+      icon: "i-lucide-settings",
+      to: settingsRoute.value,
+    },
+  ],
+  [
+    {
+      label: "หน้าหลัก",
+      icon: "i-lucide-house",
+      to: homeRoute.value,
+    },
+  ],
+  [
+    {
+      label: "ธีม",
+      icon: "i-lucide-sun-moon",
+      class: "cursor-pointer",
+      children: [
+        {
+          label: "สว่าง",
+          icon: "i-lucide-sun",
+          type: "checkbox",
+          checked: colorMode.value === "light",
+          class: "cursor-pointer",
+          onSelect(e: Event) {
+            e.preventDefault();
+            colorMode.preference = "light";
+          },
+        },
+        {
+          label: "มืด",
+          icon: "i-lucide-moon",
+          type: "checkbox",
+          checked: colorMode.value === "dark",
+          class: "cursor-pointer",
+          onSelect(e: Event) {
+            e.preventDefault();
+            colorMode.preference = "dark";
+          },
+        },
+      ],
+    },
+  ],
+  [
+    {
+      label: "ออกจากระบบ",
+      icon: "i-lucide-log-out",
+      color: "error",
+      class: "cursor-pointer",
+      onSelect: handleLogout,
+    },
+  ],
+]);
 </script>
 
 <template>
-    <UDropdownMenu :items="items" :content="{ align: 'center', collisionPadding: 12 }"
-        :ui="{ content: collapsed ? 'w-48' : 'w-(--reka-dropdown-menu-trigger-width)' }">
-        <UButton v-bind="{
-            avatar: userAvatar,
-            label: collapsed ? undefined : userMenuName,
-            trailingIcon: collapsed ? undefined : 'i-lucide-chevrons-up-down'
-        }" color="neutral" variant="ghost" block :square="collapsed" class="data-[state=open]:bg-elevated" :ui="{
-            trailingIcon: 'text-dimmed'
-        }" />
-
-        <template #chip-leading="{ item }">
-            <div class="inline-flex items-center justify-center shrink-0 size-5">
-                <span class="rounded-full ring ring-bg bg-(--chip-light) dark:bg-(--chip-dark) size-2" :style="{
-                    '--chip-light': `var(--color-${(item as any).chip}-500)`,
-                    '--chip-dark': `var(--color-${(item as any).chip}-400)`
-                }" />
-            </div>
-        </template>
-    </UDropdownMenu>
+  <UDropdownMenu
+    :items="items"
+    :content="{ align: 'center', collisionPadding: 12 }"
+    :ui="{ content: collapsed ? 'w-48' : 'w-(--reka-dropdown-menu-trigger-width)' }"
+  >
+    <UButton
+      v-bind="{
+        avatar: userAvatar,
+        label: collapsed ? undefined : userMenuName,
+        trailingIcon: collapsed ? undefined : 'i-lucide-chevrons-up-down',
+      }"
+      color="neutral"
+      variant="ghost"
+      block
+      :square="collapsed"
+      class="data-[state=open]:bg-elevated"
+      :ui="{ trailingIcon: 'text-dimmed' }"
+    />
+  </UDropdownMenu>
 </template>

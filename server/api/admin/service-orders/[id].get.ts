@@ -191,6 +191,8 @@ export default defineEventHandler(async (event) => {
     subtotalAmount: toNumber(serviceOrder.subtotalAmount),
     discountAmount: toNumber(serviceOrder.discountAmount),
     totalAmount: toNumber(serviceOrder.totalAmount),
+    weightKg: serviceOrder.weightKg != null ? toNumber(serviceOrder.weightKg) : null,
+    washFoldPricePerKgSnapshot: serviceOrder.washFoldPricePerKgSnapshot != null ? toNumber(serviceOrder.washFoldPricePerKgSnapshot) : null,
     image: serviceOrder.image
       ? {
           id: serviceOrder.image.id,
@@ -264,15 +266,17 @@ export default defineEventHandler(async (event) => {
         secureUrl: photo.image?.secureUrl ?? null,
         url: photo.image?.url ?? null,
       })),
-      service: {
-        id: item.storefrontPrice.storefrontService.id,
-        name: item.storefrontPrice.storefrontService.name,
-      },
-      item: {
-        id: item.storefrontPrice.storefrontItem.id,
-        name: item.storefrontPrice.storefrontItem.name,
-      },
-      label: `${item.storefrontPrice.storefrontService.name} ${item.storefrontPrice.storefrontItem.name}`.trim(),
+      service: item.storefrontPrice
+        ? { id: item.storefrontPrice.storefrontService.id, name: item.storefrontPrice.storefrontService.name }
+        : null,
+      item: item.storefrontPrice
+        ? { id: item.storefrontPrice.storefrontItem.id, name: item.storefrontPrice.storefrontItem.name }
+        : null,
+      label: item.weightKg != null
+        ? (item.weightLabel || "ซัก-พับ ชั่งกิโล")
+        : `${item.storefrontPrice?.storefrontService.name ?? ""} ${item.storefrontPrice?.storefrontItem.name ?? ""}`.trim(),
+      weightKg: item.weightKg != null ? toNumber(item.weightKg) : null,
+      weightLabel: item.weightLabel ?? null,
     })),
     payments: serviceOrder.payments.map((payment) => ({
       id: payment.id,

@@ -2,6 +2,8 @@ import { prisma } from "~~/server/utils/prisma";
 
 export type BusinessSettingValues = {
   hangerPricePerUnit: number;
+  washFoldPricePerKg: number;
+  washFoldMinKg: number;
   vatRate: number;
   vatIncluded: boolean;
   paymentNoPrefix: string;
@@ -22,6 +24,8 @@ const loadFromDb = async (): Promise<BusinessSettingValues> => {
 
   return {
     hangerPricePerUnit: Number(setting.hangerPricePerUnit),
+    washFoldPricePerKg: Number(setting.washFoldPricePerKg),
+    washFoldMinKg: Number(setting.washFoldMinKg),
     vatRate: Number(setting.vatRate),
     vatIncluded: setting.vatIncluded,
     paymentNoPrefix: setting.paymentNoPrefix,

@@ -1,6 +1,8 @@
 type BusinessSetting = {
   id: string;
   hangerPricePerUnit: number;
+  washFoldPricePerKg: number;
+  washFoldMinKg: number;
   vatRate: number;
   vatIncluded: boolean;
   paymentNoPrefix: string;
@@ -12,6 +14,8 @@ type BusinessSetting = {
 
 const FALLBACK: Omit<BusinessSetting, "id" | "updatedAt"> = {
   hangerPricePerUnit: 10,
+  washFoldPricePerKg: 60,
+  washFoldMinKg: 0,
   vatRate: 0,
   vatIncluded: false,
   paymentNoPrefix: "PAY-",
@@ -28,6 +32,8 @@ export const useBusinessSetting = () => {
   const isLoading = computed(() => status.value === "pending");
 
   const hangerPricePerUnit = computed(() => data.value?.hangerPricePerUnit ?? FALLBACK.hangerPricePerUnit);
+  const washFoldPricePerKg = computed(() => data.value?.washFoldPricePerKg ?? FALLBACK.washFoldPricePerKg);
+  const washFoldMinKg = computed(() => data.value?.washFoldMinKg ?? FALLBACK.washFoldMinKg);
   const vatRate = computed(() => data.value?.vatRate ?? FALLBACK.vatRate);
   const vatIncluded = computed(() => data.value?.vatIncluded ?? FALLBACK.vatIncluded);
 
@@ -57,5 +63,5 @@ export const useBusinessSetting = () => {
     }
   };
 
-  return { settings: data, isLoading, refresh, hangerPricePerUnit, vatRate, vatIncluded, computeVatPreview, updateSettings };
+  return { settings: data, isLoading, refresh, hangerPricePerUnit, washFoldPricePerKg, washFoldMinKg, vatRate, vatIncluded, computeVatPreview, updateSettings };
 };

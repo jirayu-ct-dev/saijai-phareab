@@ -22,6 +22,10 @@ type CreateServiceOrderBody = {
     notes?: string | null;
     photos?: Array<{ imageId: string; isDamaged?: boolean; sortOrder?: number }>;
   }>;
+  washFold?: {
+    weightKg: number;
+    notes?: string | null;
+  } | null;
   hangerCount?: number;
   missingHangerCount?: number;
   dueAt?: string | null;
@@ -53,8 +57,16 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, statusMessage: "ลูกค้าหน้าร้านไม่สามารถใช้เครดิตแพ็กเกจได้" });
   }
 
+  const washFoldInput = body.washFold && Number.isFinite(Number(body.washFold.weightKg))
+    ? { weightKg: Number(body.washFold.weightKg), notes: body.washFold.notes?.trim() || null }
+    : null;
+
   if (!Array.isArray(body.items) || body.items.length === 0) {
     throw createError({ statusCode: 400, statusMessage: "กรุณาเลือกบริการอย่างน้อย 1 รายการ" });
+  }
+
+  if (washFoldInput && requestedEntitlementId) {
+    throw createError({ statusCode: 400, statusMessage: "โหมดซัก-พับชั่งกิโลใช้แพ็กเกจรายเดือนไม่ได้" });
   }
 
   const normalizedItems = body.items
@@ -185,11 +197,26 @@ export default defineEventHandler(async (event) => {
 
     const totalQuantity = orderItems.reduce((sum, item) => sum + item.quantity, 0);
     const business = await getBusinessSetting();
-    const hangerCharge = {
-      count: missingHangerCount,
-      pricePerUnit: business.hangerPricePerUnit,
-      total: missingHangerCount * business.hangerPricePerUnit,
-    };
+
+    if (washFoldInput) {
+      if (washFoldInput.weightKg <= 0) {
+        throw createError({ statusCode: 400, statusMessage: "น้ำหนักต้องมากกว่า 0" });
+      }
+      if (business.washFoldMinKg > 0 && washFoldInput.weightKg < business.washFoldMinKg) {
+        throw createError({
+          statusCode: 400,
+          statusMessage: `น้ำหนักขั้นต่ำ ${business.washFoldMinKg} กก.`,
+        });
+      }
+    }
+
+    const hangerCharge = washFoldInput
+      ? { count: 0, pricePerUnit: 0, total: 0 }
+      : {
+          count: missingHangerCount,
+          pricePerUnit: business.hangerPricePerUnit,
+          total: missingHangerCount * business.hangerPricePerUnit,
+        };
 
     type AllocatedItem = typeof orderItems[number] & { cashQuantity: number; creditQuantity: number };
 
@@ -229,7 +256,14 @@ export default defineEventHandler(async (event) => {
         return { ...item, creditQuantity: creditQty, cashQuantity: item.quantity - creditQty };
       });
       const creditUsed = creditAvailable - remainingCredit;
-      const subtotalAmount = allocatedItems.reduce((sum, item) => sum + item.cashQuantity * item.unitPrice, 0);
+
+      const washFoldSubtotal = washFoldInput
+        ? Math.round(washFoldInput.weightKg * business.washFoldPricePerKg * 100) / 100
+        : 0;
+      const subtotalAmount = washFoldInput
+        ? washFoldSubtotal
+        : allocatedItems.reduce((sum, item) => sum + item.cashQuantity * item.unitPrice, 0);
+      const washFoldPriceSnapshot = washFoldInput ? business.washFoldPricePerKg : null;
       const discountAmount = Math.min(Number(body.discountAmount ?? 0), subtotalAmount);
       const beforeVat = subtotalAmount - discountAmount + hangerCharge.total;
       const vat = computeVat({ amount: beforeVat, rate: business.vatRate, included: business.vatIncluded });
@@ -270,6 +304,8 @@ export default defineEventHandler(async (event) => {
           discountAmount,
           hangerCharge,
           totalAmount: payableAmount,
+          weightKg: washFoldInput?.weightKg ?? null,
+          washFoldPricePerKgSnapshot: washFoldPriceSnapshot,
           note: body.note?.trim() || null,
           imageId: orderImageId,
         },
@@ -284,7 +320,7 @@ export default defineEventHandler(async (event) => {
           rows.push({
             qty: item.cashQuantity,
             isPackage: false,
-            totalPrice: item.cashQuantity * item.unitPrice,
+            totalPrice: washFoldInput ? 0 : item.cashQuantity * item.unitPrice,
             attachPhotos: item.creditQuantity === 0,
           });
         }

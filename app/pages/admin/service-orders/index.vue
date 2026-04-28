@@ -431,6 +431,9 @@ const createEmptyForm = () => ({
   deliveryImageId: null as string | null,
   discountAmount: 0,
   note: "",
+  washFoldMode: false,
+  washFoldWeightKg: 0,
+  washFoldNotes: "",
 });
 
 const form = reactive(createEmptyForm());
@@ -502,14 +505,36 @@ const formLineItems = computed(() =>
     .filter((item): item is NonNullable<typeof item> => Boolean(item)),
 );
 
-const subtotalAmount = computed(() => formLineItems.value.reduce((sum, item) => sum + item.totalPrice, 0));
-const totalQuantity = computed(() => formLineItems.value.reduce((sum, item) => sum + item.quantity, 0));
-const { hangerPricePerUnit } = useBusinessSetting();
-const hangerCharge = computed(() => ({
-  count: form.missingHangerCount,
-  pricePerUnit: hangerPricePerUnit.value,
-  total: form.missingHangerCount * hangerPricePerUnit.value,
-}));
+const { hangerPricePerUnit, washFoldPricePerKg, washFoldMinKg } = useBusinessSetting();
+const washFoldSubtotal = computed(() =>
+  form.washFoldMode ? Math.round(Number(form.washFoldWeightKg || 0) * washFoldPricePerKg.value * 100) / 100 : 0,
+);
+const subtotalAmount = computed(() =>
+  form.washFoldMode ? washFoldSubtotal.value : formLineItems.value.reduce((sum, item) => sum + item.totalPrice, 0),
+);
+const totalQuantity = computed(() =>
+  form.washFoldMode ? 1 : formLineItems.value.reduce((sum, item) => sum + item.quantity, 0),
+);
+const hangerCharge = computed(() =>
+  form.washFoldMode
+    ? { count: 0, pricePerUnit: 0, total: 0 }
+    : {
+        count: form.missingHangerCount,
+        pricePerUnit: hangerPricePerUnit.value,
+        total: form.missingHangerCount * hangerPricePerUnit.value,
+      },
+);
+watch(() => form.washFoldMode, (enabled) => {
+  if (enabled) {
+    formItems.value = [];
+    form.memberEntitlementId = null;
+    form.missingHangerCount = 0;
+    form.hangerCount = 0;
+  } else {
+    form.washFoldWeightKg = 0;
+    form.washFoldNotes = "";
+  }
+});
 const sanitizedDiscountAmount = computed(() => {
   const raw = Number(form.discountAmount || 0);
   if (!Number.isFinite(raw) || raw <= 0) return 0;
@@ -705,7 +730,11 @@ const openEditModal = (order: AdminServiceOrder) => {
   form.deliveryImageId = order.deliveryImage?.id ?? null;
   form.discountAmount = order.discountAmount;
   form.note = order.note || "";
-  formItems.value = order.items.map((item) => {
+  const isWashFoldOrder = order.weightKg != null;
+  form.washFoldMode = isWashFoldOrder;
+  form.washFoldWeightKg = isWashFoldOrder ? Number(order.weightKg ?? 0) : 0;
+  form.washFoldNotes = "";
+  formItems.value = order.items.filter((it) => it.storefrontPriceId).map((item) => {
     const existingPhotos: OrderItemPhoto[] = (item.photos ?? []).map((photo) => ({
       key: createPhotoKey(),
       file: null,
@@ -724,7 +753,7 @@ const openEditModal = (order: AdminServiceOrder) => {
     }
     return {
       key: createItemKey(),
-      storefrontPriceId: item.storefrontPriceId,
+      storefrontPriceId: item.storefrontPriceId as string,
       quantity: item.quantity,
       notes: item.notes || "",
       photos: existingPhotos,
@@ -853,27 +882,41 @@ const buildBody = async (): Promise<CreateAdminServiceOrderBody | null> => {
     return null;
   }
 
+  if (form.washFoldMode) {
+    const w = Number(form.washFoldWeightKg || 0);
+    if (w <= 0) {
+      notify.validationError("กรุณากรอกน้ำหนักผ้า");
+      return null;
+    }
+    if (washFoldMinKg.value > 0 && w < washFoldMinKg.value) {
+      notify.validationError(`น้ำหนักขั้นต่ำ ${washFoldMinKg.value} กก.`);
+      return null;
+    }
+  }
+
   const slipImageId = await uploadSlipIfNeeded();
-  await uploadOrderImagesIfNeeded();
+  if (!form.washFoldMode) await uploadOrderImagesIfNeeded();
 
-  const items = formItems.value
-    .map((item) => {
-      const readyPhotos = item.photos.filter((photo) => photo.uploadedImageId);
-      return {
-        storefrontPriceId: item.storefrontPriceId,
-        quantity: Number(item.quantity ?? 1),
-        imageId: readyPhotos[0]?.uploadedImageId ?? null,
-        notes: item.notes.trim() || null,
-        photos: readyPhotos.map((photo, index) => ({
-          imageId: photo.uploadedImageId as string,
-          isDamaged: photo.isDamaged,
-          sortOrder: index,
-        })),
-      };
-    })
-    .filter((item) => item.storefrontPriceId);
+  const items = form.washFoldMode
+    ? []
+    : formItems.value
+        .map((item) => {
+          const readyPhotos = item.photos.filter((photo) => photo.uploadedImageId);
+          return {
+            storefrontPriceId: item.storefrontPriceId,
+            quantity: Number(item.quantity ?? 1),
+            imageId: readyPhotos[0]?.uploadedImageId ?? null,
+            notes: item.notes.trim() || null,
+            photos: readyPhotos.map((photo, index) => ({
+              imageId: photo.uploadedImageId as string,
+              isDamaged: photo.isDamaged,
+              sortOrder: index,
+            })),
+          };
+        })
+        .filter((item) => item.storefrontPriceId);
 
-  if (!items.length) {
+  if (!form.washFoldMode && !items.length) {
     notify.validationError("กรุณาเลือกบริการอย่างน้อย 1 รายการ");
     return null;
   }
@@ -883,13 +926,18 @@ const buildBody = async (): Promise<CreateAdminServiceOrderBody | null> => {
     isWalkIn: form.isWalkIn,
     walkInName: form.isWalkIn ? form.walkInName.trim() || null : null,
     walkInPhone: form.isWalkIn ? form.walkInPhone.trim() || null : null,
-    memberEntitlementId: form.memberEntitlementId,
+    memberEntitlementId: form.washFoldMode ? null : form.memberEntitlementId,
     orderImageId: form.orderImageId,
     deliveryImageId: form.deliveryImageId,
-    items,
-    missingHangerCount: form.missingHangerCount,
+    items: form.washFoldMode ? [] : items,
+    washFold: form.washFoldMode
+      ? { weightKg: Number(form.washFoldWeightKg), notes: form.washFoldNotes.trim() || null }
+      : null,
+    missingHangerCount: form.washFoldMode ? 0 : form.missingHangerCount,
     dueAt: dueAtValue.value ? new Date(dueAtValue.value).toISOString() : null,
-    discountAmount: form.memberEntitlementId ? sanitizedCashDiscount.value : sanitizedDiscountAmount.value,
+    discountAmount: form.washFoldMode
+      ? sanitizedDiscountAmount.value
+      : (form.memberEntitlementId ? sanitizedCashDiscount.value : sanitizedDiscountAmount.value),
     serviceOrderStatus: form.serviceOrderStatus,
     note: form.note.trim() || null,
     slipImageId,
@@ -1337,6 +1385,26 @@ const columns: TableColumn<AdminServiceOrder>[] = [
               </div>
             </div>
 
+            <div class="rounded-2xl border border-warning/40 bg-warning/5 p-4">
+              <div class="flex items-center justify-between gap-3 flex-wrap">
+                <div>
+                  <p class="font-medium text-highlighted">โหมดซัก-พับ ชั่งกิโล</p>
+                  <p class="text-xs text-muted">
+                    {{ formatCurrency(washFoldPricePerKg) }} / กก.<span v-if="washFoldMinKg > 0"> · ขั้นต่ำ {{ washFoldMinKg }} กก.</span>
+                  </p>
+                </div>
+                <USwitch v-model="form.washFoldMode" color="warning" />
+              </div>
+              <div v-if="form.washFoldMode" class="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3">
+                <UFormField label="น้ำหนัก (กก.)" required>
+                  <UInputNumber v-model="form.washFoldWeightKg" :min="0" :step="0.5" class="w-full" />
+                </UFormField>
+                <UFormField label="หมายเหตุ">
+                  <UInput v-model="form.washFoldNotes" placeholder="เช่น แยกซัก สีอ่อน-เข้ม" class="w-full" />
+                </UFormField>
+              </div>
+            </div>
+
             <div class="rounded-2xl border border-default p-4">
               <div class="flex items-center justify-between gap-3">
                 <div>
@@ -1369,7 +1437,7 @@ const columns: TableColumn<AdminServiceOrder>[] = [
                         <p class="min-w-0 flex-1 truncate text-sm text-highlighted">{{ item.label }}</p>
                         <div class="flex items-center justify-end">
                           <span class="w-16 shrink-0 text-right text-xs font-medium text-muted">
-                            {{ form.memberEntitlementId ? `${item.quantity} เครดิต` : formatCurrency(item.totalPrice) }}
+                            {{ form.washFoldMode ? "ชั่งกิโล" : (form.memberEntitlementId ? `${item.quantity} เครดิต` : formatCurrency(item.totalPrice)) }}
                           </span>
                           <UButton
                             :icon="expandedItems.has(item.key) ? 'i-lucide-chevron-up' : 'i-lucide-chevron-down'"

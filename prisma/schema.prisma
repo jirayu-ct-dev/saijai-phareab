@@ -382,6 +382,8 @@ model ServiceOrder {
     subtotalAmount       Decimal            @default(0)
     discountAmount       Decimal            @default(0)
     totalAmount          Decimal?
+    weightKg                    Decimal?
+    washFoldPricePerKgSnapshot  Decimal?
     basketId             String?
     basket               Basket?            @relation(fields: [basketId], references: [id])
   note                 String?
@@ -413,8 +415,10 @@ model ServiceOrderItem {
   id                String          @id @default(cuid())
   serviceOrderId    String
   serviceOrder      ServiceOrder    @relation(fields: [serviceOrderId], references: [id], onDelete: Cascade)
-  storefrontPriceId String
-  storefrontPrice   StorefrontPrice @relation(fields: [storefrontPriceId], references: [id])
+  storefrontPriceId String?
+  storefrontPrice   StorefrontPrice? @relation(fields: [storefrontPriceId], references: [id])
+  weightKg          Decimal?
+  weightLabel       String?
   isPackageIncluded Boolean         @default(false)
   quantity          Int
   unitPrice         Decimal
@@ -529,6 +533,8 @@ model ShopSetting {
 model BusinessSetting {
   id                  String   @id @default("singleton")
   hangerPricePerUnit  Decimal  @default(10)
+  washFoldPricePerKg  Decimal  @default(60)
+  washFoldMinKg       Decimal  @default(0)
   vatRate             Decimal  @default(0)
   vatIncluded         Boolean  @default(false)
   paymentNoPrefix     String   @default("PAY-")
