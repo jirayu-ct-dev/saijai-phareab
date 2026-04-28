@@ -54,20 +54,57 @@ const period = ref<Period>("daily");
 
       <UDashboardToolbar>
         <template #left>
-          <div class="flex flex-wrap gap-2 -ms-1">
-            <AdminDashboardDateRangePicker v-model="range" />
-            <AdminDashboardPeriodSelect v-model="period" :range="range" />
-          </div>
+          <ClientOnly>
+            <div class="flex flex-wrap gap-2 -ms-1">
+              <AdminDashboardDateRangePicker v-model="range" />
+              <AdminDashboardPeriodSelect v-model="period" :range="range" />
+            </div>
+          </ClientOnly>
         </template>
       </UDashboardToolbar>
     </template>
 
     <template #body>
-      <AdminDashboardStats :period="period" :range="range" />
+      <ClientOnly>
+        <AdminDashboardStats :period="period" :range="range" />
+        <template #fallback>
+          <UPageGrid class="lg:grid-cols-4 gap-4 sm:gap-6 lg:gap-px">
+            <UPageCard
+              v-for="i in 4"
+              :key="i"
+              variant="subtle"
+              :ui="{
+                container: 'gap-y-1.5',
+                wrapper: 'items-start',
+                leading: 'p-2.5 rounded-full bg-primary/10 ring ring-inset ring-primary/25 flex-col',
+                title: 'font-normal text-muted text-xs',
+              }"
+              class="lg:rounded-none first:rounded-l-lg last:rounded-r-lg"
+            >
+              <template #leading>
+                <div class="p-2.5 rounded-full bg-elevated animate-pulse size-10" />
+              </template>
+              <template #title>
+                <div class="h-3 w-16 rounded bg-elevated animate-pulse" />
+              </template>
+              <div class="h-8 w-28 rounded bg-elevated animate-pulse mt-1" />
+            </UPageCard>
+          </UPageGrid>
+        </template>
+      </ClientOnly>
       <AdminDashboardChart :period="period" :range="range" />
-      <div class="grid grid-cols-1 xl:grid-cols-2 gap-4">
-        <AdminDashboardRecentPayments :period="period" :range="range" />
-        <AdminDashboardSales :period="period" :range="range" />
+      <div class="flex flex-col gap-4">
+        <ClientOnly>
+          <AdminDashboardRecentPayments :period="period" :range="range" />
+          <AdminDashboardSales :period="period" :range="range" />
+          <template #fallback>
+            <UCard v-for="i in 2" :key="i">
+              <div class="space-y-3">
+                <div v-for="j in 4" :key="j" class="h-10 rounded bg-elevated animate-pulse" />
+              </div>
+            </UCard>
+          </template>
+        </ClientOnly>
       </div>
     </template>
   </UDashboardPanel>

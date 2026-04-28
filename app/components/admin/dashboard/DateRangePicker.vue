@@ -1,12 +1,7 @@
 <script setup lang="ts">
-import { DateFormatter, getLocalTimeZone, CalendarDate, today } from '@internationalized/date'
+import { getLocalTimeZone, CalendarDate, today } from '@internationalized/date'
 import type { Range } from '~~/shared/types/dashboard'
-import { THAI_MONTHS } from '~~/shared/utils/format'
-
-// Thai DateFormatter
-const df = new DateFormatter('th-TH', {
-  dateStyle: 'long'
-})
+import { THAI_MONTHS, formatDate } from '~~/shared/utils/format'
 
 const selected = defineModel<Range>({ required: true })
 
@@ -163,10 +158,10 @@ const formatDisplayText = computed(() => {
       return `${THAI_MONTHS[startDate.getMonth()]} ${buddhistYear}`
     }
 
-    return `${df.format(selected.value.start)} - ${df.format(selected.value.end)}`
+    return `${formatDate(selected.value.start)} - ${formatDate(selected.value.end)}`
   }
 
-  return df.format(selected.value.start)
+  return formatDate(selected.value.start)
 })
 </script>
 

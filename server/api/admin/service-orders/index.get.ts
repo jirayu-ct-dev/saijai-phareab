@@ -4,7 +4,7 @@ import { prisma } from "~~/server/utils/prisma";
 const toNumber = (value: unknown) => Number(value ?? 0);
 
 export default defineEventHandler(async (event) => {
-  requireRole(event, ["EMPLOYEE", "ADMIN"]);
+  await requireRole(event, ["EMPLOYEE", "ADMIN"]);
 
   try {
     const rows = await prisma.serviceOrder.findMany({

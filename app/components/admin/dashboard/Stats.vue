@@ -1,111 +1,113 @@
 <script setup lang="ts">
-/**
- * Dashboard Stats Component
- * แสดงสถิติสำหรับ Admin Dashboard
- */
-
-import type { Period, Range, Stat } from '~~/shared/types/dashboard'
+import type { Period, Range } from '~~/shared/types/dashboard'
 import { formatCurrency, formatNumber } from '~~/shared/utils/format'
-import { randomInt } from '~~/shared/utils/math'
 
 const props = defineProps<{
   period: Period
   range: Range
 }>()
 
-// ============================================================
-// Stats Configuration (สถิติสำหรับร้านซักรีด)
-// ============================================================
+interface StatItem {
+  title: string
+  icon: string
+  to: string
+  value: number
+  variation: number
+  isCurrency?: boolean
+}
 
-const baseStats = [
-  {
-    title: 'รับผ้า',
-    icon: 'i-lucide-shopping-basket',
-    to: '/admin/service-orders',
-    minValue: 10,
-    maxValue: 50,
-    minVariation: -10,
-    maxVariation: 25,
-    formatter: formatNumber
-  },
-  {
-    title: 'รายได้',
-    icon: 'i-lucide-banknote',
-    to: '/admin/payments',
-    minValue: 5000,
-    maxValue: 25000,
-    minVariation: -15,
-    maxVariation: 30,
-    formatter: formatCurrency
-  },
-  {
-    title: 'ลูกค้าใหม่',
-    icon: 'i-lucide-user-plus',
-    to: '/admin/users',
-    minValue: 5,
-    maxValue: 20,
-    minVariation: -5,
-    maxVariation: 50,
-    formatter: formatNumber
-  },
-  {
-    title: 'รอดำเนินการ',
-    icon: 'i-lucide-clock',
-    to: '/admin/service-orders?status=RECEIVED',
-    minValue: 3,
-    maxValue: 15,
-    minVariation: -20,
-    maxVariation: 10,
-    formatter: formatNumber
-  }
-]
-
-// ============================================================
-// Data Fetching
-// ============================================================
-
-const { data: stats } = await useAsyncData<Stat[]>(
+const { data: stats, status } = useAsyncData<StatItem[]>(
   'dashboard-stats',
-  async () => {
-    // TODO: เปลี่ยนเป็นเรียก API จริง
-    return baseStats.map((stat) => {
-      const value = randomInt(stat.minValue, stat.maxValue)
-      const variation = randomInt(stat.minVariation, stat.maxVariation)
-
-      return {
-        title: stat.title,
-        icon: stat.icon,
-        to: stat.to,
-        value: stat.formatter ? stat.formatter(value) : value,
-        variation
-      }
-    })
-  },
+  () => $fetch('/api/admin/dashboard/stats', {
+    query: {
+      from: props.range.start.toISOString(),
+      to: props.range.end.toISOString(),
+    },
+  }),
   {
+    server: false,
     watch: [() => props.period, () => props.range],
-    default: () => []
+    default: () => [],
   }
 )
+
+const isPending = computed(() => status.value === 'pending')
+
+const totalRevenue = computed(() =>
+  (stats.value ?? [])
+    .filter((s) => s.isCurrency)
+    .reduce((sum, s) => sum + s.value, 0)
+)
+
+const cardUi = {
+  container: 'gap-y-1.5',
+  wrapper: 'items-start',
+  leading: 'p-2.5 rounded-full bg-primary/10 ring ring-inset ring-primary/25 flex-col',
+  title: 'font-normal text-muted text-xs',
+}
 </script>
 
 <template>
   <UPageGrid class="lg:grid-cols-4 gap-4 sm:gap-6 lg:gap-px">
-    <UPageCard v-for="(stat, index) in stats" :key="index" :icon="stat.icon" :title="stat.title" :to="stat.to"
-      variant="subtle" :ui="{
-        container: 'gap-y-1.5',
-        wrapper: 'items-start',
-        leading: 'p-2.5 rounded-full bg-primary/10 ring ring-inset ring-primary/25 flex-col',
-        title: 'font-normal text-muted text-xs'
-      }" class="lg:rounded-none first:rounded-l-lg last:rounded-r-lg hover:z-1">
-      <div class="flex items-center gap-2">
-        <span class="text-2xl font-semibold text-highlighted">
-          {{ stat.value }}
-        </span>
+    <!-- Skeleton while loading -->
+    <template v-if="isPending">
+      <UPageCard
+        v-for="i in 4"
+        :key="`sk-${i}`"
+        variant="subtle"
+        :ui="cardUi"
+        class="lg:rounded-none first:rounded-l-lg last:rounded-r-lg"
+      >
+        <template #leading>
+          <div class="p-2.5 rounded-full bg-elevated animate-pulse size-10" />
+        </template>
+        <template #title>
+          <div class="h-3 w-16 rounded bg-elevated animate-pulse" />
+        </template>
+        <div class="h-8 w-28 rounded bg-elevated animate-pulse mt-1" />
+      </UPageCard>
+    </template>
 
-        <UBadge :color="stat.variation > 0 ? 'success' : 'error'" variant="subtle" class="text-xs">
-          {{ stat.variation > 0 ? '+' : '' }}{{ stat.variation }}%
-        </UBadge>
-      </div>
-    </UPageCard>
+    <!-- ยอดรวม + stats -->
+    <template v-else>
+      <UPageCard
+        icon="i-lucide-wallet"
+        title="ยอดรวม"
+        to="/admin/payment"
+        variant="subtle"
+        :ui="cardUi"
+        class="lg:rounded-none first:rounded-l-lg last:rounded-r-lg hover:z-1"
+      >
+        <div class="flex items-center gap-2">
+          <span class="text-2xl font-semibold text-highlighted">
+            {{ formatCurrency(totalRevenue) }}
+          </span>
+        </div>
+      </UPageCard>
+
+      <UPageCard
+        v-for="(stat, index) in stats"
+        :key="index"
+        :icon="stat.icon"
+        :title="stat.title"
+        :to="stat.to"
+        variant="subtle"
+        :ui="cardUi"
+        class="lg:rounded-none first:rounded-l-lg last:rounded-r-lg hover:z-1"
+      >
+        <div class="flex items-center gap-2">
+          <span class="text-2xl font-semibold text-highlighted">
+            {{ stat.isCurrency ? formatCurrency(stat.value) : formatNumber(stat.value) }}
+          </span>
+          <UBadge
+            :color="stat.variation > 0 ? 'success' : stat.variation < 0 ? 'error' : 'neutral'"
+            variant="subtle"
+            class="text-xs"
+          >
+            {{ stat.variation > 0 ? '+' : '' }}{{ stat.variation }}%
+          </UBadge>
+        </div>
+      </UPageCard>
+    </template>
   </UPageGrid>
 </template>
