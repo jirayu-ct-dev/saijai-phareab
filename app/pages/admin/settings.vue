@@ -48,12 +48,7 @@ const links = [[{
           icon: "i-lucide-coins",
           to: "/admin/settings/billing",
           exact: true,
-        },], [{
-  label: 'Documentation',
-  icon: 'i-lucide-book-open',
-  to: 'https://ui.nuxt.com/docs/getting-started/installation/nuxt',
-  target: '_blank'
-}]] satisfies NavigationMenuItem[][]
+        },]] satisfies NavigationMenuItem[][]
 </script>
 
 <template>

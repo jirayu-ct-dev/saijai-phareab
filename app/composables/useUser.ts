@@ -5,6 +5,7 @@ type SessionWithUser = (AppSession & { user?: AppUser }) | null;
 export const useUser = () => {
   const notify = useNotify();
   const { start, finish } = useLoadingIndicator();
+  const router = useRouter();
 
   // ใช้ state กลางสำหรับ session เพื่อให้ SSR กับ client ได้ข้อมูลชุดเดียวกัน
   const session = useState<SessionWithUser>("auth:session", () => null);
@@ -45,10 +46,11 @@ export const useUser = () => {
 
       await refreshSession();
       notify.success("เข้าสู่ระบบสำเร็จ");
+      console.log("user login data:", user);
 
       // Redirect to admin page if user is admin
       if (user.value?.role === "ADMIN") {
-        await navigateTo("/admin");
+        await router.push("/admin");
       }
     } catch (error: any) {
       console.error(error);
@@ -99,6 +101,15 @@ export const useUser = () => {
       if (!data) {
         throw new Error("ไม่พบข้อมูลผู้ใช้งาน");
       }
+
+      console.log("user login data:", user);
+
+
+      // Redirect to admin page if user is admin
+      if (user.value?.role === "ADMIN") {
+        await router.push("/admin");
+      }
+
     } catch (error: any) {
       console.error(error);
       throw new Error(error.message || "เกิดข้อผิดพลาดในการเข้าสู่ระบบด้วย LINE");
