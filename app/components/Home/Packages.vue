@@ -23,17 +23,15 @@ const scrollRight = () => {
 <template>
   <section class="py-24 bg-gray-50 dark:bg-gray-950 overflow-hidden">
     <UContainer>
-      <div class="flex flex-col md:flex-row md:items-end justify-between mb-12 gap-6">
-        <div class="space-y-4 max-w-2xl text-left">
-          <UBadge color="primary" variant="subtle" class="rounded-full">Special Offers</UBadge>
-          <h2 class="text-3xl md:text-5xl font-bold text-[#1a365d] dark:text-white">
-            แพ็กเกจสมาชิกสุดคุ้ม
-          </h2>
-          <p class="text-gray-500 dark:text-gray-400 text-lg">
-            เลือกแพ็กเกจที่เหมาะกับคุณ เพื่อความคุ้มค่าและความสะดวกที่มากกว่าเดิม
-          </p>
-        </div>
-        <div class="flex gap-3">
+      <div class="mb-12 max-w-2xl mx-auto text-center">
+        <span class="inline-block text-primary-600 dark:text-primary-400 font-semibold text-[13px] tracking-wide mb-2">แพ็กเกจรายเดือน</span>
+        <h2 class="text-[26px] md:text-[38px] font-bold text-gray-900 dark:text-white leading-[1.15] tracking-tight mb-3">
+          เลือกแพ็กเกจที่ใช่กับคุณ
+        </h2>
+        <p class="text-gray-500 dark:text-gray-400 text-base leading-relaxed mb-6">
+          ประหยัดกว่าจ่ายรายครั้ง สำหรับครอบครัว นักเรียน และคนทำงาน
+        </p>
+        <div class="flex justify-center gap-3">
           <UButton 
             icon="i-lucide-arrow-left" 
             color="neutral" 
@@ -128,14 +126,15 @@ const scrollRight = () => {
       </template>
     </div>
 
-    <style scoped>
-    .no-scrollbar::-webkit-scrollbar {
-      display: none;
-    }
-    .no-scrollbar {
-      -ms-overflow-style: none;
-      scrollbar-width: none;
-    }
-    </style>
   </section>
 </template>
+
+<style scoped>
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+</style>

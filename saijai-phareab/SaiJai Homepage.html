@@ -1,0 +1,1884 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<title>ใส่ใจ ผ้าเรียบ — Laundry Service</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Thai:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<style>
+  /* ===== Nuxt UI inspired tokens =====
+     Primary = logo blue (sky-ish family)
+     Neutral = slate
+     Radii: 6/8/10/12, hairline borders, subtle shadows */
+  :root {
+    /* Primary scale (logo blue, sky-family) */
+    --p-50:  #f0f7fc;
+    --p-100: #dbecf7;
+    --p-200: #bcdcef;
+    --p-300: #8dc4e3;
+    --p-400: #5fa9d2;
+    --p-500: #3b8fbf;
+    --p-600: #2974a3;
+    --p-700: #225d85;
+    --p-800: #1f4e6e;
+    --p-900: #1B4D8C;
+    --p-950: #143A6B;
+
+    /* Neutral (slate) */
+    --n-50:  #f8fafc;
+    --n-100: #f1f5f9;
+    --n-200: #e2e8f0;
+    --n-300: #cbd5e1;
+    --n-400: #94a3b8;
+    --n-500: #64748b;
+    --n-600: #475569;
+    --n-700: #334155;
+    --n-800: #1e293b;
+    --n-900: #0f172a;
+    --n-950: #020617;
+
+    /* Semantic */
+    --bg: white;
+    --bg-elev: var(--n-50);
+    --bg-muted: var(--n-100);
+    --border: var(--n-200);
+    --border-strong: var(--n-300);
+    --text: var(--n-900);
+    --text-muted: var(--n-600);
+    --text-dimmed: var(--n-500);
+
+    --primary: var(--p-900);
+    --primary-fg: white;
+    --primary-soft: var(--p-50);
+    --primary-soft-fg: var(--p-900);
+
+    /* Accent for ใส่ใจ / cyan in logo */
+    --accent: #3BB7DB;
+
+    /* States */
+    --warning-bg: #fffbeb;
+    --warning-border: #fde68a;
+    --warning-fg: #854d0e;
+    --warning-icon: #ca8a04;
+
+    --danger-bg: #fef2f2;
+    --danger-border: #fecaca;
+    --danger-fg: #991b1b;
+    --danger-icon: #dc2626;
+
+    --success: #16a34a;
+
+    --r-xs: 4px;
+    --r-sm: 6px;
+    --r-md: 8px;
+    --r-lg: 10px;
+    --r-xl: 12px;
+    --r-2xl: 16px;
+
+    --shadow-xs: 0 1px 2px rgba(15, 23, 42, 0.04);
+    --shadow-sm: 0 1px 3px rgba(15, 23, 42, 0.06), 0 1px 2px rgba(15, 23, 42, 0.04);
+    --shadow-md: 0 4px 12px -2px rgba(15, 23, 42, 0.06), 0 2px 4px -2px rgba(15, 23, 42, 0.04);
+    --shadow-lg: 0 12px 24px -8px rgba(15, 23, 42, 0.10), 0 4px 8px -4px rgba(15, 23, 42, 0.06);
+
+    --ring: 0 0 0 3px color-mix(in srgb, var(--primary) 20%, transparent);
+  }
+
+  [data-theme="dark"] {
+    --bg: #020617;
+    --bg-elev: #0b1322;
+    --bg-muted: #0f1c33;
+    --border: #1e293b;
+    --border-strong: #334155;
+    --text: #f1f5f9;
+    --text-muted: #94a3b8;
+    --text-dimmed: #64748b;
+
+    --primary: #5fa9d2;
+    --primary-fg: #020617;
+    --primary-soft: rgba(95, 169, 210, 0.12);
+    --primary-soft-fg: #8dc4e3;
+
+    --warning-bg: rgba(202, 138, 4, 0.08);
+    --warning-border: rgba(202, 138, 4, 0.3);
+    --warning-fg: #fde68a;
+    --warning-icon: #facc15;
+
+    --danger-bg: rgba(220, 38, 38, 0.08);
+    --danger-border: rgba(220, 38, 38, 0.3);
+    --danger-fg: #fecaca;
+    --danger-icon: #f87171;
+
+    --shadow-xs: 0 1px 2px rgba(0,0,0, 0.4);
+    --shadow-sm: 0 1px 3px rgba(0,0,0, 0.5);
+    --shadow-md: 0 4px 12px -2px rgba(0,0,0, 0.5);
+    --shadow-lg: 0 12px 24px -8px rgba(0,0,0, 0.6);
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body {
+    font-family: 'Public Sans', 'IBM Plex Sans Thai', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    font-size: 15px;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+    transition: background 0.3s ease, color 0.3s ease;
+  }
+  :lang(th), [lang="th"], body { font-feature-settings: "ss01"; }
+  .mono { font-family: 'JetBrains Mono', monospace; }
+
+  /* ===== Layout ===== */
+  .wrap { width: 100%; max-width: 1200px; margin: 0 auto; padding: 0 16px; }
+  @media (min-width: 768px) { .wrap { padding: 0 32px; } }
+
+  /* ===== Buttons (Nuxt UI UButton) ===== */
+  .btn {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 8px 14px;
+    border-radius: var(--r-md);
+    font-weight: 500;
+    font-size: 14px;
+    line-height: 1.25;
+    border: 1px solid transparent;
+    cursor: pointer;
+    text-decoration: none;
+    font-family: inherit;
+    transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+    white-space: nowrap;
+  }
+  .btn:focus-visible { outline: none; box-shadow: var(--ring); }
+  .btn-solid { background: var(--primary); color: var(--primary-fg); }
+  .btn-solid:hover { background: color-mix(in srgb, var(--primary) 88%, black); }
+  .btn-outline { background: transparent; color: var(--text); border-color: var(--border-strong); }
+  .btn-outline:hover { background: var(--bg-muted); }
+  .btn-ghost { background: transparent; color: var(--text-muted); }
+  .btn-ghost:hover { background: var(--bg-muted); color: var(--text); }
+  .btn-soft { background: var(--primary-soft); color: var(--primary-soft-fg); }
+  .btn-soft:hover { background: color-mix(in srgb, var(--primary) 14%, var(--bg)); }
+  .btn-line { background: #06C755; color: white; }
+  .btn-line:hover { background: #05B04C; }
+  .btn-lg { padding: 10px 18px; font-size: 15px; border-radius: var(--r-md); }
+  .btn-sm { padding: 5px 10px; font-size: 13px; }
+  .btn-icon { width: 36px; height: 36px; padding: 0; justify-content: center; }
+
+  /* ===== Badge (UBadge) ===== */
+  .badge {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 500;
+    line-height: 1.4;
+  }
+  .badge-soft-primary { background: var(--primary-soft); color: var(--primary-soft-fg); }
+  .badge-outline { background: transparent; color: var(--text-muted); border: 1px solid var(--border-strong); }
+  .badge-success { background: color-mix(in srgb, var(--success) 12%, var(--bg)); color: var(--success); }
+  .badge-warning { background: var(--warning-bg); color: var(--warning-fg); border: 1px solid var(--warning-border); }
+  [data-theme="dark"] .badge-success { background: rgba(22,163,74,0.12); color: #4ade80; }
+
+  /* ===== Card (UCard) ===== */
+  .card {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--r-xl);
+    box-shadow: var(--shadow-xs);
+  }
+  .card-header { padding: 18px 20px; border-bottom: 1px solid var(--border); }
+  .card-body { padding: 20px; }
+  .card-footer { padding: 16px 20px; border-top: 1px solid var(--border); background: var(--bg-elev); border-radius: 0 0 var(--r-xl) var(--r-xl); }
+
+  /* ===== Alert (UAlert) ===== */
+  .alert {
+    display: flex; gap: 12px;
+    padding: 14px 16px;
+    border-radius: var(--r-lg);
+    border: 1px solid;
+    font-size: 14px;
+    line-height: 1.55;
+  }
+  .alert-warning { background: var(--warning-bg); border-color: var(--warning-border); color: var(--warning-fg); }
+  .alert-warning .alert-icon { color: var(--warning-icon); }
+  .alert-info { background: var(--primary-soft); border-color: color-mix(in srgb, var(--primary) 20%, transparent); color: var(--primary-soft-fg); }
+  .alert-info .alert-icon { color: var(--primary); }
+  .alert-icon { flex-shrink: 0; }
+  .alert-title { font-weight: 600; margin-bottom: 2px; color: var(--text); }
+  [data-theme="dark"] .alert-warning .alert-title { color: #fef3c7; }
+
+  /* ===== Page chrome ===== */
+  /* Top nav */
+  .nav {
+    position: sticky; top: 0; z-index: 50;
+    background: color-mix(in srgb, var(--bg) 85%, transparent);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border);
+  }
+  .nav-inner {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 0;
+    gap: 16px;
+  }
+  .brand { display: flex; align-items: center; gap: 10px; text-decoration: none; color: var(--text); }
+  .brand img { height: 36px; width: auto; }
+  .brand-text { display: flex; flex-direction: column; line-height: 1.05; }
+  .brand-name { font-weight: 600; font-size: 15px; color: var(--text); }
+  .brand-sub { font-size: 10px; letter-spacing: 0.16em; color: var(--text-dimmed); text-transform: uppercase; }
+
+  .nav-links { display: none; gap: 4px; }
+  .nav-links a {
+    padding: 7px 12px;
+    border-radius: var(--r-md);
+    color: var(--text-muted);
+    text-decoration: none;
+    font-weight: 500;
+    font-size: 14px;
+    transition: background 0.15s, color 0.15s;
+  }
+  .nav-links a:hover { background: var(--bg-muted); color: var(--text); }
+  @media (min-width: 1024px) { .nav-links { display: flex; } }
+
+  .nav-actions { display: flex; align-items: center; gap: 8px; }
+
+  /* ===== HERO ===== */
+  .hero { padding: 56px 0 48px; position: relative; overflow: hidden; }
+  @media (min-width: 768px) { .hero { padding: 88px 0 72px; } }
+
+  .hero-bg-grid {
+    position: absolute; inset: 0;
+    background-image:
+      linear-gradient(to right, color-mix(in srgb, var(--border) 60%, transparent) 1px, transparent 1px),
+      linear-gradient(to bottom, color-mix(in srgb, var(--border) 60%, transparent) 1px, transparent 1px);
+    background-size: 56px 56px;
+    mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, black 30%, transparent 80%);
+    -webkit-mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, black 30%, transparent 80%);
+    pointer-events: none;
+  }
+
+  .hero-grid {
+    position: relative;
+    display: grid; gap: 40px;
+    grid-template-columns: 1fr;
+    align-items: center;
+  }
+  @media (min-width: 960px) {
+    .hero-grid { grid-template-columns: 1.05fr 1fr; gap: 56px; }
+  }
+
+  .hero h1 {
+    margin: 16px 0 18px;
+    font-size: clamp(36px, 6vw, 56px);
+    line-height: 1.05;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: var(--text);
+  }
+  .hero h1 .accent { color: var(--primary); }
+  .hero p.lead {
+    font-size: clamp(15px, 1.5vw, 17px);
+    color: var(--text-muted);
+    max-width: 540px;
+    margin: 0 0 24px;
+    line-height: 1.6;
+  }
+  .hero-cta { display: flex; flex-wrap: wrap; gap: 8px; }
+  .hero-meta {
+    display: flex; flex-wrap: wrap; gap: 24px 36px;
+    margin-top: 32px; padding-top: 24px;
+    border-top: 1px solid var(--border);
+  }
+  .hero-meta .num { font-size: 22px; font-weight: 700; color: var(--text); line-height: 1; letter-spacing: -0.01em; }
+  .hero-meta .lbl { font-size: 12px; color: var(--text-dimmed); margin-top: 4px; }
+
+  /* Hero "card" mock — Nuxt UI feels card-driven */
+  .hero-mock {
+    position: relative;
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    border-radius: var(--r-2xl);
+    padding: 18px;
+    box-shadow: var(--shadow-md);
+  }
+  .hero-mock-bar {
+    display: flex; align-items: center; gap: 8px;
+    padding-bottom: 14px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 14px;
+  }
+  .hero-mock-bar .dots { display: flex; gap: 5px; }
+  .hero-mock-bar .dots span { width: 8px; height: 8px; border-radius: 50%; background: var(--border-strong); }
+  .hero-mock-bar .url {
+    flex: 1;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--r-sm);
+    padding: 4px 10px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--text-dimmed);
+  }
+  .hero-mock-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .hero-stat-card {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--r-lg);
+    padding: 14px;
+  }
+  .hero-stat-card .lbl { font-size: 11px; color: var(--text-dimmed); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.06em; }
+  .hero-stat-card .val { font-size: 22px; font-weight: 700; letter-spacing: -0.01em; }
+  .hero-stat-card .sub { font-size: 11px; color: var(--success); margin-top: 4px; }
+  /* ===== LINE features section ===== */
+  .line-grid {
+    display: grid; gap: 24px;
+    grid-template-columns: 1fr;
+    align-items: center;
+  }
+  @media (min-width: 960px) { .line-grid { grid-template-columns: 1fr 1fr; gap: 56px; } }
+
+  .line-feat-list { display: grid; gap: 14px; }
+  .line-feat {
+    display: flex; gap: 14px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--r-xl);
+    padding: 18px 20px;
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+  .line-feat:hover { border-color: var(--border-strong); box-shadow: var(--shadow-sm); }
+  .line-feat-icon {
+    width: 40px; height: 40px;
+    border-radius: var(--r-md);
+    background: #06C755; color: white;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .line-feat-icon.alt { background: var(--primary-soft); color: var(--primary-soft-fg); }
+  .line-feat h4 { margin: 4px 0 4px; font-size: 15px; font-weight: 600; }
+  .line-feat p { margin: 0; color: var(--text-muted); font-size: 13.5px; line-height: 1.55; }
+
+  .auth-card {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--r-2xl);
+    padding: 28px;
+    box-shadow: var(--shadow-md);
+    max-width: 380px;
+    margin: 0 auto;
+    width: 100%;
+  }
+  .auth-card .auth-title {
+    text-align: center;
+    font-size: 18px;
+    font-weight: 600;
+    margin: 8px 0 4px;
+  }
+  .auth-card .auth-sub {
+    text-align: center;
+    font-size: 13px;
+    color: var(--text-muted);
+    margin: 0 0 20px;
+  }
+  .auth-line-btn {
+    width: 100%;
+    background: #06C755;
+    color: white;
+    border: none;
+    padding: 12px 16px;
+    border-radius: var(--r-md);
+    font-weight: 600;
+    font-size: 14px;
+    display: flex; align-items: center; justify-content: center; gap: 10px;
+    cursor: pointer;
+    font-family: inherit;
+    transition: background 0.15s;
+    margin-bottom: 16px;
+  }
+  .auth-line-btn:hover { background: #05B04C; }
+  .auth-divider {
+    display: flex; align-items: center; gap: 12px;
+    color: var(--text-dimmed);
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin: 16px 0;
+  }
+  .auth-divider::before, .auth-divider::after {
+    content: ''; flex: 1; height: 1px; background: var(--border);
+  }
+  .auth-form { display: grid; gap: 10px; }
+  .auth-input {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+    background: var(--bg-elev);
+    font-family: inherit;
+    font-size: 14px;
+    color: var(--text);
+  }
+  .auth-input:focus { outline: none; border-color: var(--primary); box-shadow: var(--ring); background: var(--bg); }
+  .auth-tabs {
+    display: flex; gap: 4px;
+    background: var(--bg-elev);
+    padding: 4px;
+    border-radius: var(--r-md);
+    border: 1px solid var(--border);
+    margin-bottom: 18px;
+  }
+  .auth-tabs button {
+    flex: 1;
+    background: none; border: none;
+    padding: 7px 12px;
+    border-radius: var(--r-sm);
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-muted);
+  }
+  .auth-tabs button.active {
+    background: var(--bg);
+    color: var(--text);
+    box-shadow: var(--shadow-xs);
+    border: 1px solid var(--border);
+  }
+  .auth-foot {
+    text-align: center;
+    margin-top: 14px;
+    font-size: 12px;
+    color: var(--text-dimmed);
+  }
+  .auth-perks {
+    display: grid; gap: 6px;
+    background: var(--primary-soft);
+    border-radius: var(--r-md);
+    padding: 12px 14px;
+    margin-top: 14px;
+  }
+  .auth-perks div {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 12.5px;
+    color: var(--primary-soft-fg);
+  }
+  .auth-perks div svg { color: var(--primary); flex-shrink: 0; }
+
+  /* ===== Hero LINE notify mock ===== */
+  .hero-line-mock {
+    grid-column: 1 / -1;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--r-lg);
+    padding: 14px;
+    display: flex; flex-direction: column; gap: 10px;
+    min-height: 280px;
+    position: relative;
+    overflow: hidden;
+  }
+  .hero-line-head {
+    display: flex; align-items: center; gap: 10px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--border);
+  }
+  .line-avatar {
+    width: 32px; height: 32px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #06C755, #04a045);
+    color: white;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+    font-weight: 700;
+    font-size: 13px;
+    box-shadow: 0 0 0 2px var(--bg), 0 0 0 3px #06C755;
+  }
+  .line-head-info { flex: 1; min-width: 0; }
+  .line-head-info .name { font-weight: 600; font-size: 13px; display: flex; align-items: center; gap: 5px; }
+  .line-head-info .name svg { color: #06C755; }
+  .line-head-info .sub { font-size: 11px; color: var(--text-dimmed); }
+  .line-head-time { font-size: 11px; color: var(--text-dimmed); font-family: 'JetBrains Mono', monospace; }
+
+  .line-msg {
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    border-radius: 12px 12px 12px 4px;
+    padding: 12px 14px;
+    font-size: 13px;
+    line-height: 1.5;
+    max-width: 92%;
+    opacity: 0;
+    transform: translateY(8px);
+    animation: msg-in 0.5s ease forwards;
+  }
+  .line-msg.delay-1 { animation-delay: 0.4s; }
+  .line-msg.delay-2 { animation-delay: 1.6s; }
+  .line-msg.delay-3 { animation-delay: 3.0s; }
+  @keyframes msg-in {
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .line-msg-title { font-weight: 600; display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
+  .line-msg-title .dot { width: 6px; height: 6px; border-radius: 50%; }
+  .line-msg-title .dot.received { background: var(--accent); }
+  .line-msg-title .dot.washing { background: #f59e0b; animation: blink 1.4s ease-in-out infinite; }
+  .line-msg-title .dot.ready { background: var(--success); }
+  @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+  .line-msg-row { display: flex; justify-content: space-between; gap: 12px; padding: 2px 0; font-size: 12.5px; color: var(--text-muted); }
+  .line-msg-row .v { color: var(--text); font-weight: 500; font-variant-numeric: tabular-nums; }
+
+  .line-progress { height: 4px; background: var(--border); border-radius: 2px; overflow: hidden; margin-top: 8px; }
+  .line-progress-fill { height: 100%; background: linear-gradient(90deg, var(--primary), var(--accent)); border-radius: 2px; width: 0; animation: prog-fill 4s ease-in-out 1.6s forwards; }
+  @keyframes prog-fill { to { width: 78%; } }
+
+  .line-typing {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 8px 14px;
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    border-radius: 12px 12px 12px 4px;
+    width: fit-content;
+    opacity: 0;
+    animation: typing-show 0.4s ease 2.4s forwards, typing-hide 0.4s ease 3.0s forwards;
+  }
+  @keyframes typing-show { to { opacity: 1; } }
+  @keyframes typing-hide { to { opacity: 0; visibility: hidden; height: 0; padding: 0; border: 0; margin: -8px; } }
+  .line-typing span { width: 5px; height: 5px; border-radius: 50%; background: var(--text-dimmed); animation: bounce 1s ease-in-out infinite; }
+  .line-typing span:nth-child(2) { animation-delay: 0.15s; }
+  .line-typing span:nth-child(3) { animation-delay: 0.3s; }
+  @keyframes bounce { 0%, 60%, 100% { transform: translateY(0); opacity: 0.4; } 30% { transform: translateY(-4px); opacity: 1; } }
+
+  .floaty {
+    position: absolute;
+    width: 80px; height: 80px;
+    border-radius: 50%;
+    background: radial-gradient(circle, color-mix(in srgb, var(--primary) 25%, transparent) 0%, transparent 70%);
+    pointer-events: none;
+    animation: floaty 8s ease-in-out infinite;
+  }
+  .floaty.f1 { top: -20px; right: -20px; }
+  .floaty.f2 { bottom: -20px; left: -20px; animation-delay: -4s; background: radial-gradient(circle, color-mix(in srgb, var(--accent) 30%, transparent) 0%, transparent 70%); }
+  @keyframes floaty {
+    0%, 100% { transform: translate(0, 0) scale(1); }
+    50% { transform: translate(15px, -10px) scale(1.15); }
+  }
+
+  /* legacy class kept (no longer used) */
+  .hero-photo-mock {
+    grid-column: 1 / -1;
+    aspect-ratio: 16 / 8;
+    border-radius: var(--r-lg);
+    background:
+      repeating-linear-gradient(45deg, color-mix(in srgb, var(--primary) 10%, transparent) 0 6px, transparent 6px 14px),
+      var(--bg);
+    border: 1px dashed var(--border-strong);
+    display: flex; align-items: center; justify-content: center;
+    color: var(--text-dimmed);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    text-align: center;
+    padding: 12px;
+  }
+
+  /* ===== Generic Section ===== */
+  section { position: relative; }
+  .sect { padding: 64px 0; }
+  @media (min-width: 768px) { .sect { padding: 88px 0; } }
+  .sect-alt { background: var(--bg-elev); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+
+  .sect-head { margin-bottom: 36px; max-width: 720px; }
+  .sect-head.center { margin-left: auto; margin-right: auto; text-align: center; }
+  .sect-eyebrow {
+    display: inline-block;
+    color: var(--primary);
+    font-weight: 600;
+    font-size: 13px;
+    letter-spacing: 0.02em;
+    margin-bottom: 8px;
+  }
+  .sect-title {
+    font-size: clamp(26px, 3.6vw, 38px);
+    font-weight: 700;
+    line-height: 1.15;
+    margin: 0 0 12px;
+    letter-spacing: -0.02em;
+    color: var(--text);
+  }
+  .sect-sub { color: var(--text-muted); font-size: 16px; margin: 0; line-height: 1.6; }
+
+  /* ===== Services ===== */
+  .svc-grid { display: grid; grid-template-columns: 1fr; gap: 12px; }
+  @media (min-width: 600px) { .svc-grid { grid-template-columns: repeat(2, 1fr); } }
+  @media (min-width: 1024px) { .svc-grid { grid-template-columns: repeat(4, 1fr); } }
+
+  .svc-card {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--r-xl);
+    padding: 22px;
+    transition: border-color 0.2s, box-shadow 0.2s, transform 0.2s;
+  }
+  .svc-card:hover {
+    border-color: var(--border-strong);
+    box-shadow: var(--shadow-md);
+  }
+  .svc-icon {
+    width: 40px; height: 40px;
+    border-radius: var(--r-md);
+    background: var(--primary-soft);
+    color: var(--primary-soft-fg);
+    display: flex; align-items: center; justify-content: center;
+    margin-bottom: 14px;
+  }
+  .svc-card h3 { margin: 0 0 4px; font-size: 16px; font-weight: 600; color: var(--text); }
+  .svc-card .th-sub { color: var(--text-dimmed); font-size: 12px; margin-bottom: 10px; font-family: 'JetBrains Mono', monospace; }
+  .svc-card p { margin: 0; color: var(--text-muted); font-size: 14px; line-height: 1.55; }
+
+  /* ===== Packages ===== */
+  .pkg-grid { display: grid; grid-template-columns: 1fr; gap: 16px; }
+  @media (min-width: 800px) { .pkg-grid { grid-template-columns: repeat(3, 1fr); } }
+
+  .pkg {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--r-xl);
+    padding: 24px;
+    display: flex; flex-direction: column;
+    position: relative;
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+  .pkg:hover { border-color: var(--border-strong); }
+  .pkg.featured {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 1px var(--primary), var(--shadow-md);
+  }
+  .pkg-tag {
+    position: absolute; top: -10px; left: 24px;
+    padding: 3px 10px; border-radius: 999px;
+    background: var(--primary); color: var(--primary-fg);
+    font-size: 11px; font-weight: 600; letter-spacing: 0.04em;
+  }
+  .pkg-name { font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--text-dimmed); font-weight: 600; margin: 0 0 4px; }
+  .pkg-th-name { font-size: 20px; font-weight: 600; margin: 0 0 14px; color: var(--text); }
+  .pkg-price { display: flex; align-items: baseline; gap: 6px; margin-bottom: 4px; }
+  .pkg-price .num { font-size: 38px; font-weight: 700; line-height: 1; letter-spacing: -0.02em; color: var(--text); font-family: 'Public Sans'; }
+  .pkg-price .unit { font-size: 14px; color: var(--text-muted); }
+  .pkg-period { color: var(--text-dimmed); font-size: 13px; margin-bottom: 20px; }
+
+  .pkg ul { list-style: none; padding: 0; margin: 0 0 20px; flex: 1; display: flex; flex-direction: column; gap: 8px; }
+  .pkg ul li { display: flex; align-items: flex-start; gap: 10px; font-size: 14px; color: var(--text); line-height: 1.5; }
+  .pkg ul li svg { flex-shrink: 0; margin-top: 3px; color: var(--primary); }
+
+  .pkg .btn { width: 100%; justify-content: center; }
+
+  /* Add-on row card */
+  .addon {
+    margin-top: 18px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--r-xl);
+    padding: 22px 24px;
+    display: grid; gap: 16px;
+    grid-template-columns: 1fr;
+  }
+  @media (min-width: 800px) {
+    .addon { grid-template-columns: auto 1fr auto auto; align-items: center; gap: 24px; }
+  }
+  .addon-icon {
+    width: 48px; height: 48px;
+    border-radius: var(--r-lg);
+    background: var(--primary-soft);
+    color: var(--primary-soft-fg);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .addon-info .label { font-size: 12px; color: var(--text-dimmed); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 4px; display: flex; align-items: center; gap: 6px; }
+  .addon-info h4 { margin: 0 0 4px; font-size: 18px; font-weight: 600; }
+  .addon-info p { margin: 0; color: var(--text-muted); font-size: 14px; }
+  .addon-meta { display: flex; gap: 18px; }
+  .addon-meta .item .v { font-weight: 600; font-size: 14px; }
+  .addon-meta .item .l { font-size: 11px; color: var(--text-dimmed); text-transform: uppercase; letter-spacing: 0.06em; }
+  .addon-price { font-size: 24px; font-weight: 700; letter-spacing: -0.01em; color: var(--primary); }
+  .addon-price small { font-size: 12px; color: var(--text-dimmed); font-weight: 500; }
+
+  .disclaimers { display: grid; gap: 12px; margin-top: 24px; }
+  @media (min-width: 768px) { .disclaimers { grid-template-columns: 1fr 1fr; } }
+
+  /* ===== Walk-in ===== */
+  .walkin-headline {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--r-xl);
+    padding: 22px 24px;
+    margin-bottom: 24px;
+    display: flex; flex-direction: column; gap: 14px;
+  }
+  @media (min-width: 760px) {
+    .walkin-headline { flex-direction: row; align-items: center; justify-content: space-between; padding: 26px 28px; }
+  }
+  .walkin-headline .lbl { font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--text-dimmed); margin-bottom: 4px; font-weight: 600; }
+  .walkin-headline .price-big {
+    display: flex; align-items: baseline; gap: 8px;
+    font-size: 36px; font-weight: 700; letter-spacing: -0.02em; line-height: 1; color: var(--text);
+  }
+  .walkin-headline .price-big small { font-size: 15px; color: var(--text-muted); font-weight: 500; }
+  .walkin-headline p { margin: 6px 0 0; color: var(--text-muted); max-width: 400px; line-height: 1.55; font-size: 14px; }
+
+  /* Pricing table */
+  .price-table-wrap {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--r-xl);
+    overflow: hidden;
+    margin-bottom: 20px;
+  }
+  .price-table-head { padding: 18px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  .price-table-head h3 { margin: 0 0 2px; font-size: 16px; font-weight: 600; }
+  .price-table-head p { margin: 0; color: var(--text-muted); font-size: 13px; }
+
+  .price-table { width: 100%; border-collapse: collapse; }
+  .price-table thead th {
+    text-align: right;
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    font-weight: 600;
+    color: var(--text-dimmed);
+    padding: 12px 14px;
+    background: var(--bg-elev);
+    border-bottom: 1px solid var(--border);
+  }
+  .price-table thead th:first-child { text-align: left; padding-left: 20px; }
+  .price-table thead th:last-child { padding-right: 20px; }
+  .price-table tbody td {
+    padding: 14px;
+    border-bottom: 1px solid var(--border);
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    color: var(--text);
+    font-size: 14px;
+  }
+  .price-table tbody tr:last-child td { border-bottom: none; }
+  .price-table tbody td:first-child {
+    text-align: left;
+    padding-left: 20px;
+    font-weight: 500;
+    display: flex; align-items: center; gap: 12px;
+  }
+  .price-table tbody td:last-child { padding-right: 20px; }
+  .price-table tbody tr:hover td { background: var(--bg-elev); }
+  .price-table .item-icon {
+    width: 28px; height: 28px; border-radius: var(--r-sm);
+    background: var(--primary-soft); color: var(--primary-soft-fg);
+    display: inline-flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .price-table .em-dash { color: var(--text-dimmed); }
+  .price-table tbody td .baht { color: var(--text-dimmed); font-weight: 400; font-size: 12px; margin-left: 1px; }
+
+  /* Mobile cards */
+  .price-cards { display: none; }
+  @media (max-width: 720px) {
+    .price-table { display: none; }
+    .price-cards { display: grid; gap: 8px; padding: 12px; }
+    .price-cards .row {
+      background: var(--bg-elev);
+      padding: 12px 14px;
+      border-radius: var(--r-md);
+      border: 1px solid var(--border);
+    }
+    .price-cards .row-head { display: flex; align-items: center; gap: 10px; font-weight: 600; margin-bottom: 8px; font-size: 14px; }
+    .price-cards .row-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px 12px; font-size: 13px; }
+    .price-cards .price-cell { display: flex; justify-content: space-between; }
+    .price-cards .price-cell .lbl { color: var(--text-dimmed); font-size: 12px; }
+    .price-cards .price-cell .val { font-weight: 600; font-variant-numeric: tabular-nums; }
+  }
+
+  /* Notice */
+  .notice-list { margin-top: 20px; }
+  .notice-list .notice-head {
+    display: flex; align-items: center; gap: 10px;
+    margin-bottom: 12px;
+    font-weight: 600; font-size: 15px;
+    color: var(--text);
+  }
+  .notice-list .notice-head .badge-icon {
+    width: 24px; height: 24px; border-radius: var(--r-sm);
+    background: var(--warning-bg); color: var(--warning-icon);
+    display: flex; align-items: center; justify-content: center;
+    border: 1px solid var(--warning-border);
+  }
+  .notice-list ul { list-style: none; padding: 0; margin: 0; display: grid; gap: 0; }
+  .notice-list ul li {
+    display: flex; gap: 12px;
+    padding: 12px 16px;
+    font-size: 14px;
+    color: var(--text);
+    line-height: 1.55;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-bottom: none;
+  }
+  .notice-list ul li:first-child { border-radius: var(--r-lg) var(--r-lg) 0 0; }
+  .notice-list ul li:last-child { border-radius: 0 0 var(--r-lg) var(--r-lg); border-bottom: 1px solid var(--border); }
+  .notice-list ul li::before {
+    content: ''; flex-shrink: 0;
+    width: 5px; height: 5px; border-radius: 50%;
+    background: var(--text-dimmed);
+    margin-top: 9px;
+  }
+
+  /* ===== Delivery / How it works ===== */
+  .delivery-grid { display: grid; gap: 32px; grid-template-columns: 1fr; align-items: start; }
+  @media (min-width: 960px) { .delivery-grid { grid-template-columns: 1fr 1fr; gap: 48px; } }
+
+  .steps { display: grid; gap: 12px; }
+  .step {
+    display: flex; gap: 16px;
+    background: var(--bg);
+    padding: 18px 20px;
+    border-radius: var(--r-xl);
+    border: 1px solid var(--border);
+  }
+  .step-num {
+    flex-shrink: 0;
+    width: 32px; height: 32px;
+    border-radius: var(--r-md);
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    color: var(--text);
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 600; font-size: 13px;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .step h4 { margin: 4px 0 4px; font-size: 15px; font-weight: 600; }
+  .step p { margin: 0; color: var(--text-muted); font-size: 13.5px; line-height: 1.55; }
+
+  .delivery-card {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--r-xl);
+    padding: 24px;
+  }
+  .delivery-card .top {
+    display: flex; align-items: center; gap: 12px; margin-bottom: 14px;
+  }
+  .delivery-icon {
+    width: 40px; height: 40px;
+    background: var(--primary-soft);
+    color: var(--primary-soft-fg);
+    border-radius: var(--r-md);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .delivery-card h3 { margin: 0; font-size: 18px; font-weight: 600; line-height: 1.25; }
+  .delivery-card .price-row { display: flex; align-items: baseline; gap: 6px; margin-bottom: 8px; }
+  .delivery-card .price-row .num { font-size: 32px; font-weight: 700; letter-spacing: -0.02em; }
+  .delivery-card .price-row .unit { font-size: 13px; color: var(--text-muted); }
+  .delivery-card > p.intro { color: var(--text-muted); margin: 0 0 18px; line-height: 1.6; font-size: 14px; }
+
+  .delivery-info {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
+    padding: 14px;
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    border-radius: var(--r-lg);
+    margin-bottom: 18px;
+  }
+  .delivery-info .item .lbl { font-size: 11px; color: var(--text-dimmed); letter-spacing: 0.06em; text-transform: uppercase; margin-bottom: 4px; }
+  .delivery-info .item .val { font-size: 14px; font-weight: 600; color: var(--text); line-height: 1.3; }
+  .delivery-info .item .val small { font-size: 12px; color: var(--text-dimmed); font-weight: 400; display: block; margin-top: 2px; }
+
+  /* Schedule pills */
+  .schedule-pills { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 18px; }
+  .schedule-pill {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 5px 10px;
+    border-radius: 999px;
+    background: var(--primary-soft);
+    color: var(--primary-soft-fg);
+    font-size: 12px;
+    font-weight: 500;
+    border: 1px solid color-mix(in srgb, var(--primary) 25%, transparent);
+  }
+
+  /* ===== FAQ ===== */
+  .faq-grid { display: grid; gap: 32px; grid-template-columns: 1fr; }
+  @media (min-width: 960px) { .faq-grid { grid-template-columns: 1fr 1.4fr; gap: 64px; } }
+
+  .faq-list {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--r-xl);
+    overflow: hidden;
+  }
+  .faq-item { border-bottom: 1px solid var(--border); }
+  .faq-item:last-child { border-bottom: none; }
+  .faq-q {
+    width: 100%; text-align: left;
+    background: none; border: none;
+    padding: 16px 20px;
+    display: flex; align-items: center; justify-content: space-between; gap: 16px;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 15px;
+    font-weight: 500;
+    color: var(--text);
+    transition: background 0.15s;
+  }
+  .faq-q:hover { background: var(--bg-elev); }
+  .faq-q .chev {
+    flex-shrink: 0;
+    color: var(--text-dimmed);
+    transition: transform 0.2s ease, color 0.2s;
+  }
+  .faq-item.open .faq-q .chev { transform: rotate(180deg); color: var(--primary); }
+  .faq-a { overflow: hidden; max-height: 0; transition: max-height 0.3s ease; }
+  .faq-a-inner { padding: 0 20px 18px; color: var(--text-muted); font-size: 14px; line-height: 1.65; }
+
+  /* ===== Contact ===== */
+  .contact-grid { display: grid; gap: 16px; grid-template-columns: 1fr; }
+  @media (min-width: 960px) { .contact-grid { grid-template-columns: 1.3fr 1fr; gap: 24px; } }
+
+  .contact-main {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--r-xl);
+    padding: 28px;
+  }
+  .contact-main h2 { font-size: 24px; margin: 0 0 8px; font-weight: 600; line-height: 1.2; }
+  .contact-main p.intro { color: var(--text-muted); margin: 0 0 24px; font-size: 14px; max-width: 460px; }
+
+  .contact-channels { display: grid; gap: 8px; }
+  .ch {
+    display: flex; align-items: center; gap: 14px;
+    background: var(--bg-elev);
+    padding: 14px 16px;
+    border-radius: var(--r-lg);
+    border: 1px solid var(--border);
+    text-decoration: none;
+    color: var(--text);
+    transition: background 0.15s, border-color 0.15s;
+  }
+  .ch:hover { background: var(--bg-muted); border-color: var(--border-strong); }
+  .ch-icon {
+    width: 36px; height: 36px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+    color: var(--text-muted);
+  }
+  .ch-icon.line { background: #06C755; border-color: #06C755; color: white; }
+  .ch-info { flex: 1; min-width: 0; }
+  .ch-info .lbl { font-size: 11px; color: var(--text-dimmed); letter-spacing: 0.06em; text-transform: uppercase; margin-bottom: 2px; }
+  .ch-info .val { font-size: 14.5px; font-weight: 600; word-break: break-word; }
+  .ch .chev-r { color: var(--text-dimmed); }
+
+  .qr-card {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--r-xl);
+    padding: 22px;
+    text-align: center;
+    display: flex; flex-direction: column; align-items: center;
+    gap: 12px;
+  }
+  .qr-card h3 { margin: 0; font-size: 16px; font-weight: 600; }
+  .qr-card p { margin: 0; font-size: 13px; color: var(--text-muted); }
+  .qr-placeholder {
+    width: 180px; height: 180px;
+    background: white;
+    border-radius: var(--r-lg);
+    padding: 12px;
+    border: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .qr-placeholder svg { width: 100%; height: 100%; }
+
+  /* Hours card */
+  .hours-card, .map-card {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--r-xl);
+    padding: 20px;
+  }
+  .hours-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+  .hours-head h4 { margin: 0; font-size: 14px; font-weight: 600; }
+  .hours-list { display: flex; flex-direction: column; gap: 0; }
+  .hours-list .row {
+    display: flex; justify-content: space-between; align-items: center;
+    font-size: 13.5px;
+    padding: 9px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .hours-list .row:last-child { border-bottom: none; }
+  .hours-list .row.closed { color: var(--text-dimmed); }
+  .hours-list .row .day { color: var(--text-muted); }
+  .hours-list .row .time { font-weight: 600; font-variant-numeric: tabular-nums; color: var(--text); }
+  .hours-list .row.closed .time { color: var(--text-dimmed); }
+
+  .map-card { padding: 0; overflow: hidden; }
+  .map-img {
+    aspect-ratio: 16 / 9;
+    background:
+      repeating-linear-gradient(45deg, color-mix(in srgb, var(--primary) 8%, transparent) 0 6px, transparent 6px 14px),
+      var(--bg-elev);
+    position: relative;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .map-pin {
+    width: 32px; height: 32px;
+    background: var(--primary);
+    border-radius: 50% 50% 50% 0;
+    transform: rotate(-45deg);
+    box-shadow: var(--shadow-md);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .map-pin::after { content: ''; width: 10px; height: 10px; background: white; border-radius: 50%; transform: rotate(45deg); }
+  .map-meta { padding: 16px 18px; border-top: 1px solid var(--border); }
+  .map-meta .lbl { font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-dimmed); margin-bottom: 4px; font-weight: 600; }
+  .map-meta .addr { font-size: 13.5px; line-height: 1.55; color: var(--text); }
+
+  /* ===== Footer ===== */
+  .foot { padding: 28px 0; border-top: 1px solid var(--border); color: var(--text-dimmed); font-size: 13px; background: var(--bg); }
+  .foot-inner { display: flex; flex-direction: column; gap: 12px; align-items: flex-start; }
+  @media (min-width: 768px) { .foot-inner { flex-direction: row; align-items: center; justify-content: space-between; } }
+
+  /* ===== Tweak panel ===== */
+  .tweak-panel {
+    position: fixed; bottom: 16px; right: 16px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--r-xl);
+    padding: 14px 16px;
+    box-shadow: var(--shadow-lg);
+    display: none;
+    z-index: 100;
+    min-width: 220px;
+  }
+  .tweak-panel.visible { display: block; }
+  .tweak-panel h5 { margin: 0 0 12px; font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-dimmed); display: flex; justify-content: space-between; align-items: center; font-weight: 600; }
+  .tweak-panel h5 button.close { background: none; border: none; color: var(--text-dimmed); cursor: pointer; padding: 2px; font-size: 16px; line-height: 1; }
+  .tweak-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .seg { display: flex; gap: 2px; padding: 3px; background: var(--bg-elev); border-radius: var(--r-md); border: 1px solid var(--border); }
+  .seg button { background: none; border: none; cursor: pointer; padding: 5px 10px; border-radius: var(--r-sm); font-family: inherit; font-size: 12.5px; font-weight: 500; color: var(--text-muted); display: flex; align-items: center; gap: 5px; }
+  .seg button.active { background: var(--bg); color: var(--text); box-shadow: var(--shadow-xs); border: 1px solid var(--border); padding: 4px 9px; }
+
+  /* ===== Open status indicator ===== */
+  .open-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--success); box-shadow: 0 0 0 3px color-mix(in srgb, var(--success) 25%, transparent); }
+  .closed-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--text-dimmed); }
+</style>
+</head>
+<body>
+
+<div id="app"></div>
+
+<script type="application/json" id="tweak-defaults">
+/*EDITMODE-BEGIN*/{
+  "theme": "light"
+}/*EDITMODE-END*/
+</script>
+
+<script type="text/babel" data-presets="react">
+const { useState, useEffect } = React;
+
+/* ===== Icons (Lucide-style 1.5px stroke) ===== */
+const I = {
+  notify: (p) => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>,
+  receipt: (p) => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="M4 2v20l3-2 3 2 3-2 3 2 3-2V2H4z"/><path d="M8 7h8M8 11h8M8 15h5"/></svg>,
+  history: (p) => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l3 2"/></svg>,
+  shield: (p) => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="M12 2l8 4v6c0 5-3.5 9-8 10-4.5-1-8-5-8-10V6l8-4z"/></svg>,
+  wash: (p) => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" {...p}><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="12" cy="13" r="5"/><circle cx="12" cy="13" r="2"/><circle cx="7" cy="6.5" r="0.6" fill="currentColor"/><circle cx="9.5" cy="6.5" r="0.6" fill="currentColor"/></svg>,
+  dry: (p) => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" {...p}><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="12" cy="13" r="5"/><path d="M9.5 11.5c1-1 2-1 3 0s2 1 3 0"/><circle cx="7" cy="6.5" r="0.6" fill="currentColor"/></svg>,
+  iron: (p) => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="M3 17h18l-1.5-5.5a3 3 0 0 0-2.9-2.2H10a4 4 0 0 0-3.8 2.7L3 17z"/><path d="M3 17v2h18v-2"/><path d="M16 9V6a2 2 0 0 0-2-2H9"/></svg>,
+  drycln: (p) => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="M5 6h14l-1 13a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6z"/><path d="M9 6V4a3 3 0 0 1 6 0v2"/><path d="M9 12h6"/></svg>,
+  shirt: (p) => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="M4 7l4-3 4 2 4-2 4 3-2 3-2-1v11H8V9L6 10 4 7z"/></svg>,
+  pants: (p) => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="M6 3h12l-1 8-1 10h-3l-1-10-1 10H8L7 11 6 3z"/></svg>,
+  dress: (p) => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="M9 3h6l1 4-2 2 4 12H6l4-12-2-2 1-4z"/></svg>,
+  jacket: (p) => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="M5 6l3-3h8l3 3-2 4v11h-4l-1-7-1 7H7V10L5 6z"/><path d="M12 3v18"/></svg>,
+  bedding: (p) => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" {...p}><rect x="3" y="6" width="18" height="14" rx="2"/><path d="M3 11h18"/><path d="M7 8v3M17 8v3"/></svg>,
+  curtain: (p) => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="M3 3h18v2H3z"/><path d="M5 5v15c2 0 3-1 3-3M9 5c0 5-1 9-3 12M19 5v15c-2 0-3-1-3-3M15 5c0 5 1 9 3 12"/></svg>,
+  check: (p) => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" {...p}><polyline points="20 6 9 17 4 12"/></svg>,
+  arrow: (p) => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="M5 12h14M13 6l6 6-6 6"/></svg>,
+  chev: (p) => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...p}><polyline points="6 9 12 15 18 9"/></svg>,
+  truck: (p) => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="M2 7h11v10H2zM13 10h5l3 3v4h-8z"/><circle cx="6" cy="18" r="2"/><circle cx="17" cy="18" r="2"/></svg>,
+  phone: (p) => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z"/></svg>,
+  mail: (p) => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" {...p}><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M2 7l10 7L22 7"/></svg>,
+  line: (p) => <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" {...p}><path d="M19.4 10.3c0-3.6-3.6-6.5-8-6.5s-8 2.9-8 6.5c0 3.2 2.8 5.9 6.7 6.4.3 0 .6.2.7.4.1.2.1.6 0 .9 0 0-.1.6-.1.7-.1.2-.2.8.7.4.9-.4 4.7-2.8 6.4-4.7 1.2-1.3 1.7-2.7 1.7-4.1zM8 12.4H6.5c-.2 0-.4-.2-.4-.4V8.8c0-.2.2-.4.4-.4s.4.2.4.4v2.8H8c.2 0 .4.2.4.4s-.2.4-.4.4zm1.7-.4c0 .2-.2.4-.4.4s-.4-.2-.4-.4V8.8c0-.2.2-.4.4-.4s.4.2.4.4V12zm3.7 0c0 .2-.1.3-.3.4h-.1c-.1 0-.3-.1-.3-.2l-1.4-1.9V12c0 .2-.2.4-.4.4s-.4-.2-.4-.4V8.8c0-.2.1-.3.3-.4h.1c.1 0 .2.1.3.2l1.4 1.9V8.8c0-.2.2-.4.4-.4s.4.2.4.4V12zm2.5-2c.2 0 .4.2.4.4s-.2.4-.4.4h-1.1v.7h1.1c.2 0 .4.2.4.4s-.2.4-.4.4h-1.5c-.2 0-.4-.2-.4-.4V8.8c0-.2.2-.4.4-.4h1.5c.2 0 .4.2.4.4s-.2.4-.4.4h-1.1v.7h1.1z"/></svg>,
+  pin: (p) => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>,
+  sun: (p) => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...p}><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>,
+  moon: (p) => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>,
+  alert: (p) => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>,
+  info: (p) => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...p}><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>,
+  calendar: (p) => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...p}><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>,
+};
+
+/* ===== NAV ===== */
+function Nav() {
+  return (
+    <header className="nav">
+      <div className="wrap nav-inner">
+        <a className="brand" href="#top">
+          <img src="assets/saijai-logo.png" alt="ใส่ใจ ผ้าเรียบ"/>
+          <div className="brand-text">
+            <span className="brand-name">ใส่ใจ ผ้าเรียบ</span>
+            <span className="brand-sub">Laundry · บางนา</span>
+          </div>
+        </a>
+        <nav className="nav-links">
+          <a href="#services">บริการ</a>
+          <a href="#line">LINE</a>
+          <a href="#packages">แพ็กเกจ</a>
+          <a href="#walkin">ราคา</a>
+          <a href="#delivery">รับ-ส่ง</a>
+          <a href="#faq">คำถาม</a>
+          <a href="#contact">ติดต่อ</a>
+        </nav>
+        <div className="nav-actions">
+          <a href="#contact" className="btn btn-outline btn-sm">ติดต่อเรา</a>
+          <a href="#packages" className="btn btn-solid btn-sm">ดูราคา <I.arrow/></a>
+        </div>
+      </div>
+    </header>
+  );
+}
+
+/* ===== HERO ===== */
+function Hero() {
+  return (
+    <section className="hero" id="top">
+      <div className="hero-bg-grid"/>
+      <div className="wrap">
+        <div className="hero-grid">
+          <div>
+            <div style={{display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 4}}>
+              <span className="badge badge-success"><span className="open-dot"/> เปิดอยู่ · 14:00 – 19:30</span>
+            </div>
+            <h1>
+              ซัก-อบ-รีด ด้วยความ<br/>
+              <span className="accent">ใส่ใจ</span>ทุกผืนผ้า
+            </h1>
+            <p className="lead">
+              ร้านซักรีดแบบครบวงจร สะอาด หอม เรียบ พร้อมบริการรับ-ส่งถึงบ้าน
+              ราคาเริ่มต้นกิโลกรัมละ 60 บาท
+            </p>
+            <div className="hero-cta">
+              <a href="#packages" className="btn btn-solid btn-lg">ดูราคาบริการ <I.arrow/></a>
+              <a href="#contact" className="btn btn-outline btn-lg">ติดต่อเรา</a>
+            </div>
+            <div className="hero-meta">
+              <div>
+                <div className="num">฿60<span style={{fontSize: 13, color: 'var(--text-dimmed)', fontWeight: 500}}>/กก.</span></div>
+                <div className="lbl">ราคาเริ่มต้น</div>
+              </div>
+              <div>
+                <div className="num">24<span style={{fontSize: 13, color: 'var(--text-dimmed)', fontWeight: 500}}> ชม.</span></div>
+                <div className="lbl">ส่งคืนใน 1 วัน</div>
+              </div>
+              <div>
+                <div className="num">6<span style={{fontSize: 13, color: 'var(--text-dimmed)', fontWeight: 500}}> วัน/สัปดาห์</span></div>
+                <div className="lbl">หยุดวันอาทิตย์</div>
+              </div>
+            </div>
+          </div>
+          <div className="hero-mock">
+            <div className="hero-mock-bar">
+              <div className="dots"><span/><span/><span/></div>
+              <div className="url">line.me/R/ti/p/@saijai-laundry</div>
+            </div>
+            <div className="hero-mock-grid">
+              <div className="hero-line-mock">
+                <div className="floaty f1"/>
+                <div className="floaty f2"/>
+                <div className="hero-line-head">
+                  <div className="line-avatar">ใจ</div>
+                  <div className="line-head-info">
+                    <div className="name">ใส่ใจ ผ้าเรียบ <I.line/></div>
+                    <div className="sub">LINE Official · ออนไลน์</div>
+                  </div>
+                  <div className="line-head-time">14:23</div>
+                </div>
+
+                <div className="line-msg delay-1">
+                  <div className="line-msg-title"><span className="dot received"/> รับผ้าเรียบร้อย ✓</div>
+                  <div className="line-msg-row"><span>ใบเสร็จ</span><span className="v mono">#SJ-2604-018</span></div>
+                  <div className="line-msg-row"><span>น้ำหนัก</span><span className="v">3.2 กก.</span></div>
+                  <div className="line-msg-row"><span>บริการ</span><span className="v">ซัก-อบ-รีด</span></div>
+                  <div className="line-msg-row"><span>ยอดชำระ</span><span className="v">฿320</span></div>
+                </div>
+
+                <div className="line-msg delay-2">
+                  <div className="line-msg-title"><span className="dot washing"/> กำลังซัก…</div>
+                  <div className="line-msg-row"><span>เครื่อง</span><span className="v">W-03</span></div>
+                  <div className="line-msg-row"><span>เหลืออีก</span><span className="v">~ 28 นาที</span></div>
+                  <div className="line-progress"><div className="line-progress-fill"/></div>
+                </div>
+
+                <div className="line-typing"><span/><span/><span/></div>
+
+                <div className="line-msg delay-3">
+                  <div className="line-msg-title"><span className="dot ready"/> ผ้าพร้อมส่งแล้ว 🎉</div>
+                  <div className="line-msg-row"><span>คนขับ</span><span className="v">คุณวิทยา</span></div>
+                  <div className="line-msg-row"><span>ถึงประมาณ</span><span className="v">17:45 น.</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/* ===== LINE Features (notify + login/register) ===== */
+function LineFeatures() {
+  const [tab, setTab] = useState('login');
+  const feats = [
+    { icon: <I.notify/>, alt: false, title: 'แจ้งเตือนสถานะผ้าแบบเรียลไทม์', desc: 'รับแจ้งทันทีเมื่อรับผ้า เริ่มซัก อบเสร็จ และพร้อมส่ง — ผ่าน LINE OA ตรงเข้าแชต' },
+    { icon: <I.receipt/>, alt: false, title: 'ใบเสร็จดิจิทัลในแชต', desc: 'รายการ น้ำหนัก ราคา เลขที่ใบเสร็จ ส่งตรงเข้าแชต ค้นหาย้อนหลังได้ตลอดเวลา' },
+    { icon: <I.history/>, alt: true, title: 'ประวัติการใช้บริการ', desc: 'ดูยอดสะสม โควต้าแพ็กเกจคงเหลือ และรายการที่ผ่านมา ในที่เดียว' },
+    { icon: <I.shield/>, alt: true, title: 'ปลอดภัย ผูกบัญชีด้วย LINE', desc: 'เข้าสู่ระบบด้วย LINE คลิกเดียว ไม่ต้องจำรหัส รองรับทั้ง iOS และ Android' },
+  ];
+  return (
+    <section className="sect" id="line">
+      <div className="wrap">
+        <div className="sect-head">
+          <span className="sect-eyebrow">เชื่อมต่อกับ LINE</span>
+          <h2 className="sect-title">ติดตามผ้าทุกผืน<br/>ผ่าน LINE OA</h2>
+          <p className="sect-sub">
+            เข้าสู่ระบบด้วย LINE ครั้งเดียว รับแจ้งสถานะผ้า ใบเสร็จ และโปรโมชันส่งตรงถึงแชต
+          </p>
+        </div>
+        <div className="line-grid">
+          <div className="line-feat-list">
+            {feats.map((f, i) => (
+              <div className="line-feat" key={i}>
+                <div className={`line-feat-icon ${f.alt ? 'alt' : ''}`}>{f.icon}</div>
+                <div>
+                  <h4>{f.title}</h4>
+                  <p>{f.desc}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="auth-card">
+            <div style={{display: 'flex', justifyContent: 'center', marginBottom: 4}}>
+              <span className="badge badge-soft-primary">Login / Register</span>
+            </div>
+            <div className="auth-title">เข้าสู่ระบบหรือสมัครสมาชิก</div>
+            <p className="auth-sub">เข้าด้วย LINE ครั้งเดียว ใช้ได้ทันที</p>
+            <button className="auth-line-btn"><I.line/> เข้าสู่ระบบด้วย LINE</button>
+            <div className="auth-divider">หรือใช้อีเมล</div>
+            <div className="auth-tabs">
+              <button className={tab === 'login' ? 'active' : ''} onClick={() => setTab('login')}>เข้าสู่ระบบ</button>
+              <button className={tab === 'register' ? 'active' : ''} onClick={() => setTab('register')}>สมัครสมาชิก</button>
+            </div>
+            <div className="auth-form">
+              {tab === 'register' && (
+                <input className="auth-input" placeholder="ชื่อ-นามสกุล"/>
+              )}
+              <input className="auth-input" placeholder="อีเมล" type="email"/>
+              <input className="auth-input" placeholder="รหัสผ่าน" type="password"/>
+              {tab === 'register' && (
+                <input className="auth-input" placeholder="เบอร์โทรศัพท์" type="tel"/>
+              )}
+              <button className="btn btn-solid" style={{justifyContent: 'center', marginTop: 4}}>
+                {tab === 'login' ? 'เข้าสู่ระบบ' : 'สมัครสมาชิก'} <I.arrow/>
+              </button>
+            </div>
+            <div className="auth-perks">
+              <div><I.check/> สะสมแต้มทุกการใช้บริการ</div>
+              <div><I.check/> โปรโมชันเฉพาะสมาชิก</div>
+              <div><I.check/> ดูประวัติย้อนหลังได้</div>
+            </div>
+            <div className="auth-foot">การสมัครสมาชิก ถือว่ายอมรับเงื่อนไขการใช้บริการ</div>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/* ===== Services ===== */
+function Services() {
+  const items = [
+    { icon: <I.wash/>, name: 'ซักผ้า', en: 'wash', desc: 'ซักด้วยน้ำยาคุณภาพ ปลอดภัยกับผ้าทุกชนิด สะอาดล้ำลึก' },
+    { icon: <I.dry/>, name: 'อบผ้า', en: 'dry', desc: 'อบแห้งด้วยอุณหภูมิเหมาะสม ผ้านุ่ม ไม่หด ไม่เปลี่ยนรูป' },
+    { icon: <I.drycln/>, name: 'ซักแห้ง', en: 'dry-clean', desc: 'สำหรับสูท ผ้าไหม ชุดที่บอบบาง ดูแลเป็นพิเศษ' },
+    { icon: <I.iron/>, name: 'รีดผ้า', en: 'press-iron', desc: 'รีดเรียบทุกตะเข็บ พร้อมใส่ ดูดี เป็นทางการ' },
+  ];
+  return (
+    <section className="sect" id="services">
+      <div className="wrap">
+        <div className="sect-head">
+          <span className="sect-eyebrow">บริการของเรา</span>
+          <h2 className="sect-title">งานซักรีด ครบ จบที่เดียว</h2>
+          <p className="sect-sub">
+            ตั้งแต่เสื้อผ้าใส่ทำงานประจำวัน ไปจนถึงสูทและผ้าไหมที่ต้องการการดูแลเป็นพิเศษ
+          </p>
+        </div>
+        <div className="svc-grid">
+          {items.map((it, i) => (
+            <div className="svc-card" key={i}>
+              <div className="svc-icon">{it.icon}</div>
+              <h3>{it.name}</h3>
+              <div className="th-sub">{it.en}</div>
+              <p>{it.desc}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/* ===== Packages ===== */
+function Packages() {
+  const tiers = [
+    {
+      name: 'SMALL', th: 'แพ็กเกจเล็ก', price: 690, period: 'ต่อเดือน',
+      featured: false,
+      features: [
+        'ซัก + อบ สูงสุด 12 กก./เดือน',
+        'รวมน้ำยาซักและน้ำยาปรับผ้านุ่ม',
+        'ส่วนลดบริการรีดผ้า 10%',
+        'จองคิวล่วงหน้า ไม่ต้องรอ',
+      ],
+    },
+    {
+      name: 'MEDIUM', th: 'แพ็กเกจกลาง', price: 1290, period: 'ต่อเดือน',
+      featured: true, tag: 'แนะนำ',
+      features: [
+        'ซัก + อบ + รีด สูงสุด 24 กก./เดือน',
+        'รวมน้ำยาซักและน้ำยาปรับผ้านุ่ม',
+        'ส่วนลดบริการรีดผ้า 20%',
+        'รับ-ส่งฟรี ในรัศมี 5 กม.',
+        'จองคิวล่วงหน้า + Priority',
+      ],
+    },
+    {
+      name: 'LARGE', th: 'แพ็กเกจใหญ่', price: 2190, period: 'ต่อเดือน',
+      featured: false,
+      features: [
+        'ซัก + อบ + รีด สูงสุด 45 กก./เดือน',
+        'รวมน้ำยาซัก น้ำยาปรับ และน้ำหอม',
+        'ส่วนลดบริการรีดผ้า 30%',
+        'รับ-ส่งฟรี ในรัศมี 10 กม.',
+        'บริการด่วน คืนภายใน 24 ชม.',
+      ],
+    },
+  ];
+  return (
+    <section className="sect sect-alt" id="packages">
+      <div className="wrap">
+        <div className="sect-head center">
+          <span className="sect-eyebrow">แพ็กเกจรายเดือน</span>
+          <h2 className="sect-title">เลือกแพ็กเกจที่ใช่กับคุณ</h2>
+          <p className="sect-sub" style={{margin: '0 auto'}}>
+            ประหยัดกว่าจ่ายรายครั้ง สำหรับครอบครัว นักเรียน และคนทำงาน
+          </p>
+        </div>
+        <div className="pkg-grid">
+          {tiers.map((t, i) => (
+            <div className={`pkg ${t.featured ? 'featured' : ''}`} key={i}>
+              {t.tag && <div className="pkg-tag">{t.tag}</div>}
+              <div className="pkg-name">{t.name}</div>
+              <div className="pkg-th-name">{t.th}</div>
+              <div className="pkg-price">
+                <span className="num">฿{t.price.toLocaleString()}</span>
+                <span className="unit">บาท</span>
+              </div>
+              <div className="pkg-period">{t.period}</div>
+              <ul>
+                {t.features.map((f, j) => (
+                  <li key={j}><I.check/> <span>{f}</span></li>
+                ))}
+              </ul>
+              <a href="#contact" className={`btn ${t.featured ? 'btn-solid' : 'btn-outline'}`}>เลือกแพ็กเกจนี้ <I.arrow/></a>
+            </div>
+          ))}
+        </div>
+
+        {/* Add-on: pickup & delivery */}
+        <div className="addon">
+          <div className="addon-icon"><I.truck/></div>
+          <div className="addon-info">
+            <div className="label">
+              <span className="badge badge-soft-primary" style={{padding: '1px 6px', fontSize: 10}}>ADD-ON</span>
+              บริการเสริม
+            </div>
+            <h4>แพ็กเกจรับ-ส่งถึงบ้าน</h4>
+            <p>รับและส่งคืนผ้า 8 ครั้ง/เดือน · ทุกวันพุธและวันเสาร์ (สัปดาห์ละ 2 ครั้ง)</p>
+          </div>
+          <div className="addon-meta">
+            <div className="item">
+              <div className="l">ครั้ง/เดือน</div>
+              <div className="v">8</div>
+            </div>
+            <div className="item">
+              <div className="l">วัน</div>
+              <div className="v">พุธ · เสาร์</div>
+            </div>
+          </div>
+          <div style={{display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6}}>
+            <div className="addon-price">฿300<small>/เดือน</small></div>
+            <a href="#contact" className="btn btn-soft btn-sm">เพิ่มบริการนี้ <I.arrow/></a>
+          </div>
+        </div>
+
+        <div className="disclaimers">
+          <div className="alert alert-warning">
+            <I.alert className="alert-icon"/>
+            <div>
+              <div className="alert-title">แพ็กเกจไม่รวมงานพิเศษ</div>
+              สูท / ผ้าไหม / ผ้าหนา / ไซส์ใหญ่ / ซักแห้ง — คิดค่าบริการแยกตามรายการ
+            </div>
+          </div>
+          <div className="alert alert-warning">
+            <I.alert className="alert-icon"/>
+            <div>
+              <div className="alert-title">โควต้าแพ็กเกจนับใหม่ทุกเดือน</div>
+              ยอดคงเหลือไม่สามารถยกยอดไปเดือนถัดไปได้ กรุณาใช้ให้หมดภายในรอบบิล
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/* ===== Walk-in ===== */
+function Walkin() {
+  const items = [
+    { name: 'เสื้อเชิ้ต / โปโล', icon: <I.shirt/>, wash: 30, washIron: 50, iron: 25, dry: 80 },
+    { name: 'กางเกงขายาว / ยีนส์', icon: <I.pants/>, wash: 35, washIron: 55, iron: 30, dry: 100 },
+    { name: 'เดรส / กระโปรง', icon: <I.dress/>, wash: 45, washIron: 70, iron: 35, dry: 120 },
+    { name: 'แจ็คเก็ต / เสื้อคลุม', icon: <I.jacket/>, wash: 60, washIron: 90, iron: 40, dry: 150 },
+    { name: 'ผ้าปูเตียง / ปลอกหมอน', icon: <I.bedding/>, wash: 80, washIron: '—', iron: '—', dry: 200 },
+    { name: 'ผ้าม่าน (ต่อชิ้น)', icon: <I.curtain/>, wash: 120, washIron: '—', iron: '—', dry: 250 },
+  ];
+  const fmt = (v) => v === '—'
+    ? <span className="em-dash">—</span>
+    : <span>{v}<span className="baht">฿</span></span>;
+
+  const noticeItems = [
+    'ราคาขึ้นอยู่กับสภาพผ้า และจะแจ้งให้ทราบก่อนดำเนินการ',
+    'คราบฝังแน่นอาจไม่สามารถขจัดได้หมด',
+    'กรุณาแจ้งหากผ้ามีโอกาสสีตก',
+    'กรุณาตรวจสอบสิ่งของในกระเป๋าก่อนส่งซัก ทางร้านไม่รับผิดชอบทรัพย์สินที่ตกค้าง',
+    'กรณีผ้าเสียหายจากความผิดพลาดของทางร้าน ชดใช้ไม่เกิน 10 เท่าของค่าบริการในรายการนั้น',
+  ];
+
+  return (
+    <section className="sect" id="walkin">
+      <div className="wrap">
+        <div className="sect-head">
+          <span className="sect-eyebrow">ราคาหน้าร้าน</span>
+          <h2 className="sect-title">โปร่งใส ทุกราคา</h2>
+          <p className="sect-sub">
+            มีให้เลือกทั้งบริการชั่งกิโล และคิดเป็นชิ้นตามประเภทผ้า เลือกแบบที่คุ้มที่สุดสำหรับคุณ
+          </p>
+        </div>
+
+        <div className="walkin-headline">
+          <div>
+            <div className="lbl">บริการชั่งกิโล</div>
+            <div className="price-big">฿60 <small>/ กิโลกรัม</small></div>
+            <p>เหมาะสำหรับเสื้อผ้าใส่ทุกวัน รวมซักและอบแห้ง พร้อมพับเรียบร้อย</p>
+          </div>
+          <a href="#contact" className="btn btn-solid btn-lg">สอบถามเพิ่มเติม <I.arrow/></a>
+        </div>
+
+        <div className="price-table-wrap">
+          <div className="price-table-head">
+            <div>
+              <h3>ราคาคิดเป็นชิ้น — ตามประเภทผ้า</h3>
+              <p>ราคาแยกตามบริการ ผ้าบางชนิดคิดเฉพาะบริการที่เหมาะสม</p>
+            </div>
+            <span className="badge badge-outline">หน่วย: บาท/ชิ้น</span>
+          </div>
+          <table className="price-table">
+            <thead>
+              <tr>
+                <th>ประเภทผ้า</th>
+                <th>ซัก-พับ</th>
+                <th>ซัก-รีด</th>
+                <th>รีดอย่างเดียว</th>
+                <th>ซักแห้ง</th>
+              </tr>
+            </thead>
+            <tbody>
+              {items.map((it, i) => (
+                <tr key={i}>
+                  <td><span className="item-icon">{it.icon}</span><span>{it.name}</span></td>
+                  <td>{fmt(it.wash)}</td>
+                  <td>{fmt(it.washIron)}</td>
+                  <td>{fmt(it.iron)}</td>
+                  <td>{fmt(it.dry)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <div className="price-cards">
+            {items.map((it, i) => (
+              <div className="row" key={i}>
+                <div className="row-head"><span className="item-icon">{it.icon}</span><span>{it.name}</span></div>
+                <div className="row-grid">
+                  <div className="price-cell"><span className="lbl">ซัก-พับ</span><span className="val">{fmt(it.wash)}</span></div>
+                  <div className="price-cell"><span className="lbl">ซัก-รีด</span><span className="val">{fmt(it.washIron)}</span></div>
+                  <div className="price-cell"><span className="lbl">รีดอย่างเดียว</span><span className="val">{fmt(it.iron)}</span></div>
+                  <div className="price-cell"><span className="lbl">ซักแห้ง</span><span className="val">{fmt(it.dry)}</span></div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="notice-list">
+          <div className="notice-head">
+            <span className="badge-icon"><I.alert/></span>
+            สิ่งที่ลูกค้าควรทราบก่อนใช้บริการ
+          </div>
+          <ul>
+            {noticeItems.map((n, i) => <li key={i}>{n}</li>)}
+          </ul>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/* ===== Delivery / How it works ===== */
+function Delivery() {
+  const steps = [
+    { n: '01', title: 'ทักไลน์ จองคิว', desc: 'แอดไลน์ @saijai-laundry แจ้งวัน-เวลาที่สะดวก' },
+    { n: '02', title: 'รับผ้าถึงบ้าน', desc: 'พนักงานเข้ารับผ้าตามนัด ชั่งและออกใบรับสินค้า' },
+    { n: '03', title: 'ซัก-อบ-รีด', desc: 'ดำเนินการตามบริการที่เลือก พร้อมถ่ายรูปอัปเดต' },
+    { n: '04', title: 'ส่งคืนถึงมือ', desc: 'พับเรียบร้อย ส่งคืนภายใน 24 ชม. ตรวจรับก่อนชำระ' },
+  ];
+  return (
+    <section className="sect sect-alt" id="delivery">
+      <div className="wrap">
+        <div className="sect-head center">
+          <span className="sect-eyebrow">รับ-ส่งถึงบ้าน</span>
+          <h2 className="sect-title">ง่าย ๆ แค่ 4 ขั้นตอน</h2>
+          <p className="sect-sub" style={{margin: '0 auto'}}>
+            ไม่ต้องออกจากบ้าน ไม่ต้องยกของหนัก เราจัดการให้ตั้งแต่ต้นจนจบ
+          </p>
+        </div>
+        <div className="delivery-grid">
+          <div className="steps">
+            {steps.map((s, i) => (
+              <div className="step" key={i}>
+                <div className="step-num">{s.n}</div>
+                <div>
+                  <h4>{s.title}</h4>
+                  <p>{s.desc}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="delivery-card">
+            <div className="top">
+              <div className="delivery-icon"><I.truck/></div>
+              <h3>แพ็กเกจรับ-ส่งถึงบ้าน</h3>
+            </div>
+            <div className="price-row">
+              <div className="num">฿300</div>
+              <div className="unit">/ เดือน · 8 ครั้ง</div>
+            </div>
+            <p className="intro">รับและส่งคืนผ้าถึงบ้านสัปดาห์ละ 2 ครั้ง รวม 8 ครั้งต่อเดือน เลือกได้สำหรับลูกค้าที่ต้องการความสะดวก ไม่ต้องเดินทาง</p>
+
+            <div className="schedule-pills">
+              <span className="schedule-pill"><I.calendar/> ทุกวันพุธ</span>
+              <span className="schedule-pill"><I.calendar/> ทุกวันเสาร์</span>
+              <span className="schedule-pill">2 ครั้ง/สัปดาห์</span>
+            </div>
+
+            <div className="delivery-info">
+              <div className="item">
+                <div className="lbl">เวลารับผ้า</div>
+                <div className="val">14:00 – 19:30<small>วันรับของสัปดาห์</small></div>
+              </div>
+              <div className="item">
+                <div className="lbl">รวม</div>
+                <div className="val">8 ครั้ง<small>ต่อเดือน</small></div>
+              </div>
+              <div className="item">
+                <div className="lbl">รอบส่งคืน</div>
+                <div className="val">24 – 48 ชม.<small>หลังรับผ้า</small></div>
+              </div>
+              <div className="item">
+                <div className="lbl">ราคา</div>
+                <div className="val">฿300<small>ต่อเดือน</small></div>
+              </div>
+            </div>
+
+            <a href="#contact" className="btn btn-line" style={{width: '100%', justifyContent: 'center'}}>
+              <I.line/> นัดรับผ้าทาง LINE
+            </a>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/* ===== FAQ ===== */
+function FAQ() {
+  const [open, setOpen] = useState(0);
+  const items = [
+    {
+      q: 'ระยะเวลาในการซักรีดนานแค่ไหน?',
+      a: 'บริการปกติใช้เวลา 24 ชั่วโมง สำหรับลูกค้าแพ็กเกจ MEDIUM และ LARGE สามารถใช้บริการด่วนได้ คืนภายใน 12 ชั่วโมง ผ้าพิเศษ เช่น ซักแห้ง สูท หรือผ้าไหม อาจใช้เวลา 2-3 วัน',
+    },
+    {
+      q: 'แพ็กเกจรับ-ส่งทำงานอย่างไร?',
+      a: 'ค่าบริการ 300 บาท/เดือน ครอบคลุม 8 ครั้ง รับและส่งคืนผ้าทุกวันพุธและวันเสาร์ สัปดาห์ละ 2 ครั้ง โดยช่วงเวลา 14:00 – 19:30 น. แจ้งล่วงหน้าผ่านไลน์ก่อนวันรับ',
+    },
+    {
+      q: 'หากผ้าสีตกหรือเสียหาย ทางร้านรับผิดชอบอย่างไร?',
+      a: 'กรุณาแจ้งให้ทางร้านทราบก่อนหากผ้ามีโอกาสสีตก ในกรณีที่ผ้าเสียหายจากความผิดพลาดของทางร้าน เราชดใช้ไม่เกิน 10 เท่าของค่าบริการในรายการนั้น โดยพิจารณาจากใบรับสินค้าและสภาพผ้าก่อนรับ',
+    },
+    {
+      q: 'แพ็กเกจรายเดือนสามารถยกยอดไปเดือนถัดไปได้ไหม?',
+      a: 'ไม่ได้ค่ะ โควต้าแพ็กเกจจะนับใหม่ทุกเดือนตามรอบบิล ยอดคงเหลือไม่สามารถยกไปใช้ในเดือนถัดไป แนะนำให้วางแผนการใช้ให้เต็มจำนวนเพื่อความคุ้มค่า',
+    },
+    {
+      q: 'รับชำระเงินช่องทางไหนบ้าง?',
+      a: 'รับเงินสด, โอนผ่านบัญชีธนาคาร, PromptPay, และ TrueMoney Wallet สำหรับแพ็กเกจรายเดือนสามารถชำระล่วงหน้าหรือเก็บปลายทางในรอบแรกได้',
+    },
+    {
+      q: 'ร้านเปิดวันไหนบ้าง?',
+      a: 'เปิดบริการวันจันทร์ถึงวันเสาร์ เวลา 14:00 – 19:30 น. หยุดทุกวันอาทิตย์ค่ะ',
+    },
+  ];
+  return (
+    <section className="sect" id="faq">
+      <div className="wrap">
+        <div className="faq-grid">
+          <div>
+            <span className="sect-eyebrow">คำถามที่พบบ่อย</span>
+            <h2 className="sect-title">มีคำถาม?<br/>เรามีคำตอบ</h2>
+            <p className="sect-sub" style={{marginBottom: 18}}>
+              หากยังไม่เจอคำตอบที่ต้องการ สามารถทักไลน์เพื่อสอบถามเพิ่มเติมได้ตลอดเวลา
+            </p>
+            <a href="#contact" className="btn btn-soft">ถามเพิ่มเติม <I.arrow/></a>
+          </div>
+          <div className="faq-list">
+            {items.map((it, i) => (
+              <div className={`faq-item ${open === i ? 'open' : ''}`} key={i}>
+                <button className="faq-q" onClick={() => setOpen(open === i ? -1 : i)}>
+                  <span>{it.q}</span>
+                  <span className="chev"><I.chev/></span>
+                </button>
+                <div className="faq-a" style={{maxHeight: open === i ? 320 : 0}}>
+                  <div className="faq-a-inner">{it.a}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/* ===== Contact ===== */
+function QRPlaceholder() {
+  const seed = [
+    1,1,1,1,1,1,1,0,1,0,1,1,1,0,1,1,1,1,1,1,1,
+    1,0,0,0,0,0,1,0,0,1,0,0,1,0,1,0,0,0,0,0,1,
+    1,0,1,1,1,0,1,1,1,0,1,1,0,0,1,0,1,1,1,0,1,
+    1,0,1,1,1,0,1,0,0,1,0,1,1,0,1,0,1,1,1,0,1,
+    1,0,1,1,1,0,1,1,0,0,1,1,0,0,1,0,1,1,1,0,1,
+    1,0,0,0,0,0,1,0,1,1,0,0,1,0,1,0,0,0,0,0,1,
+    1,1,1,1,1,1,1,0,1,0,1,0,1,0,1,1,1,1,1,1,1,
+    0,0,0,0,0,0,0,0,1,1,1,1,0,0,0,0,0,0,0,0,0,
+    1,0,1,1,0,1,1,1,0,0,1,0,1,1,1,0,1,1,0,1,0,
+    0,1,1,0,1,0,0,1,1,1,0,1,0,0,1,1,0,0,1,0,1,
+    1,1,0,1,1,1,1,0,1,0,1,1,1,1,0,1,1,1,0,1,1,
+    0,0,1,1,0,1,0,1,1,1,0,0,0,1,1,0,1,0,1,1,0,
+    1,1,1,0,1,0,1,0,1,0,1,1,1,0,0,1,0,1,0,0,1,
+    0,0,0,0,0,0,0,0,0,1,1,0,1,1,1,1,0,1,1,1,0,
+    1,1,1,1,1,1,1,0,1,1,0,1,0,1,1,0,1,0,1,0,1,
+    1,0,0,0,0,0,1,0,1,0,1,0,1,1,0,1,1,1,0,1,1,
+    1,0,1,1,1,0,1,0,0,0,1,1,1,0,1,0,1,0,1,0,1,
+    1,0,1,1,1,0,1,0,1,1,0,0,0,1,1,1,0,1,1,1,1,
+    1,0,1,1,1,0,1,0,1,0,1,1,1,0,0,0,1,0,1,0,0,
+    1,0,0,0,0,0,1,0,0,1,0,1,0,1,1,1,0,1,0,1,1,
+    1,1,1,1,1,1,1,0,1,1,1,0,1,0,1,0,1,0,1,1,1,
+  ];
+  const N = 21;
+  return (
+    <svg viewBox={`0 0 ${N} ${N}`} xmlns="http://www.w3.org/2000/svg">
+      <rect width={N} height={N} fill="white"/>
+      {seed.map((v, i) => v ? <rect key={i} x={i % N} y={Math.floor(i / N)} width="1" height="1" fill="#0f172a"/> : null)}
+    </svg>
+  );
+}
+
+function Contact() {
+  return (
+    <section className="sect" id="contact">
+      <div className="wrap">
+        <div className="sect-head center">
+          <span className="sect-eyebrow">ช่องทางติดต่อ</span>
+          <h2 className="sect-title">พร้อมให้บริการ ทักได้เลย</h2>
+          <p className="sect-sub" style={{margin: '0 auto'}}>
+            เลือกช่องทางที่สะดวก เราตอบกลับภายใน 10 นาทีในเวลาเปิดทำการ
+          </p>
+        </div>
+        <div className="contact-grid">
+          <div className="contact-main">
+            <h2>ใส่ใจ ผ้าเรียบ — Laundry Service</h2>
+            <p className="intro">รับ-ส่งถึงบ้านในย่านบางนา-อ่อนนุช ประเวศ และพื้นที่ใกล้เคียง สอบถามได้ทุกช่องทาง</p>
+            <div className="contact-channels">
+              <a className="ch" href="#">
+                <div className="ch-icon line"><I.line/></div>
+                <div className="ch-info">
+                  <div className="lbl">LINE Official</div>
+                  <div className="val">@saijai-laundry</div>
+                </div>
+                <I.arrow className="chev-r"/>
+              </a>
+              <a className="ch" href="tel:0812345678">
+                <div className="ch-icon"><I.phone/></div>
+                <div className="ch-info">
+                  <div className="lbl">โทรศัพท์</div>
+                  <div className="val">081-234-5678</div>
+                </div>
+                <I.arrow className="chev-r"/>
+              </a>
+              <a className="ch" href="#">
+                <div className="ch-icon"><I.mail/></div>
+                <div className="ch-info">
+                  <div className="lbl">อีเมล</div>
+                  <div className="val">hello@saijai-laundry.co.th</div>
+                </div>
+                <I.arrow className="chev-r"/>
+              </a>
+            </div>
+          </div>
+          <div style={{display: 'grid', gap: 12}}>
+            <div className="qr-card">
+              <span className="badge badge-success" style={{fontSize: 11}}>LINE OA</span>
+              <h3>สแกนเพื่อแอด LINE</h3>
+              <p>รับโปรโมชันและจองคิวล่วงหน้า</p>
+              <div className="qr-placeholder"><QRPlaceholder/></div>
+            </div>
+            <div className="hours-card">
+              <div className="hours-head">
+                <h4>เวลาเปิดทำการ</h4>
+                <span className="badge badge-success"><span className="open-dot"/> เปิดอยู่</span>
+              </div>
+              <div className="hours-list">
+                <div className="row"><span className="day">จันทร์ – ศุกร์</span><span className="time">14:00 – 19:30</span></div>
+                <div className="row"><span className="day">เสาร์</span><span className="time">14:00 – 19:30</span></div>
+                <div className="row closed"><span className="day">อาทิตย์</span><span className="time">หยุด</span></div>
+              </div>
+            </div>
+            <div className="map-card">
+              <div className="map-img"><div className="map-pin"/></div>
+              <div className="map-meta">
+                <div className="lbl">ที่ตั้งร้าน</div>
+                <div className="addr">123/45 ซอยอ่อนนุช 17<br/>แขวงสวนหลวง เขตสวนหลวง<br/>กรุงเทพมหานคร 10250</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/* ===== Footer ===== */
+function Foot() {
+  return (
+    <footer className="foot">
+      <div className="wrap foot-inner">
+        <a className="brand" href="#top">
+          <img src="assets/saijai-logo.png" alt=""/>
+          <div className="brand-text">
+            <span className="brand-name">ใส่ใจ ผ้าเรียบ</span>
+            <span className="brand-sub">Laundry Service</span>
+          </div>
+        </a>
+        <div>© 2026 ใส่ใจ ผ้าเรียบ — All rights reserved.</div>
+      </div>
+    </footer>
+  );
+}
+
+/* ===== Tweak panel ===== */
+function TweakPanel({ visible, onClose, theme, setTheme }) {
+  return (
+    <div className={`tweak-panel ${visible ? 'visible' : ''}`}>
+      <h5>
+        <span>Tweaks</span>
+        <button className="close" onClick={onClose}>×</button>
+      </h5>
+      <div className="tweak-row">
+        <span style={{fontSize: 12.5, color: 'var(--text-muted)'}}>Theme</span>
+        <div className="seg">
+          <button className={theme === 'light' ? 'active' : ''} onClick={() => setTheme('light')}><I.sun/> Light</button>
+          <button className={theme === 'dark' ? 'active' : ''} onClick={() => setTheme('dark')}><I.moon/> Dark</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ===== App ===== */
+function App() {
+  const defaults = JSON.parse(document.getElementById('tweak-defaults').textContent.replace(/\/\*EDITMODE-(BEGIN|END)\*\//g, ''));
+  const [theme, setTheme] = useState(defaults.theme || 'light');
+  const [tweaksVisible, setTweaksVisible] = useState(false);
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+    window.parent.postMessage({type: '__edit_mode_set_keys', edits: { theme }}, '*');
+  }, [theme]);
+
+  useEffect(() => {
+    const onMsg = (e) => {
+      if (!e.data) return;
+      if (e.data.type === '__activate_edit_mode') setTweaksVisible(true);
+      else if (e.data.type === '__deactivate_edit_mode') setTweaksVisible(false);
+    };
+    window.addEventListener('message', onMsg);
+    window.parent.postMessage({type: '__edit_mode_available'}, '*');
+    return () => window.removeEventListener('message', onMsg);
+  }, []);
+
+  const closeTweaks = () => {
+    setTweaksVisible(false);
+    window.parent.postMessage({type: '__edit_mode_dismissed'}, '*');
+  };
+
+  return (
+    <>
+      <Nav/>
+      <Hero/>
+      <LineFeatures/>
+      <Services/>
+      <Packages/>
+      <Walkin/>
+      <Delivery/>
+      <FAQ/>
+      <Contact/>
+      <Foot/>
+      <TweakPanel visible={tweaksVisible} onClose={closeTweaks} theme={theme} setTheme={setTheme}/>
+    </>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('app')).render(<App/>);
+</script>
+
+</body>
+</html>

@@ -1,58 +1,114 @@
 <template>
-  <section class="py-24 bg-gray-50 dark:bg-gray-950">
+  <section id="delivery" class="py-16 md:py-24 bg-gray-50 dark:bg-gray-900/50 border-y border-gray-200 dark:border-gray-800">
     <UContainer>
-      <div class="text-center max-w-3xl mx-auto mb-16 space-y-4">
-        <h2 class="text-3xl md:text-5xl font-bold text-[#1a365d] dark:text-white">
-          4 ขั้นตอนง่ายๆ เพื่อผ้าที่เรียบเนี้ยบ
+      <div class="mb-12 max-w-2xl mx-auto text-center">
+        <span class="inline-block text-primary-600 dark:text-primary-400 font-semibold text-[13px] tracking-wide mb-2">รับ-ส่งถึงบ้าน</span>
+        <h2 class="text-[26px] md:text-[38px] font-bold text-gray-900 dark:text-white leading-[1.15] tracking-tight mb-3">
+          ง่าย ๆ แค่ 4 ขั้นตอน
         </h2>
-        <p class="text-gray-500 dark:text-gray-400 text-lg">
-          เปลี่ยนเรื่องซักรีดที่ยุ่งยาก ให้เป็นเรื่องง่ายเพียงไม่กี่ขั้นตอน
+        <p class="text-gray-500 dark:text-gray-400 text-base leading-relaxed max-w-lg mx-auto">
+          ไม่ต้องออกจากบ้าน ไม่ต้องยกของหนัก เราจัดการให้ตั้งแต่ต้นจนจบ
         </p>
       </div>
 
-      <div class="relative grid grid-cols-1 md:grid-cols-4 gap-12 md:gap-8">
-        <!-- Connecting Line (Desktop) -->
-        <div class="hidden md:block absolute top-12 left-[10%] right-[10%] h-[2px] bg-gradient-to-r from-primary-200 via-primary-500 to-primary-200 z-0 opacity-30" />
-
-        <!-- Step 1 -->
-        <div class="relative z-10 flex flex-col items-center text-center group">
-          <div class="w-20 h-20 rounded-full bg-white dark:bg-gray-900 shadow-xl border-4 border-white dark:border-gray-800 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300">
-            <span class="absolute -top-2 -right-2 w-8 h-8 rounded-full bg-primary-600 text-white font-bold flex items-center justify-center text-sm shadow-lg">1</span>
-            <UIcon name="i-lucide-message-square" class="w-8 h-8 text-primary-600" />
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 items-start">
+        <!-- 4 Steps -->
+        <div class="space-y-3">
+          <div class="flex gap-4 bg-white dark:bg-gray-900 p-4 md:p-5 rounded-2xl border border-gray-200 dark:border-gray-800">
+            <div class="flex-shrink-0 w-10 h-10 rounded-xl bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white flex items-center justify-center font-semibold text-sm font-mono">01</div>
+            <div>
+              <h4 class="text-[15px] font-semibold text-gray-900 dark:text-white mb-1">ทักไลน์ จองคิว</h4>
+              <p class="text-[13.5px] text-gray-500 dark:text-gray-400 leading-relaxed">แอดไลน์ @saijai-laundry แจ้งวัน-เวลาที่สะดวก</p>
+            </div>
           </div>
-          <h4 class="text-lg font-bold text-[#1a365d] dark:text-white mb-2">สั่งงานผ่าน LINE</h4>
-          <p class="text-sm text-gray-500 dark:text-gray-400 px-4">เลือกแพ็กเกจหรือบริการที่ต้องการผ่านหน้าเว็บหรือ LINE OA</p>
+          <div class="flex gap-4 bg-white dark:bg-gray-900 p-4 md:p-5 rounded-2xl border border-gray-200 dark:border-gray-800">
+            <div class="flex-shrink-0 w-10 h-10 rounded-xl bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white flex items-center justify-center font-semibold text-sm font-mono">02</div>
+            <div>
+              <h4 class="text-[15px] font-semibold text-gray-900 dark:text-white mb-1">รับผ้าถึงบ้าน</h4>
+              <p class="text-[13.5px] text-gray-500 dark:text-gray-400 leading-relaxed">พนักงานเข้ารับผ้าตามนัด ชั่งและออกใบรับสินค้า</p>
+            </div>
+          </div>
+          <div class="flex gap-4 bg-white dark:bg-gray-900 p-4 md:p-5 rounded-2xl border border-gray-200 dark:border-gray-800">
+            <div class="flex-shrink-0 w-10 h-10 rounded-xl bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white flex items-center justify-center font-semibold text-sm font-mono">03</div>
+            <div>
+              <h4 class="text-[15px] font-semibold text-gray-900 dark:text-white mb-1">ซัก-อบ-รีด</h4>
+              <p class="text-[13.5px] text-gray-500 dark:text-gray-400 leading-relaxed">ดำเนินการตามบริการที่เลือก พร้อมถ่ายรูปอัปเดต</p>
+            </div>
+          </div>
+          <div class="flex gap-4 bg-white dark:bg-gray-900 p-4 md:p-5 rounded-2xl border border-gray-200 dark:border-gray-800">
+            <div class="flex-shrink-0 w-10 h-10 rounded-xl bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white flex items-center justify-center font-semibold text-sm font-mono">04</div>
+            <div>
+              <h4 class="text-[15px] font-semibold text-gray-900 dark:text-white mb-1">ส่งคืนถึงมือ</h4>
+              <p class="text-[13.5px] text-gray-500 dark:text-gray-400 leading-relaxed">พับเรียบร้อย ส่งคืนภายใน 24 ชม. ตรวจรับก่อนชำระ</p>
+            </div>
+          </div>
         </div>
 
-        <!-- Step 2 -->
-        <div class="relative z-10 flex flex-col items-center text-center group">
-          <div class="w-20 h-20 rounded-full bg-white dark:bg-gray-900 shadow-xl border-4 border-white dark:border-gray-800 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300">
-            <span class="absolute -top-2 -right-2 w-8 h-8 rounded-full bg-primary-600 text-white font-bold flex items-center justify-center text-sm shadow-lg">2</span>
-            <UIcon name="i-lucide-truck" class="w-8 h-8 text-primary-600" />
+        <!-- Delivery Package Card -->
+        <UCard class="bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-800 rounded-3xl p-2 md:p-4">
+          <div class="flex items-center gap-3 mb-4">
+            <div class="w-10 h-10 rounded-xl bg-primary-50 dark:bg-primary-900/30 text-primary-600 dark:text-primary-400 flex items-center justify-center">
+              <UIcon name="i-lucide-truck" class="w-5 h-5" />
+            </div>
+            <h3 class="text-lg font-semibold text-gray-900 dark:text-white leading-tight">แพ็กเกจรับ-ส่งถึงบ้าน</h3>
           </div>
-          <h4 class="text-lg font-bold text-[#1a365d] dark:text-white mb-2">พนักงานเข้ารับผ้า</h4>
-          <p class="text-sm text-gray-500 dark:text-gray-400 px-4">เราจะนัดเวลาเข้ารับผ้าถึงที่หน้าบ้านคุณตามเวลาที่สะดวก</p>
-        </div>
+          
+          <div class="flex items-baseline gap-1.5 mb-3">
+            <span class="text-[32px] font-bold text-gray-900 dark:text-white tracking-tight">฿300</span>
+            <span class="text-[13px] text-gray-500 dark:text-gray-400">/ เดือน · 8 ครั้ง</span>
+          </div>
+          
+          <p class="text-sm text-gray-500 dark:text-gray-400 leading-relaxed mb-5">
+            รับและส่งคืนผ้าถึงบ้านสัปดาห์ละ 2 ครั้ง รวม 8 ครั้งต่อเดือน เลือกได้สำหรับลูกค้าที่ต้องการความสะดวก ไม่ต้องเดินทาง
+          </p>
 
-        <!-- Step 3 -->
-        <div class="relative z-10 flex flex-col items-center text-center group">
-          <div class="w-20 h-20 rounded-full bg-white dark:bg-gray-900 shadow-xl border-4 border-white dark:border-gray-800 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300">
-            <span class="absolute -top-2 -right-2 w-8 h-8 rounded-full bg-primary-600 text-white font-bold flex items-center justify-center text-sm shadow-lg">3</span>
-            <UIcon name="i-lucide-wind" class="w-8 h-8 text-primary-600" />
+          <div class="flex flex-wrap gap-2 mb-5">
+            <UBadge color="primary" variant="subtle" class="rounded-full px-2.5 py-1 text-xs font-medium">
+              <UIcon name="i-lucide-calendar" class="w-3.5 h-3.5 mr-1" />
+              ทุกวันพุธ
+            </UBadge>
+            <UBadge color="primary" variant="subtle" class="rounded-full px-2.5 py-1 text-xs font-medium">
+              <UIcon name="i-lucide-calendar" class="w-3.5 h-3.5 mr-1" />
+              ทุกวันเสาร์
+            </UBadge>
+            <UBadge color="primary" variant="subtle" class="rounded-full px-2.5 py-1 text-xs font-medium">
+              2 ครั้ง/สัปดาห์
+            </UBadge>
           </div>
-          <h4 class="text-lg font-bold text-[#1a365d] dark:text-white mb-2">ดำเนินการซักรีด</h4>
-          <p class="text-sm text-gray-500 dark:text-gray-400 px-4">ผ้าทุกชิ้นจะถูกดูแลด้วยความประณีตและสะอาดสูงสุด</p>
-        </div>
 
-        <!-- Step 4 -->
-        <div class="relative z-10 flex flex-col items-center text-center group">
-          <div class="w-20 h-20 rounded-full bg-white dark:bg-gray-900 shadow-xl border-4 border-white dark:border-gray-800 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300">
-            <span class="absolute -top-2 -right-2 w-8 h-8 rounded-full bg-primary-600 text-white font-bold flex items-center justify-center text-sm shadow-lg">4</span>
-            <UIcon name="i-lucide-package-check" class="w-8 h-8 text-primary-600" />
+          <div class="grid grid-cols-2 gap-3 p-3.5 bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-800 rounded-2xl mb-5">
+            <div>
+              <div class="text-[11px] text-gray-500 dark:text-gray-400 tracking-wider uppercase mb-1">เวลารับผ้า</div>
+              <div class="text-sm font-semibold text-gray-900 dark:text-white leading-tight">14:00 – 19:30</div>
+              <div class="text-[12px] text-gray-500 dark:text-gray-400 mt-0.5">วันรับของสัปดาห์</div>
+            </div>
+            <div>
+              <div class="text-[11px] text-gray-500 dark:text-gray-400 tracking-wider uppercase mb-1">รวม</div>
+              <div class="text-sm font-semibold text-gray-900 dark:text-white leading-tight">8 ครั้ง</div>
+              <div class="text-[12px] text-gray-500 dark:text-gray-400 mt-0.5">ต่อเดือน</div>
+            </div>
+            <div>
+              <div class="text-[11px] text-gray-500 dark:text-gray-400 tracking-wider uppercase mb-1">รอบส่งคืน</div>
+              <div class="text-sm font-semibold text-gray-900 dark:text-white leading-tight">24 – 48 ชม.</div>
+              <div class="text-[12px] text-gray-500 dark:text-gray-400 mt-0.5">หลังรับผ้า</div>
+            </div>
+            <div>
+              <div class="text-[11px] text-gray-500 dark:text-gray-400 tracking-wider uppercase mb-1">ราคา</div>
+              <div class="text-sm font-semibold text-gray-900 dark:text-white leading-tight">฿300</div>
+              <div class="text-[12px] text-gray-500 dark:text-gray-400 mt-0.5">ต่อเดือน</div>
+            </div>
           </div>
-          <h4 class="text-lg font-bold text-[#1a365d] dark:text-white mb-2">ส่งมอบผ้าเรียบกริบ</h4>
-          <p class="text-sm text-gray-500 dark:text-gray-400 px-4">ส่งคืนผ้าถึงมือคุณพร้อมใช้งานทันที ในสภาพที่เนี้ยบที่สุด</p>
-        </div>
+
+          <UButton
+            block
+            size="lg"
+            class="bg-[#06C755] hover:bg-[#05B04C] text-white font-semibold rounded-xl flex items-center justify-center gap-2"
+            to="#contact"
+          >
+            <UIcon name="i-ph-chat-circle-fill" class="w-5 h-5" />
+            นัดรับผ้าทาง LINE
+          </UButton>
+        </UCard>
       </div>
     </UContainer>
   </section>
