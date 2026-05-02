@@ -12,7 +12,7 @@
       </div>
 
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 items-start">
-        <!-- 4 Steps -->
+        <!--  4 Steps  -->
         <div class="space-y-3">
           <div class="flex gap-4 bg-white dark:bg-gray-900 p-4 md:p-5 rounded-2xl border border-gray-200 dark:border-gray-800">
             <div class="flex-shrink-0 w-10 h-10 rounded-xl bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white flex items-center justify-center font-semibold text-sm font-mono">01</div>
