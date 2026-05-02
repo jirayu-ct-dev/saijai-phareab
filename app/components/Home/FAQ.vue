@@ -20,7 +20,7 @@ const items = [
 </script>
 
 <template>
-  <section id="faq" class="py-16 md:py-24 bg-gray-50 dark:bg-gray-900/50">
+  <section id="faq" class="py-16 md:py-24">
     <UContainer>
       <div class="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-16 items-start">
         

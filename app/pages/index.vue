@@ -41,7 +41,7 @@ useSeoMeta({
 </script>
 
 <template>
-  <div class="bg-white dark:bg-[#0a0a0a] min-h-screen">
+  <div class="min-h-screen">
     <!-- LIFF Loading State -->
     <div v-if="showLiffLoading" class="min-h-screen flex items-center justify-center px-6">
       <div class="text-center">

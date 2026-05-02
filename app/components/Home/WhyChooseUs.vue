@@ -1,5 +1,5 @@
 <template>
-  <section id="services" class="py-16 md:py-24 bg-white dark:bg-[#0a0a0a] relative">
+  <section id="services" class="py-16 md:py-24 relative">
     <UContainer>
       <div class="mb-12 max-w-2xl">
         <span class="inline-block text-primary-600 dark:text-primary-400 font-semibold text-[13px] tracking-wide mb-2">บริการของเรา</span>

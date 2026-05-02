@@ -1,5 +1,5 @@
 <template>
-  <section id="walkin" class="py-16 md:py-24 bg-white dark:bg-[#0a0a0a]">
+  <section id="walkin" class="py-16 md:py-24">
     <UContainer>
       <div class="mb-12 max-w-2xl mx-auto text-center">
         <span class="inline-block text-primary-600 dark:text-primary-400 font-semibold text-[13px] tracking-wide mb-2">ราคาหน้าร้าน</span>

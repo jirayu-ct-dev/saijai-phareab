@@ -172,15 +172,15 @@ const itemsDropdown = computed<DropdownMenuItem[][]>(() => [
                     <div>
                         <h3 class="font-semibold text-sm mb-4">ติดตามเรา</h3>
                         <div class="flex gap-2">
-                            <UButton color="neutral" variant="ghost" size="sm" to="#" aria-label="Facebook"
+                            <UButton color="neutral" variant="ghost" size="sm" to="https://www.facebook.com/saijaiburiram/?rdid=amPWW1eNJg7Yb6OB" aria-label="Facebook"
                                 class="text-[#4267B2]">
                                 <UIcon name="i-simple-icons-facebook" class="size-5" />
                             </UButton>
-                            <UButton color="neutral" variant="ghost" size="sm" to="#" aria-label="Instagram"
+                            <!-- <UButton color="neutral" variant="ghost" size="sm" to="#" aria-label="Instagram"
                                 class="text-[#E1306C]">
                                 <UIcon name="i-simple-icons-instagram" class="size-5" />
-                            </UButton>
-                            <UButton color="neutral" variant="ghost" size="sm" to="#" aria-label="LINE"
+                            </UButton> -->
+                            <UButton color="neutral" variant="ghost" size="sm" to="https://line.me/R/ti/p/@883vmdct" aria-label="LINE"
                                 class="text-[#06C755]">
                                 <UIcon name="i-simple-icons-line" class="size-5" />
                             </UButton>
@@ -208,12 +208,8 @@ const itemsDropdown = computed<DropdownMenuItem[][]>(() => [
                         <h3 class="font-semibold text-sm mb-4">ข้อมูลติดต่อ</h3>
                         <ul class="space-y-4 text-sm">
                             <li class="flex items-start gap-3">
-                                <UIcon name="i-lucide-map-pin" class="size-5 shrink-0 text-muted" />
-                                <span>123 หมู่ 4 ตำบลบ้านใหม่ อำเภอเมือง จังหวัดเชียงใหม่ 50000</span>
-                            </li>
-                            <li class="flex items-start gap-3">
                                 <UIcon name="i-lucide-phone" class="size-4 shrink-0 mt-0.5 text-muted" />
-                                <span>081-234-XXXX</span>
+                                <span>086-022-2196</span>
                             </li>
                             <li class="flex items-start gap-3">
                                 <UIcon name="i-lucide-mail" class="size-4 shrink-0 mt-0.5 text-muted" />

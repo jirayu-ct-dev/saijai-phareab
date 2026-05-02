@@ -1,5 +1,5 @@
 <template>
-  <section id="delivery" class="py-16 md:py-24 bg-gray-50 dark:bg-gray-900/50 border-y border-gray-200 dark:border-gray-800">
+  <section id="delivery" class="py-16 md:py-24 border-y border-gray-200 dark:border-gray-800">
     <UContainer>
       <div class="mb-12 max-w-2xl mx-auto text-center">
         <span class="inline-block text-primary-600 dark:text-primary-400 font-semibold text-[13px] tracking-wide mb-2">รับ-ส่งถึงบ้าน</span>

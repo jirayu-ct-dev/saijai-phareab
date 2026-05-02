@@ -1,5 +1,5 @@
 <template>
-  <section id="contact" class="py-16 md:py-24 bg-white dark:bg-[#0a0a0a]">
+  <section id="contact" class="py-16 md:py-24">
     <UContainer>
       <div class="bg-[#1a365d] dark:bg-gray-900 rounded-[2rem] md:rounded-[3rem] overflow-hidden relative shadow-xl">
         <!-- Background Ornaments -->
@@ -46,10 +46,10 @@
                 <p class="text-primary-300 text-[11px] mb-1.5 uppercase tracking-wider font-semibold">เวลาทำการ</p>
                 <p class="font-medium text-white text-sm md:text-base">14:00 – 19:30 <span class="block text-blue-200/60 text-xs mt-0.5">หยุดวันอาทิตย์</span></p>
               </div>
-              <div>
+              <!-- <div>
                 <p class="text-primary-300 text-[11px] mb-1.5 uppercase tracking-wider font-semibold">สถานที่</p>
                 <p class="font-medium text-white text-sm md:text-base">หมู่บ้านพฤกษา <span class="block text-blue-200/60 text-xs mt-0.5">สมุทรปราการ</span></p>
-              </div>
+              </div> -->
             </div>
           </div>
 

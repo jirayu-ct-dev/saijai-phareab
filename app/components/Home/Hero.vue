@@ -1,9 +1,41 @@
 <script setup lang="ts">
 const { session } = useUser();
+
+const isOpen = ref(false);
+let timer: ReturnType<typeof setInterval>;
+
+const checkStoreStatus = () => {
+  const now = new Date();
+  const day = now.getDay();
+  const hours = now.getHours();
+  const minutes = now.getMinutes();
+  
+  // วันอาทิตย์ (0) ปิดร้าน
+  if (day === 0) {
+    isOpen.value = false;
+    return;
+  }
+  
+  // แปลงเวลาปัจจุบันเป็นนาทีเพื่อเปรียบเทียบง่ายขึ้น
+  const currentMinutes = hours * 60 + minutes;
+  const openTime = 14 * 60; // 14:00
+  const closeTime = 19 * 60 + 30; // 19:30
+  
+  isOpen.value = currentMinutes >= openTime && currentMinutes <= closeTime;
+};
+
+onMounted(() => {
+  checkStoreStatus();
+  timer = setInterval(checkStoreStatus, 60000); // อัปเดตทุกนาที
+});
+
+onUnmounted(() => {
+  if (timer) clearInterval(timer);
+});
 </script>
 
 <template>
-  <section class="relative pt-24 pb-16 md:pt-32 md:pb-24 overflow-hidden bg-white dark:bg-gray-950">
+  <section class="relative pt-24 pb-16 md:pt-32 md:pb-24 overflow-hidden">
     <!-- Grid Background -->
     <div class="absolute inset-0 pointer-events-none" style="background-image: linear-gradient(to right, rgba(0,0,0,0.05) 1px, transparent 1px), linear-gradient(to bottom, rgba(0,0,0,0.05) 1px, transparent 1px); background-size: 56px 56px; mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, black 30%, transparent 80%); -webkit-mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, black 30%, transparent 80%);"></div>
     <div class="absolute inset-0 pointer-events-none hidden dark:block" style="background-image: linear-gradient(to right, rgba(255,255,255,0.05) 1px, transparent 1px), linear-gradient(to bottom, rgba(255,255,255,0.05) 1px, transparent 1px); background-size: 56px 56px; mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, black 30%, transparent 80%); -webkit-mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, black 30%, transparent 80%);"></div>
@@ -13,9 +45,9 @@ const { session } = useUser();
         <!-- Left Content -->
         <div>
           <div class="flex flex-wrap gap-2 mb-6">
-            <UBadge color="emerald" variant="subtle" class="rounded-full flex items-center gap-1.5 px-3 py-1 text-xs">
-              <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-              เปิดอยู่ · 14:00 – 19:30
+            <UBadge :color="isOpen ? 'emerald' : 'red'" variant="subtle" class="rounded-full flex items-center gap-1.5 px-3 py-1 text-xs">
+              <span class="w-1.5 h-1.5 rounded-full animate-pulse" :class="isOpen ? 'bg-emerald-500' : 'bg-red-500'"></span>
+              {{ isOpen ? 'เปิดอยู่' : 'ปิดอยู่' }} · 14:00 – 19:30
             </UBadge>
           </div>
           
