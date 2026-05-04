@@ -8,12 +8,6 @@ definePageMeta({
 });
 
 import type { TableColumn } from "@nuxt/ui";
-
-definePageMeta({
-  layout: "user",
-  middleware: ["role-user"],
-});
-
 const { orders, meta, page, pageSize, status, pending } = useMyOrders();
 
 const statusOptions = [

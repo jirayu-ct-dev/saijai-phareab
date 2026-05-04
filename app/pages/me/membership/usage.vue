@@ -8,11 +8,6 @@ definePageMeta({
 
 import type { TableColumn } from "@nuxt/ui";
 
-definePageMeta({
-  layout: "user",
-  middleware: ["role-user", "role-member"],
-});
-
 const route = useRoute();
 const entitlementId = computed(() => (route.query.id as string) || "");
 
