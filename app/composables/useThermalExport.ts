@@ -17,10 +17,6 @@ export function useThermalExport(
     void navigateTo(fallbackPath);
   };
 
-  const handlePrint = () => {
-    if (import.meta.client) window.print();
-  };
-
   const downloadPng = async () => {
     if (!import.meta.client || !elementRef.value) return;
 
@@ -59,5 +55,5 @@ export function useThermalExport(
     link.click();
   };
 
-  return { goBack, handlePrint, downloadPng };
+  return { goBack, downloadPng };
 }

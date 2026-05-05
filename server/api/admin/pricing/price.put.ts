@@ -5,6 +5,8 @@ const schema = z.object({
   storefrontItemId: z.string(),
   storefrontServiceId: z.string(),
   price: z.number().min(0),
+  priceMin: z.number().min(0).nullable().optional(),
+  priceMax: z.number().min(0).nullable().optional(),
 })
 
 export default defineEventHandler(async (event) => {
@@ -20,10 +22,16 @@ export default defineEventHandler(async (event) => {
             }
         })
 
+        const priceData = {
+            price: body.price,
+            priceMin: body.priceMin ?? null,
+            priceMax: body.priceMax ?? null,
+        }
+
         if (existingPrice) {
             const updated = await prisma.storefrontPrice.update({
                 where: { id: existingPrice.id },
-                data: { price: body.price }
+                data: priceData,
             })
             return updated
         } else {
@@ -31,7 +39,7 @@ export default defineEventHandler(async (event) => {
                 data: {
                     storefrontItemId: body.storefrontItemId,
                     storefrontServiceId: body.storefrontServiceId,
-                    price: body.price
+                    ...priceData,
                 }
             })
             return created

@@ -12,6 +12,7 @@ import { formatCurrency } from "~~/shared/utils/format";
 type FormItemState = {
   key: string;
   storefrontPriceId: string;
+  unitPrice?: number;
   quantity: number;
   notes: string;
   photos: Photo[];
@@ -177,13 +178,14 @@ const cartItems = computed(() =>
     .map((item) => {
       const catalog = catalogMap.value.get(item.storefrontPriceId);
       if (!catalog) return null;
+      const unitPrice = item.unitPrice ?? catalog.price;
       return {
         key: item.key,
         storefrontPriceId: item.storefrontPriceId,
         label: catalog.label,
         quantity: item.quantity,
-        unitPrice: catalog.price,
-        totalPrice: catalog.price * item.quantity,
+        unitPrice,
+        totalPrice: unitPrice * item.quantity,
         notes: item.notes,
         photos: item.photos,
       };
@@ -310,9 +312,11 @@ const normalizedItems = computed(() =>
   cartItems.value.map((item) => {
     const readyPhotos = item.photos.filter((p) => uploadedPhotoIds.value.has(p.key));
     const firstPhoto = readyPhotos[0];
+    const formItem = form.items.find((i) => i.key === item.key);
     return {
       storefrontPriceId: item.storefrontPriceId,
       quantity: item.quantity,
+      unitPrice: formItem?.unitPrice ?? null,
       imageId: firstPhoto ? (uploadedPhotoIds.value.get(firstPhoto.key) ?? null) : null,
       notes: item.notes.trim() || null,
       photos: readyPhotos.map((photo, index) => ({
@@ -324,7 +328,46 @@ const normalizedItems = computed(() =>
   }),
 );
 
+// Price-input modal for range-price items
+const priceInputModal = ref(false);
+const priceInputCatalogId = ref("");
+const priceInputValue = ref<number | null>(null);
+const priceInputMin = ref<number | null>(null);
+const priceInputMax = ref<number | null>(null);
+
+const openPriceInput = (storefrontPriceId: string) => {
+  const catalog = catalogMap.value.get(storefrontPriceId);
+  if (!catalog) return;
+  priceInputCatalogId.value = storefrontPriceId;
+  priceInputMin.value = catalog.priceMin;
+  priceInputMax.value = catalog.priceMax;
+  priceInputValue.value = catalog.priceMin ?? catalog.price;
+  priceInputModal.value = true;
+};
+
+const confirmPriceInput = () => {
+  const price = Number(priceInputValue.value);
+  if (!Number.isFinite(price) || price < 0) return;
+  const storefrontPriceId = priceInputCatalogId.value;
+  // Find existing row with same priceId and same unitPrice
+  const existingRow = form.items.find(
+    (i) => i.storefrontPriceId === storefrontPriceId && (i.unitPrice ?? catalogMap.value.get(storefrontPriceId)?.price) === price
+  );
+  if (existingRow) {
+    existingRow.quantity += 1;
+  } else {
+    form.items.push({ key: createItemKey(), storefrontPriceId, unitPrice: price, quantity: 1, notes: "", photos: [] });
+  }
+  priceInputModal.value = false;
+};
+
+const isRangeItem = (storefrontPriceId: string) => {
+  const c = catalogMap.value.get(storefrontPriceId);
+  return c?.priceMin != null && c?.priceMax != null && c.priceMin !== c.priceMax;
+};
+
 const incrementCatalogItem = (storefrontPriceId: string) => {
+  if (isRangeItem(storefrontPriceId)) { openPriceInput(storefrontPriceId); return; }
   const existing = selectedItemMap.value.get(storefrontPriceId);
   if (existing) { existing.quantity += 1; return; }
   form.items.push({
@@ -367,6 +410,14 @@ const setCatalogItemQuantity = (storefrontPriceId: string, qty: number) => {
     form.items.push({ key: createItemKey(), storefrontPriceId, quantity: value, notes: "", photos: [] });
   }
 };
+
+const getCatalogQuantity = (storefrontPriceId: string) =>
+  form.items
+    .filter((item) => item.storefrontPriceId === storefrontPriceId)
+    .reduce((sum, item) => sum + item.quantity, 0);
+
+const getCatalogDescription = (item: { categoryName?: string | null; serviceName: string }) =>
+  item.categoryName ? `${item.categoryName} | ${item.serviceName}` : item.serviceName;
 
 // Responsive cart slideover
 const mounted = ref(false);
@@ -554,71 +605,129 @@ const handleSubmit = async () => {
 </script>
 
 <template>
-  <div class="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1.7fr)_420px]">
-    <div class="space-y-6">
-      <section class="rounded-2xl border border-default bg-default p-5">
-        <div class="flex flex-col gap-4">
-          <div class="flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <p class="text-lg font-semibold text-highlighted">รับงานหน้าร้าน</p>
-              <p class="text-sm text-muted">นับผ้าตามชิ้น กำหนดวันนัดรับ คิดค่าไม้แขวน และใส่ส่วนลดได้ในหน้าเดียว</p>
+  <div class="grid min-w-0 grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1fr)_420px]">
+    <div class="min-w-0 space-y-4">
+      <section class="overflow-hidden rounded-xl border border-default bg-default">
+        <div class="border-b border-default p-4">
+          <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div class="min-w-0">
+              <p class="text-base font-semibold text-highlighted">เลือกบริการ</p>
+              <p class="mt-0.5 text-sm text-muted">ค้นหาแล้วแตะบริการ ผ้าที่เลือกจะไปอยู่ในตะกร้าด้านขวา</p>
             </div>
-            <UButton
-              label="เพิ่มรายการซักใหม่"
-              icon="i-lucide-plus"
-              color="primary"
-              variant="outline"
-              size="sm"
-              @click="openNewItemModal"
-            />
-          </div>
 
-          <div class="rounded-xl border border-default bg-elevated/30 p-3">
-            <div class="flex items-center justify-between gap-3 flex-wrap">
-              <div>
-                <p class="text-sm font-medium text-highlighted">โหมดซัก-พับ ชั่งกิโล</p>
-                <p class="text-xs text-muted">
-                  คิดราคา {{ formatCurrency(washFoldPricePerKg) }} / กก.<span v-if="washFoldMinKg > 0"> · ขั้นต่ำ {{ washFoldMinKg }} กก.</span> · ไม่นับไม้แขวน · ใช้แพ็กเกจไม่ได้
-                </p>
+            <div class="flex flex-col gap-2 sm:flex-row sm:items-center">
+              <div class="flex items-center justify-between gap-3 rounded-lg border border-default px-3 py-2 sm:w-72">
+                <div class="min-w-0">
+                  <p class="text-sm font-medium text-highlighted">ซัก-พับ ชั่งกิโล</p>
+                  <p class="truncate text-xs text-muted">
+                    {{ formatCurrency(washFoldPricePerKg) }} / กก.<span v-if="washFoldMinKg > 0"> · ขั้นต่ำ {{ washFoldMinKg }} กก.</span>
+                  </p>
+                </div>
+                <USwitch v-model="form.washFoldMode" color="warning" />
               </div>
-              <USwitch v-model="form.washFoldMode" color="warning" />
-            </div>
-            <div v-if="form.washFoldMode" class="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3">
-              <UFormField label="น้ำหนัก (กก.)" required>
-                <UInputNumber v-model="form.washFoldWeightKg" :min="0" :step="0.5" class="w-full" />
-              </UFormField>
-              <UFormField label="หมายเหตุ">
-                <UInput v-model="form.washFoldNotes" placeholder="เช่น แยกซัก สีอ่อน-เข้ม" class="w-full" />
-              </UFormField>
             </div>
           </div>
 
-          <div class="flex flex-wrap gap-2">
-            <UInput v-model="searchQuery" icon="i-lucide-search" placeholder="ค้นหาบริการหรือชนิดผ้า" class="flex-1 min-w-48" />
-            <USelect v-model="categoryFilter" :items="categoryOptions" value-key="value" class="min-w-40" />
-            <USelect v-model="serviceFilter" :items="serviceOptions" value-key="value" class="min-w-40" />
+          <div v-if="form.washFoldMode" class="mt-3 grid grid-cols-1 gap-3 border-t border-default pt-3 md:grid-cols-2">
+            <UFormField label="น้ำหนัก (กก.)" required>
+              <UInputNumber v-model="form.washFoldWeightKg" :min="0" :step="0.5" class="w-full" />
+            </UFormField>
+            <UFormField label="หมายเหตุ">
+              <UInput v-model="form.washFoldNotes" placeholder="เช่น แยกซัก สีอ่อน-เข้ม" class="w-full" />
+            </UFormField>
           </div>
         </div>
 
-        <div class="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-3 2xl:grid-cols-4">
-          <PosCatalogCard
-            v-for="item in filteredCatalog"
-            :key="item.id"
-            :title="item.label"
-            :description="item.categoryName ? `${item.categoryName} | ${item.serviceName}` : item.serviceName"
-            badge-label="ราคาหน้าร้าน"
-            badge-color="primary"
-            :price-label="formatCurrency(item.price)"
-            :quantity="selectedItemMap.get(item.id)?.quantity ?? 0"
-            :selected="selectedItemMap.has(item.id)"
-            @increment="incrementCatalogItem(item.id)"
-            @decrement="decrementCatalogItem(item.id)"
-            @change="setCatalogItemQuantity(item.id, $event)"
-          />
-
-          <div v-if="filteredCatalog.length === 0" class="col-span-full rounded-2xl border border-dashed border-default p-10 text-center text-muted">
-            ไม่พบบริการที่ตรงกับตัวกรอง
+        <div class="sticky top-0 z-10 border-b border-default bg-default/95 p-3 backdrop-blur">
+          <div class="grid grid-cols-2 gap-2 md:grid-cols-[minmax(0,1fr)_180px_180px]">
+            <UInput v-model="searchQuery" icon="i-lucide-search" placeholder="ค้นหาบริการหรือชนิดผ้า" class="col-span-2 w-full md:col-span-1" />
+            <USelect v-model="categoryFilter" :items="categoryOptions" value-key="value" class="w-full" />
+            <USelect v-model="serviceFilter" :items="serviceOptions" value-key="value" class="w-full" />
           </div>
+        </div>
+
+        <div v-if="filteredCatalog.length">
+          <div class="divide-y divide-default md:hidden">
+            <div
+              v-for="item in filteredCatalog"
+              :key="item.id"
+              role="button"
+              tabindex="0"
+              class="px-4 py-3 transition hover:bg-elevated/40"
+              :class="getCatalogQuantity(item.id) > 0 ? 'bg-primary/5' : ''"
+              @click="incrementCatalogItem(item.id)"
+              @keydown.enter.prevent="incrementCatalogItem(item.id)"
+              @keydown.space.prevent="incrementCatalogItem(item.id)"
+            >
+              <div class="flex min-w-0 items-start justify-between gap-3">
+                <div class="min-w-0">
+                  <div class="flex min-w-0 flex-wrap items-center gap-2">
+                    <p class="min-w-0 break-words text-sm font-medium text-highlighted">{{ item.label }}</p>
+                    <UBadge v-if="isRangeItem(item.id)" color="warning" variant="subtle" size="xs">กำหนดราคา</UBadge>
+                    <UBadge v-else-if="getCatalogQuantity(item.id) > 0" color="primary" variant="subtle" size="xs">
+                      {{ getCatalogQuantity(item.id) }} ชิ้น
+                    </UBadge>
+                  </div>
+                  <p class="mt-0.5 break-words text-xs text-muted">{{ getCatalogDescription(item) }}</p>
+                </div>
+
+                <p class="shrink-0 text-sm font-semibold text-highlighted">
+                  {{ item.priceMin != null && item.priceMax != null && item.priceMin !== item.priceMax
+                    ? `฿${item.priceMin.toLocaleString()}–${item.priceMax.toLocaleString()}`
+                    : formatCurrency(item.price) }}
+                </p>
+              </div>
+
+              <div class="mt-3 flex items-center justify-between gap-3">
+                <span class="text-xs text-muted">
+                  {{ getCatalogQuantity(item.id) > 0 ? "เลือกแล้ว" : "แตะเพื่อเพิ่ม" }}
+                </span>
+                <div class="flex items-center gap-1" @click.stop>
+                  <UButton
+                    v-if="getCatalogQuantity(item.id) > 0 && !isRangeItem(item.id)"
+                    icon="i-lucide-minus"
+                    color="neutral"
+                    variant="outline"
+                    size="xs"
+                    aria-label="ลดจำนวน"
+                    @click="decrementCatalogItem(item.id)"
+                  />
+                  <UButton
+                    icon="i-lucide-plus"
+                    color="neutral"
+                    variant="outline"
+                    size="xs"
+                    aria-label="เพิ่มรายการ"
+                    @click="incrementCatalogItem(item.id)"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="hidden grid-cols-2 gap-3 p-4 md:grid lg:grid-cols-3 xl:grid-cols-3 2xl:grid-cols-4">
+            <PosCatalogCard
+              v-for="item in filteredCatalog"
+              :key="item.id"
+              :title="item.label"
+              :description="getCatalogDescription(item)"
+              badge-label="ราคาหน้าร้าน"
+              badge-color="primary"
+              :price-label="item.priceMin != null && item.priceMax != null && item.priceMin !== item.priceMax
+                ? `฿${item.priceMin.toLocaleString()}–${item.priceMax.toLocaleString()}`
+                : formatCurrency(item.price)"
+              :is-range="isRangeItem(item.id)"
+              :quantity="getCatalogQuantity(item.id)"
+              :selected="getCatalogQuantity(item.id) > 0"
+              @increment="incrementCatalogItem(item.id)"
+              @decrement="decrementCatalogItem(item.id)"
+              @change="setCatalogItemQuantity(item.id, $event)"
+            />
+          </div>
+        </div>
+
+        <div v-else class="p-10 text-center text-sm text-muted">
+          ไม่พบบริการที่ตรงกับตัวกรอง
         </div>
       </section>
     </div>
@@ -667,30 +776,28 @@ const handleSubmit = async () => {
         @reset="resetForm"
       >
         <template #cart>
-          <div v-if="form.washFoldMode" class="rounded-2xl border border-warning/30 bg-warning/5 p-4 mb-3">
-            <div class="flex items-center justify-between gap-3">
-              <p class="font-medium text-highlighted">ซัก-พับ ชั่งกิโล</p>
-              <span class="text-sm text-muted">{{ formatCurrency(washFoldPricePerKg) }} / กก.</span>
-            </div>
-            <div class="mt-2 space-y-1 text-sm">
-              <div class="flex justify-between font-medium"><span>รวม</span><span>{{ formatCurrency(washFoldSubtotal) }}</span></div>
-            </div>
-          </div>
-
-          <div class="rounded-2xl border border-default bg-default p-4">
-            <div class="flex items-center justify-between gap-3">
-              <p class="font-medium text-highlighted">รายการที่เลือก</p>
-              <span class="text-sm text-muted">{{ totalQuantity }} ชิ้น</span>
+          <div class="space-y-3 border-t border-default pt-4">
+            <div v-if="form.washFoldMode" class="border-l-2 border-warning pl-3">
+              <div class="flex items-center justify-between gap-3">
+                <p class="text-sm font-medium text-highlighted">ซัก-พับ ชั่งกิโล</p>
+                <span class="text-sm text-muted">{{ formatCurrency(washFoldPricePerKg) }} / กก.</span>
+              </div>
+              <div class="mt-1 flex justify-between text-sm font-medium">
+                <span>รวม</span>
+                <span>{{ formatCurrency(washFoldSubtotal) }}</span>
+              </div>
             </div>
 
-            <div v-if="cartItems.length" class="mt-3 space-y-1">
-              <div
-                v-if="canUseMemberPackage"
-                class="mb-2 rounded-xl border border-success/40 bg-success/10 p-3"
-              >
+            <div class="flex items-center justify-between gap-3">
+              <p class="text-sm font-medium text-highlighted">รายการที่เลือก</p>
+              <span class="text-xs text-muted">{{ totalQuantity }} ชิ้น</span>
+            </div>
+
+            <div v-if="cartItems.length" class="space-y-2">
+              <div v-if="canUseMemberPackage" class="border-l-2 border-success pl-3">
                 <div class="flex items-start justify-between gap-3">
-                  <div>
-                    <p class="text-sm font-medium text-success">{{ activeMemberEntitlement?.productName }}</p>
+                  <div class="min-w-0">
+                    <p class="truncate text-sm font-medium text-success">{{ activeMemberEntitlement?.productName }}</p>
                     <p class="text-xs text-muted">
                       เครดิตคงเหลือ {{ activeMemberEntitlement?.creditRemaining ?? 0 }} | ใช้ {{ creditUsedPreview }} เครดิต
                       <span v-if="form.memberEntitlementId && cashQuantity > 0">| คิดเพิ่ม {{ cashQuantity }} ชิ้น ({{ formatCurrency(cashSubtotal) }})</span>
@@ -705,67 +812,69 @@ const handleSubmit = async () => {
                 </div>
               </div>
 
-              <div v-for="item in cartItems" :key="item.key">
-                <div class="flex cursor-pointer items-center gap-1.5 rounded-lg px-1.5 py-1 hover:bg-elevated/30" @click="toggleItemExpand(item.key)">
-                  <div class="flex min-w-0 flex-1 flex-col">
-                    <div class="flex items-center">
-                      <p class="min-w-0 flex-1 truncate text-sm text-highlighted">{{ item.label }}</p>
-                      <div class="flex justify-end items-center">
-                        <span class="w-20 shrink-0 text-right text-xs font-medium text-muted">
+              <div class="divide-y divide-default">
+                <div v-for="item in cartItems" :key="item.key" class="py-2 first:pt-0 last:pb-0">
+                  <div class="flex cursor-pointer items-start gap-2 rounded-md py-1 hover:bg-elevated/30" @click="toggleItemExpand(item.key)">
+                    <div class="min-w-0 flex-1">
+                      <div class="flex min-w-0 items-start gap-2">
+                        <p class="min-w-0 flex-1 truncate text-sm text-highlighted">{{ item.label }}</p>
+                        <span class="shrink-0 text-right text-xs font-medium text-muted">
                           {{ form.washFoldMode ? "ชั่งกิโล" : (form.memberEntitlementId ? `${item.quantity} เครดิต` : formatCurrency(item.totalPrice)) }}
                         </span>
-                        <UButton
-                          :icon="expandedItems.has(item.key) ? 'i-lucide-chevron-up' : 'i-lucide-chevron-down'"
-                          color="neutral"
-                          variant="ghost"
+                      </div>
+                      <div class="mt-1 flex items-center gap-1" @click.stop>
+                        <UInputNumber
+                          :model-value="item.quantity"
+                          :min="0"
+                          :step="1"
                           size="xs"
-                          @click.stop="toggleItemExpand(item.key)"
+                          class="w-20"
+                          @update:model-value="setItemQuantity(item.key, $event)"
                         />
-                        <UButton icon="i-lucide-x" color="error" variant="ghost" size="xs" @click.stop="removeItem(item.key)" />
                       </div>
                     </div>
-                    <div class="flex shrink-0 items-center gap-0.5" @click.stop>
-                      <UInputNumber
-                        :model-value="item.quantity"
-                        :min="0"
-                        :step="1"
+
+                    <div class="flex shrink-0 items-center">
+                      <UButton
+                        :icon="expandedItems.has(item.key) ? 'i-lucide-chevron-up' : 'i-lucide-chevron-down'"
+                        color="neutral"
+                        variant="ghost"
                         size="xs"
-                        class="w-20"
-                        @update:model-value="setItemQuantity(item.key, $event)"
+                        @click.stop="toggleItemExpand(item.key)"
                       />
+                      <UButton icon="i-lucide-x" color="error" variant="ghost" size="xs" @click.stop="removeItem(item.key)" />
                     </div>
                   </div>
-                </div>
 
-                <div v-if="expandedItems.has(item.key)" class="mb-1 ml-1.5 space-y-2 border-l-2 border-default pl-3 pt-1">
-                  <p class="text-sm font-medium text-highlighted">{{ item.label }}</p>
-                  <UTextarea
-                    :model-value="item.notes"
-                    :rows="2"
-                    class="w-full"
-                    placeholder="บันทึกตำหนิหรือรายละเอียดผ้าชิ้นนี้"
-                    @update:model-value="updateItemNotes(item.key, String($event || ''))"
-                  />
-                  <UIPhotoUpload
-                    label="รูปผ้าชำรุด"
-                    description="แนบรูปเฉพาะผ้าที่มีตำหนิหรือชำรุด"
-                    :photos="item.photos"
-                    :disabled="isSubmitting"
-                    capture="environment"
-                    @update:photos="updateItemPhotos(item.key, $event)"
-                  />
+                  <div v-if="expandedItems.has(item.key)" class="mt-2 space-y-2 border-l-2 border-default pl-3">
+                    <UTextarea
+                      :model-value="item.notes"
+                      :rows="2"
+                      class="w-full"
+                      placeholder="บันทึกตำหนิหรือรายละเอียดผ้าชิ้นนี้"
+                      @update:model-value="updateItemNotes(item.key, String($event || ''))"
+                    />
+                    <UIPhotoUpload
+                      label="รูปผ้าชำรุด"
+                      description="แนบรูปเฉพาะผ้าที่มีตำหนิหรือชำรุด"
+                      :photos="item.photos"
+                      :disabled="isSubmitting"
+                      capture="environment"
+                      @update:photos="updateItemPhotos(item.key, $event)"
+                    />
+                  </div>
                 </div>
               </div>
             </div>
 
-            <div v-else class="mt-4 rounded-xl border border-dashed border-default p-6 text-center text-sm text-muted">
+            <div v-else class="border-y border-dashed border-default py-8 text-center text-sm text-muted">
               ยังไม่ได้เลือกบริการ
             </div>
           </div>
         </template>
 
         <template #summary>
-          <div class="rounded-xl border border-default bg-default p-3 text-sm space-y-3">
+          <div class="space-y-3 border-t border-default pt-4 text-sm">
             <div class="flex items-center justify-between gap-3">
               <span class="text-muted">รวมค่าบริการ</span>
               <span class="font-medium text-highlighted">{{ formatCurrency(subtotalAmount) }}</span>
@@ -881,6 +990,37 @@ const handleSubmit = async () => {
   </UButton>
 
   <!-- New Catalog Item Modal -->
+  <!-- Price-range input modal -->
+  <UModal v-model:open="priceInputModal" title="กรอกราคา" :ui="{ content: 'max-w-sm' }">
+    <template #body>
+      <div class="space-y-3">
+        <p class="text-sm text-muted">
+          ช่วงราคา:
+          <span class="font-medium text-highlighted">
+            ฿{{ priceInputMin?.toLocaleString() }}–{{ priceInputMax?.toLocaleString() }}
+          </span>
+        </p>
+        <UFormField label="ราคา (บาท)" required>
+          <UInput
+            v-model.number="priceInputValue"
+            type="number"
+            :min="priceInputMin ?? 0"
+            :max="priceInputMax ?? undefined"
+            class="w-full"
+            autofocus
+            @keydown.enter.prevent="confirmPriceInput"
+          />
+        </UFormField>
+      </div>
+    </template>
+    <template #footer>
+      <div class="flex w-full justify-end gap-2">
+        <UButton color="neutral" variant="ghost" @click="priceInputModal = false">ยกเลิก</UButton>
+        <UButton icon="i-lucide-plus" @click="confirmPriceInput">เพิ่มในตะกร้า</UButton>
+      </div>
+    </template>
+  </UModal>
+
   <UModal v-model:open="newItemModalOpen" title="เพิ่มรายการซักใหม่" description="สร้างรายการผ้าใหม่พร้อมราคาต่อบริการ">
     <template #body>
       <div class="space-y-4">

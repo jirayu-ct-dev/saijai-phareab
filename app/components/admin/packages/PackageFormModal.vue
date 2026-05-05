@@ -17,6 +17,7 @@ interface FormState {
   name: string;
   description: string;
   packageType: "MAIN" | "ADDON";
+  deductOn: "CREATED" | "COMPLETED";
   price: number | null;
   credits: number | null;
   validityDays: number | null;
@@ -27,11 +28,17 @@ const defaultState = (): FormState => ({
   name: "",
   description: "",
   packageType: "MAIN",
+  deductOn: "CREATED",
   price: null,
   credits: null,
   validityDays: null,
   isActive: true,
 });
+
+const deductOnOptions = [
+  { label: "ตอนรับผ้า (ทันที)", value: "CREATED" },
+  { label: "ตอนจัดส่งสำเร็จ", value: "COMPLETED" },
+];
 
 const state = reactive<FormState>(defaultState());
 const errors = ref<{ name?: string; price?: string }>({});
@@ -58,6 +65,7 @@ watch(
       state.name = pkg.name;
       state.description = pkg.description ?? "";
       state.packageType = pkg.packageType as "MAIN" | "ADDON";
+      state.deductOn = pkg.deductOn as "CREATED" | "COMPLETED";
       state.price = Number(pkg.price);
       state.credits = pkg.credits ?? null;
       state.validityDays = pkg.validityDays ?? null;
@@ -90,6 +98,7 @@ const handleSubmit = async () => {
     name: state.name.trim(),
     description: state.description.trim() || null,
     packageType: state.packageType,
+    deductOn: state.packageType === "ADDON" ? state.deductOn : "CREATED",
     price: state.price ?? 0,
     credits: state.credits,
     validityDays: state.validityDays,
@@ -149,6 +158,20 @@ const handleClose = () => emit("update:open", false);
             </div>
           </UFormField>
         </div>
+
+        <UFormField v-if="state.packageType === 'ADDON'" label="หักเครดิตเมื่อ">
+          <USelect
+            v-model="state.deductOn"
+            :items="deductOnOptions"
+            value-key="value"
+            class="w-full"
+          />
+          <template #hint>
+            <span class="text-xs text-muted">
+              {{ state.deductOn === 'CREATED' ? 'เครดิตถูกหักทันทีที่รับผ้า' : 'เครดิตถูกหักเมื่อจัดส่งสำเร็จ' }}
+            </span>
+          </template>
+        </UFormField>
 
         <div class="grid grid-cols-2 gap-4">
           <UFormField label="ราคา (บาท)" required :error="errors.price">

@@ -319,20 +319,48 @@ const savePaymentChanges = async () => {
         </template>
         <template #right>
           <div class="flex flex-wrap items-center gap-2">
-            <UButton label="กลับ" color="neutral" variant="outline" icon="i-lucide-arrow-left" @click="goBack" />
-            <UButton v-if="payment" label="ใบเสร็จ" color="neutral" variant="outline" icon="i-lucide-receipt" @click="navigateTo(`/admin/payment/${payment.id}/receipt`)" />
-            <UButton icon="i-lucide-refresh-cw" color="neutral" variant="outline" :loading="isLoading" @click="refresh()" />
+            <UButton 
+              label="กลับ" 
+              color="neutral" 
+              variant="outline" 
+              icon="i-lucide-arrow-left" 
+              class="shrink-0"
+              aria-label="กลับ"
+              :ui="{ label: 'hidden sm:inline' }"
+              @click="goBack" 
+            />
+            <UButton 
+              v-if="payment" 
+              label="ใบเสร็จ" 
+              color="neutral" 
+              variant="outline" 
+              icon="i-lucide-receipt" 
+              class="shrink-0"
+              aria-label="ใบเสร็จ"
+              :ui="{ label: 'hidden sm:inline' }"
+              @click="navigateTo(`/admin/payment/${payment.id}/receipt`)" 
+            />
+            <UButton 
+              icon="i-lucide-refresh-cw" 
+              color="neutral" 
+              variant="outline" 
+              :loading="isLoading" 
+              class="shrink-0"
+              aria-label="รีเฟรช"
+              :ui="{ label: 'hidden sm:inline' }"
+              @click="refresh()" 
+            />
           </div>
         </template>
       </UDashboardNavbar>
     </template>
     <template #body>
-      <div v-if="isLoading" class="grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
-        <div class="space-y-5">
+      <div v-if="isLoading" class="grid min-w-0 gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
+        <div class="min-w-0 space-y-5">
           <USkeleton class="h-96 rounded-2xl" />
           <USkeleton class="h-128 rounded-2xl" />
         </div>
-        <div class="space-y-5">
+        <div class="min-w-0 space-y-5">
           <USkeleton class="h-168 rounded-2xl" />
         </div>
       </div>
@@ -342,19 +370,19 @@ const savePaymentChanges = async () => {
         <p class="mt-2 text-sm text-muted">รายการนี้อาจถูกลบหรือคุณไม่มีสิทธิ์เข้าถึง</p>
       </div>
 
-      <div v-else class="grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
-        <div class="space-y-5">
+      <div v-else class="grid min-w-0 gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
+        <div class="min-w-0 space-y-5">
           <UCard :ui="{ root: 'rounded-2xl border border-default shadow-none', body: 'p-5' }">
             <div class="flex flex-wrap items-start justify-between gap-3">
-              <div class="flex items-start gap-3">
+              <div class="flex min-w-0 items-start gap-3">
                 <UAvatar v-bind="getAvatarProps(payment.customer)" size="lg" />
                 <div class="min-w-0">
                   <div class="flex flex-wrap items-center gap-2">
                     <p class="truncate text-base font-semibold text-highlighted">{{ payment.customer.name || payment.customer.email || "-" }}</p>
                     <UBadge :color="saleTypeColor" variant="subtle">{{ saleTypeLabel }}</UBadge>
                   </div>
-                  <div class="mt-1 flex items-center gap-1">
-                    <p class="text-sm text-muted">{{ payment.paymentNo || "-" }}</p>
+                  <div class="mt-1 flex min-w-0 items-center gap-1">
+                    <p class="min-w-0 break-all text-sm text-muted">{{ payment.paymentNo || "-" }}</p>
                     <UButton
                       v-if="payment.paymentNo"
                       :icon="copiedPaymentNo ? 'i-lucide-check' : 'i-lucide-copy'"
@@ -372,9 +400,9 @@ const savePaymentChanges = async () => {
               <section>
                 <p class="text-sm font-medium text-highlighted">ข้อมูลลูกค้า</p>
                 <div class="mt-3 grid gap-x-6 gap-y-2 text-sm lg:grid-cols-2 lg:[&>*:nth-child(odd)]:pr-4 lg:[&>*:nth-child(even)]:border-l lg:[&>*:nth-child(even)]:border-dashed lg:[&>*:nth-child(even)]:border-default lg:[&>*:nth-child(even)]:pl-4">
-                  <div v-for="row in customerInfoRows" :key="row.label" class="flex items-start justify-between gap-3">
-                    <span class="text-muted">{{ row.label }}</span>
-                    <span class="max-w-[62%] text-right" :class="row.valueClass">{{ row.value }}</span>
+                  <div v-for="row in customerInfoRows" :key="row.label" class="flex min-w-0 items-start justify-between gap-3">
+                    <span class="shrink-0 text-muted">{{ row.label }}</span>
+                    <span class="min-w-0 max-w-[62%] wrap-break-word text-right text-highlighted" :class="row.valueClass">{{ row.value }}</span>
                   </div>
                 </div>
               </section>
@@ -389,18 +417,18 @@ const savePaymentChanges = async () => {
                   </UBadge>
                 </div>
                 <div class="mt-3 grid gap-x-6 gap-y-2 text-sm lg:grid-cols-2 lg:[&>*:nth-child(odd)]:pr-4 lg:[&>*:nth-child(even)]:border-l lg:[&>*:nth-child(even)]:border-dashed lg:[&>*:nth-child(even)]:border-default lg:[&>*:nth-child(even)]:pl-4">
-                  <div v-for="row in purchaseInfoRows" :key="row.label" class="flex items-start justify-between gap-3">
-                    <span class="text-muted">{{ row.label }}</span>
+                  <div v-for="row in purchaseInfoRows" :key="row.label" class="flex min-w-0 items-start justify-between gap-3">
+                    <span class="shrink-0 text-muted">{{ row.label }}</span>
                     <NuxtLink
                       v-if="row.href"
                       :to="row.href"
-                      class="flex max-w-[62%] items-center gap-1 text-right text-primary hover:underline"
+                      class="flex min-w-0 max-w-[62%] items-center justify-end gap-1 wrap-break-word text-right text-primary hover:underline"
                       :class="row.valueClass"
                     >
-                      <span>{{ row.value }}</span>
-                      <UIcon name="i-lucide-external-link" class="size-3.5" />
+                      <span class="min-w-0 break-all">{{ row.value }}</span>
+                      <UIcon name="i-lucide-external-link" class="size-3.5 shrink-0" />
                     </NuxtLink>
-                    <span v-else class="max-w-[62%] text-right" :class="row.valueClass">{{ row.value }}</span>
+                    <span v-else class="min-w-0 max-w-[62%] wrap-break-word text-right text-highlighted" :class="row.valueClass">{{ row.value }}</span>
                   </div>
                 </div>
               </section>
@@ -413,9 +441,9 @@ const savePaymentChanges = async () => {
                     <UBadge :color="entitlementStatusMap[payment.memberEntitlement.status].color" variant="subtle" size="sm">{{ entitlementStatusMap[payment.memberEntitlement.status].label }}</UBadge>
                   </div>
                   <div class="mt-3 grid gap-x-6 gap-y-2 text-sm lg:grid-cols-2 lg:[&>*:nth-child(odd)]:pr-4 lg:[&>*:nth-child(even)]:border-l lg:[&>*:nth-child(even)]:border-dashed lg:[&>*:nth-child(even)]:border-default lg:[&>*:nth-child(even)]:pl-4">
-                    <div v-for="row in entitlementRows" :key="row.label" class="flex items-start justify-between gap-3">
-                      <span class="text-muted">{{ row.label }}</span>
-                      <span class="max-w-[62%] text-right" :class="row.valueClass">{{ row.value }}</span>
+                    <div v-for="row in entitlementRows" :key="row.label" class="flex min-w-0 items-start justify-between gap-3">
+                      <span class="shrink-0 text-muted">{{ row.label }}</span>
+                      <span class="min-w-0 max-w-[62%] wrap-break-word text-right text-highlighted" :class="row.valueClass">{{ row.value }}</span>
                     </div>
                   </div>
                 </section>
@@ -429,7 +457,71 @@ const savePaymentChanges = async () => {
                 <p class="text-base font-semibold text-highlighted">{{ itemSectionTitle }} <span class="text-sm text-muted ml-2">{{ itemSectionDescription }}</span></p>
               </div>
             </div>
-            <div v-if="detailItems.length" class="overflow-x-auto">
+            <div v-if="detailItems.length" class="space-y-3 p-4 md:hidden">
+              <div
+                v-for="item in detailItems"
+                :key="item.id"
+                class="rounded-xl border border-default bg-default p-3"
+              >
+                <div class="flex min-w-0 gap-3">
+                  <div v-if="!isPackagePayment" class="shrink-0">
+                    <div class="flex max-w-18 flex-wrap gap-1">
+                      <button
+                        v-for="photo in item.photos"
+                        :key="photo.id"
+                        type="button"
+                        class="relative size-14 overflow-hidden rounded-lg border border-default bg-muted/30"
+                        @click="openItemImagePreview(photo.secureUrl || photo.url, item.title)"
+                      >
+                        <NuxtImg
+                          :src="photo.secureUrl || photo.url || ''"
+                          class="h-full w-full cursor-pointer object-cover"
+                          sizes="56px"
+                          loading="lazy"
+                        />
+                        <UBadge
+                          v-if="photo.isDamaged"
+                          color="error"
+                          variant="solid"
+                          size="xs"
+                          class="absolute left-0.5 top-0.5"
+                        >!</UBadge>
+                      </button>
+                      <div
+                        v-if="!item.photos?.length"
+                        class="flex size-14 items-center justify-center rounded-lg border border-dashed border-default text-xs text-muted"
+                      >-</div>
+                    </div>
+                  </div>
+
+                  <div class="min-w-0 flex-1">
+                    <div class="flex min-w-0 flex-wrap items-center gap-2">
+                      <p class="min-w-0 wrap-break-word font-medium text-highlighted">{{ item.title }}</p>
+                      <UBadge v-if="item.badgeLabel" :color="item.badgeColor || 'neutral'" variant="subtle" size="xs">{{ item.badgeLabel }}</UBadge>
+                    </div>
+                    <p v-if="item.metaLabel" class="wrap-break-word text-xs text-muted">{{ item.metaLabel }}</p>
+                    <p v-if="item.notes" class="mt-1 wrap-break-word text-xs text-muted whitespace-pre-line">{{ item.notes }}</p>
+                  </div>
+                </div>
+
+                <div class="mt-3 grid grid-cols-3 gap-2 border-t border-default pt-3 text-xs">
+                  <div>
+                    <p class="text-muted">ราคา/หน่วย</p>
+                    <p class="mt-1 wrap-break-word font-medium text-highlighted">{{ item.unitPriceLabel || "-" }}</p>
+                  </div>
+                  <div>
+                    <p class="text-muted">จำนวน</p>
+                    <p class="mt-1 wrap-break-word font-medium text-highlighted">{{ item.quantityLabel }}</p>
+                  </div>
+                  <div class="text-right">
+                    <p class="text-muted">รวม</p>
+                    <p class="mt-1 wrap-break-word font-semibold text-highlighted">{{ item.totalLabel }}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div v-if="detailItems.length" class="hidden overflow-x-auto md:block">
               <table class="w-full min-w-160 text-sm">
                 <thead class="bg-elevated/40 text-xs text-muted">
                   <tr>
@@ -473,11 +565,11 @@ const savePaymentChanges = async () => {
                     </td>
                     <td class="px-5 py-3">
                       <div class="flex flex-wrap items-center gap-2">
-                        <p class="font-medium text-highlighted">{{ item.title }}</p>
+                        <p class="wrap-break-word font-medium text-highlighted">{{ item.title }}</p>
                         <UBadge v-if="item.badgeLabel" :color="item.badgeColor || 'neutral'" variant="subtle" size="xs">{{ item.badgeLabel }}</UBadge>
                       </div>
-                      <p v-if="item.metaLabel" class="text-xs text-muted">{{ item.metaLabel }}</p>
-                      <p v-if="item.notes" class="mt-1 text-xs text-muted whitespace-pre-line">{{ item.notes }}</p>
+                      <p v-if="item.metaLabel" class="wrap-break-word text-xs text-muted">{{ item.metaLabel }}</p>
+                      <p v-if="item.notes" class="mt-1 wrap-break-word text-xs text-muted whitespace-pre-line">{{ item.notes }}</p>
                     </td>
                     <td class="px-5 py-3 text-right text-muted">{{ item.unitPriceLabel || "-" }}</td>
                     <td class="px-5 py-3 text-right text-muted">{{ item.quantityLabel }}</td>
@@ -490,7 +582,7 @@ const savePaymentChanges = async () => {
           </UCard>
         </div>
 
-        <div class="space-y-5 xl:sticky xl:top-4 xl:self-start">
+        <div class="min-w-0 space-y-5 xl:sticky xl:top-4 xl:self-start">
           <UCard :ui="{ root: 'rounded-2xl border border-default shadow-none', body: 'p-5' }">
             <div class="flex flex-wrap items-start justify-between gap-3">
               <div>
@@ -500,9 +592,9 @@ const savePaymentChanges = async () => {
               <UBadge :color="saleTypeColor" variant="subtle">{{ saleTypeLabel }}</UBadge>
             </div>
             <div class="mt-5 space-y-2 text-sm">
-              <div v-for="row in totalRows" :key="row.label" class="flex items-start justify-between gap-3" :class="row.dividerBefore ? 'border-t border-dashed border-default pt-3 mt-3' : ''">
-                <span class="text-muted">{{ row.label }}</span>
-                <span class="max-w-[52%] text-right" :class="row.valueClass || 'text-highlighted'">{{ row.value }}</span>
+              <div v-for="row in totalRows" :key="row.label" class="flex min-w-0 items-start justify-between gap-3" :class="row.dividerBefore ? 'border-t border-dashed border-default pt-3 mt-3' : ''">
+                <span class="shrink-0 text-muted">{{ row.label }}</span>
+                <span class="min-w-0 max-w-[52%] wrap-break-word text-right" :class="row.valueClass || 'text-highlighted'">{{ row.value }}</span>
               </div>
             </div>
           </UCard>
@@ -516,9 +608,9 @@ const savePaymentChanges = async () => {
             </div>
 
             <div class="mt-5 space-y-2 text-sm">
-              <div v-for="row in paymentInfoRows" :key="row.label" class="flex items-start justify-between gap-3">
-                <span class="text-muted">{{ row.label }}</span>
-                <span class="max-w-[58%] text-right" :class="row.valueClass">{{ row.value }}</span>
+              <div v-for="row in paymentInfoRows" :key="row.label" class="flex min-w-0 items-start justify-between gap-3">
+                <span class="shrink-0 text-muted">{{ row.label }}</span>
+                <span class="min-w-0 max-w-[58%] wrap-break-word text-right text-highlighted" :class="row.valueClass">{{ row.value }}</span>
               </div>
             </div>
 

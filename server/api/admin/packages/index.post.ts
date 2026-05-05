@@ -4,6 +4,7 @@ interface CreatePackageBody {
     name: string
     description?: string | null
     packageType: 'MAIN' | 'ADDON'
+    deductOn?: 'CREATED' | 'COMPLETED'
     price: number
     credits?: number | null
     validityDays?: number | null
@@ -30,6 +31,7 @@ export default defineEventHandler(async (event) => {
                 name: body.name.trim(),
                 description: body.description?.trim() ?? null,
                 packageType: body.packageType ?? 'MAIN',
+                deductOn: body.deductOn ?? 'CREATED',
                 price: body.price,
                 credits: body.credits ?? null,
                 validityDays: body.validityDays ?? null,

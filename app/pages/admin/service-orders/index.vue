@@ -36,6 +36,7 @@ type CustomerTypeFilter = "all" | "walk-in" | "member" | "monthly";
 type FormItemState = {
   key: string;
   storefrontPriceId: string;
+  unitPrice?: number;
   quantity: number;
   notes: string;
   photos: OrderItemPhoto[];
@@ -491,13 +492,14 @@ const formLineItems = computed(() =>
       const catalog = catalogMap.value.get(item.storefrontPriceId);
       if (!catalog) return null;
 
+      const unitPrice = item.unitPrice ?? catalog.price;
       return {
         key: item.key,
         storefrontPriceId: item.storefrontPriceId,
         label: catalog.label,
         quantity: item.quantity,
-        unitPrice: catalog.price,
-        totalPrice: catalog.price * item.quantity,
+        unitPrice,
+        totalPrice: unitPrice * item.quantity,
         notes: item.notes,
         photos: item.photos,
       };
@@ -629,7 +631,46 @@ watch(() => isFormOpen.value, (open) => {
   }
 });
 
+// Price-input modal for range items inside edit modal
+const editPriceInputOpen = ref(false);
+const editPriceInputPriceId = ref("");
+const editPriceInputValue = ref<number | null>(null);
+const editPriceInputMin = ref<number | null>(null);
+const editPriceInputMax = ref<number | null>(null);
+
+const isEditRangeItem = (storefrontPriceId: string) => {
+  const c = catalogMap.value.get(storefrontPriceId);
+  return c?.priceMin != null && c?.priceMax != null && c.priceMin !== c.priceMax;
+};
+
+const openEditPriceInput = (storefrontPriceId: string) => {
+  const c = catalogMap.value.get(storefrontPriceId);
+  if (!c) return;
+  editPriceInputPriceId.value = storefrontPriceId;
+  editPriceInputMin.value = c.priceMin;
+  editPriceInputMax.value = c.priceMax;
+  editPriceInputValue.value = c.priceMin ?? c.price;
+  editPriceInputOpen.value = true;
+};
+
+const confirmEditPriceInput = () => {
+  const price = Number(editPriceInputValue.value);
+  if (!Number.isFinite(price) || price < 0) return;
+  const priceId = editPriceInputPriceId.value;
+  const existingRow = formItems.value.find(
+    (i) => i.storefrontPriceId === priceId && (i.unitPrice ?? catalogMap.value.get(priceId)?.price) === price
+  );
+  if (existingRow) {
+    existingRow.quantity += 1;
+    formItems.value = [existingRow, ...formItems.value.filter((i) => i.key !== existingRow.key)];
+  } else {
+    formItems.value = [{ key: createItemKey(), storefrontPriceId: priceId, unitPrice: price, quantity: 1, notes: "", photos: [] }, ...formItems.value];
+  }
+  editPriceInputOpen.value = false;
+};
+
 const addCatalogItemToTop = (storefrontPriceId: string) => {
+  if (isEditRangeItem(storefrontPriceId)) { openEditPriceInput(storefrontPriceId); return; }
   const existing = formItems.value.find((item) => item.storefrontPriceId === storefrontPriceId);
   if (existing) {
     existing.quantity += 1;
@@ -672,6 +713,11 @@ const updateItemField = (key: string, field: "storefrontPriceId" | "quantity", v
 const updateItemNotes = (key: string, value: string) => {
   const target = formItems.value.find((item) => item.key === key);
   if (target) target.notes = value;
+};
+
+const updateItemUnitPrice = (key: string, price: number) => {
+  const target = formItems.value.find((item) => item.key === key);
+  if (target) target.unitPrice = price;
 };
 
 const updateItemPhotos = (key: string, photos: OrderItemPhoto[]) => {
@@ -751,9 +797,12 @@ const openEditModal = (order: AdminServiceOrder) => {
         isDamaged: false,
       });
     }
+    const catalogEntry = catalogMap.value.get(item.storefrontPriceId as string);
+    const catalogPrice = catalogEntry?.price ?? null;
     return {
       key: createItemKey(),
       storefrontPriceId: item.storefrontPriceId as string,
+      unitPrice: catalogPrice != null && item.unitPrice !== catalogPrice ? item.unitPrice : undefined,
       quantity: item.quantity,
       notes: item.notes || "",
       photos: existingPhotos,
@@ -905,6 +954,7 @@ const buildBody = async (): Promise<CreateAdminServiceOrderBody | null> => {
           return {
             storefrontPriceId: item.storefrontPriceId,
             quantity: Number(item.quantity ?? 1),
+            unitPrice: item.unitPrice ?? null,
             imageId: readyPhotos[0]?.uploadedImageId ?? null,
             notes: item.notes.trim() || null,
             photos: readyPhotos.map((photo, index) => ({
@@ -1139,12 +1189,18 @@ const columns: TableColumn<AdminServiceOrder>[] = [
               icon="i-lucide-scan-line"
               color="neutral"
               variant="outline"
+              class="shrink-0"
+              aria-label="สแกนสถานะผ้า"
+              :ui="{ label: 'hidden sm:inline' }"
               to="/admin/service-orders/scan"
             />
             <UButton
               label="เพิ่มรายการรับผ้า"
               icon="i-lucide-plus"
               color="primary"
+              class="shrink-0"
+              aria-label="เพิ่มรายการรับผ้า"
+              :ui="{ label: 'hidden sm:inline' }"
               to="/admin/sales"
             />
           </div>
@@ -1330,7 +1386,7 @@ const columns: TableColumn<AdminServiceOrder>[] = [
                   </div>
                 </div>
 
-                <template v-else>
+                <template v-if="form.isWalkIn">
                   <UFormField label="ชื่อลูกค้าหน้าร้าน" required>
                     <UInput v-model="form.walkInName" class="w-full" placeholder="เช่น คุณสมชาย" />
                   </UFormField>
@@ -1464,6 +1520,16 @@ const columns: TableColumn<AdminServiceOrder>[] = [
                           class="w-20"
                           @update:model-value="setItemQuantity(item.key, $event)"
                         />
+                        <template v-if="isEditRangeItem(item.storefrontPriceId)">
+                          <UInput
+                            :model-value="item.unitPrice ?? item.unitPrice"
+                            type="number"
+                            size="xs"
+                            class="w-20"
+                            :placeholder="`฿${catalogMap.get(item.storefrontPriceId)?.priceMin ?? ''}–${catalogMap.get(item.storefrontPriceId)?.priceMax ?? ''}`"
+                            @update:model-value="updateItemUnitPrice(item.key, Number($event))"
+                          />
+                        </template>
                       </div>
                     </div>
                   </div>
@@ -1824,5 +1890,36 @@ const columns: TableColumn<AdminServiceOrder>[] = [
         sub-message="หากยืนยันแล้ว รูปจะถูกถอดออกจากรายการ"
         @confirm="performRemoveEditPhoto"
       />
+    <!-- Price-input modal for range items in edit modal -->
+    <UModal v-model:open="editPriceInputOpen" title="กรอกราคา" :ui="{ content: 'max-w-sm' }">
+      <template #body>
+        <div class="space-y-3">
+          <p class="text-sm text-muted">
+            ช่วงราคา:
+            <span class="font-medium text-highlighted">
+              ฿{{ editPriceInputMin?.toLocaleString() }}–{{ editPriceInputMax?.toLocaleString() }}
+            </span>
+          </p>
+          <UFormField label="ราคา (บาท)" required>
+            <UInput
+              v-model.number="editPriceInputValue"
+              type="number"
+              :min="editPriceInputMin ?? 0"
+              :max="editPriceInputMax ?? undefined"
+              class="w-full"
+              autofocus
+              @keydown.enter.prevent="confirmEditPriceInput"
+            />
+          </UFormField>
+        </div>
+      </template>
+      <template #footer>
+        <div class="flex w-full justify-end gap-2">
+          <UButton color="neutral" variant="ghost" @click="editPriceInputOpen = false">ยกเลิก</UButton>
+          <UButton icon="i-lucide-plus" @click="confirmEditPriceInput">เพิ่มในรายการ</UButton>
+        </div>
+      </template>
+    </UModal>
+
     </ClientOnly>
 </template>

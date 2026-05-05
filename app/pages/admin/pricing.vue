@@ -1,6 +1,6 @@
 <script setup lang="ts">
 definePageMeta({
-  middleware: ['role-admin']
+  middleware: ['role-employee']
 })
 
 import { ref, watch } from 'vue'
@@ -259,12 +259,18 @@ watch(isManageOpen, (open) => {
               icon="i-lucide-settings-2"
               color="neutral"
               variant="outline"
+              class="shrink-0"
+              aria-label="จัดการประเภท / บริการ"
+              :ui="{ label: 'hidden sm:inline' }"
               @click="isManageOpen = true"
             />
             <UButton
               label="เพิ่มรายการ"
               icon="i-lucide-plus"
               color="primary"
+              class="shrink-0"
+              aria-label="เพิ่มรายการ"
+              :ui="{ label: 'hidden sm:inline' }"
               @click="isAddItemModalOpen = true"
             />
           </div>

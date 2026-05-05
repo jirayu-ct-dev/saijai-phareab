@@ -29,6 +29,7 @@ export type PackageStatus = EntitlementStatus;
 export type BasketStatus = "AVAILABLE" | "IN_USE";
 
 export type PackageType = "MAIN" | "ADDON";
+export type DeductOn = "CREATED" | "COMPLETED";
 
 // ============================
 // SOFT DELETE (shared fields)

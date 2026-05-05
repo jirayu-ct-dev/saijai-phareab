@@ -40,6 +40,8 @@
   "devDependencies": {
     "@types/node": "^25.3.3",
     "@types/pg": "^8.18.0",
+    "@types/w3c-web-usb": "^1.0.14",
+    "@types/web-bluetooth": "^0.0.21",
     "dotenv": "^17.3.1",
     "prisma": "^7.4.2",
     "tsx": "^4.21.0",

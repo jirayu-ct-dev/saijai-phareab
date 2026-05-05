@@ -4,15 +4,50 @@ type ProfileResponse = {
 };
 
 const notify = useNotify();
+const route = useRoute();
+const router = useRouter();
 const { data, status, refresh } = useFetch<ProfileResponse>("/api/me/profile", { key: "me-profile" });
 const isLoading = computed(() => status.value === "pending");
 const isProcessing = ref(false);
 
+// Handle OAuth callback result from query params
+onMounted(async () => {
+  const error = route.query.error as string | undefined;
+  if (error) {
+    if (error === "account_already_linked" || error === "ACCOUNT_ALREADY_LINKED") {
+      notify.error("LINE นี้เชื่อมต่อกับบัญชีอื่นอยู่แล้ว");
+    } else if (error === "provider_already_linked" || error === "PROVIDER_ALREADY_LINKED") {
+      notify.error("บัญชีนี้เชื่อมต่อ LINE แล้ว");
+    } else {
+      notify.error(`เชื่อมต่อบัญชี LINE ไม่สำเร็จ (${error})`);
+    }
+    await router.replace({ query: { ...route.query, error: undefined } });
+    return;
+  }
+  const linked = route.query.linked as string | undefined;
+  if (linked === "line") {
+    notify.success("เชื่อมบัญชี LINE สำเร็จ");
+    await refresh();
+    await router.replace({ query: { ...route.query, linked: undefined } });
+  }
+});
+
 const onLink = async () => {
+  if (data.value?.hasLineLinked) {
+    return notify.error("บัญชีนี้เชื่อมต่อ LINE แล้ว");
+  }
   isProcessing.value = true;
   try {
-    const { error } = await authClient.linkSocial({ provider: "line", callbackURL: window.location.href });
-    if (error) throw new Error(error.message || "");
+    const callbackURL = `${window.location.pathname}?linked=line`;
+    const { error } = await authClient.linkSocial({ provider: "line", callbackURL });
+    if (error) {
+      const code = error.code as string | undefined;
+      if (code === "ACCOUNT_ALREADY_LINKED" || code === "account_already_linked") {
+        notify.error("LINE นี้เชื่อมต่อกับบัญชีอื่นอยู่แล้ว");
+      } else {
+        notify.error(error.message || "เชื่อมต่อบัญชี LINE ไม่สำเร็จ");
+      }
+    }
   } catch {
     notify.error("เชื่อมต่อบัญชี LINE ไม่สำเร็จ");
   } finally {

@@ -3,7 +3,6 @@ import type { NavigationMenuItem } from "@nuxt/ui";
 import type { Role } from "~~/shared/types/enums";
 
 const open = ref(false);
-const route = useRoute();
 const { user } = useUser();
 
 const closeSidebar = () => {
@@ -12,7 +11,7 @@ const closeSidebar = () => {
 
 const role = computed<Role | undefined>(() => user.value?.role);
 const isAdmin = computed(() => role.value === "ADMIN");
-const homeTarget = computed(() => (isAdmin.value ? "/admin" : "/admin/sales"));
+const homeTarget = computed(() => (isAdmin.value ? "/admin" : "/admin/employee-dashboard"));
 
 const adminMenu = [
   [
@@ -39,6 +38,12 @@ const adminMenu = [
       label: "รายการรับผ้า",
       icon: "i-lucide-shopping-basket",
       to: "/admin/service-orders",
+      onSelect: closeSidebar,
+    },
+    {
+      label: "สแกนสถานะผ้า",
+      icon: "i-lucide-scan-line",
+      to: "/admin/service-orders/scan",
       onSelect: closeSidebar,
     },
     {
@@ -139,6 +144,13 @@ const adminMenu = [
 const employeeMenu = [
   [
     {
+      label: "ภาพรวม",
+      icon: "i-lucide-layout-dashboard",
+      to: "/admin/employee-dashboard",
+      exact: true,
+      onSelect: closeSidebar,
+    },
+    {
       label: "รายการรับผ้า",
       icon: "i-lucide-shopping-basket",
       to: "/admin/service-orders",
@@ -162,6 +174,44 @@ const employeeMenu = [
       to: "/admin/payment",
       onSelect: closeSidebar,
     },
+    {
+      label: "จัดการราคาหน้าร้าน",
+      icon: "i-lucide-tag",
+      to: "/admin/pricing",
+      onSelect: closeSidebar,
+    },
+    {
+      label: "ตั้งค่า",
+      icon: "i-lucide-settings",
+      to: "/admin/settings",
+      defaultOpen: true,
+      type: "trigger",
+      children: [
+        {
+          label: "ข้อมูลส่วนตัว",
+          icon: "i-lucide-user",
+          to: "/admin/settings/profile",
+          exact: true,
+          onSelect: closeSidebar,
+        },
+        {
+          label: "ความปลอดภัย",
+          icon: "i-lucide-lock",
+          to: "/admin/settings/security",
+          exact: true,
+          onSelect: closeSidebar,
+        },
+      ],
+    },
+  ],
+  [
+    {
+      label: "คู่มือการใช้งาน",
+      icon: "i-lucide-book",
+      to: "/admin/settings/handbook",
+      exact: true,
+      onSelect: closeSidebar,
+    },
   ],
 ] satisfies NavigationMenuItem[][];
 
@@ -172,20 +222,6 @@ const groups = computed(() => [
     id: "links",
     label: "Go to",
     items: menu.value.flat(),
-  },
-  {
-    id: "code",
-    label: "Code",
-    items: [
-      {
-        id: "source",
-        label: "View page source",
-        icon: "i-simple-icons-line",
-        to: `https://github.com/nuxt-ui-templates/dashboard/blob/main/app/pages${route.path === "/" ? "/index" : route.path}.vue`,
-        target: "_blank",
-        class: "text-[#00b900]",
-      },
-    ],
   },
 ]);
 </script>

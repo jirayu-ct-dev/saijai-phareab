@@ -25,18 +25,36 @@ const latestSaleResult = reactive<CompletedSalePayload>({
   title: "",
 });
 
+type ModeOption = {
+  value: "storefront" | "packages";
+  label: string;
+  shortLabel: string;
+  icon: string;
+  description: string;
+};
+
 const modeOptions = [
   {
-    value: "storefront" as const,
+    value: "storefront",
     label: "รับงานหน้าร้าน",
-    description: "รับผ้า นับชิ้น กำหนดวันนัดรับ และคิดค่าบริการในหน้าเดียว",
+    shortLabel: "รับผ้า",
+    icon: "i-lucide-shirt",
+    description: "รับผ้า นับชิ้น นัดรับ และคิดค่าบริการ",
   },
   {
-    value: "packages" as const,
+    value: "packages",
     label: "ขายแพ็กเกจ",
-    description: "เลือกลูกค้าและแพ็กเกจหลายรายการในรูปแบบ POS",
+    shortLabel: "แพ็กเกจ",
+    icon: "i-lucide-package",
+    description: "ขายแพ็กเกจสมาชิกและรับชำระเงิน",
   },
-];
+] satisfies ModeOption[];
+
+const modeOptionMap = Object.fromEntries(modeOptions.map((option) => [option.value, option])) as Record<
+  ModeOption["value"],
+  ModeOption
+>;
+const activeModeOption = computed(() => modeOptionMap[activeMode.value]);
 
 const handleCompleted = (payload: CompletedSalePayload) => {
   latestSaleResult.paymentId = payload.paymentId;
@@ -78,50 +96,76 @@ const resultDescription = computed(() =>
 <template>
   <UDashboardPanel id="sales-pos">
     <template #header>
-      <UDashboardNavbar title="POS หน้าร้าน" icon="i-lucide-store">
+      <UDashboardNavbar :title="activeModeOption.label" icon="i-lucide-store">
         <template #leading>
           <UDashboardSidebarCollapse class="hidden lg:inline-flex" />
         </template>
 
         <template #right>
-          <UButton
-            label="ดูประวัติการชำระเงิน"
-            icon="i-lucide-receipt"
-            color="neutral"
-            variant="outline"
-            @click="navigateTo('/admin/payment')"
-          />
+          <div class="flex min-w-0 items-center gap-1.5 sm:gap-2">
+            <UButton
+              label="ชำระเงิน"
+              icon="i-lucide-receipt"
+              color="neutral"
+              variant="outline"
+              class="shrink-0"
+              aria-label="ดูประวัติการชำระเงิน"
+              :ui="{ label: 'hidden md:inline' }"
+              @click="navigateTo('/admin/payment')"
+            />
 
-          <UButton
-            label="ดูรายงานการขาย"
-            icon="i-lucide-shopping-basket"
-            color="neutral"
-            variant="outline"
-            class="ml-2"
-            @click="navigateTo('/admin/service-orders')"
-          />
+            <UButton
+              label="รายการรับผ้า"
+              icon="i-lucide-shopping-basket"
+              color="neutral"
+              variant="outline"
+              class="shrink-0"
+              aria-label="ดูรายงานการขาย"
+              :ui="{ label: 'hidden md:inline' }"
+              @click="navigateTo('/admin/service-orders')"
+            />
+          </div>
         </template>
       </UDashboardNavbar>
     </template>
 
     <template #body>
-      <div class="space-y-6">
-        <section class="rounded-2xl border border-default bg-default p-2 md:p-0">
-          <div class="grid md:grid-cols-2">
-            <button
-              v-for="option in modeOptions"
-              :key="option.value"
-              type="button"
-              class="bg-default p-4 text-left transition cursor-pointer first:rounded-t-xl last:rounded-b-xl md:first:rounded-none md:last:rounded-none"
-              :class="[
-                activeMode === option.value ? 'bg-elevated/50' : '',
-                option.value === 'storefront' ? 'border-t border-default md:border-t-0 md:border-l' : ''
-              ]"
-              @click="activeMode = option.value"
+      <div class="space-y-4">
+        <section class="rounded-xl border border-default bg-default p-3">
+          <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div class="flex min-w-0 items-center gap-3">
+              <div class="flex size-10 shrink-0 items-center justify-center rounded-lg bg-elevated text-highlighted">
+                <UIcon :name="activeModeOption.icon" class="size-5" />
+              </div>
+              <div class="min-w-0">
+                <p class="truncate text-sm font-semibold text-highlighted">{{ activeModeOption.label }}</p>
+                <p class="truncate text-xs text-muted">{{ activeModeOption.description }}</p>
+              </div>
+            </div>
+
+            <div
+              class="grid grid-cols-2 gap-1 rounded-lg bg-elevated p-1 lg:w-80"
+              role="tablist"
+              aria-label="เลือกประเภทงานขาย"
             >
-              <p class="font-semibold text-highlighted">{{ option.label }}</p>
-              <p class="mt-1 text-sm text-muted">{{ option.description }}</p>
-            </button>
+              <button
+                v-for="option in modeOptions"
+                :key="option.value"
+                type="button"
+                class="flex min-w-0 items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition cursor-pointer"
+                :class="[
+                  activeMode === option.value
+                    ? 'bg-default text-highlighted shadow-sm ring-1 ring-default'
+                    : 'text-muted hover:text-highlighted'
+                ]"
+                role="tab"
+                :aria-selected="activeMode === option.value"
+                @click="activeMode = option.value"
+              >
+                <UIcon :name="option.icon" class="size-4 shrink-0" />
+                <span class="truncate">{{ option.shortLabel }}</span>
+              </button>
+            </div>
           </div>
         </section>
 
