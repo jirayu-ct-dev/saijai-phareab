@@ -13,11 +13,14 @@ type MemberRow = {
   createdAt: string;
   activeCount: number;
   totalEntitlements: number;
-  totalCreditRemaining: number;
-  totalCreditInitial: number;
+  mainCreditRemaining: number;
+  mainCreditInitial: number;
+  addonCreditRemaining: number;
+  addonCreditInitial: number;
   earliestEndAt: string | null;
   totalSpent: number;
-  activePackageName: string | null;
+  mainPackageName: string | null;
+  addonPackageNames: string[];
 };
 
 const notify = useNotify();
@@ -145,44 +148,50 @@ const isExpiringSoon = (s: string | null) => {
         <div
           v-for="m in members"
           :key="m.id"
-          class="flex items-center justify-between gap-3 rounded-lg border border-default p-3 flex-wrap"
+          class="rounded-lg border border-default p-3 space-y-2"
         >
-          <NuxtLink
-            :to="`/admin/users/${m.id}`"
-            class="flex items-center gap-3 min-w-0 flex-1 hover:opacity-80 transition"
-          >
-            <UAvatar v-bind="getAvatarProps(m.image, m.name, m.email)" size="md" />
-            <div class="min-w-0">
-              <div class="flex items-center gap-2 flex-wrap">
-                <p class="font-medium truncate">{{ m.name || m.email }}</p>
-                <UBadge v-if="m.activeCount > 0" color="primary" variant="subtle" size="xs">
-                  {{ m.activePackageName }}
-                </UBadge>
-                <UBadge v-if="isExpiringSoon(m.earliestEndAt)" color="warning" variant="subtle" size="xs">
-                  ใกล้หมดอายุ
-                </UBadge>
+          <!-- Row 1: Avatar + ชื่อ + actions -->
+          <div class="flex items-center gap-3">
+            <NuxtLink :to="`/admin/users/${m.id}`" class="flex items-center gap-3 min-w-0 flex-1 hover:opacity-80 transition">
+              <UAvatar v-bind="getAvatarProps(m.image, m.name, m.email)" size="sm" class="shrink-0" />
+              <div class="min-w-0">
+                <p class="font-medium text-sm truncate">{{ m.name || m.email }}</p>
+                <p class="text-xs text-muted truncate">
+                  {{ m.email }}<span v-if="m.phoneNumber"> · {{ m.phoneNumber }}</span>
+                </p>
               </div>
-              <p class="text-xs text-muted">
-                {{ m.email }}<span v-if="m.phoneNumber"> · {{ m.phoneNumber }}</span>
-              </p>
+            </NuxtLink>
+            <div class="flex items-center gap-0.5 shrink-0">
+              <UButton icon="i-lucide-package" color="primary" variant="ghost" size="xs" :to="`/admin/users/${m.id}#packages`" />
+              <UButton icon="i-lucide-pencil" color="neutral" variant="ghost" size="xs" @click="openEdit(m)" />
+              <UButton icon="i-lucide-trash-2" color="error" variant="ghost" size="xs" @click="openDelete(m)" />
             </div>
-          </NuxtLink>
-          <div class="flex items-center gap-4 text-sm">
-            <div class="text-right">
-              <p class="text-xs text-muted">เครดิต</p>
-              <p class="font-semibold">{{ m.totalCreditRemaining }}/{{ m.totalCreditInitial }}</p>
+          </div>
+
+          <!-- Row 2: Badges + stats -->
+          <div class="flex items-center justify-between gap-2 flex-wrap pl-1">
+            <div class="flex items-center gap-1 flex-wrap">
+              <UBadge v-if="m.mainPackageName" color="primary" variant="subtle" size="xs">{{ m.mainPackageName }}</UBadge>
+              <UBadge v-for="name in m.addonPackageNames" :key="name" color="info" variant="subtle" size="xs">{{ name }}</UBadge>
+              <UBadge v-if="isExpiringSoon(m.earliestEndAt)" color="warning" variant="subtle" size="xs">ใกล้หมดอายุ</UBadge>
             </div>
-            <div class="text-right">
-              <p class="text-xs text-muted">หมดอายุ</p>
-              <p class="font-medium">{{ formatDate(m.earliestEndAt) }}</p>
-            </div>
-            <div class="text-right">
-              <p class="text-xs text-muted">ยอดรวม</p>
-              <p class="font-medium">฿{{ formatCurrency(m.totalSpent) }}</p>
-            </div>
-            <div class="flex items-center gap-1">
-              <UButton icon="i-lucide-pencil" color="neutral" variant="ghost" size="sm" @click="openEdit(m)" />
-              <UButton icon="i-lucide-trash-2" color="error" variant="ghost" size="sm" @click="openDelete(m)" />
+            <div class="flex items-center gap-3 text-xs shrink-0">
+              <div v-if="m.mainCreditInitial > 0" class="text-right">
+                <p class="text-muted">หลัก</p>
+                <p class="font-semibold">{{ m.mainCreditRemaining }}/{{ m.mainCreditInitial }}</p>
+              </div>
+              <div v-if="m.addonCreditInitial > 0" class="text-right">
+                <p class="text-muted">เสริม</p>
+                <p class="font-semibold text-info">{{ m.addonCreditRemaining }}/{{ m.addonCreditInitial }}</p>
+              </div>
+              <div class="text-right">
+                <p class="text-muted">หมดอายุ</p>
+                <p class="font-medium">{{ formatDate(m.earliestEndAt) }}</p>
+              </div>
+              <div class="text-right">
+                <p class="text-muted">ยอดรวม</p>
+                <p class="font-medium">฿{{ formatCurrency(m.totalSpent) }}</p>
+              </div>
             </div>
           </div>
         </div>

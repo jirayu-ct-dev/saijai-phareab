@@ -214,6 +214,18 @@ const columns: TableColumn<Package>[] = [
       h("span", { class: "text-muted" }, formatDays(row.getValue("validityDays") as number | null)),
   },
   {
+    accessorKey: "deductOn",
+    header: "หักเครดิตเมื่อ",
+    cell: ({ row }) => {
+      const pkg = row.original;
+      if (pkg.packageType !== "ADDON") return h("span", { class: "text-muted text-xs" }, "—");
+      const isCreated = pkg.deductOn === "CREATED";
+      return h(UBadge, { variant: "subtle", color: isCreated ? "info" : "warning" }, () =>
+        isCreated ? "รับผ้า" : "จัดส่ง"
+      );
+    },
+  },
+  {
     accessorKey: "isActive",
     header: "สถานะ",
     cell: ({ row }) => {

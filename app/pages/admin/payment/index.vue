@@ -370,6 +370,9 @@ const columns: TableColumn<AdminPaymentRecord>[] = [
             label="ไปหน้ารายการขาย"
             icon="i-lucide-shopping-cart"
             color="primary"
+            class="shrink-0"
+            aria-label="ไปหน้ารายการขาย"
+            :ui="{ label: 'hidden sm:inline' }"
             @click="navigateTo('/admin/sales')"
           />
         </template>

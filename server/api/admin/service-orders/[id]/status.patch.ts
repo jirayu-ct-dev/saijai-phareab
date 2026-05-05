@@ -99,13 +99,21 @@ export default defineEventHandler(async (event) => {
             deletedAt: null,
             product: { packageType: "ADDON" },
           },
-          include: { product: { select: { id: true, name: true, packageType: true } } },
+          include: { product: { select: { id: true, name: true, packageType: true, deductOn: true } } },
         });
 
         if (!entitlement) {
           throw createError({
             statusCode: 400,
             statusMessage: `ไม่พบสิทธิ์แพ็กเกจรองที่ต้องการใช้ (${usage.entitlementId})`,
+          });
+        }
+
+        // Only deduct add-ons configured to deduct at COMPLETED
+        if (entitlement.product.deductOn !== "COMPLETED") {
+          throw createError({
+            statusCode: 400,
+            statusMessage: `แพ็กเกจ "${entitlement.product.name}" หักเครดิตตอนรับผ้า ไม่ใช่ตอนจัดส่ง`,
           });
         }
 

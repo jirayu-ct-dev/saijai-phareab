@@ -18,6 +18,7 @@ type UpdateServiceOrderBody = {
   items: Array<{
     storefrontPriceId: string;
     quantity: number;
+    unitPrice?: number | null;
     imageId?: string | null;
     notes?: string | null;
     photos?: Array<{ imageId: string; isDamaged?: boolean; sortOrder?: number }>;
@@ -83,6 +84,7 @@ export default defineEventHandler(async (event) => {
       return {
         storefrontPriceId: item.storefrontPriceId,
         quantity: Number(item.quantity ?? 1),
+        unitPriceOverride: item.unitPrice != null && Number.isFinite(Number(item.unitPrice)) ? Number(item.unitPrice) : null,
         imageId: item.imageId?.trim() || photos[0]?.imageId || null,
         notes: item.notes?.trim() || null,
         photos,
@@ -203,7 +205,7 @@ export default defineEventHandler(async (event) => {
         throw createError({ statusCode: 404, statusMessage: "ไม่พบบริการที่เลือก" });
       }
 
-      const unitPrice = Number(price.price);
+      const unitPrice = item.unitPriceOverride ?? Number(price.price);
       return {
         price,
         quantity: item.quantity,

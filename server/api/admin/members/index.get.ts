@@ -15,8 +15,8 @@ export default defineEventHandler(async (event) => {
   const users = await prisma.user.findMany({
     where: {
       deletedAt: null,
-      role: "USER",
       email: { not: getWalkInCustomerEmail() },
+      memberEntitlements: { some: { deletedAt: null } },
       ...(search
         ? {
             OR: [
@@ -58,9 +58,15 @@ export default defineEventHandler(async (event) => {
 
   const enriched = users.map((u) => {
     const active = u.memberEntitlements.filter((e) => e.status === "ACTIVE");
-    const totalCreditRemaining = active.reduce((s, e) => s + (e.creditRemaining ?? 0), 0);
-    const totalCreditInitial = active.reduce((s, e) => s + (e.creditInitial ?? 0), 0);
-    const earliestEnd = active
+    const activeMain = active.filter((e) => e.product.packageType === "MAIN");
+    const activeAddon = active.filter((e) => e.product.packageType === "ADDON");
+
+    const mainCreditRemaining = activeMain.reduce((s, e) => s + (e.creditRemaining ?? 0), 0);
+    const mainCreditInitial = activeMain.reduce((s, e) => s + (e.creditInitial ?? 0), 0);
+    const addonCreditRemaining = activeAddon.reduce((s, e) => s + (e.creditRemaining ?? 0), 0);
+    const addonCreditInitial = activeAddon.reduce((s, e) => s + (e.creditInitial ?? 0), 0);
+
+    const earliestEnd = activeMain
       .map((e) => e.endAt)
       .filter((d): d is Date => Boolean(d))
       .sort((a, b) => a.getTime() - b.getTime())[0] ?? null;
@@ -75,11 +81,14 @@ export default defineEventHandler(async (event) => {
       createdAt: u.createdAt,
       activeCount: active.length,
       totalEntitlements: u.memberEntitlements.length,
-      totalCreditRemaining,
-      totalCreditInitial,
+      mainCreditRemaining,
+      mainCreditInitial,
+      addonCreditRemaining,
+      addonCreditInitial,
       earliestEndAt: earliestEnd,
       totalSpent,
-      activePackageName: active[0]?.product.name ?? null,
+      mainPackageName: activeMain[0]?.product.name ?? null,
+      addonPackageNames: activeAddon.map((e) => e.product.name),
     };
   });
 

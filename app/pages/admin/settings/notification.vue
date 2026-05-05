@@ -227,20 +227,26 @@ const roleLabel = (role: "ADMIN" | "EMPLOYEE" | "USER") =>
 
       <UCard>
         <template #header>
-          <div class="flex items-center justify-between gap-3 flex-wrap">
-            <div>
+          <div class="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div class="min-w-0">
               <p class="font-semibold">ผู้รับการแจ้งเตือนของร้าน</p>
               <p class="text-xs text-muted mt-1">ผู้ที่จะได้รับ LINE สำหรับการแจ้งเตือนของร้าน (เฉพาะ ADMIN/EMPLOYEE)</p>
             </div>
-            <div class="flex items-center gap-2">
+            <div class="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center">
               <USelect
                 v-model="selectedStaffId"
                 :items="availableStaff.map((s) => ({ label: s.name || s.email, value: s.id }))"
                 placeholder="เลือกผู้ใช้"
-                class="w-60"
+                class="w-full sm:w-60"
                 value-key="value"
               />
-              <UButton icon="i-lucide-plus" :disabled="!selectedStaffId" :loading="isAdding" @click="onAddSubscriber">
+              <UButton
+                icon="i-lucide-plus"
+                :disabled="!selectedStaffId"
+                :loading="isAdding"
+                class="justify-center sm:shrink-0"
+                @click="onAddSubscriber"
+              >
                 เพิ่ม
               </UButton>
             </div>

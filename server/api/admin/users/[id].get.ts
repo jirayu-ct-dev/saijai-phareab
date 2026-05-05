@@ -191,7 +191,15 @@ export default defineEventHandler(async (event) => {
     }
 
     const activeEntitlements = user.memberEntitlements.filter((entitlement) => entitlement.status === "ACTIVE");
-    const totalCreditsRemaining = user.memberEntitlements.reduce((sum, entitlement) => sum + (entitlement.creditRemaining ?? 0), 0);
+    const activeMain = activeEntitlements.filter((e) => e.product.packageType === "MAIN");
+    const activeAddon = activeEntitlements.filter((e) => e.product.packageType === "ADDON");
+
+    const mainCreditsRemaining = activeMain.reduce((sum, e) => sum + (e.creditRemaining ?? 0), 0);
+    const mainCreditsInitial = activeMain.reduce((sum, e) => sum + (e.creditInitial ?? 0), 0);
+    const addonCreditsRemaining = activeAddon.reduce((sum, e) => sum + (e.creditRemaining ?? 0), 0);
+    const addonCreditsInitial = activeAddon.reduce((sum, e) => sum + (e.creditInitial ?? 0), 0);
+
+    const totalCreditsRemaining = mainCreditsRemaining + addonCreditsRemaining;
     const totalCreditsUsed = user.memberEntitlements.reduce((sum, entitlement) => {
       const creditInitial = entitlement.creditInitial ?? 0;
       const creditRemaining = entitlement.creditRemaining ?? 0;
@@ -219,6 +227,10 @@ export default defineEventHandler(async (event) => {
         totalEntitlementCount: user.memberEntitlements.length,
         totalCreditsRemaining,
         totalCreditsUsed,
+        mainCreditsRemaining,
+        mainCreditsInitial,
+        addonCreditsRemaining,
+        addonCreditsInitial,
         totalPackageSales: user.packageSales.length,
         totalPayments: user.paymentRecords.length,
         totalServiceOrders: user.serviceOrders.length,

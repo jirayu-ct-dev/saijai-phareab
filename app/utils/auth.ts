@@ -6,7 +6,17 @@ import { PrismaPg } from "@prisma/adapter-pg";
 const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL! });
 const prisma = new PrismaClient({ adapter });
 
+const extraOrigins = process.env.BETTER_AUTH_TRUSTED_ORIGINS
+  ? process.env.BETTER_AUTH_TRUSTED_ORIGINS.split(",").map((s) => s.trim())
+  : [];
+
 export const auth = betterAuth({
+  baseURL: process.env.BETTER_AUTH_URL,
+  trustedOrigins: [
+    ...(process.env.BETTER_AUTH_URL ? [process.env.BETTER_AUTH_URL] : []),
+    ...extraOrigins,
+  ],
+  trustedProxies: (process.env.TRUSTED_PROXIES ?? "127.0.0.1,::1").split(",").map((s) => s.trim()),
   database: prismaAdapter(prisma, {
     provider: "postgresql",
   }),

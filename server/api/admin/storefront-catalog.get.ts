@@ -18,6 +18,8 @@ export default defineEventHandler(async () => {
       select: {
         id: true,
         price: true,
+        priceMin: true,
+        priceMax: true,
         storefrontService: {
           select: {
             id: true,
@@ -46,6 +48,8 @@ export default defineEventHandler(async () => {
     return prices.map((price) => ({
       id: price.id,
       price: Number(price.price),
+      priceMin: price.priceMin != null ? Number(price.priceMin) : null,
+      priceMax: price.priceMax != null ? Number(price.priceMax) : null,
       categoryId: price.storefrontItem.category?.id ?? null,
       categoryName: price.storefrontItem.category?.name ?? null,
       serviceId: price.storefrontService.id,

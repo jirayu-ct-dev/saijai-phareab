@@ -555,6 +555,9 @@ const columns: TableColumn<AdminUser>[] = [
             label="เพิ่มผู้ใช้งาน"
             icon="i-lucide-user-plus"
             color="primary"
+            class="shrink-0"
+            aria-label="เพิ่มผู้ใช้งาน"
+            :ui="{ label: 'hidden sm:inline' }"
             @click="openCreateModal"
           />
         </template>

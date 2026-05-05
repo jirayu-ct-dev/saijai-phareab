@@ -621,7 +621,16 @@ onBeforeUnmount(() => {
 
         <template #right>
           <div class="flex flex-wrap items-center gap-2">
-            <UButton label="กลับหน้ารายการ" color="neutral" variant="outline" icon="i-lucide-arrow-left" @click="goBack" />
+            <UButton 
+              label="กลับหน้ารายการ" 
+              color="neutral" 
+              variant="outline" 
+              icon="i-lucide-arrow-left" 
+              class="shrink-0"
+              aria-label="กลับหน้ารายการ"
+              :ui="{ label: 'hidden sm:inline' }"
+              @click="goBack" 
+            />
           </div>
         </template>
       </UDashboardNavbar>
