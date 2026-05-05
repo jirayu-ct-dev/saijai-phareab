@@ -17,7 +17,7 @@ export default defineNuxtConfig({
   },
   vite: {
     server: {
-      allowedHosts: ['.ngrok-free.app', 'mountain-ragged-remodeler.ngrok-free.dev'],
+      allowedHosts: [`${process.env.NUXT_PUBLIC_HOSTNAME}`],
     },
   },
   app: {

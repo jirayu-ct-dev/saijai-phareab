@@ -79,6 +79,7 @@ type ServiceOrderDetailResponse = {
     slipImage: { id: string; secureUrl: string | null; url: string | null } | null;
   }>;
 };
+type ServiceOrderDetailItem = ServiceOrderDetailResponse["items"][number];
 
 definePageMeta({
   layout: "admin",
@@ -251,6 +252,12 @@ const openImagePreview = (url: string | null | undefined, title = "ดูรู�
   previewTitle.value = title;
   previewOpen.value = true;
 };
+const getItemPhotos = (item: ServiceOrderDetailItem) =>
+  item.photos?.length
+    ? item.photos
+    : (item.image
+        ? [{ id: item.image.id, imageId: item.image.id, isDamaged: false, sortOrder: 0, secureUrl: item.image.secureUrl, url: item.image.url }]
+        : []);
 </script>
 
 <template>
@@ -263,8 +270,26 @@ const openImagePreview = (url: string | null | undefined, title = "ดูรู�
 
         <template #right>
           <div class="flex flex-wrap items-center gap-2">
-            <UButton label="กลับ" color="neutral" variant="outline" icon="i-lucide-arrow-left" @click="goBack" />
-            <UButton label="ดูใบเสร็จ" color="neutral" variant="outline" icon="i-lucide-receipt" @click="openReceipt" />
+            <UButton 
+            label="กลับ" 
+            color="neutral" 
+            variant="outline" 
+            icon="i-lucide-arrow-left" 
+            class="shrink-0"
+            aria-label="กลับ"
+            :ui="{ label: 'hidden sm:inline' }"
+            @click="goBack" 
+          />
+            <UButton 
+            label="ดูใบเสร็จ" 
+            color="neutral" 
+            variant="outline" 
+            icon="i-lucide-receipt" 
+            class="shrink-0"
+            aria-label="ดูใบเสร็จ"
+            :ui="{ label: 'hidden sm:inline' }"
+            @click="openReceipt" 
+          />
           </div>
         </template>
       </UDashboardNavbar>
@@ -455,9 +480,81 @@ const openImagePreview = (url: string | null | undefined, title = "ดูรู�
           </template>
 
           <div class="space-y-3">
+            <div class="space-y-3 md:hidden">
+              <div
+                v-for="item in order.items"
+                :key="item.id"
+                class="rounded-xl border border-default bg-default p-3"
+              >
+                <div class="flex min-w-0 gap-3">
+                  <div class="shrink-0">
+                    <div class="flex max-w-18 flex-wrap gap-1">
+                      <button
+                        v-for="photo in getItemPhotos(item)"
+                        :key="photo.id"
+                        type="button"
+                        class="relative size-14 overflow-hidden rounded-lg border border-default bg-muted/30"
+                        @click="openImagePreview(photo.secureUrl || photo.url, `${item.label}`)"
+                      >
+                        <NuxtImg
+                          :src="photo.secureUrl || photo.url || ''"
+                          class="h-full w-full cursor-pointer object-cover"
+                          sizes="56px"
+                          loading="lazy"
+                        />
+                        <UBadge
+                          v-if="photo.isDamaged"
+                          color="error"
+                          variant="solid"
+                          size="xs"
+                          class="absolute left-0.5 top-0.5"
+                        >!</UBadge>
+                      </button>
+                      <div
+                        v-if="!getItemPhotos(item).length"
+                        class="flex size-14 items-center justify-center rounded-lg border border-dashed border-default text-xs text-muted"
+                      >-</div>
+                    </div>
+                  </div>
 
+                  <div class="min-w-0 flex-1">
+                    <div class="flex min-w-0 flex-wrap items-center gap-2">
+                      <p class="min-w-0 wrap-break-word font-medium text-highlighted">{{ item.label }}</p>
+                      <UBadge v-if="item.isPackageIncluded" color="success" variant="subtle" size="xs">
+                        รวมในแพ็กเกจ
+                      </UBadge>
+                    </div>
+                    <p class="wrap-break-word text-xs text-muted">{{ item.service.name }} | {{ item.item.name }}</p>
+                    <p v-if="item.notes" class="mt-1 wrap-break-word text-xs text-muted whitespace-pre-line">{{ item.notes }}</p>
+                  </div>
+                </div>
 
-            <div class="overflow-x-auto rounded-md border border-default">
+                <div class="mt-3 grid grid-cols-3 gap-2 border-t border-default pt-3 text-xs">
+                  <div>
+                    <p class="text-muted">ราคา/ชิ้น</p>
+                    <p class="mt-1 wrap-break-word font-medium text-highlighted">
+                      {{ hasMemberEntitlement && item.isPackageIncluded ? "-" : formatCurrency(item.unitPrice) }}
+                    </p>
+                  </div>
+                  <div>
+                    <p class="text-muted">จำนวน</p>
+                    <p class="mt-1 wrap-break-word font-medium text-highlighted">{{ item.quantity }} ชิ้น</p>
+                  </div>
+                  <div class="text-right">
+                    <p class="text-muted">รวม</p>
+                    <p
+                      v-if="hasMemberEntitlement && item.isPackageIncluded"
+                      class="mt-1 wrap-break-word font-semibold text-success"
+                    >
+                      {{ item.quantity }} เครดิต
+                    </p>
+                    <p v-else class="mt-1 wrap-break-word font-semibold text-highlighted">{{ formatCurrency(item.totalPrice) }}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="hidden overflow-x-auto rounded-md border border-default md:block">
               <table class="w-full min-w-160 text-sm">
                 <thead class="bg-elevated/40 text-xs text-muted">
                   <tr>
@@ -477,7 +574,7 @@ const openImagePreview = (url: string | null | undefined, title = "ดูรู�
                     <td class="px-3 py-3">
                       <div class="flex flex-wrap gap-1">
                         <button
-                          v-for="photo in (item.photos?.length ? item.photos : (item.image ? [{ id: item.image.id, imageId: item.image.id, isDamaged: false, sortOrder: 0, secureUrl: item.image.secureUrl, url: item.image.url }] : []))"
+                          v-for="photo in getItemPhotos(item)"
                           :key="photo.id"
                           type="button"
                           class="relative size-14 overflow-hidden rounded-lg border border-default bg-muted/30"
@@ -498,20 +595,20 @@ const openImagePreview = (url: string | null | undefined, title = "ดูรู�
                           >!</UBadge>
                         </button>
                         <div
-                          v-if="!item.photos?.length && !item.image"
+                          v-if="!getItemPhotos(item).length"
                           class="flex size-14 items-center justify-center rounded-lg border border-dashed border-default text-xs text-muted"
                         >-</div>
                       </div>
                     </td>
                     <td class="px-3 py-3">
                       <div class="flex flex-wrap items-center gap-2">
-                        <p class="font-medium text-highlighted">{{ item.label }}</p>
+                        <p class="wrap-break-word font-medium text-highlighted">{{ item.label }}</p>
                         <UBadge v-if="item.isPackageIncluded" color="success" variant="subtle" size="xs">
                           รวมในแพ็กเกจ
                         </UBadge>
                       </div>
-                      <p class="text-xs text-muted">{{ item.service.name }} | {{ item.item.name }}</p>
-                      <p v-if="item.notes" class="mt-1 text-xs text-muted whitespace-pre-line">{{ item.notes }}</p>
+                      <p class="wrap-break-word text-xs text-muted">{{ item.service.name }} | {{ item.item.name }}</p>
+                      <p v-if="item.notes" class="mt-1 wrap-break-word text-xs text-muted whitespace-pre-line">{{ item.notes }}</p>
                     </td>
                     <td class="px-3 py-3 text-right text-muted">
                       {{ hasMemberEntitlement && item.isPackageIncluded ? "-" : formatCurrency(item.unitPrice) }}

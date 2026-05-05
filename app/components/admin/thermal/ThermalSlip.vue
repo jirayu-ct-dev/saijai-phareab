@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { useTemplateRef } from "vue";
 import { useThermalExport } from "~~/app/composables/useThermalExport";
+import { useThermalPrinter } from "~~/app/composables/useThermalPrinter";
+import PrinterConnectModal from "./PrinterConnectModal.vue";
 
 const props = defineProps<{
   panelId: string;
@@ -17,17 +19,22 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   retry: [];
+  print: [];
 }>();
 
 const slipElement = useTemplateRef<HTMLElement>("slipElement");
 
-const { goBack, handlePrint, downloadPng } = useThermalExport(
+const { goBack, downloadPng } = useThermalExport(
   slipElement,
   () => props.fileName,
   props.fallbackPath ?? "/admin",
 );
 
-defineExpose({ goBack, handlePrint, downloadPng });
+const { state: printerState } = useThermalPrinter();
+
+const showPrinterModal = ref(false);
+
+defineExpose({ goBack, downloadPng });
 </script>
 
 <template>
@@ -35,14 +42,58 @@ defineExpose({ goBack, handlePrint, downloadPng });
     <template #header>
       <UDashboardNavbar :title="navbarTitle" :icon="navbarIcon || 'i-lucide-receipt'">
         <template #leading>
-          <UDashboardSidebarCollapse class="hidden lg:inline-flex thermal-actions" />
+          <UDashboardSidebarCollapse class="hidden lg:inline-flex" />
         </template>
 
         <template #right>
-          <div class="thermal-actions flex items-center gap-2">
-            <UButton label="กลับ" color="neutral" variant="outline" icon="i-lucide-arrow-left" @click="goBack" />
-            <UButton label="บันทึก PNG" color="neutral" variant="outline" icon="i-lucide-image-down" @click="downloadPng" />
-            <UButton :label="printLabel || 'พิมพ์'" color="neutral" icon="i-lucide-printer" @click="handlePrint" />
+          <div class="flex items-center gap-2">
+            <UButton
+              label="กลับ"
+              color="neutral"
+              variant="outline"
+              icon="i-lucide-arrow-left"
+              class="shrink-0"
+              aria-label="กลับ"
+              :ui="{ label: 'hidden sm:inline' }"
+              @click="goBack"
+            />
+            <UButton
+              label="บันทึก PNG"
+              color="neutral"
+              variant="outline"
+              icon="i-lucide-image-down"
+              class="shrink-0"
+              aria-label="บันทึก PNG"
+              :ui="{ label: 'hidden sm:inline' }"
+              @click="downloadPng"
+            />
+
+            <!-- Printer status + settings -->
+            <div class="relative shrink-0">
+              <UButton
+                color="neutral"
+                variant="outline"
+                icon="i-lucide-printer"
+                aria-label="ตั้งค่าเครื่องพิมพ์"
+                @click="showPrinterModal = true"
+              />
+              <span
+                class="pointer-events-none absolute -right-1 -top-1 size-2.5 rounded-full border-2 border-bg"
+                :class="printerState.isConnected ? 'bg-green-500' : 'bg-neutral-400'"
+              />
+            </div>
+
+            <UButton
+              :label="printLabel || 'พิมพ์'"
+              color="primary"
+              icon="i-lucide-printer"
+              class="shrink-0"
+              aria-label="พิมพ์"
+              :ui="{ label: 'hidden sm:inline' }"
+              :disabled="!printerState.isConnected"
+              :loading="printerState.isConnecting"
+              @click="emit('print')"
+            />
           </div>
         </template>
       </UDashboardNavbar>
@@ -68,30 +119,12 @@ defineExpose({ goBack, handlePrint, downloadPng });
       </article>
     </template>
   </UDashboardPanel>
+
+  <PrinterConnectModal v-model:open="showPrinterModal" />
 </template>
 
 <style scoped>
 .thermal-card {
   width: min(100%, 80mm);
-}
-
-@media print {
-  .thermal-actions {
-    display: none !important;
-  }
-
-  .thermal-card {
-    width: 80mm;
-    max-width: 80mm;
-    border: 0;
-    box-shadow: none;
-    margin: 0 auto;
-    padding-left: 10px;
-    padding-right: 10px;
-  }
-
-  :global(body) {
-    background: #fff !important;
-  }
 }
 </style>

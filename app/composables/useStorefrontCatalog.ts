@@ -1,6 +1,8 @@
 export type PosStorefrontCatalogItem = {
   id: string;
   price: number;
+  priceMin: number | null;
+  priceMax: number | null;
   categoryId: string | null;
   categoryName: string | null;
   serviceId: string;

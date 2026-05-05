@@ -8,6 +8,7 @@ defineProps<{
   metaLabel?: string;
   quantity: number;
   selected?: boolean;
+  isRange?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -43,7 +44,7 @@ const emit = defineEmits<{
         <p v-if="metaLabel" class="truncate text-xs text-muted">{{ metaLabel }}</p>
       </div>
 
-      <div v-if="quantity > 0" class="shrink-0" @click.stop @contextmenu.stop>
+      <div v-if="quantity > 0 && !isRange" class="shrink-0" @click.stop @contextmenu.stop>
         <UInputNumber
           :model-value="quantity"
           :step="1"
@@ -52,6 +53,9 @@ const emit = defineEmits<{
           @update:model-value="emit('change', Math.max(0, Number.isFinite($event) ? Math.floor($event) : 0))"
         />
       </div>
+      <UBadge v-else-if="quantity > 0 && isRange" color="primary" variant="subtle" size="xs" class="shrink-0">
+        {{ quantity }}
+      </UBadge>
     </div>
   </div>
 </template>

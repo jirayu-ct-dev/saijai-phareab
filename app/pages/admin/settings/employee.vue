@@ -15,6 +15,13 @@ type Employee = {
   hasLineLinked: boolean;
 };
 
+type MemberRow = {
+  id: string;
+  email: string;
+  name: string | null;
+  image: string | null;
+};
+
 const notify = useNotify();
 const { user: actor } = useUser();
 
@@ -24,6 +31,7 @@ const { data: employees, refresh, status } = await useFetch<Employee[]>("/api/ad
 });
 const isLoading = computed(() => status.value === "pending");
 
+// --- Create new employee ---
 const isCreateOpen = ref(false);
 const createForm = reactive({ email: "", name: "", phoneNumber: "", password: "", role: "EMPLOYEE" as "ADMIN" | "EMPLOYEE" });
 const isCreating = ref(false);
@@ -67,6 +75,60 @@ const onCreate = async () => {
   }
 };
 
+// --- Promote existing user ---
+const isPromoteOpen = ref(false);
+const promoteSearch = ref("");
+const promoteRole = ref<"EMPLOYEE" | "ADMIN">("EMPLOYEE");
+const selectedUserId = ref<string | undefined>(undefined);
+const isPromoting = ref(false);
+
+const { data: memberResults, status: memberStatus } = useFetch<MemberRow[]>("/api/admin/members", {
+  query: computed(() => ({ search: promoteSearch.value, filter: "all" })),
+  watch: [promoteSearch],
+  default: () => [],
+});
+const isSearching = computed(() => memberStatus.value === "pending");
+
+const memberSelectOptions = computed(() =>
+  (memberResults.value ?? []).map((m) => ({
+    label: m.name || m.email,
+    value: m.id,
+    email: m.email,
+    image: m.image,
+    name: m.name,
+  }))
+);
+
+const selectedUserObj = computed(() =>
+  memberSelectOptions.value.find((m) => m.value === selectedUserId.value) ?? null
+);
+
+const resetPromote = () => {
+  promoteSearch.value = "";
+  promoteRole.value = "EMPLOYEE";
+  selectedUserId.value = undefined;
+};
+
+const onPromote = async () => {
+  if (!selectedUserId.value) return notify.validationError("กรุณาเลือกผู้ใช้") as unknown as void;
+  isPromoting.value = true;
+  try {
+    await $fetch("/api/admin/employees/promote", {
+      method: "POST",
+      body: { userId: selectedUserId.value, role: promoteRole.value },
+    });
+    notify.success(`เปลี่ยน "${selectedUserObj.value?.label}" เป็นพนักงานแล้ว`);
+    isPromoteOpen.value = false;
+    resetPromote();
+    await refresh();
+  } catch (e: any) {
+    notify.error(e?.statusMessage || "ไม่สามารถเปลี่ยนสิทธิ์ได้");
+  } finally {
+    isPromoting.value = false;
+  }
+};
+
+// --- Role / Delete ---
 const onChangeRole = async (emp: Employee, role: "ADMIN" | "EMPLOYEE") => {
   if (emp.id === actor.value?.id && role !== "ADMIN") {
     return notify.error("ห้ามลด role ของตัวเอง");
@@ -110,7 +172,10 @@ const formatDate = (s: string) => new Date(s).toLocaleDateString("th-TH", { date
         <h1 class="text-xl font-semibold">จัดการพนักงาน</h1>
         <p class="text-sm text-muted mt-1">เพิ่ม/ลบ และเปลี่ยน role ของพนักงานในร้าน</p>
       </div>
-      <UButton icon="i-lucide-plus" @click="isCreateOpen = true">เพิ่มพนักงาน</UButton>
+      <div class="flex gap-2">
+        <UButton icon="i-lucide-user-search" color="neutral" variant="outline" @click="isPromoteOpen = true">เลือกผู้ใช้ในระบบ</UButton>
+        <UButton icon="i-lucide-plus" @click="isCreateOpen = true">สร้างพนักงานใหม่</UButton>
+      </div>
     </div>
 
     <USkeleton v-if="isLoading" class="h-64 w-full rounded-lg" />
@@ -128,7 +193,7 @@ const formatDate = (s: string) => new Date(s).toLocaleDateString("th-TH", { date
         >
           <div class="flex items-center gap-3 min-w-0">
             <UAvatar v-bind="getAvatarProps(emp.image, emp.name, emp.email)" size="md" />
-            
+
             <div class="min-w-0">
               <div class="flex items-center gap-2 flex-wrap">
                 <p class="font-medium truncate">{{ emp.name || emp.email }}</p>
@@ -164,7 +229,8 @@ const formatDate = (s: string) => new Date(s).toLocaleDateString("th-TH", { date
       </div>
     </UCard>
 
-    <UModal v-model:open="isCreateOpen" title="เพิ่มพนักงาน">
+    <!-- Create new employee modal -->
+    <UModal v-model:open="isCreateOpen" title="สร้างพนักงานใหม่">
       <template #body>
         <div class="space-y-3">
           <UFormField label="ชื่อ" required>
@@ -196,6 +262,59 @@ const formatDate = (s: string) => new Date(s).toLocaleDateString("th-TH", { date
         <div class="flex w-full justify-between gap-2">
           <UButton color="neutral" variant="ghost" @click="isCreateOpen = false">ยกเลิก</UButton>
           <UButton :loading="isCreating" icon="i-lucide-user-plus" @click="onCreate">เพิ่มพนักงาน</UButton>
+        </div>
+      </template>
+    </UModal>
+
+    <!-- Promote existing user modal -->
+    <UModal v-model:open="isPromoteOpen" title="เลือกผู้ใช้จากระบบ" :ui="{ content: 'max-w-md' }">
+      <template #body>
+        <div class="space-y-4">
+          <UFormField label="ค้นหาผู้ใช้" required>
+            <USelectMenu
+              v-model="selectedUserId"
+              :items="memberSelectOptions"
+              value-key="value"
+              label-key="label"
+              searchable
+              :search-input="{ placeholder: 'พิมพ์ชื่อหรืออีเมล...' }"
+              :loading="isSearching"
+              placeholder="เลือกผู้ใช้"
+              class="w-full"
+              @update:search-term="promoteSearch = $event"
+            >
+              <template #item="{ item }">
+                <div class="flex items-center gap-2">
+                  <UAvatar v-bind="getAvatarProps(item.image, item.name, item.email)" size="xs" />
+                  <div class="min-w-0">
+                    <p class="text-sm font-medium truncate">{{ item.label }}</p>
+                    <p class="text-xs text-muted truncate">{{ item.email }}</p>
+                  </div>
+                </div>
+              </template>
+              <template #empty>
+                <p class="text-sm text-muted text-center py-2">ไม่พบผู้ใช้</p>
+              </template>
+            </USelectMenu>
+          </UFormField>
+
+          <UFormField label="Role ที่จะมอบให้">
+            <USelect
+              v-model="promoteRole"
+              :items="[
+                { label: 'พนักงาน', value: 'EMPLOYEE' },
+                { label: 'ผู้ดูแล', value: 'ADMIN' },
+              ]"
+              value-key="value"
+              class="w-full"
+            />
+          </UFormField>
+        </div>
+      </template>
+      <template #footer>
+        <div class="flex w-full justify-between gap-2">
+          <UButton color="neutral" variant="ghost" @click="isPromoteOpen = false; resetPromote()">ยกเลิก</UButton>
+          <UButton :loading="isPromoting" :disabled="!selectedUserId" icon="i-lucide-shield-check" @click="onPromote">มอบสิทธิ์พนักงาน</UButton>
         </div>
       </template>
     </UModal>

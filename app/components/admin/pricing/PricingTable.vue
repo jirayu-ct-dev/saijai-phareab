@@ -55,6 +55,8 @@ const tableData = computed(() => {
     props.data.services?.forEach((service: any) => {
       const priceObj = getPrice(item.id, service.id)
       row[`service_${service.id}`] = priceObj ? Number(priceObj.price) : null
+      row[`service_${service.id}_min`] = priceObj?.priceMin != null ? Number(priceObj.priceMin) : null
+      row[`service_${service.id}_max`] = priceObj?.priceMax != null ? Number(priceObj.priceMax) : null
     })
     return row
   })
@@ -97,6 +99,9 @@ const deleteItemModal = ref(false)
 const isProcessingItem = ref(false)
 const activeItem = ref<any>({ id: '', name: '', categoryId: '', description: '' })
 const activeItemPrices = ref<Record<string, number | string | undefined>>({})
+const activeItemPricesMin = ref<Record<string, number | string | undefined>>({})
+const activeItemPricesMax = ref<Record<string, number | string | undefined>>({})
+const activeItemRangeEnabled = ref<Record<string, boolean>>({})
 
 const openEditItem = (itemRow: any) => {
   activeItem.value = {
@@ -106,8 +111,17 @@ const openEditItem = (itemRow: any) => {
     description: itemRow.description ?? ''
   }
   activeItemPrices.value = {}
+  activeItemPricesMin.value = {}
+  activeItemPricesMax.value = {}
+  activeItemRangeEnabled.value = {}
   props.data?.services?.forEach((s: any) => {
+    const priceObj = getPrice(itemRow.id, s.id)
     activeItemPrices.value[s.id] = itemRow[`service_${s.id}`] ?? undefined
+    const hasMin = priceObj?.priceMin != null
+    const hasMax = priceObj?.priceMax != null
+    activeItemRangeEnabled.value[s.id] = hasMin || hasMax
+    activeItemPricesMin.value[s.id] = hasMin ? Number(priceObj.priceMin) : undefined
+    activeItemPricesMax.value[s.id] = hasMax ? Number(priceObj.priceMax) : undefined
   })
   editItemModal.value = true
 }
@@ -132,11 +146,14 @@ const saveEditItem = async () => {
     for (const service of props.data?.services ?? []) {
       const newPrice = activeItemPrices.value[service.id]
       if (newPrice !== null && newPrice !== undefined && newPrice !== '') {
+        const isRange = activeItemRangeEnabled.value[service.id]
+        const priceMin = isRange && activeItemPricesMin.value[service.id] !== undefined ? Number(activeItemPricesMin.value[service.id]) : null
+        const priceMax = isRange && activeItemPricesMax.value[service.id] !== undefined ? Number(activeItemPricesMax.value[service.id]) : null
         await $fetch('/api/admin/pricing/price', {
           method: 'PUT',
-          body: { storefrontItemId: activeItem.value.id, storefrontServiceId: service.id, price: Number(newPrice) }
+          body: { storefrontItemId: activeItem.value.id, storefrontServiceId: service.id, price: Number(newPrice), priceMin, priceMax }
         })
-        emit('update-price', { itemId: activeItem.value.id, serviceId: service.id, price: Number(newPrice) })
+        emit('update-price', { itemId: activeItem.value.id, serviceId: service.id, price: Number(newPrice), priceMin, priceMax })
       }
     }
     emit('update-item', { ...activeItem.value })
@@ -204,6 +221,11 @@ const columns = computed<TableColumn<any>[]>(() => {
     cell: ({ row }: any) => {
       const price = row.getValue(`service_${service.id}`)
       if (price === null || price === undefined) return h('span', { class: 'text-muted' }, '-')
+      const min = row.original[`service_${service.id}_min`]
+      const max = row.original[`service_${service.id}_max`]
+      if (min != null && max != null && min !== max) {
+        return h('span', { class: 'font-medium text-primary' }, `฿${Number(min).toLocaleString()}–${Number(max).toLocaleString()}`)
+      }
       return h('span', { class: 'font-medium text-primary' }, `฿${Number(price).toLocaleString()}`)
     }
   }))
@@ -436,19 +458,39 @@ const columns = computed<TableColumn<any>[]>(() => {
         </UFormField>
 
         <UFormField label="ราคาตามบริการ">
-          <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <UFormField
+          <div class="space-y-4">
+            <div
               v-for="service in data?.services"
               :key="service.id"
-              :label="service.name"
+              class="border border-default rounded-lg p-3 space-y-2"
             >
-              <UInput
-                v-model.number="activeItemPrices[service.id]"
-                type="number"
-                class="w-full"
-                placeholder="-"
-              />
-            </UFormField>
+              <div class="flex items-center justify-between gap-2">
+                <span class="text-sm font-medium">{{ service.name }}</span>
+                <div class="flex items-center gap-1.5">
+                  <span class="text-xs text-muted">ช่วงราคา</span>
+                  <USwitch v-model="activeItemRangeEnabled[service.id]" size="xs" />
+                </div>
+              </div>
+              <div v-if="!activeItemRangeEnabled[service.id]">
+                <UInput
+                  v-model.number="activeItemPrices[service.id]"
+                  type="number"
+                  class="w-full"
+                  placeholder="ราคา"
+                />
+              </div>
+              <div v-else class="grid grid-cols-3 gap-2 items-end">
+                <UFormField label="ต่ำสุด">
+                  <UInput v-model.number="activeItemPricesMin[service.id]" type="number" class="w-full" placeholder="0" @update:model-value="activeItemPrices[service.id] = activeItemPricesMin[service.id]" />
+                </UFormField>
+                <UFormField label="สูงสุด">
+                  <UInput v-model.number="activeItemPricesMax[service.id]" type="number" class="w-full" placeholder="0" />
+                </UFormField>
+                <UFormField label="ราคาเริ่มต้น">
+                  <UInput v-model.number="activeItemPrices[service.id]" type="number" class="w-full" placeholder="ใช้ค่าต่ำสุด" />
+                </UFormField>
+              </div>
+            </div>
           </div>
         </UFormField>
 

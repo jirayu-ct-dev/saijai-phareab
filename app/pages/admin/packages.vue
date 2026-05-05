@@ -118,9 +118,11 @@ const handleRemoveFromBulkDelete = (pkgId: string) => {
         <template #right>
           <UButton
             label="เพิ่มแพ็กเกจ"
-            icon="i-lucide-package"
             trailing-icon="i-lucide-plus"
             color="primary"
+            class="shrink-0"
+            aria-label="เพิ่มแพ็กเกจ"
+            :ui="{ label: 'hidden sm:inline' }"
             @click="openCreateModal"
           />
         </template>

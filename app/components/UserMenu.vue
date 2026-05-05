@@ -15,7 +15,7 @@ const isStaff = computed(() => {
 });
 
 const profileRoute = computed(() => (isStaff.value ? "/admin/settings/profile" : "/settings/notification"));
-const settingsRoute = computed(() => (isStaff.value ? "/admin/settings/profile" : "/settings/notification"));
+const settingsRoute = computed(() => (isStaff.value ? "/admin/settings/billing" : "/settings/notification"));
 const homeRoute = computed(() => (isStaff.value ? "/admin" : "/"));
 
 const handleLogout = async (e: Event) => {
@@ -52,7 +52,9 @@ const items = computed<DropdownMenuItem[][]>(() => [
     {
       label: "หน้าหลัก",
       icon: "i-lucide-house",
-      to: homeRoute.value,
+      onSelect() {
+        navigateTo(homeRoute.value);
+      },
     },
   ],
   [

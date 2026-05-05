@@ -5,101 +5,8 @@ import ThermalTitle from "~~/app/components/admin/thermal/ThermalTitle.vue";
 import ThermalInfoRows from "~~/app/components/admin/thermal/ThermalInfoRows.vue";
 import ThermalLineQr from "~~/app/components/admin/thermal/ThermalLineQr.vue";
 import { formatCurrency, formatDate, formatDateTime } from "~~/shared/utils/format";
-
-type ReceiptPayload = {
-  id: string;
-  paymentNo: string | null;
-  receiptType: "PACKAGE" | "STOREFRONT";
-  createdAt: string;
-  paidAt: string | null;
-  amount: number;
-  note: string | null;
-  vat: {
-    rate: number;
-    amount: number;
-    included: boolean;
-    baseAmount: number;
-  } | null;
-  customer: {
-    id: string;
-    name: string | null;
-    email: string;
-    phoneNumber: string | null;
-    image: string | null;
-  };
-  packageSale: {
-    id: string;
-    status: string;
-    note: string | null;
-    subtotalAmount: number;
-    discountAmount: number;
-    totalAmount: number;
-    soldBy: {
-      id: string;
-      name: string | null;
-      email: string;
-    } | null;
-    items: Array<{
-      id: string;
-      name: string;
-      type: "MAIN" | "ADDON";
-      quantity: number;
-      unitPrice: number;
-      totalPrice: number;
-    }>;
-  } | null;
-  serviceOrder: {
-    id: string;
-    orderNo: string | null;
-    status: string;
-    note: string | null;
-    receivedAt: string;
-    deliveredAt: string | null;
-    dueAt: string | null;
-    weightKg: number | null;
-    washFoldPricePerKg: number | null;
-    subtotalAmount: number;
-    discountAmount: number;
-    totalAmount: number;
-    employee: {
-      id: string;
-      name: string | null;
-      email: string;
-    } | null;
-    hangerCharge: {
-      count: number;
-      pricePerUnit: number;
-      total: number;
-    } | null;
-    items: Array<{
-      id: string;
-      name: string;
-      quantity: number;
-      unitPrice: number;
-      totalPrice: number;
-      notes: string | null;
-      isPackageIncluded: boolean;
-      isWashFold?: boolean;
-      weightKg?: number | null;
-    }>;
-    creditUsed: number;
-    usageHistory: Array<{
-      sessionIndex: number;
-      orderId: string;
-      orderNo: string | null;
-      receivedAt: string;
-      quantity: number;
-      isCurrent: boolean;
-    }>;
-    memberEntitlement: {
-      id: string;
-      productName: string;
-      creditInitial: number;
-      creditRemaining: number;
-      endAt: string | null;
-    } | null;
-  } | null;
-};
+import type { ReceiptPayload } from "~~/shared/types/receipt";
+import { buildReceiptBytes } from "~~/app/composables/useEscposReceipt";
 
 type ReceiptLineItem = {
   id: string;
@@ -185,6 +92,22 @@ const creditUsed = computed(() => data.value?.serviceOrder?.creditUsed ?? 0);
 const usageHistory = computed(() => data.value?.serviceOrder?.usageHistory ?? []);
 const totalUsedCredits = computed(() => usageHistory.value.reduce((sum, row) => sum + row.quantity, 0));
 
+// ── ESC/POS printing ────────────────────────────────────────────────────────
+const notify = useNotify();
+const { state: printerState, send } = useThermalPrinter();
+
+async function handleEscPosPrint() {
+  if (!data.value) return;
+  try {
+    const bytes = buildReceiptBytes(data.value, shopSettings.value ?? null, printerState.value.paperWidth);
+    await send(bytes);
+    notify.success("ส่งงานพิมพ์เรียบร้อย");
+  } catch (e) {
+    notify.error(e instanceof Error ? e.message : "เกิดข้อผิดพลาดในการพิมพ์");
+  }
+}
+// ────────────────────────────────────────────────────────────────────────────
+
 const infoRows = computed(() => {
   const d = data.value;
   if (!d) return [];
@@ -230,6 +153,7 @@ const infoRows = computed(() => {
     empty-title="ไม่พบข้อมูลใบเสร็จ"
     print-label="พิมพ์ใบเสร็จ"
     @retry="refresh()"
+    @print="handleEscPosPrint"
   >
     <template v-if="data">
       <ThermalHeader

@@ -6,7 +6,7 @@ import { createPaymentNo } from "~~/server/utils/paymentNo";
 import { prisma } from "~~/server/utils/prisma";
 import { createServiceOrderNo } from "~~/server/utils/serviceOrderNo";
 import { ensureWalkInCustomer } from "~~/server/utils/walkInCustomer";
-import { notifyServiceOrderCreated } from "~~/server/utils/notify";
+import { notifyServiceOrderCreated, notifyServiceOrderStatusChanged } from "~~/server/utils/notify";
 
 type CreateServiceOrderBody = {
   customerId?: string | null;
@@ -14,10 +14,12 @@ type CreateServiceOrderBody = {
   walkInName?: string | null;
   walkInPhone?: string | null;
   memberEntitlementId?: string | null;
+  addonEntitlements?: Array<{ entitlementId: string; credits: number }>;
   orderImageId?: string | null;
   items: Array<{
     storefrontPriceId: string;
     quantity: number;
+    unitPrice?: number | null;
     imageId?: string | null;
     notes?: string | null;
     photos?: Array<{ imageId: string; isDamaged?: boolean; sortOrder?: number }>;
@@ -81,6 +83,7 @@ export default defineEventHandler(async (event) => {
       return {
         storefrontPriceId: item.storefrontPriceId,
         quantity: Number(item.quantity ?? 1),
+        unitPriceOverride: item.unitPrice != null && Number.isFinite(Number(item.unitPrice)) ? Number(item.unitPrice) : null,
         imageId: item.imageId?.trim() || photos[0]?.imageId || null,
         notes: item.notes?.trim() || null,
         photos,
@@ -175,7 +178,7 @@ export default defineEventHandler(async (event) => {
         throw createError({ statusCode: 404, statusMessage: "ไม่พบบริการที่เลือก" });
       }
 
-      const unitPrice = Number(price.price);
+      const unitPrice = item.unitPriceOverride ?? Number(price.price);
       return {
         price,
         quantity: item.quantity,
@@ -279,6 +282,42 @@ export default defineEventHandler(async (event) => {
         }
       }
 
+      // Deduct CREATED add-on entitlements
+      type StoredAddonUsage = { entitlementId: string; productId: string; productName: string; credits: number; appliedAt: string };
+      const storedAddonUsages: StoredAddonUsage[] = [];
+      const rawAddonEntitlements = Array.isArray(body.addonEntitlements) ? body.addonEntitlements : [];
+      for (const entry of rawAddonEntitlements) {
+        if (!entry.entitlementId || entry.credits <= 0) continue;
+        const addonEnt = await tx.memberEntitlement.findFirst({
+          where: {
+            id: entry.entitlementId,
+            customerId: customerId!,
+            status: "ACTIVE",
+            deletedAt: null,
+            product: { packageType: "ADDON", deductOn: "CREATED" },
+          },
+          include: { product: { select: { id: true, name: true, deductOn: true } } },
+        });
+        if (!addonEnt) {
+          throw createError({ statusCode: 400, statusMessage: `ไม่พบสิทธิ์แพ็กเกจเสริม (${entry.entitlementId})` });
+        }
+        const remaining = addonEnt.creditRemaining ?? 0;
+        if (remaining < entry.credits) {
+          throw createError({ statusCode: 400, statusMessage: `เครดิตของ "${addonEnt.product.name}" ไม่พอ (มี ${remaining})` });
+        }
+        await tx.memberEntitlement.update({
+          where: { id: addonEnt.id },
+          data: { creditRemaining: remaining - entry.credits },
+        });
+        storedAddonUsages.push({
+          entitlementId: addonEnt.id,
+          productId: addonEnt.product.id,
+          productName: addonEnt.product.name,
+          credits: entry.credits,
+          appliedAt: new Date().toISOString(),
+        });
+      }
+
       const serviceOrder = await tx.serviceOrder.create({
         data: {
           orderNo: await createServiceOrderNo(receivedAt),
@@ -300,6 +339,7 @@ export default defineEventHandler(async (event) => {
           washFoldPricePerKgSnapshot: washFoldPriceSnapshot,
           note: body.note?.trim() || null,
           imageId: orderImageId,
+          addonUsages: storedAddonUsages.length ? storedAddonUsages : undefined,
         },
       });
 
@@ -387,7 +427,21 @@ export default defineEventHandler(async (event) => {
       };
     });
 
-    void notifyServiceOrderCreated({ serviceOrderId: created.id });
+    if (serviceOrderStatus === "RECEIVED") {
+      // Send RECEIVED notification first, then transition to PROCESSING
+      await notifyServiceOrderCreated({ serviceOrderId: created.id });
+      await prisma.serviceOrder.update({
+        where: { id: created.id },
+        data: { status: "PROCESSING" },
+      });
+      void notifyServiceOrderStatusChanged({
+        serviceOrderId: created.id,
+        fromStatus: "RECEIVED",
+        toStatus: "PROCESSING",
+      });
+    } else {
+      void notifyServiceOrderCreated({ serviceOrderId: created.id });
+    }
 
     return created;
   } catch (error) {
