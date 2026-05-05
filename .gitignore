@@ -26,6 +26,10 @@ logs
 /app/generated/prisma
 
 .claude
+.agents
+.codex
+error.md
+flow.md
 CLAUDE*.md
 claude*
 .gemini
@@ -34,3 +38,4 @@ gemini*.md
 betterauth_unable*.md
 
 docs
+richmenu
