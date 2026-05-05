@@ -248,7 +248,7 @@ const columns: TableColumn<AdminPaymentRecord>[] = [
   {
     accessorKey: "paymentNo",
     header: "เลขชำระ",
-    cell: ({ row }) => h("div", { class: "font-mono text-xs text-muted" }, row.original.paymentNo || "-"),
+    cell: ({ row }) => h("div", { class: "font-mono text-xs text-muted cursor-pointer hover:underline", onClick: (e: MouseEvent) => { e.stopPropagation(); openPaymentDetail(row.original); } }, row.original.paymentNo || "-"),
   },
   {
     accessorKey: "customer",
@@ -427,12 +427,11 @@ const columns: TableColumn<AdminPaymentRecord>[] = [
             :ui="{
               base: 'table-fixed border-separate border-spacing-0',
               thead: '[&>tr]:bg-elevated/50 [&>tr]:after:content-none',
-              tbody: '[&>tr]:last:[&>td]:border-b-0 [&>tr]:cursor-pointer [&>tr]:transition-colors [&>tr]:hover:bg-elevated/60',
+              tbody: '[&>tr]:last:[&>td]:border-b-0 [&>tr]:transition-colors [&>tr]:hover:bg-elevated/60',
               th: 'border-y border-default py-2 font-medium first:rounded-l-lg first:border-l last:rounded-r-lg last:border-r',
               td: 'border-b border-default',
               separator: 'h-0'
             }"
-            @select="(_e: Event, row) => openPaymentDetail(row.original)"
           >
             <template #empty>
               <div class="flex flex-col items-center justify-center py-12 text-center text-muted">

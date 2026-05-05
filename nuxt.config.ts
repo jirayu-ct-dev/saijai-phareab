@@ -36,6 +36,15 @@ export default defineNuxtConfig({
       ],
     },
   },
+  nitro: {
+    experimental: {
+      tasks: true,
+    },
+    // Cron times are UTC. 02:00 UTC = 09:00 Asia/Bangkok.
+    scheduledTasks: {
+      '0 2 * * *': ['notify:expiring-packages'],
+    },
+  },
   runtimeConfig: {
     public: {
       liffId: process.env.NUXT_PUBLIC_LIFF_ID,

@@ -45,7 +45,7 @@ export default defineEventHandler(async (event) => {
           creditRemaining: true,
           startAt: true,
           endAt: true,
-          product: { select: { name: true, packageType: true } },
+          product: { select: { id: true, name: true, packageType: true } },
         },
         orderBy: { createdAt: "desc" },
       },
@@ -89,6 +89,15 @@ export default defineEventHandler(async (event) => {
       totalSpent,
       mainPackageName: activeMain[0]?.product.name ?? null,
       addonPackageNames: activeAddon.map((e) => e.product.name),
+      entitlements: u.memberEntitlements.map((e) => ({
+        id: e.id,
+        status: e.status,
+        creditInitial: e.creditInitial,
+        creditRemaining: e.creditRemaining,
+        startAt: e.startAt,
+        endAt: e.endAt,
+        product: e.product,
+      })),
     };
   });
 

@@ -138,7 +138,7 @@ const columns: TableColumn<Package>[] = [
     cell: ({ row }) => {
       const pkg = row.original;
 
-      return h("div", { class: "flex items-center gap-3" }, [
+      return h("div", { class: "flex items-center gap-3 cursor-pointer", onClick: (e: MouseEvent) => { e.stopPropagation(); row.toggleExpanded(); } }, [
         h(
           "div",
           {
@@ -326,12 +326,11 @@ const columns: TableColumn<Package>[] = [
       :ui="{
         base: 'table-fixed border-separate border-spacing-0',
         thead: '[&>tr]:bg-elevated/50 [&>tr]:after:content-none',
-        tbody: '[&>tr]:last:[&>td]:border-b-0 [&>tr]:cursor-pointer [&>tr]:transition-colors [&>tr]:hover:bg-elevated/60',
+        tbody: '[&>tr]:last:[&>td]:border-b-0 [&>tr]:transition-colors [&>tr]:hover:bg-elevated/60',
         th: 'py-2 font-medium first:rounded-l-lg last:rounded-r-lg border-y border-default first:border-l last:border-r',
         td: 'border-b border-default',
         separator: 'h-0',
       }"
-      @select="(_e: Event, row) => row.toggleExpanded()"
     >
       <template #empty>
         <div class="flex flex-col items-center justify-center py-12 text-center text-muted">

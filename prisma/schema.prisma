@@ -265,8 +265,9 @@ model MemberEntitlement {
   deletedById       String?
   deletedBy         User?             @relation("MemberEntitlementDeletedBy", fields: [deletedById], references: [id])
 
-  serviceOrders ServiceOrder[]
-  payments      PaymentRecord[]
+  serviceOrders         ServiceOrder[]
+  payments              PaymentRecord[]
+  expiryNotifications   PackageExpiryNotification[]
 
   @@index([customerId])
   @@index([productId])
@@ -551,9 +552,23 @@ model NotificationSetting {
   notifyCustomerOnCancelled   Boolean  @default(true)
   notifyCustomerReceipt       Boolean  @default(true)
   notifyStaffOnNewOrder       Boolean  @default(true)
+  notifyCustomerOnPackageExpiring Boolean @default(true)
   updatedAt                   DateTime @updatedAt
 
   @@map("notification_setting")
+}
+
+model PackageExpiryNotification {
+  id            String            @id @default(cuid())
+  entitlementId String
+  entitlement   MemberEntitlement @relation(fields: [entitlementId], references: [id], onDelete: Cascade)
+  daysBefore    Int
+  endAtSnapshot DateTime
+  sentAt        DateTime          @default(now())
+
+  @@unique([entitlementId, daysBefore])
+  @@index([sentAt])
+  @@map("package_expiry_notification")
 }
 
 model NotificationSubscriber {

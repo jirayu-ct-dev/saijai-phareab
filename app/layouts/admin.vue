@@ -40,12 +40,12 @@ const adminMenu = [
       to: "/admin/service-orders",
       onSelect: closeSidebar,
     },
-    {
-      label: "สแกนสถานะผ้า",
-      icon: "i-lucide-scan-line",
-      to: "/admin/service-orders/scan",
-      onSelect: closeSidebar,
-    },
+    // {
+    //   label: "สแกนสถานะผ้า",
+    //   icon: "i-lucide-scan-line",
+    //   to: "/admin/service-orders/scan",
+    //   onSelect: closeSidebar,
+    // },
     {
       label: "จัดการผู้ใช้งาน",
       icon: "i-lucide-users",
@@ -156,12 +156,12 @@ const employeeMenu = [
       to: "/admin/service-orders",
       onSelect: closeSidebar,
     },
-    {
-      label: "สแกนสถานะผ้า",
-      icon: "i-lucide-scan-line",
-      to: "/admin/service-orders/scan",
-      onSelect: closeSidebar,
-    },
+    // {
+    //   label: "สแกนสถานะผ้า",
+    //   icon: "i-lucide-scan-line",
+    //   to: "/admin/service-orders/scan",
+    //   onSelect: closeSidebar,
+    // },
     {
       label: "รายการขาย",
       icon: "i-lucide-shopping-cart",

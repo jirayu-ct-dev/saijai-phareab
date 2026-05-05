@@ -688,12 +688,11 @@ const columns: TableColumn<AdminUser>[] = [
             :ui="{
               base: 'table-fixed border-separate border-spacing-0',
               thead: '[&>tr]:bg-elevated/50 [&>tr]:after:content-none',
-              tbody: '[&>tr]:last:[&>td]:border-b-0 [&>tr]:cursor-pointer [&>tr]:transition-colors [&>tr]:hover:bg-elevated/60',
+              tbody: '[&>tr]:last:[&>td]:border-b-0 [&>tr]:transition-colors [&>tr]:hover:bg-elevated/60',
               th: 'py-2 font-medium first:rounded-l-lg last:rounded-r-lg border-y border-default first:border-l last:border-r',
               td: 'border-b border-default',
               separator: 'h-0'
             }"
-            @select="(_e: Event, row) => navigateTo(`/admin/users/${row.original.id}`)"
           >
             <template #empty>
               <div class="flex flex-col items-center justify-center py-12 text-center text-muted">
