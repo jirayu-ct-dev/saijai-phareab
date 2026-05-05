@@ -42,23 +42,38 @@ useSeoMeta({
 
 <template>
   <div class="min-h-screen">
-    <!-- LIFF Loading State -->
-    <div v-if="showLiffLoading" class="min-h-screen flex items-center justify-center px-6">
-      <div class="text-center">
-        <div class="inline-block h-10 w-10 rounded-full border-4 border-gray-200 border-t-[#1a365d] animate-spin" />
-        <p class="mt-4 text-sm text-gray-600 dark:text-gray-400">กำลังเตรียมการเข้าสู่ระบบผ่าน LINE...</p>
+    <!-- LIFF Loading Overlay (fixed ทับ ไม่กั้น DOM render) -->
+    <Transition name="fade">
+      <div
+        v-if="showLiffLoading"
+        class="fixed inset-0 z-50 bg-white dark:bg-gray-950 flex items-center justify-center"
+      >
+        <div class="text-center">
+          <div class="inline-block h-10 w-10 rounded-full border-4 border-gray-200 border-t-[#1a365d] animate-spin" />
+          <p class="mt-4 text-sm text-gray-600 dark:text-gray-400">กำลังเตรียมการเข้าสู่ระบบผ่าน LINE...</p>
+        </div>
       </div>
-    </div>
+    </Transition>
 
-    <!-- Main Content -->
-    <div v-else>
-      <HomeHero />
-      <HomeWhyChooseUs />
-      <HomeHowItWorks />
-      <HomePricing />
-      <HomePackages id="packages" />
-      <HomeFAQ />
-      <HomeContact id="contact" />
-    </div>
+    <!-- Main Content — render ทันที ไม่รอ LIFF -->
+    <HomeHero />
+    <HomeWhyChooseUs />
+    <HomeHowItWorks />
+    <HomePricing />
+    <HomePackages />
+    <HomeFAQ />
+    <HomeContact />
   </div>
 </template>
+
+<style scoped>
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.3s ease;
+}
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
+</style>
+

@@ -66,7 +66,7 @@ onUnmounted(() => {
               size="xl"
               color="primary"
               class="px-8 font-bold rounded-xl transition-all hover:scale-105"
-              to="#packages"
+              to="#per-item-pricing"
             >
               ดูราคาบริการ
               <template #trailing>

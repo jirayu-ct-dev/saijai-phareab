@@ -20,7 +20,7 @@ const getPackageLabel = (index: number) => {
 </script>
 
 <template>
-  <section class="py-24">
+  <section id="monthly-membership" class="py-24">
     <UContainer>
       <!-- Header -->
       <div class="mb-16 max-w-2xl mx-auto text-center">
@@ -48,14 +48,14 @@ const getPackageLabel = (index: number) => {
           :key="pkg.id"
           class="relative flex flex-col bg-white dark:bg-[#0f172a] rounded-[32px] transition-all duration-500 border h-full group"
           :class="[
-            index === 1 
-              ? 'border-blue-600 shadow-[0_0_40px_-10px_rgba(37,99,235,0.3)] scale-[1.02] z-10' 
+            index === 1
+              ? 'border-blue-600 shadow-[0_0_40px_-10px_rgba(37,99,235,0.3)] scale-[1.02] z-10'
               : 'border-gray-200 dark:border-gray-800 shadow-sm hover:border-gray-300 dark:hover:border-gray-700'
           ]"
         >
           <!-- Recommended Badge -->
-          <div 
-            v-if="index === 1" 
+          <div
+            v-if="index === 1"
             class="absolute -top-3 left-1/2 -translate-x-1/2 bg-blue-600 text-white text-[12px] font-bold px-4 py-1 rounded-full z-20 shadow-lg"
           >
             แนะนำ
@@ -75,7 +75,7 @@ const getPackageLabel = (index: number) => {
               <span class="text-[44px] font-bold text-gray-900 dark:text-white">฿{{ formatPrice(pkg.price) }}</span>
               <span class="text-gray-500 dark:text-gray-400 text-[16px] ml-1">บาท</span>
             </div>
-            
+
             <p class="text-gray-500 dark:text-gray-400 text-[14px] mb-8 mt-[-20px]">ต่อเดือน</p>
 
             <div class="space-y-5 mb-10 flex-grow">
@@ -91,8 +91,8 @@ const getPackageLabel = (index: number) => {
               :variant="index === 1 ? 'solid' : 'outline'"
               :class="[
                 'rounded-[16px] py-4 text-[16px] font-bold transition-all group/btn',
-                index === 1 
-                  ? 'bg-blue-600 hover:bg-blue-700 text-white border-transparent' 
+                index === 1
+                  ? 'bg-blue-600 hover:bg-blue-700 text-white border-transparent'
                   : 'bg-transparent hover:bg-gray-50 dark:hover:bg-white/5 text-gray-900 dark:text-white border-gray-200 dark:border-gray-700'
               ]"
             >
@@ -103,10 +103,10 @@ const getPackageLabel = (index: number) => {
         </div>
       </div>
 
-      <!-- Add-on Card -->
+      <!-- Add-on Card (from API) -->
       <div v-if="!pending && addonPackages.length > 0" class="space-y-6">
-        <div 
-          v-for="addon in addonPackages" 
+        <div
+          v-for="addon in addonPackages"
           :key="addon.id"
           class="bg-white dark:bg-[#0f172a] border border-gray-200 dark:border-gray-800 rounded-[24px] p-6 md:p-8 flex flex-col md:flex-row items-center justify-between gap-8 shadow-sm hover:border-gray-300 dark:hover:border-gray-700 transition-colors"
         >
@@ -146,6 +146,48 @@ const getPackageLabel = (index: number) => {
                 <UIcon name="i-lucide-arrow-right" class="ml-1 w-4 h-4 group-hover:translate-x-1 transition-transform" />
               </UButton>
             </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Delivery Package Static Card (fallback หาก API ไม่มี addon) -->
+      <div v-else-if="!pending" class="bg-white dark:bg-[#0f172a] border border-gray-200 dark:border-gray-800 rounded-[24px] p-6 md:p-8 flex flex-col md:flex-row items-center justify-between gap-8 shadow-sm">
+        <div class="flex items-center gap-6 flex-1 w-full md:w-auto">
+          <div class="w-14 h-14 bg-gray-50 dark:bg-gray-800 rounded-2xl flex items-center justify-center shadow-sm shrink-0 border border-gray-100 dark:border-gray-800">
+            <UIcon name="i-lucide-truck" class="w-7 h-7 text-blue-600 dark:text-blue-400" />
+          </div>
+          <div>
+            <div class="flex items-center gap-3 mb-1">
+              <span class="text-[12px] font-bold text-blue-600 dark:text-blue-400 tracking-wider uppercase">ADD-ON</span>
+              <span class="text-[12px] text-gray-500 font-medium">บริการเสริม</span>
+            </div>
+            <h4 class="text-[20px] font-bold text-gray-900 dark:text-white mb-1">รับ-ส่งผ้าถึงบ้าน</h4>
+            <p class="text-gray-500 dark:text-gray-400 text-[14px]">รับและส่งคืนผ้า 8 ครั้ง/เดือน • ทุกวันพุธและวันเสาร์ (สัปดาห์ละ 2 ครั้ง)</p>
+          </div>
+        </div>
+
+        <div class="flex flex-wrap items-center justify-between md:justify-end gap-8 md:gap-12 w-full md:w-auto border-t md:border-t-0 border-gray-200 dark:border-gray-800 pt-6 md:pt-0">
+          <div class="text-center">
+            <p class="text-[11px] text-gray-500 uppercase font-bold tracking-widest mb-1">ครั้ง/เดือน</p>
+            <p class="text-[20px] font-bold text-gray-900 dark:text-white">8</p>
+          </div>
+          <div class="text-center">
+            <p class="text-[11px] text-gray-500 uppercase font-bold tracking-widest mb-1">วัน</p>
+            <p class="text-[20px] font-bold text-gray-900 dark:text-white">พุธ • เสาร์</p>
+          </div>
+          <div class="flex flex-col items-end min-w-[120px]">
+            <div class="flex items-baseline gap-1 mb-2">
+              <span class="text-[26px] font-bold text-gray-900 dark:text-white">฿300</span>
+              <span class="text-gray-500 text-[12px]">/เดือน</span>
+            </div>
+            <UButton
+              variant="link"
+              to="#contact"
+              class="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-bold p-0 group"
+            >
+              สอบถามเพิ่มเติม
+              <UIcon name="i-lucide-arrow-right" class="ml-1 w-4 h-4 group-hover:translate-x-1 transition-transform" />
+            </UButton>
           </div>
         </div>
       </div>

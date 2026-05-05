@@ -8,27 +8,19 @@ const open = ref(false)
 const menu = computed<NavigationMenuItem[]>(() => [
     {
         label: 'ซักอบรีดรายชิ้น',
-        to: { path: '/', hash: '#per-item-pricing', force: true },
-        exact: true,
-        exactHash: true
+        to: '/#per-item-pricing'
     },
     {
         label: 'สมัครสมาชิกรายเดือน',
-        to: { path: '/', hash: '#monthly-membership', force: true },
-        exact: true,
-        exactHash: true
+        to: '/#monthly-membership'
     },
     {
         label: 'คำถามที่พบบ่อย',
-        to: { path: '/', hash: '#faq', force: true },
-        exact: true,
-        exactHash: true
+        to: '/#faq'
     },
     {
         label: 'ติดต่อเรา',
-        to: { path: '/', hash: '#contact', force: true },
-        exact: true,
-        exactHash: true
+        to: '/#contact'
     }
 ])
 
@@ -222,8 +214,7 @@ const itemsDropdown = computed<DropdownMenuItem[][]>(() => [
         </template>
 
         <template #bottom>
-            <div
-                class="flex flex-col md:flex-row items-center justify-between gap-4 container mx-auto max-w-7xl px-10 lg:px-12">
+            <div class="flex flex-col md:flex-row items-center justify-between gap-4 container mx-auto max-w-7xl px-10 lg:px-12">
                 <p class="text-sm text-muted">
                     &copy; {{ new Date().getFullYear() }} SaiJai-Phareab. All rights reserved.
                 </p>
