@@ -2,7 +2,7 @@
 import { authClient } from "~/utils/auth-client";
 const notify = useNotify();
 
-const { login, loginWithLine } = useUser();
+const { login, loginWithLine, redirectByRole } = useUser();
 
 const sessionRef = authClient.useSession();
 const session = computed(() => sessionRef.value.data);
@@ -31,22 +31,29 @@ async function handleSignIn() {
     }
 }
 
-onMounted(async () => {
-    if (session.value) return;
-    await handleLiffAutoLogin();
-})
-
 async function handleSignOut() {
     await authClient.signOut();
 }
+
+watch(session, async (newSession) => {
+    if (newSession?.user) {
+        await redirectByRole((newSession.user as any).role);
+    }
+}, { immediate: false });
+
+onMounted(async () => {
+    if (session.value) {
+        await redirectByRole((session.value.user as any)?.role);
+        return;
+    }
+    await handleLiffAutoLogin();
+})
 </script>
 
 <template>
     <div class="min-h-screen flex items-center justify-center p-4">
-
-
         <!-- ฟอร์ม Login -->
-        <div v-if="!session" class="w-full max-w-md">
+        <div class="w-full max-w-md">
             <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-8 space-y-6">
                 <div class="text-center">
                     <h1 class="text-2xl font-bold text-gray-800 dark:text-gray-100">เข้าสู่ระบบ</h1>

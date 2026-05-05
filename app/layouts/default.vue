@@ -227,10 +227,6 @@ const itemsDropdown = computed<DropdownMenuItem[][]>(() => [
                 <p class="text-sm text-muted">
                     &copy; {{ new Date().getFullYear() }} SaiJai-Phareab. All rights reserved.
                 </p>
-                <div class="flex gap-4 text-sm">
-                    <a href="#" class="hover:text-primary transition-colors">Privacy Policy</a>
-                    <a href="#" class="hover:text-primary transition-colors">Terms of Service</a>
-                </div>
             </div>
         </template>
     </UFooter>
