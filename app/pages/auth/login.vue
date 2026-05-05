@@ -2,7 +2,7 @@
 import { authClient } from "~/utils/auth-client";
 const notify = useNotify();
 
-const { login, loginWithLine } = useUser();
+const { login, loginWithLine, redirectByRole } = useUser();
 
 const sessionRef = authClient.useSession();
 const session = computed(() => sessionRef.value.data);
@@ -31,55 +31,29 @@ async function handleSignIn() {
     }
 }
 
-onMounted(async () => {
-    if (session.value) return;
-    await handleLiffAutoLogin();
-})
-
 async function handleSignOut() {
     await authClient.signOut();
 }
+
+watch(session, async (newSession) => {
+    if (newSession?.user) {
+        await redirectByRole((newSession.user as any).role);
+    }
+}, { immediate: false });
+
+onMounted(async () => {
+    if (session.value) {
+        await redirectByRole((session.value.user as any)?.role);
+        return;
+    }
+    await handleLiffAutoLogin();
+})
 </script>
 
 <template>
     <div class="min-h-screen flex items-center justify-center p-4">
-        <!-- แสดงข้อมูล Session (ถ้า login แล้ว) -->
-        <div v-if="isPending" class="text-gray-500">กำลังโหลด...</div>
-
-        <div v-else-if="session" class="w-full max-w-md">
-            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-8 space-y-6">
-                <div class="text-center">
-                    <div
-                        class="w-16 h-16 bg-green-100 dark:bg-green-900 rounded-full flex items-center justify-center mx-auto mb-4">
-                        <span v-if="!session.user.image" class="text-3xl">✅</span>
-                        <img v-else class="w-16 h-16 rounded-full mx-auto mb-4" :src="session.user.image" alt="">
-                    </div>
-                    <h2 class="text-2xl font-bold text-gray-800 dark:text-gray-100">เข้าสู่ระบบแล้ว!</h2>
-                </div>
-
-                <div class="space-y-3 bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
-                    <p class="text-sm text-gray-600 dark:text-gray-300">
-                        <span class="font-semibold">ชื่อ:</span> {{ session.user.name }}
-                    </p>
-                    <p class="text-sm text-gray-600 dark:text-gray-300">
-                        <span class="font-semibold">อีเมล:</span> {{ session.user.email }}
-                    </p>
-                    <p class="text-sm text-gray-600 dark:text-gray-300">
-                        <span class="font-semibold">ID:</span>
-                        <code class="text-xs bg-gray-200 dark:bg-gray-600 px-1 rounded">{{ session.user.id }}</code>
-                    </p>
-                </div>
-
-                <button
-                    class="w-full py-3 bg-red-500 hover:bg-red-600 text-white font-semibold rounded-lg transition-colors"
-                    @click="handleSignOut">
-                    ออกจากระบบ
-                </button>
-            </div>
-        </div>
-
         <!-- ฟอร์ม Login -->
-        <div v-else class="w-full max-w-md">
+        <div class="w-full max-w-md">
             <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-8 space-y-6">
                 <div class="text-center">
                     <h1 class="text-2xl font-bold text-gray-800 dark:text-gray-100">เข้าสู่ระบบ</h1>

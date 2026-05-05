@@ -28,6 +28,13 @@ export const useUser = () => {
     return session.value;
   };
 
+  const redirectByRole = async (role?: string) => {
+    if (role === 'ADMIN') return navigateTo('/admin')
+    if (role === 'EMPLOYEE') return navigateTo('/admin/employee-dashboard')
+    if (role === 'USER') return navigateTo('/me')
+    return navigateTo('/auth/login')
+  }
+
   const login = async (email: string, password: string) => {
     start();
     try {
@@ -48,10 +55,8 @@ export const useUser = () => {
       notify.success("เข้าสู่ระบบสำเร็จ");
       console.log("user login data:", user);
 
-      // Redirect to admin page if user is admin
-      if (user.value?.role === "ADMIN") {
-        await router.push("/admin");
-      }
+      // Redirect based on role
+      await redirectByRole(user.value?.role);
     } catch (error: any) {
       console.error(error);
       notify.error(error.message || "เกิดข้อผิดพลาดในการเข้าสู่ระบบ");
@@ -105,10 +110,8 @@ export const useUser = () => {
       console.log("user login data:", user);
 
 
-      // Redirect to admin page if user is admin
-      if (user.value?.role === "ADMIN") {
-        await router.push("/admin");
-      }
+      // Redirect based on role
+      await redirectByRole(user.value?.role);
 
     } catch (error: any) {
       console.error(error);
@@ -173,5 +176,6 @@ export const useUser = () => {
     loginWithLine,
     loginWithLineIdToken,
     logout,
+    redirectByRole,
   };
 };
