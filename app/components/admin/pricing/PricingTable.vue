@@ -81,6 +81,37 @@ const selectedCount = computed(() => selectedItems.value.length)
 const filteredRowCount = computed(
   () => table.value?.tableApi?.getFilteredRowModel().rows.length ?? tableData.value.length
 )
+const paginatedTableData = computed(() => {
+  const start = pagination.value.pageIndex * pagination.value.pageSize
+  return tableData.value.slice(start, start + pagination.value.pageSize)
+})
+
+const getMobileRowId = (index: number) => String(pagination.value.pageIndex * pagination.value.pageSize + index)
+const isMobileRowSelected = (index: number) => Boolean(rowSelection.value[getMobileRowId(index)])
+const setMobileRowSelected = (index: number, value: boolean | 'indeterminate') => {
+  const rowId = getMobileRowId(index)
+  rowSelection.value = {
+    ...rowSelection.value,
+    [rowId]: !!value
+  }
+  if (!value) {
+    const next = { ...rowSelection.value }
+    delete next[rowId]
+    rowSelection.value = next
+  }
+}
+
+const formatPriceText = (item: any, service: any) => {
+  const price = item[`service_${service.id}`]
+  if (price === null || price === undefined) return '-'
+
+  const min = item[`service_${service.id}_min`]
+  const max = item[`service_${service.id}_max`]
+  if (min != null && max != null && min !== max) {
+    return `฿${Number(min).toLocaleString()}-${Number(max).toLocaleString()}`
+  }
+  return `฿${Number(price).toLocaleString()}`
+}
 
 watch(selectedCount, (count) => {
   if (!count) showBulkDeleteModal.value = false
@@ -392,13 +423,78 @@ const columns = computed<TableColumn<any>[]>(() => {
       </template>
     </UModal>
 
+    <div class="md:hidden">
+      <div v-if="loading" class="space-y-3">
+        <USkeleton v-for="i in 5" :key="i" class="h-40 w-full rounded-xl" />
+      </div>
+
+      <div v-else-if="!paginatedTableData.length" class="flex flex-col items-center justify-center rounded-xl border border-dashed border-default py-12 text-center text-muted">
+        <UIcon name="i-lucide-list-x" class="mb-3 size-10 opacity-60" />
+        <p>{{ search ? 'ไม่พบรายการที่ค้นหา' : 'ยังไม่มีรายการ' }}</p>
+      </div>
+
+      <div v-else class="space-y-3">
+        <div
+          v-for="(item, index) in paginatedTableData"
+          :key="item.id"
+          class="rounded-xl border border-default bg-default p-3"
+        >
+          <div class="flex items-start gap-3">
+            <UCheckbox
+              :model-value="isMobileRowSelected(index)"
+              aria-label="เลือกแถว"
+              class="mt-1"
+              @update:model-value="setMobileRowSelected(index, $event)"
+            />
+
+            <div class="min-w-0 flex-1">
+              <div class="flex min-w-0 items-start justify-between gap-2">
+                <div class="flex min-w-0 items-center gap-2">
+                  <UIcon name="i-lucide-shirt" class="size-4 shrink-0 text-primary opacity-70" />
+                  <div class="min-w-0">
+                    <p class="truncate text-sm font-medium text-highlighted">{{ item.name }}</p>
+                    <p class="truncate text-xs text-muted">{{ item.description || 'ไม่มีหมายเหตุ' }}</p>
+                  </div>
+                </div>
+
+                <UBadge variant="subtle" color="primary" class="shrink-0">
+                  {{ item.categoryName }}
+                </UBadge>
+              </div>
+
+              <div class="mt-3 grid grid-cols-2 gap-2 border-t border-default pt-3">
+                <div
+                  v-for="service in data?.services ?? []"
+                  :key="service.id"
+                  class="min-w-0 rounded-lg bg-elevated/50 p-2"
+                >
+                  <p class="truncate text-xs text-muted">{{ service.name }}</p>
+                  <p
+                    class="mt-1 truncate text-sm font-semibold"
+                    :class="formatPriceText(item, service) === '-' ? 'text-muted' : 'text-primary'"
+                  >
+                    {{ formatPriceText(item, service) }}
+                  </p>
+                </div>
+              </div>
+
+              <div class="mt-3 flex items-center justify-end gap-1 border-t border-default pt-3">
+                <UButton icon="i-lucide-pencil" size="xs" color="neutral" variant="ghost" aria-label="แก้ไขรายการ" @click="openEditItem(item)" />
+                <UButton icon="i-lucide-trash-2" size="xs" color="error" variant="ghost" aria-label="ลบรายการ" @click="openDeleteItem(item)" />
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <UTable
       ref="table"
       v-model:column-visibility="columnVisibility"
       v-model:row-selection="rowSelection"
       v-model:pagination="pagination"
       :pagination-options="{ getPaginationRowModel: getPaginationRowModel() }"
-      class="shrink-0"
+      class="hidden shrink-0 md:block"
       :data="tableData"
       :columns="columns"
       :loading="loading"

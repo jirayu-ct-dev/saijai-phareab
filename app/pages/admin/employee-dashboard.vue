@@ -7,18 +7,48 @@ definePageMeta({
   layout: "admin",
 });
 
-const { data: stats, status: statsStatus, refresh: refreshStats } = useAsyncData(
+interface EmployeeStats {
+  receivedToday: number;
+  inProgress: number;
+  readyToDeliver: number;
+  completedToday: number;
+}
+
+interface PendingOrder {
+  id: string;
+  orderNo: string | null;
+  status: ServiceOrderStatus;
+  createdAt: string | Date;
+  dueAt: string | Date | null;
+  customer: {
+    id: string | null;
+    name: string;
+    phoneNumber: string | null;
+    image: string | null;
+    lineUserId: string | null;
+  };
+}
+
+const { data: stats, status: statsStatus, refresh: refreshStats } = useAsyncData<EmployeeStats>(
   "employee-stats",
   () => $fetch("/api/admin/dashboard/employee-stats"),
   { server: false }
 );
-const { data: orders, refresh: refreshOrders } = useAsyncData(
+const { data: orders, status: ordersStatus, refresh: refreshOrders } = useAsyncData<PendingOrder[]>(
   "employee-pending-orders",
   () => $fetch("/api/admin/dashboard/pending-orders"),
-  { server: false }
+  { server: false, default: () => [] }
 );
 
 const isStatsPending = computed(() => statsStatus.value === "pending");
+const isOrdersPending = computed(() => ordersStatus.value === "pending");
+
+const getAvatarProps = (customer?: PendingOrder["customer"] | null) => ({
+  as: { img: "img" },
+  src: customer?.image || "",
+  alt: customer?.name || "ลูกค้า",
+  loading: "lazy" as const,
+});
 
 function refresh() {
   refreshStats();
@@ -36,7 +66,7 @@ const cardUi = {
   container: "gap-y-1.5",
   wrapper: "items-start",
   leading: "p-2.5 rounded-full bg-primary/10 ring ring-inset ring-primary/25 flex-col",
-  title: "font-normal text-muted text-xs",
+  title: "font-normal text-muted text-xs truncate",
 };
 
 const columns = [
@@ -74,18 +104,18 @@ function openLineChat(lineUserId: string) {
     </template>
 
     <template #body>
-      <div class="flex flex-col gap-6 p-4 sm:p-6">
+      <div class="flex flex-col gap-4 p-4 sm:gap-6 sm:p-6">
 
         <!-- Stats -->
         <ClientOnly>
-          <UPageGrid class="lg:grid-cols-4 gap-4 sm:gap-6 lg:gap-px">
+          <UPageGrid class="grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4 lg:gap-px">
             <template v-if="isStatsPending">
               <UPageCard
                 v-for="i in 4"
                 :key="`sk-${i}`"
                 variant="subtle"
                 :ui="cardUi"
-                class="lg:rounded-none first:rounded-l-lg last:rounded-r-lg"
+                class="min-w-0 lg:rounded-none first:rounded-l-lg last:rounded-r-lg"
               >
                 <template #leading>
                   <div class="p-2.5 rounded-full bg-elevated animate-pulse size-10" />
@@ -93,7 +123,7 @@ function openLineChat(lineUserId: string) {
                 <template #title>
                   <div class="h-3 w-16 rounded bg-elevated animate-pulse" />
                 </template>
-                <div class="h-8 w-28 rounded bg-elevated animate-pulse mt-1" />
+                <div class="h-7 w-full max-w-28 rounded bg-elevated animate-pulse mt-1" />
               </UPageCard>
             </template>
             <template v-else>
@@ -105,21 +135,21 @@ function openLineChat(lineUserId: string) {
                 :to="card.to"
                 variant="subtle"
                 :ui="cardUi"
-                class="lg:rounded-none first:rounded-l-lg last:rounded-r-lg hover:z-1"
+                class="min-w-0 lg:rounded-none first:rounded-l-lg last:rounded-r-lg hover:z-1"
               >
-                <span class="text-2xl font-semibold text-highlighted">{{ card.value }}</span>
+                <span class="break-words text-lg font-semibold leading-tight text-highlighted sm:text-2xl">{{ card.value }}</span>
               </UPageCard>
             </template>
           </UPageGrid>
 
           <template #fallback>
-            <UPageGrid class="lg:grid-cols-4 gap-4 sm:gap-6 lg:gap-px">
+            <UPageGrid class="grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4 lg:gap-px">
               <UPageCard
                 v-for="i in 4"
                 :key="`fb-${i}`"
                 variant="subtle"
                 :ui="cardUi"
-                class="lg:rounded-none first:rounded-l-lg last:rounded-r-lg"
+                class="min-w-0 lg:rounded-none first:rounded-l-lg last:rounded-r-lg"
               >
                 <template #leading>
                   <div class="p-2.5 rounded-full bg-elevated animate-pulse size-10" />
@@ -127,18 +157,18 @@ function openLineChat(lineUserId: string) {
                 <template #title>
                   <div class="h-3 w-16 rounded bg-elevated animate-pulse" />
                 </template>
-                <div class="h-8 w-28 rounded bg-elevated animate-pulse mt-1" />
+                <div class="h-7 w-full max-w-28 rounded bg-elevated animate-pulse mt-1" />
               </UPageCard>
             </UPageGrid>
           </template>
         </ClientOnly>
 
         <!-- Shortcuts -->
-        <div class="flex flex-wrap gap-3">
-          <UButton icon="i-lucide-shopping-basket" to="/admin/service-orders/new" color="primary">
+        <div class="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:gap-3">
+          <UButton icon="i-lucide-shopping-basket" to="/admin/service-orders/new" color="primary" class="justify-center sm:justify-start">
             รับผ้าใหม่
           </UButton>
-          <UButton icon="i-lucide-scan-line" to="/admin/service-orders/scan" color="neutral" variant="outline">
+          <UButton icon="i-lucide-scan-line" to="/admin/service-orders/scan" color="neutral" variant="outline" class="justify-center sm:justify-start">
             สแกนสถานะ
           </UButton>
         </div>
@@ -153,10 +183,80 @@ function openLineChat(lineUserId: string) {
           </template>
 
           <ClientOnly>
-            <UTable :data="orders ?? []" :columns="columns">
+            <div class="md:hidden">
+              <div v-if="isOrdersPending" class="space-y-3">
+                <USkeleton v-for="i in 5" :key="i" class="h-32 w-full rounded-xl" />
+              </div>
+
+              <div v-else-if="!orders?.length" class="flex flex-col items-center justify-center py-8 text-muted">
+                <UIcon name="i-lucide-shopping-basket" class="mb-3 size-10 opacity-50" />
+                <p>ไม่มีรายการรอดำเนินการ</p>
+              </div>
+
+              <div v-else class="space-y-3">
+                <div
+                  v-for="order in orders"
+                  :key="order.id"
+                  class="rounded-xl border border-default bg-default p-3"
+                >
+                  <div class="flex items-start justify-between gap-3">
+                    <div class="min-w-0">
+                      <p class="truncate font-mono text-xs text-muted">{{ order.orderNo || order.id }}</p>
+                      <div class="mt-1 flex min-w-0 items-center gap-2">
+                        <UAvatar v-bind="getAvatarProps(order.customer)" size="sm" class="shrink-0" />
+                        <span class="min-w-0">
+                          <span class="block truncate text-sm font-medium text-highlighted">{{ order.customer.name }}</span>
+                          <span class="block truncate text-xs text-muted">{{ order.customer.phoneNumber || 'ไม่ระบุเบอร์' }}</span>
+                        </span>
+                      </div>
+                    </div>
+
+                    <UBadge
+                      :label="orderStatusLabels[order.status]"
+                      :color="orderStatusColors[order.status]"
+                      variant="subtle"
+                      class="shrink-0"
+                    />
+                  </div>
+
+                  <div class="mt-3 grid grid-cols-2 gap-2 border-t border-default pt-3 text-xs">
+                    <div>
+                      <p class="text-muted">นัดรับ</p>
+                      <p class="mt-1 text-highlighted">{{ formatDate(order.dueAt ? String(order.dueAt) : null) }}</p>
+                    </div>
+                    <div>
+                      <p class="text-muted">เลขที่</p>
+                      <p class="mt-1 truncate font-mono text-highlighted">{{ order.orderNo || order.id }}</p>
+                    </div>
+                  </div>
+
+                  <div class="mt-3 flex items-center justify-end gap-1 border-t border-default pt-3">
+                    <UButton
+                      v-if="order.customer.lineUserId"
+                      icon="i-lucide-message-circle"
+                      size="xs"
+                      color="success"
+                      variant="subtle"
+                      aria-label="แชท"
+                      @click="openLineChat(order.customer.lineUserId)"
+                    />
+                    <UButton
+                      icon="i-lucide-eye"
+                      size="xs"
+                      color="neutral"
+                      variant="ghost"
+                      aria-label="ดูรายการรับผ้า"
+                      :to="`/admin/service-orders/${order.id}`"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <UTable :data="orders ?? []" :columns="columns" class="hidden md:block">
               <template #customer-cell="{ row }">
                 <div class="flex items-center gap-2">
-                  <UAvatar :src="row.original.customer.image ?? undefined" :alt="row.original.customer.name" size="xs" />
+                  <UAvatar v-bind="getAvatarProps(row.original.customer)" size="xs" />
                   <div>
                     <p class="text-sm font-medium">{{ row.original.customer.name }}</p>
                     <p v-if="row.original.customer.phoneNumber" class="text-xs text-muted">

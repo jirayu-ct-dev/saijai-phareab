@@ -158,6 +158,26 @@ const selectedUsers = computed<AdminUser[]>(() =>
 )
 const selectedRowsCount = computed(() => selectedUsers.value.length)
 const filteredRowCount = computed(() => table.value?.tableApi?.getFilteredRowModel().rows.length ?? filteredUsers.value.length)
+const paginatedUsers = computed(() => {
+  const start = pagination.value.pageIndex * pagination.value.pageSize
+  return filteredUsers.value.slice(start, start + pagination.value.pageSize)
+})
+
+const isSystemUser = (user: AdminUser) => user.email === 'walkin@saijai.local'
+const getMobileRowId = (index: number) => String(pagination.value.pageIndex * pagination.value.pageSize + index)
+const isMobileRowSelected = (index: number) => Boolean(rowSelection.value[getMobileRowId(index)])
+const setMobileRowSelected = (index: number, value: boolean | 'indeterminate') => {
+  const rowId = getMobileRowId(index)
+  rowSelection.value = {
+    ...rowSelection.value,
+    [rowId]: !!value
+  }
+  if (!value) {
+    const next = { ...rowSelection.value }
+    delete next[rowId]
+    rowSelection.value = next
+  }
+}
 
 watch(selectedRowsCount, (count) => {
   if (!count) {
@@ -283,6 +303,11 @@ const handleCreateUser = async () => {
 }
 
 const quickRoleOpenMap = ref<Record<string, boolean>>({})
+const roleItems = [
+  { label: 'ผู้ใช้งาน', value: 'USER' as Role },
+  { label: 'พนักงาน', value: 'EMPLOYEE' as Role },
+  { label: 'แอดมิน', value: 'ADMIN' as Role }
+]
 
 const handleQuickRoleChange = async (user: AdminUser, role: Role) => {
   quickRoleOpenMap.value[user.id] = false
@@ -335,6 +360,26 @@ const saveUser = async () => {
   }
 }
 
+const getUserActionItems = (user: AdminUser): Array<Array<Record<string, unknown>>> => [
+  [
+    { label: 'แก้ไขผู้ใช้งาน', icon: 'i-lucide-pencil', onSelect: () => openEditModal(user) }
+  ],
+  [
+    {
+      label: 'ลบผู้ใช้งาน',
+      icon: 'i-lucide-trash-2',
+      color: 'error',
+      onSelect: () => {
+        if (isSystemUser(user)) {
+          notify.error('ไม่สามารถลบได้เนื่องจากเป็นบัญชีของระบบ')
+          return
+        }
+        openSingleDeleteModal(user)
+      }
+    }
+  ]
+]
+
 const columns: TableColumn<AdminUser>[] = [
   {
     id: 'select',
@@ -345,12 +390,12 @@ const columns: TableColumn<AdminUser>[] = [
         ariaLabel: 'เลือกทั้งหมด'
       })),
     cell: ({ row }) => {
-      const isSystemUser = row.original.email === 'walkin@saijai.local'
+      const disabled = isSystemUser(row.original)
       return h('div', h(UCheckbox, {
         modelValue: row.getIsSelected(),
-        disabled: isSystemUser,
+        disabled,
         'onUpdate:modelValue': (value: boolean | 'indeterminate') => {
-          if (!isSystemUser) row.toggleSelected(!!value)
+          if (!disabled) row.toggleSelected(!!value)
         },
         ariaLabel: 'เลือกแถว'
       }))
@@ -392,11 +437,6 @@ const columns: TableColumn<AdminUser>[] = [
     cell: ({ row }) => {
       const user = row.original
       const badge = ROLE_BADGE_MAP[user.role]
-      const roleItems = [
-        { label: 'ผู้ใช้งาน', value: 'USER' as Role },
-        { label: 'พนักงาน', value: 'EMPLOYEE' as Role },
-        { label: 'แอดมิน', value: 'ADMIN' as Role }
-      ]
 
       return h(
         UPopover,
@@ -483,26 +523,6 @@ const columns: TableColumn<AdminUser>[] = [
     cell: ({ row }) => {
       const user = row.original
 
-      const items: Array<Array<Record<string, unknown>>> = [
-        [
-          { label: 'แก้ไขผู้ใช้งาน', icon: 'i-lucide-pencil', onSelect: () => openEditModal(user) }
-        ],
-        [
-          { 
-            label: 'ลบผู้ใช้งาน', 
-            icon: 'i-lucide-trash-2', 
-            color: 'error', 
-            onSelect: () => {
-              if (user.email === 'walkin@saijai.local') {
-                notify.error('ไม่สามารถลบได้เนื่องจากเป็นบัญชีของระบบ')
-                return
-              }
-              openSingleDeleteModal(user)
-            } 
-          }
-        ]
-      ]
-
       const detailButton = h(UButton, {
         icon: 'i-lucide-eye',
         size: 'xs',
@@ -533,7 +553,7 @@ const columns: TableColumn<AdminUser>[] = [
         chatLineButton,
         h(
           UDropdownMenu,
-          { items, content: { align: 'end' } },
+          { items: getUserActionItems(user), content: { align: 'end' } },
           { default: () => menuButton }
         )
       ])
@@ -675,13 +695,126 @@ const columns: TableColumn<AdminUser>[] = [
         </UModal>
 
         <ClientOnly>
+          <div class="md:hidden">
+            <div v-if="isLoading" class="space-y-3">
+              <USkeleton v-for="i in 5" :key="i" class="h-40 w-full rounded-xl" />
+            </div>
+
+            <div v-else-if="!paginatedUsers.length" class="flex flex-col items-center justify-center rounded-xl border border-dashed border-default py-12 text-center text-muted">
+              <UIcon name="i-lucide-users" class="mb-3 size-10 opacity-60" />
+              <p>ไม่พบผู้ใช้งาน</p>
+            </div>
+
+            <div v-else class="space-y-3">
+              <div
+                v-for="(user, index) in paginatedUsers"
+                :key="user.id"
+                class="rounded-xl border border-default bg-default p-3"
+              >
+                <div class="flex items-start gap-3">
+                  <UCheckbox
+                    :model-value="isMobileRowSelected(index)"
+                    :disabled="isSystemUser(user)"
+                    aria-label="เลือกผู้ใช้งาน"
+                    class="mt-1"
+                    @update:model-value="setMobileRowSelected(index, $event)"
+                  />
+
+                  <div class="min-w-0 flex-1">
+                    <div class="flex min-w-0 items-start justify-between gap-2">
+                      <NuxtLink :to="`/admin/users/${user.id}`" class="flex min-w-0 items-center gap-2 hover:opacity-75">
+                        <UAvatar v-bind="getAvatarProps(user)" size="sm" class="shrink-0" />
+                        <span class="min-w-0">
+                          <span class="block truncate text-sm font-medium text-highlighted">{{ user.name || '-' }}</span>
+                          <span class="block truncate text-xs text-muted">{{ user.email }}</span>
+                        </span>
+                      </NuxtLink>
+
+                      <UBadge :variant="'subtle'" :color="EMAIL_STATUS_BADGE_MAP[user.emailVerified ? 'verified' : 'pending'].color" class="shrink-0">
+                        {{ EMAIL_STATUS_BADGE_MAP[user.emailVerified ? 'verified' : 'pending'].label }}
+                      </UBadge>
+                    </div>
+
+                    <div class="mt-3 grid grid-cols-2 gap-2 border-t border-default pt-3 text-xs">
+                      <div>
+                        <p class="text-muted">สิทธิ์</p>
+                        <UPopover
+                          v-model:open="quickRoleOpenMap[user.id]"
+                          :content="{ align: 'start' }"
+                        >
+                          <UBadge
+                            :color="ROLE_BADGE_MAP[user.role].color"
+                            variant="subtle"
+                            class="mt-1 cursor-pointer"
+                          >
+                            {{ ROLE_BADGE_MAP[user.role].label }}
+                          </UBadge>
+
+                          <template #content>
+                            <div class="space-y-0.5 p-1">
+                              <UButton
+                                v-for="item in roleItems"
+                                :key="item.value"
+                                :label="item.label"
+                                :color="item.value === user.role ? 'primary' : 'neutral'"
+                                :variant="item.value === user.role ? 'subtle' : 'ghost'"
+                                size="xs"
+                                class="w-full justify-start"
+                                @click="handleQuickRoleChange(user, item.value)"
+                              />
+                            </div>
+                          </template>
+                        </UPopover>
+                      </div>
+                      <div>
+                        <p class="text-muted">เบอร์โทร</p>
+                        <p class="mt-1 truncate text-highlighted">{{ user.phoneNumber || '-' }}</p>
+                      </div>
+                    </div>
+
+                    <div class="mt-3 border-t border-default pt-3">
+                      <p class="text-xs text-muted">แพ็กเกจปัจจุบัน</p>
+                      <div v-if="getCurrentPackages(user).length" class="mt-1 space-y-1">
+                        <div
+                          v-for="entitlement in getCurrentPackages(user).slice(0, 2)"
+                          :key="entitlement.id"
+                          class="min-w-0"
+                        >
+                          <p class="truncate text-sm font-medium text-highlighted">{{ entitlement.product.name }}</p>
+                          <p class="truncate text-xs text-muted">{{ getPackageSummary(entitlement) }}</p>
+                        </div>
+                        <p v-if="getCurrentPackages(user).length > 2" class="text-xs text-muted">
+                          + อีก {{ getCurrentPackages(user).length - 2 }} แพ็กเกจ
+                        </p>
+                      </div>
+                      <p v-else class="mt-1 text-sm text-muted">ไม่มีแพ็กเกจที่ใช้งาน</p>
+                    </div>
+
+                    <div class="mt-3 flex items-center justify-end gap-1 border-t border-default pt-3">
+                      <UButton icon="i-lucide-eye" size="xs" color="neutral" variant="ghost" aria-label="ดูรายละเอียดลูกค้า" :to="`/admin/users/${user.id}`" />
+                      <UIButtonChatLine
+                        v-if="user.lineUserId"
+                        :line-user-id="user.lineUserId"
+                        size="xs"
+                        icon-only
+                      />
+                      <UDropdownMenu :items="getUserActionItems(user)" :content="{ align: 'end' }">
+                        <UButton icon="i-lucide-ellipsis" size="xs" color="neutral" variant="ghost" aria-label="เมนูเพิ่มเติม" />
+                      </UDropdownMenu>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
           <UTable
             ref="table"
             v-model:column-visibility="columnVisibility"
             v-model:row-selection="rowSelection"
             v-model:pagination="pagination"
             :pagination-options="{ getPaginationRowModel: getPaginationRowModel() }"
-            class="shrink-0"
+            class="hidden shrink-0 md:block"
             :data="filteredUsers"
             :columns="columns"
             :loading="isLoading"

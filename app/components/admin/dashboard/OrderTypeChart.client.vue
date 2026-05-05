@@ -98,16 +98,16 @@ const tooltipTemplate = (d: DataRecord) =>
 <template>
   <UCard ref="cardRef" :ui="{ root: 'overflow-visible', body: '!px-0 !pt-0 !pb-3' }">
     <template #header>
-      <div class="flex items-start justify-between">
-        <div>
+      <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div class="min-w-0">
           <p class="text-xs text-muted mb-1">เปรียบเทียบออเดอร์แต่ละประเภท</p>
-          <p class="text-3xl text-highlighted font-semibold">
+          <p class="break-words text-2xl font-semibold text-highlighted sm:text-3xl">
             {{ isLoading ? '...' : total.toLocaleString() }}
             <span class="text-sm font-normal text-muted ml-1">ออเดอร์</span>
           </p>
         </div>
         <!-- Legend -->
-        <div class="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted mt-1">
+        <div class="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted sm:mt-1">
           <span v-for="(label, i) in LABELS" :key="i" class="flex items-center gap-1.5">
             <span class="size-2.5 rounded-sm shrink-0" :style="{ background: COLORS[i] }" />
             {{ label }}
@@ -116,11 +116,11 @@ const tooltipTemplate = (d: DataRecord) =>
       </div>
     </template>
 
-    <div v-if="isLoading" class="h-64 flex items-center justify-center">
+    <div v-if="isLoading" class="flex h-72 items-center justify-center sm:h-96">
       <UIcon name="i-lucide-loader-2" class="size-8 animate-spin text-primary" />
     </div>
 
-    <VisXYContainer v-else :data="data" :padding="{ top: 40, bottom: 32 }" :y-domain="[0, undefined]" class="h-96" :width="width">
+    <VisXYContainer v-else :data="data" :padding="{ top: 32, bottom: 32 }" :y-domain="[0, undefined]" class="h-72 sm:h-96" :width="width">
       <VisGroupedBar
         :x="x"
         :y="y"

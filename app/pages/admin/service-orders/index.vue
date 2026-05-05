@@ -174,6 +174,26 @@ const paginationSummary = computed(() => {
   return `แสดง ${start}-${end} จาก ${total} รายการ | เลือก ${selectedRowsCount.value} รายการ`;
 });
 
+const paginatedServiceOrders = computed(() => {
+  const start = pagination.value.pageIndex * pagination.value.pageSize;
+  return filteredServiceOrders.value.slice(start, start + pagination.value.pageSize);
+});
+
+const getMobileRowId = (index: number) => String(pagination.value.pageIndex * pagination.value.pageSize + index);
+const isMobileRowSelected = (index: number) => Boolean(rowSelection.value[getMobileRowId(index)]);
+const setMobileRowSelected = (index: number, value: boolean | "indeterminate") => {
+  const rowId = getMobileRowId(index);
+  rowSelection.value = {
+    ...rowSelection.value,
+    [rowId]: !!value,
+  };
+  if (!value) {
+    const next = { ...rowSelection.value };
+    delete next[rowId];
+    rowSelection.value = next;
+  }
+};
+
 const getAvatarProps = (customer?: Pick<CustomerOption, "image" | "name" | "email"> | AdminServiceOrder["customer"] | null) => ({
   as: { img: "img" },
   src: customer?.image || "",
@@ -186,6 +206,7 @@ const formatItemSummary = (order: AdminServiceOrder) => {
   if (order.items.length > 2) items.push(`+ อีก ${order.items.length - 2} รายการ`);
   return items;
 };
+const formatOptionalDateTime = (value: string | null | undefined) => value ? formatDateTime(value) : "-";
 
 const openReceipt = (order: AdminServiceOrder) => navigateTo(`/admin/service-orders/${order.id}/intake`);
 
@@ -1254,6 +1275,107 @@ const columns: TableColumn<AdminServiceOrder>[] = [
             </div>
           </div>
 
+          <div class="md:hidden">
+            <div v-if="isLoading" class="space-y-3">
+              <USkeleton v-for="i in 5" :key="i" class="h-40 w-full rounded-xl" />
+            </div>
+
+            <div v-else-if="!paginatedServiceOrders.length" class="flex flex-col items-center justify-center rounded-xl border border-dashed border-default py-12 text-center text-muted">
+              <UIcon name="i-lucide-shopping-basket" class="mb-3 size-10 opacity-60" />
+              <p>ไม่พบรายการรับผ้า</p>
+            </div>
+
+            <div v-else class="space-y-3">
+              <div
+                v-for="(order, index) in paginatedServiceOrders"
+                :key="order.id"
+                class="rounded-xl border border-default bg-default p-3"
+              >
+                <div class="flex items-start gap-3">
+                  <UCheckbox
+                    :model-value="isMobileRowSelected(index)"
+                    aria-label="เลือกรายการ"
+                    class="mt-1"
+                    @update:model-value="setMobileRowSelected(index, $event)"
+                  />
+
+                  <div class="min-w-0 flex-1">
+                    <div class="flex min-w-0 items-start justify-between gap-2">
+                      <div class="min-w-0">
+                        <button
+                          type="button"
+                          class="break-all font-mono text-xs text-muted hover:underline"
+                          @click="openDetailPage(order)"
+                        >
+                          {{ order.orderNo || order.id }}
+                        </button>
+                        <button
+                          type="button"
+                          class="mt-1 flex min-w-0 items-center gap-2 text-left"
+                          @click="openCustomerPage(order, $event)"
+                        >
+                          <UAvatar v-bind="getAvatarProps(order.customer)" size="sm" class="shrink-0" />
+                          <span class="min-w-0">
+                            <span class="block truncate text-sm font-medium text-highlighted">{{ order.customer.name || "-" }}</span>
+                            <span class="block truncate text-xs text-muted">
+                              {{ order.customer.phoneNumber || (order.isWalkIn ? "ลูกค้าหน้าร้าน" : order.customer.email) }}
+                            </span>
+                          </span>
+                        </button>
+                      </div>
+
+                      <UBadge
+                        :color="orderStatusColors[order.status]"
+                        variant="subtle"
+                        class="shrink-0 cursor-pointer"
+                        @click="openStatusModal(order)"
+                      >
+                        {{ orderStatusLabels[order.status] }}
+                      </UBadge>
+                    </div>
+
+                    <div class="mt-3 space-y-1 border-t border-default pt-3">
+                      <p v-for="item in formatItemSummary(order)" :key="item" class="text-sm text-highlighted">
+                        {{ item }}
+                      </p>
+                    </div>
+
+                    <div class="mt-3 grid grid-cols-3 gap-2 border-t border-default pt-3 text-xs">
+                      <div>
+                        <p class="text-muted">ยอด/เครดิต</p>
+                        <p v-if="order.memberEntitlement && Number(order.totalAmount ?? 0) === 0" class="mt-1 font-semibold text-success">
+                          ใช้เครดิต
+                        </p>
+                        <p v-else class="mt-1 font-semibold text-highlighted">{{ formatCurrency(Number(order.totalAmount ?? 0)) }}</p>
+                        <p v-if="order.memberEntitlement" class="mt-0.5 text-success">
+                          {{ order.creditUsed ?? 0 }} เครดิต
+                        </p>
+                      </div>
+                      <div>
+                        <p class="text-muted">รับ</p>
+                        <p class="mt-1 text-highlighted">{{ formatOptionalDateTime(order.receivedAt) }}</p>
+                      </div>
+                      <div>
+                        <p class="text-muted">{{ order.status === "COMPLETED" ? "ส่ง" : "นัด" }}</p>
+                        <p class="mt-1 text-highlighted">
+                          {{ formatOptionalDateTime((order.status === "COMPLETED" ? order.payment?.paidAt : order.dueAt) || order.dueAt) }}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div class="mt-3 flex items-center justify-end gap-1 border-t border-default pt-3">
+                      <UButton icon="i-lucide-eye" size="xs" color="neutral" variant="ghost" aria-label="ดูรายละเอียดรายการรับผ้า" @click="openDetailPage(order)" />
+                      <UButton icon="i-lucide-refresh-ccw" size="xs" color="primary" variant="ghost" aria-label="อัพเดทสถานะงาน" @click="openStatusModal(order)" />
+                      <UDropdownMenu :items="getActionItems(order)" :content="{ align: 'end' }">
+                        <UButton icon="i-lucide-ellipsis" size="xs" color="neutral" variant="ghost" aria-label="เมนูเพิ่มเติม" />
+                      </UDropdownMenu>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
           <UTable
             ref="table"
             v-model:row-selection="rowSelection"
@@ -1262,6 +1384,7 @@ const columns: TableColumn<AdminServiceOrder>[] = [
             :data="filteredServiceOrders"
             :columns="columns"
             :loading="isLoading"
+            class="hidden md:block"
             :ui="{
               base: 'border-separate border-spacing-0',
               thead: '[&>tr]:bg-elevated/50 [&>tr]:after:content-none',

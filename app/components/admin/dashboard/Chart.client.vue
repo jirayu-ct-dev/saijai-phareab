@@ -82,17 +82,17 @@ const template = (d: DataRecord) => `${formatLabel(d.date)}: ${formatCurrency(d.
     <template #header>
       <div>
         <p class="text-xs text-muted mb-1.5">รายได้รวม</p>
-        <p class="text-3xl text-highlighted font-semibold">
+        <p class="break-words text-2xl font-semibold text-highlighted sm:text-3xl">
           {{ isLoading ? '...' : formatCurrency(total) }}
         </p>
       </div>
     </template>
 
-    <div v-if="isLoading" class="h-96 flex items-center justify-center">
+    <div v-if="isLoading" class="flex h-72 items-center justify-center sm:h-96">
       <UIcon name="i-lucide-loader-2" class="size-8 animate-spin text-primary" />
     </div>
 
-    <VisXYContainer v-else :data="data" :padding="{ top: 40, bottom: 32 }" class="h-96" :width="width">
+    <VisXYContainer v-else :data="data" :padding="{ top: 32, bottom: 32 }" class="h-72 sm:h-96" :width="width">
       <VisLine :x="x" :y="y" color="var(--ui-primary)" />
       <VisArea :x="x" :y="y" color="var(--ui-primary)" :opacity="0.1" />
       <VisAxis type="x" :x="x" :tick-format="xTicks" />

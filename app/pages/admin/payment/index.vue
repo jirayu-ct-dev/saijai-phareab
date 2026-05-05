@@ -99,6 +99,25 @@ const selectedRows = computed<TableRow<AdminPaymentRecord>[]>(() => {
 const selectedPayments = computed<AdminPaymentRecord[]>(() => selectedRows.value.map((row) => row.original));
 const selectedRowsCount = computed(() => selectedRows.value.length);
 const filteredRowCount = computed(() => filteredPayments.value.length);
+const paginatedPayments = computed(() => {
+  const start = pagination.value.pageIndex * pagination.value.pageSize;
+  return filteredPayments.value.slice(start, start + pagination.value.pageSize);
+});
+
+const getMobileRowId = (index: number) => String(pagination.value.pageIndex * pagination.value.pageSize + index);
+const isMobileRowSelected = (index: number) => Boolean(rowSelection.value[getMobileRowId(index)]);
+const setMobileRowSelected = (index: number, value: boolean | "indeterminate") => {
+  const rowId = getMobileRowId(index);
+  rowSelection.value = {
+    ...rowSelection.value,
+    [rowId]: !!value,
+  };
+  if (!value) {
+    const next = { ...rowSelection.value };
+    delete next[rowId];
+    rowSelection.value = next;
+  }
+};
 
 const currentPageRange = computed(() => {
   const total = filteredRowCount.value;
@@ -154,6 +173,13 @@ const getSaleTypeColor = (payment: AdminPaymentRecord) => {
   if (type === "SERVICE_MEMBER") return "success";
   if (type === "SERVICE") return "warning";
   return "primary";
+};
+
+const formatPaymentItems = (payment: AdminPaymentRecord) => {
+  const items = payment.packageSale.items.slice(0, 2).map((item) => `${item.productName} x${item.quantity}`);
+  if (payment.packageSale.items.length > 2) items.push(`+ อีก ${payment.packageSale.items.length - 2} รายการ`);
+  if (items.length) return items;
+  return [`รายการผ้า ${payment.serviceOrder?.itemCount ?? 0} รายการ`];
 };
 
 const isDeleteOpen = ref(false);
@@ -416,11 +442,98 @@ const columns: TableColumn<AdminPaymentRecord>[] = [
             </div>
           </div>
 
+          <div class="md:hidden">
+            <div v-if="isLoading" class="space-y-3">
+              <USkeleton v-for="i in 5" :key="i" class="h-40 w-full rounded-xl" />
+            </div>
+
+            <div v-else-if="!paginatedPayments.length" class="flex flex-col items-center justify-center rounded-xl border border-dashed border-default py-12 text-center text-muted">
+              <UIcon name="i-lucide-receipt" class="mb-3 size-10 opacity-60" />
+              <p>ไม่พบรายการชำระเงิน</p>
+            </div>
+
+            <div v-else class="space-y-3">
+              <div
+                v-for="(payment, index) in paginatedPayments"
+                :key="payment.id"
+                class="rounded-xl border border-default bg-default p-3"
+              >
+                <div class="flex items-start gap-3">
+                  <UCheckbox
+                    :model-value="isMobileRowSelected(index)"
+                    aria-label="เลือกรายการ"
+                    class="mt-1"
+                    @update:model-value="setMobileRowSelected(index, $event)"
+                  />
+
+                  <div class="min-w-0 flex-1">
+                    <div class="flex min-w-0 items-start justify-between gap-2">
+                      <div class="min-w-0">
+                        <button
+                          type="button"
+                          class="break-all font-mono text-xs text-muted hover:underline"
+                          @click="openPaymentDetail(payment)"
+                        >
+                          {{ payment.paymentNo || payment.id }}
+                        </button>
+                        <button
+                          type="button"
+                          class="mt-1 flex min-w-0 items-center gap-2 text-left"
+                          @click="openMemberDetail(payment)"
+                        >
+                          <UAvatar v-bind="getAvatarProps(payment.customer)" size="sm" class="shrink-0" />
+                          <span class="min-w-0">
+                            <span class="block truncate text-sm font-medium text-highlighted">{{ payment.customer.name || "-" }}</span>
+                            <span class="block truncate text-xs text-muted">{{ payment.customer.email }}</span>
+                          </span>
+                        </button>
+                      </div>
+
+                      <UBadge :color="getSaleTypeColor(payment)" variant="subtle" class="shrink-0">
+                        {{ getSaleTypeLabel(payment) }}
+                      </UBadge>
+                    </div>
+
+                    <div class="mt-3 space-y-1 border-t border-default pt-3">
+                      <p v-for="item in formatPaymentItems(payment)" :key="item" class="text-sm text-highlighted">
+                        {{ item }}
+                      </p>
+                    </div>
+
+                    <div class="mt-3 grid grid-cols-2 gap-2 border-t border-default pt-3 text-xs">
+                      <div>
+                        <p class="text-muted">ยอดชำระ</p>
+                        <template v-if="isServiceMember(payment) && Number(payment.amount ?? 0) === 0">
+                          <p class="mt-1 font-semibold text-success">ใช้เครดิต</p>
+                          <p class="mt-0.5 text-success">{{ Number(payment.serviceOrder?.creditUsed ?? 0) }} เครดิต</p>
+                        </template>
+                        <p v-else class="mt-1 font-semibold text-highlighted">{{ formatCurrency(payment.amount) }}</p>
+                      </div>
+                      <div>
+                        <p class="text-muted">วันที่สร้าง</p>
+                        <p class="mt-1 text-highlighted">{{ formatDateTime(payment.createdAt) }}</p>
+                      </div>
+                    </div>
+
+                    <div class="mt-3 flex items-center justify-end gap-1 border-t border-default pt-3">
+                      <UButton icon="i-lucide-eye" size="xs" color="neutral" variant="ghost" aria-label="ดูรายละเอียดการชำระเงิน" @click="openPaymentDetail(payment)" />
+                      <UButton icon="i-lucide-receipt" size="xs" color="primary" variant="ghost" aria-label="ดูใบเสร็จ" @click="openReceipt(payment)" />
+                      <UDropdownMenu :items="getActionItems(payment)" :content="{ align: 'end' }">
+                        <UButton icon="i-lucide-ellipsis" size="xs" color="neutral" variant="ghost" aria-label="เมนูเพิ่มเติม" />
+                      </UDropdownMenu>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
           <UTable
             ref="table"
             v-model:row-selection="rowSelection"
             v-model:pagination="pagination"
             :pagination-options="{ getPaginationRowModel: getPaginationRowModel() }"
+            class="hidden md:block"
             :data="filteredPayments"
             :columns="columns"
             :loading="isLoading"

@@ -87,6 +87,35 @@ const selectedRowsCount = computed(() => selectedRows.value.length);
 const filteredRowCount = computed(
   () => table.value?.tableApi?.getFilteredRowModel().rows.length ?? filteredPackages.value.length,
 );
+const paginatedPackages = computed(() => {
+  const start = pagination.value.pageIndex * pagination.value.pageSize;
+  return filteredPackages.value.slice(start, start + pagination.value.pageSize);
+});
+
+const getMobileRowId = (index: number) => String(pagination.value.pageIndex * pagination.value.pageSize + index);
+const isMobileRowSelected = (index: number) => Boolean(rowSelection.value[getMobileRowId(index)]);
+const setMobileRowSelected = (index: number, value: boolean | "indeterminate") => {
+  const rowId = getMobileRowId(index);
+  rowSelection.value = {
+    ...rowSelection.value,
+    [rowId]: !!value,
+  };
+  if (!value) {
+    const next = { ...rowSelection.value };
+    delete next[rowId];
+    rowSelection.value = next;
+  }
+};
+
+const getPackagePriceLabel = (pkg: Package) => {
+  const price = Number(pkg.price);
+  return price === 0 ? "ฟรี" : formatCurrency(price);
+};
+
+const getDeductOnLabel = (pkg: Package) => {
+  if (pkg.packageType !== "ADDON") return "—";
+  return pkg.deductOn === "CREATED" ? "รับผ้า" : "จัดส่ง";
+};
 
 const handleBulkDelete = () => emit("bulk-delete", selectedPackages.value);
 
@@ -286,7 +315,7 @@ const columns: TableColumn<Package>[] = [
         />
       </div>
 
-      <div class="flex flex-wrap items-center gap-1.5">
+      <div class="flex w-full flex-wrap items-center gap-1.5 md:w-auto">
         <UButton
           v-if="selectedRowsCount > 0"
           label="ลบ"
@@ -304,7 +333,7 @@ const columns: TableColumn<Package>[] = [
           v-model="statusFilter"
           :items="STATUS_OPTIONS"
           value-key="value"
-          class="min-w-36"
+          class="min-w-0 flex-1 sm:min-w-36"
         />
 
         <UIButtonRefresh :loading="loading" @refresh="emit('refresh')" />
@@ -312,6 +341,112 @@ const columns: TableColumn<Package>[] = [
     </div>
 
     <ClientOnly>
+    <div class="md:hidden">
+      <div v-if="loading" class="space-y-3">
+        <USkeleton v-for="i in 5" :key="i" class="h-40 w-full rounded-xl" />
+      </div>
+
+      <div v-else-if="!paginatedPackages.length" class="flex flex-col items-center justify-center rounded-xl border border-dashed border-default py-12 text-center text-muted">
+        <UIcon name="i-lucide-package-x" class="mb-3 size-10 opacity-60" />
+        <p class="font-medium">ไม่พบแพ็กเกจ</p>
+        <p class="mt-1 text-sm">
+          {{ searchQuery ? "ลองเปลี่ยนคำค้นหาหรือตัวกรอง" : "ยังไม่มีแพ็กเกจในหมวดนี้" }}
+        </p>
+      </div>
+
+      <div v-else class="space-y-3">
+        <div
+          v-for="(pkg, index) in paginatedPackages"
+          :key="pkg.id"
+          class="rounded-xl border border-default bg-default p-3"
+        >
+          <div class="flex items-start gap-3">
+            <UCheckbox
+              :model-value="isMobileRowSelected(index)"
+              aria-label="เลือกแพ็กเกจ"
+              class="mt-1"
+              @update:model-value="setMobileRowSelected(index, $event)"
+            />
+
+            <div class="min-w-0 flex-1">
+              <div class="flex min-w-0 items-start justify-between gap-2">
+                <div class="flex min-w-0 items-start gap-2">
+                  <div
+                    class="flex size-10 shrink-0 items-center justify-center rounded-lg"
+                    :class="pkg.packageType === 'MAIN' ? 'bg-primary/10' : 'bg-info/10'"
+                  >
+                    <UIcon
+                      :name="pkg.packageType === 'MAIN' ? 'i-lucide-package' : 'i-lucide-puzzle'"
+                      :class="pkg.packageType === 'MAIN' ? 'size-5 text-primary' : 'size-5 text-info'"
+                    />
+                  </div>
+                  <div class="min-w-0">
+                    <p class="truncate text-sm font-semibold text-highlighted">{{ pkg.name }}</p>
+                    <p class="line-clamp-2 text-xs text-muted">{{ pkg.description || "ไม่มีคำอธิบาย" }}</p>
+                  </div>
+                </div>
+
+                <UBadge
+                  :color="pkg.isActive ? packageActiveConfig.active.color : packageActiveConfig.inactive.color"
+                  variant="subtle"
+                  class="shrink-0"
+                >
+                  {{ pkg.isActive ? packageActiveConfig.active.label : packageActiveConfig.inactive.label }}
+                </UBadge>
+              </div>
+
+              <div class="mt-3 grid grid-cols-2 gap-2 border-t border-default pt-3 text-xs">
+                <div>
+                  <p class="text-muted">ประเภท</p>
+                  <UBadge :color="packageTypeColors[pkg.packageType]" variant="subtle" class="mt-1">
+                    {{ packageTypeLabels[pkg.packageType] }}
+                  </UBadge>
+                </div>
+                <div>
+                  <p class="text-muted">ราคา</p>
+                  <p
+                    class="mt-1 font-semibold"
+                    :class="Number(pkg.price) === 0 ? 'text-success' : 'text-highlighted'"
+                  >
+                    {{ getPackagePriceLabel(pkg) }}
+                  </p>
+                </div>
+                <div>
+                  <p class="text-muted">เครดิต</p>
+                  <p class="mt-1 font-semibold text-primary">{{ formatCredits(pkg.credits) }}</p>
+                </div>
+                <div>
+                  <p class="text-muted">ระยะเวลา</p>
+                  <p class="mt-1 text-highlighted">{{ formatDays(pkg.validityDays) }}</p>
+                </div>
+                <div>
+                  <p class="text-muted">หักเครดิตเมื่อ</p>
+                  <UBadge
+                    v-if="pkg.packageType === 'ADDON'"
+                    :color="pkg.deductOn === 'CREATED' ? 'info' : 'warning'"
+                    variant="subtle"
+                    class="mt-1"
+                  >
+                    {{ getDeductOnLabel(pkg) }}
+                  </UBadge>
+                  <p v-else class="mt-1 text-muted">{{ getDeductOnLabel(pkg) }}</p>
+                </div>
+                <div>
+                  <p class="text-muted">สร้างเมื่อ</p>
+                  <p class="mt-1 text-highlighted">{{ formatDateTime(pkg.createdAt) }}</p>
+                </div>
+              </div>
+
+              <div class="mt-3 flex items-center justify-end gap-1 border-t border-default pt-3">
+                <UButton icon="i-lucide-pencil" size="xs" color="neutral" variant="ghost" aria-label="แก้ไขแพ็กเกจ" @click="emit('edit', pkg)" />
+                <UButton icon="i-lucide-trash-2" size="xs" color="error" variant="ghost" aria-label="ลบแพ็กเกจ" @click="emit('delete', pkg)" />
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <UTable
       ref="table"
       v-model:column-visibility="columnVisibility"
@@ -319,7 +454,7 @@ const columns: TableColumn<Package>[] = [
       v-model:pagination="pagination"
       v-model:expanded="expanded"
       :pagination-options="{ getPaginationRowModel: getPaginationRowModel() }"
-      class="shrink-0"
+      class="hidden shrink-0 md:block"
       :data="filteredPackages"
       :columns="columns"
       :loading="loading"

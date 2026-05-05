@@ -62,12 +62,12 @@ const cardUi = {
   container: 'gap-y-1.5',
   wrapper: 'items-start',
   leading: 'p-2.5 rounded-full bg-primary/10 ring ring-inset ring-primary/25 flex-col',
-  title: 'font-normal text-muted text-xs',
+  title: 'font-normal text-muted text-xs truncate',
 }
 </script>
 
 <template>
-  <UPageGrid class="lg:grid-cols-4 gap-4 sm:gap-6 lg:gap-px">
+  <UPageGrid class="grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-px">
     <!-- Skeleton while loading -->
     <template v-if="isPending">
       <UPageCard
@@ -75,7 +75,7 @@ const cardUi = {
         :key="`sk-${i}`"
         variant="subtle"
         :ui="cardUi"
-        class="lg:rounded-none first:rounded-l-lg last:rounded-r-lg"
+        class="min-w-0 lg:rounded-none first:rounded-l-lg last:rounded-r-lg"
       >
         <template #leading>
           <div class="p-2.5 rounded-full bg-elevated animate-pulse size-10" />
@@ -83,7 +83,7 @@ const cardUi = {
         <template #title>
           <div class="h-3 w-16 rounded bg-elevated animate-pulse" />
         </template>
-        <div class="h-8 w-28 rounded bg-elevated animate-pulse mt-1" />
+        <div class="h-7 w-full max-w-28 rounded bg-elevated animate-pulse mt-1" />
       </UPageCard>
     </template>
 
@@ -97,10 +97,10 @@ const cardUi = {
         :to="stat.to"
         variant="subtle"
         :ui="cardUi"
-        class="lg:rounded-none first:rounded-l-lg last:rounded-r-lg hover:z-1"
+        class="min-w-0 lg:rounded-none first:rounded-l-lg last:rounded-r-lg hover:z-1"
       >
-        <div class="flex items-center gap-2">
-          <span class="text-2xl font-semibold text-highlighted">
+        <div class="flex min-w-0 flex-col items-start gap-1 sm:flex-row sm:items-center sm:gap-2">
+          <span class="min-w-0 break-words text-lg font-semibold leading-tight text-highlighted sm:text-2xl">
             {{ stat.isCurrency ? formatCurrency(stat.value) : formatNumber(stat.value) }}
           </span>
           <UBadge

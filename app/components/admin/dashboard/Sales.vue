@@ -45,6 +45,18 @@ const { data, status } = useAsyncData<RecentOrder[]>(
   { server: false, default: () => [] }
 )
 
+const formatOrderAmount = (order: RecentOrder) => {
+  if (order.orderType === 'PACKAGE' && order.creditUsed != null) return `-${order.creditUsed} เครดิต`
+  return formatCurrency(order.totalAmount)
+}
+
+const getAvatarProps = (customer?: RecentOrder['customer'] | null) => ({
+  as: { img: 'img' },
+  src: customer?.image || '',
+  alt: customer?.name || 'ลูกค้า',
+  loading: 'lazy' as const,
+})
+
 const columns: TableColumn<RecentOrder>[] = [
   {
     accessorKey: 'orderNo',
@@ -58,7 +70,7 @@ const columns: TableColumn<RecentOrder>[] = [
     cell: ({ row }) => {
       const c = row.original.customer
       return h('div', { class: 'flex items-center gap-2' }, [
-        h(UAvatar, { as: { img: 'img' }, src: c.image ?? '', alt: c.name, size: 'sm', loading: 'lazy' }),
+        h(UAvatar, { ...getAvatarProps(c), size: 'sm' }),
         h('div', { class: 'min-w-0' }, [
           h('p', { class: 'font-medium text-sm truncate' }, c.name),
           h('p', { class: 'text-xs text-muted truncate' }, c.phoneNumber ?? ''),
@@ -134,10 +146,92 @@ const columns: TableColumn<RecentOrder>[] = [
       </div>
     </template>
 
+    <div class="md:hidden">
+      <div v-if="status === 'pending'" class="space-y-3">
+        <USkeleton v-for="i in 4" :key="i" class="h-36 w-full rounded-xl" />
+      </div>
+
+      <div v-else-if="!data?.length" class="flex flex-col items-center justify-center py-8 text-muted">
+        <UIcon name="i-lucide-shopping-basket" class="mb-3 size-10 opacity-50" />
+        <p>ยังไม่มีออเดอร์</p>
+      </div>
+
+      <div v-else class="space-y-3">
+        <div
+          v-for="order in data"
+          :key="order.id"
+          class="rounded-xl border border-default bg-default p-3"
+        >
+          <div class="flex items-start justify-between gap-3">
+            <div class="min-w-0">
+              <p class="truncate font-mono text-xs text-muted">{{ order.orderNo ?? `#${order.id.slice(-6)}` }}</p>
+              <div class="mt-1 flex min-w-0 items-center gap-2">
+                <UAvatar
+                  v-bind="getAvatarProps(order.customer)"
+                  size="sm"
+                  class="shrink-0"
+                />
+                <span class="min-w-0">
+                  <span class="block truncate text-sm font-medium text-highlighted">{{ order.customer.name }}</span>
+                  <span class="block truncate text-xs text-muted">{{ order.customer.phoneNumber || 'ไม่ระบุเบอร์' }}</span>
+                </span>
+              </div>
+            </div>
+
+            <UBadge
+              :color="orderStatusColors[order.status]"
+              variant="subtle"
+              class="shrink-0"
+            >
+              {{ orderStatusLabels[order.status] }}
+            </UBadge>
+          </div>
+
+          <div class="mt-3 grid grid-cols-2 gap-2 border-t border-default pt-3 text-xs">
+            <div>
+              <p class="text-muted">ประเภท</p>
+              <UBadge :color="orderTypeColors[order.orderType]" variant="subtle" class="mt-1">
+                {{ orderTypeLabels[order.orderType] }}
+              </UBadge>
+            </div>
+            <div>
+              <p class="text-muted">ยอด</p>
+              <p class="mt-1 font-semibold text-highlighted">{{ formatOrderAmount(order) }}</p>
+              <p v-if="order.hangerCharge" class="mt-0.5 text-muted">
+                ไม้แขวน {{ formatCurrency(order.hangerCharge.total) }}
+              </p>
+            </div>
+            <div class="col-span-2">
+              <p class="text-muted">เวลา</p>
+              <p class="mt-1 text-highlighted">{{ formatDateTime(order.createdAt) }}</p>
+            </div>
+          </div>
+
+          <div class="mt-3 flex items-center justify-end gap-1 border-t border-default pt-3">
+            <UIButtonChatLine
+              v-if="order.customer.lineUserId"
+              :line-user-id="order.customer.lineUserId"
+              icon-only
+              size="xs"
+            />
+            <UButton
+              icon="i-lucide-eye"
+              size="xs"
+              color="neutral"
+              variant="ghost"
+              aria-label="ดูรายการรับผ้า"
+              @click="router.push(`/admin/service-orders/${order.id}`)"
+            />
+          </div>
+        </div>
+      </div>
+    </div>
+
     <UTable
       :data="data"
       :columns="columns"
       :loading="status === 'pending'"
+      class="hidden md:block"
       :ui="{
         base: 'table-fixed border-separate border-spacing-0',
         thead: '[&>tr]:bg-elevated/50 [&>tr]:after:content-none',
