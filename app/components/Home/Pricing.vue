@@ -42,7 +42,7 @@
             <h3 class="m-0 text-base font-semibold text-gray-900 dark:text-white">ราคาคิดเป็นชิ้น — ตามประเภทผ้า</h3>
             <p class="m-0 text-[13px] text-gray-500 dark:text-gray-400 mt-0.5">ราคาแยกตามบริการ ผ้าบางชนิดคิดเฉพาะบริการที่เหมาะสม</p>
           </div>
-          <UBadge color="gray" variant="outline" class="rounded-full px-3 py-1 font-medium bg-white dark:bg-gray-900">หน่วย: บาท/ชิ้น</UBadge>
+          <UBadge color="neutral" variant="outline" class="rounded-full px-3 py-1 font-medium bg-white dark:bg-gray-900">หน่วย: บาท/ชิ้น</UBadge>
         </div>
         
         <div class="p-0">

@@ -45,7 +45,7 @@ onUnmounted(() => {
         <!-- Left Content -->
         <div>
           <div class="flex flex-wrap gap-2 mb-6">
-            <UBadge :color="isOpen ? 'emerald' : 'red'" variant="subtle" class="rounded-full flex items-center gap-1.5 px-3 py-1 text-xs">
+            <UBadge :color="isOpen ? 'success' : 'error'" variant="subtle" class="rounded-full flex items-center gap-1.5 px-3 py-1 text-xs">
               <span class="w-1.5 h-1.5 rounded-full animate-pulse" :class="isOpen ? 'bg-emerald-500' : 'bg-red-500'"></span>
               {{ isOpen ? 'เปิดอยู่' : 'ปิดอยู่' }} · 14:00 – 19:30
             </UBadge>
@@ -85,7 +85,7 @@ onUnmounted(() => {
             
             <UButton
               size="xl"
-              color="gray"
+              color="neutral"
               variant="outline"
               class="px-8 font-bold rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800"
               to="#contact"
