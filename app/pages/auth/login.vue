@@ -1,5 +1,8 @@
 <script setup lang="ts">
 import { authClient } from "~/utils/auth-client";
+
+definePageMeta({ layout: "default" });
+
 const notify = useNotify();
 
 const { login, loginWithLine, redirectByRole } = useUser();
@@ -42,6 +45,12 @@ watch(session, async (newSession) => {
 }, { immediate: false });
 
 onMounted(async () => {
+    const reason = useCookie<string | null>("auth_signout_reason");
+    if (reason.value === "deleted") {
+        notify.error("บัญชีของคุณถูกลบโดยผู้ดูแลระบบ ไม่สามารถเข้าสู่ระบบได้");
+        reason.value = null;
+        return;
+    }
     if (session.value) {
         await redirectByRole((session.value.user as any)?.role);
         return;

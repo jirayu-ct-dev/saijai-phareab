@@ -6,6 +6,7 @@ import {
   mockCategoriesData,
   mockItemsData,
   mockPricesData,
+  mockPackagesData,
 } from "../shared/data/mockPricing.ts";
 
 config();
@@ -53,11 +54,13 @@ async function main() {
       update: {
         name: item.name,
         categoryId: item.categoryId,
+        description: 'description' in item ? (item.description as string) : null,
       },
       create: {
         id: item.id,
         name: item.name,
         categoryId: item.categoryId,
+        description: 'description' in item ? (item.description as string) : null,
       },
     });
   }
@@ -76,7 +79,11 @@ async function main() {
     if (existing) {
       await prisma.storefrontPrice.update({
         where: { id: existing.id },
-        data: { price: price.price },
+        data: {
+          price: price.price,
+          priceMin: price.priceMin ?? null,
+          priceMax: price.priceMax ?? null,
+        },
       });
       continue;
     }
@@ -86,6 +93,34 @@ async function main() {
         storefrontServiceId: price.storefrontServiceId,
         storefrontItemId: price.storefrontItemId,
         price: price.price,
+        priceMin: price.priceMin ?? null,
+        priceMax: price.priceMax ?? null,
+      },
+    });
+  }
+
+  console.log("Seeding packages...");
+  for (const pkg of mockPackagesData) {
+    await prisma.packageProduct.upsert({
+      where: { id: pkg.id },
+      update: {
+        name: pkg.name,
+        description: pkg.description,
+        packageType: pkg.packageType,
+        deductOn: pkg.deductOn,
+        price: pkg.price,
+        credits: pkg.credits,
+        validityDays: pkg.validityDays,
+      },
+      create: {
+        id: pkg.id,
+        name: pkg.name,
+        description: pkg.description,
+        packageType: pkg.packageType,
+        deductOn: pkg.deductOn,
+        price: pkg.price,
+        credits: pkg.credits,
+        validityDays: pkg.validityDays,
       },
     });
   }

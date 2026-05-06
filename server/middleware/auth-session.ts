@@ -1,4 +1,5 @@
 import { auth } from "~~/app/utils/auth";
+import { prisma } from "~~/server/utils/prisma";
 import { requireMember, requireRole } from "~~/server/utils/auth";
 import type { User } from "~~/shared/types/auth";
 import type { Role } from "~~/shared/types/enums";
@@ -52,7 +53,19 @@ export default defineEventHandler(async (event) => {
     });
 
     if (session?.user) {
-      context.user = session.user as User;
+      const u = session.user as User & { deletedAt?: Date | string | null };
+      if (u.deletedAt) {
+        await prisma.session.deleteMany({ where: { userId: u.id } });
+        deleteCookie(event, "better-auth.session_token");
+        deleteCookie(event, "__Secure-better-auth.session_token");
+        setCookie(event, "auth_signout_reason", "deleted", {
+          path: "/",
+          maxAge: 60,
+          sameSite: "lax",
+        });
+      } else {
+        context.user = u;
+      }
     }
   } catch (error) {
     console.error("[auth-session middleware] Failed to load session", error);

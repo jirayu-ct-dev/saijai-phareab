@@ -38,6 +38,7 @@ export default defineEventHandler(async (event) => {
       where: { customerId: id, deletedAt: null },
       data: { deletedAt: new Date(), deletedById: actor.id, status: "CANCELLED" },
     });
+    await tx.session.deleteMany({ where: { userId: id } });
     await tx.user.update({
       where: { id },
       data: { deletedAt: new Date(), deletedById: actor.id },

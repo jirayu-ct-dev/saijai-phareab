@@ -1,25 +1,48 @@
 import { authClient } from "~~/app/utils/auth-client";
 
+const fetchFreshSession = async () => {
+  try {
+    const headers = import.meta.server ? useRequestHeaders(["cookie"]) : undefined;
+    return await $fetch<any>("/api/auth/get-session", { headers });
+  } catch {
+    return null;
+  }
+};
+
 export default defineNuxtRouteMiddleware(async (to) => {
   const authSession = useState<unknown | null>("auth:session", () => null);
   const publicRoutes = ["/", "/auth/login", "/auth/register"];
+
+  // Force a fresh session check first so the server can wipe a deleted user's session and set the signout-reason cookie.
+  const preflight = await fetchFreshSession();
+  const signoutReason = useCookie<string | null>("auth_signout_reason").value;
+  if (signoutReason === "deleted" && to.path !== "/auth/login") {
+    if (import.meta.client) {
+      window.location.href = "/auth/login";
+      return;
+    }
+    return navigateTo("/auth/login");
+  }
+
   if (publicRoutes.includes(to.path)) {
-    // If user is already logged in and trying to access login/register, redirect them by role
     if (to.path === "/auth/login" || to.path === "/auth/register") {
-      const { data: session } = await authClient.useSession(useFetch);
-      if (session.value?.user) {
-        const role = (session.value.user as any).role;
+      const session = preflight;
+      if (session?.user) {
+        authSession.value = session;
+        const role = (session.user as any).role;
         if (role === "ADMIN") return navigateTo("/admin");
         if (role === "EMPLOYEE") return navigateTo("/admin/employee-dashboard");
         if (role === "USER") return navigateTo("/me");
+      } else {
+        authSession.value = null;
       }
     }
     return;
   }
 
-  const { data: session, error } = await authClient.useSession(useFetch);
-  if (!error.value && session.value?.user) {
-    authSession.value = session.value;
+  const session = preflight;
+  if (session?.user) {
+    authSession.value = session;
     return;
   }
 
@@ -30,13 +53,17 @@ export default defineNuxtRouteMiddleware(async (to) => {
     const restored = await ensureLiffSession();
 
     if (restored) {
-      const { data: refreshedSession, error: refreshedError } = await authClient.useSession(useFetch);
-      if (!refreshedError.value && refreshedSession.value?.user) {
-        authSession.value = refreshedSession.value;
+      const refreshed = await fetchFreshSession();
+      if (refreshed?.user) {
+        authSession.value = refreshed;
         return;
       }
     }
   }
 
+  if (import.meta.client) {
+    window.location.href = "/auth/login";
+    return;
+  }
   return navigateTo("/auth/login");
 });
