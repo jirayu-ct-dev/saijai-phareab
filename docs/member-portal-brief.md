@@ -21,15 +21,36 @@
 
 ## 2. หน้าหลักที่ต้องสร้าง
 
-### 2.1 `/me` — Dashboard
+### 2.1 `/me` — Dashboard (รูปแบบเดียวกับ Admin Dashboard)
 
-**ทุก User เห็น:**
-- การ์ดสรุป 3 ใบ: ออเดอร์ทั้งหมด / กำลังดำเนินการ / ยอดใช้จ่ายรวม
-- รายการออเดอร์ล่าสุด 5 รายการ + badge สถานะ
-- CTA "ดูออเดอร์ทั้งหมด" → `/me/orders`
+> ✅ **Implemented** — ใช้โครงสร้าง component แยกเหมือน `app/components/admin/dashboard/`
+
+**Layout:** `UDashboardPanel` → Navbar + Toolbar (DateRangePicker + PeriodSelect) + Body
+
+**Components (`app/components/me/dashboard/`):**
+
+| Component | คำอธิบาย |
+|-----------|---------|
+| `MeDashboardStats` | การ์ดสรุป 4 ใบ: ออเดอร์ทั้งหมด / กำลังดำเนินการ / เสร็จสิ้น / ยอดใช้จ่ายรวม + variation % |
+| `MeDashboardChart` | กราฟเส้นยอดใช้จ่ายของฉัน (Line + Area chart) |
+| `MeDashboardOrderStatusChart` | Grouped bar chart แยกตามสถานะ (รับผ้าแล้ว/กำลังซัก/เสร็จสิ้น) |
+| `MeDashboardRecentOrders` | ตาราง UTable ออเดอร์ล่าสุด 5 รายการ + badge สถานะ |
+| `MeDashboardRecentPayments` | ตาราง UTable ชำระเงินล่าสุด 8 รายการ |
+| `MeDashboardMembershipCard` | การ์ดแพ็กเกจ (เฉพาะ Member) + progress bar เครดิต + warning < 7 วัน |
+| `MeDashboardDateRangePicker` | เลือกช่วงวันที่ (copy จาก admin) |
+| `MeDashboardPeriodSelect` | เลือก period รายวัน/สัปดาห์/เดือน (copy จาก admin) |
+
+**API Endpoints (`server/api/me/dashboard/`):**
+
+| Endpoint | คำอธิบาย |
+|----------|---------|
+| `GET /api/me/dashboard/stats?from=&to=` | Stats + variation % (filter customerId = me) |
+| `GET /api/me/dashboard/chart?from=&to=` | กราฟยอดใช้จ่าย bucketed by day (Bangkok TZ) |
+| `GET /api/me/dashboard/order-statuses?from=&to=` | ออเดอร์แยกตามสถานะ bucketed by day |
+| `GET /api/me/dashboard/recent-payments` | ชำระเงินล่าสุด 8 รายการ |
 
 **Member เพิ่มด้านบน:**
-- การ์ดใหญ่ "แพ็กเกจของฉัน" — ชื่อแพ็กเกจ + progress bar เครดิต + วันหมดอายุ
+- การ์ดใหญ่ "แพ็กเกจของฉัน" (`MeDashboardMembershipCard`) — ชื่อแพ็กเกจ + progress bar เครดิต + วันหมดอายุ
 - Warning banner ถ้าเหลือ < 7 วัน
 - CTA "ดูประวัติการใช้งาน" → `/me/membership/usage`
 
