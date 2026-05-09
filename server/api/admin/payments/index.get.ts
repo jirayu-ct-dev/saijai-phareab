@@ -56,6 +56,7 @@ export default defineEventHandler(async () => {
           select: {
             id: true,
             orderNo: true,
+            quotationNo: true,
             isWalkIn: true,
             walkInName: true,
             walkInPhone: true,
@@ -109,12 +110,17 @@ export default defineEventHandler(async () => {
       return {
         id: row.id,
         paymentNo: row.paymentNo,
+        receiptNo: row.receiptNo,
         amount: Number(row.amount),
-        isVerified: row.paidAt !== null,
+        status: row.status,
+        method: row.method,
+        isVerified: row.status === "PAID",
         note: row.note ?? row.packageSale?.note ?? null,
         createdAt: row.createdAt,
         updatedAt: row.updatedAt,
         paidAt: row.paidAt,
+        confirmedAt: row.confirmedAt,
+        quotationNo: row.serviceOrder?.quotationNo ?? null,
         metadata: row.metadata,
         customer: {
           id: row.user.id,

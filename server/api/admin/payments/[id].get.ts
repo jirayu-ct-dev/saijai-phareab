@@ -251,9 +251,14 @@ export default defineEventHandler(async (event) => {
   return {
     id: payment.id,
     paymentNo: payment.paymentNo,
+    receiptNo: payment.receiptNo,
+    status: payment.status,
+    method: payment.method,
     amount: toNumber(payment.amount),
     note: payment.note,
     paidAt: payment.paidAt?.toISOString() ?? null,
+    confirmedAt: payment.confirmedAt?.toISOString() ?? null,
+    confirmedById: payment.confirmedById ?? null,
     metadata: payment.metadata,
     createdAt: payment.createdAt.toISOString(),
     updatedAt: payment.updatedAt.toISOString(),
@@ -295,6 +300,7 @@ export default defineEventHandler(async (event) => {
       ? {
           id: payment.serviceOrder.id,
           orderNo: payment.serviceOrder.orderNo,
+          quotationNo: payment.serviceOrder.quotationNo,
           status: payment.serviceOrder.status,
           isWalkIn: payment.serviceOrder.isWalkIn,
           walkInName: payment.serviceOrder.walkInName,

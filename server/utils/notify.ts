@@ -737,11 +737,14 @@ export const notifyReceipt = async (params: { paymentId: string }): Promise<void
       select: {
         id: true,
         paymentNo: true,
+        receiptNo: true,
         amount: true,
+        method: true,
         userId: true,
         user: { select: { name: true, email: true } },
         metadata: true,
         memberEntitlementId: true,
+        slipImage: { select: { secureUrl: true, url: true } },
         packageSale: {
           select: {
             id: true,
@@ -775,14 +778,16 @@ export const notifyReceipt = async (params: { paymentId: string }): Promise<void
 
     const shopName = await getShopName();
     const customerName = payment.user.name || payment.user.email || "ลูกค้า";
-    const receiptCode = payment.paymentNo || `PAY-${payment.id.slice(-8).toUpperCase()}`;
+    const receiptCode = payment.receiptNo || payment.paymentNo || `RC-${payment.id.slice(-8).toUpperCase()}`;
     const totalAmount = Number(payment.amount);
     const receiptUrl = `${getBaseUrl()}/admin/payment/${payment.id}/receipt`;
+    const methodLabel = payment.method === "TRANSFER" ? "โอนเงิน" : payment.method === "CASH" ? "เงินสด" : null;
 
     const body: FlexBox[] = [
-      kvRow("เลขที่บิล", receiptCode),
+      kvRow("เลขที่ใบเสร็จ", receiptCode),
       kvRow("ลูกค้า", customerName),
     ];
+    if (methodLabel) body.push(kvRow("วิธีชำระเงิน", methodLabel));
 
     const paymentMeta = (payment.metadata ?? null) as { vat?: { rate?: number; amount?: number; included?: boolean; baseAmount?: number } } | null;
     const vatInfo = paymentMeta?.vat;
@@ -838,10 +843,79 @@ export const notifyReceipt = async (params: { paymentId: string }): Promise<void
     });
 
     const messages: LineMessage[] = [flex];
+    const slipUrl = payment.method === "TRANSFER"
+      ? payment.slipImage?.secureUrl || payment.slipImage?.url || null
+      : null;
+    if (slipUrl) {
+      messages.push(buildTextMessage("📎 หลักฐานการโอนเงิน"));
+      messages.push(buildImageMessage(slipUrl));
+    }
 
     await pushToCustomer(payment.userId, messages);
     await pushToSubscribers("receiveReceipt", messages);
   } catch (error) {
     console.error("[notify] notifyReceipt", error);
+  }
+};
+
+export const notifyQuotationCreated = async (params: { serviceOrderId: string }): Promise<void> => {
+  try {
+    const order = await prisma.serviceOrder.findFirst({
+      where: { id: params.serviceOrderId, deletedAt: null },
+      select: {
+        id: true,
+        orderNo: true,
+        quotationNo: true,
+        customerId: true,
+        totalAmount: true,
+        dueAt: true,
+        receivedAt: true,
+        customer: { select: { name: true, email: true } },
+        payments: {
+          where: { deletedAt: null },
+          orderBy: { createdAt: "desc" },
+          take: 1,
+          select: { id: true, amount: true, status: true },
+        },
+      },
+    });
+    if (!order) return;
+
+    const setting = await getNotificationSetting();
+    const customerCanReceive = (setting as { notifyCustomerOnQuotation?: boolean }).notifyCustomerOnQuotation !== false;
+    if (!customerCanReceive) return;
+
+    const payment = order.payments[0];
+    if (!payment || payment.status !== "UNPAID") return;
+
+    const shopName = await getShopName();
+    const customerName = order.customer.name || order.customer.email || "ลูกค้า";
+    const code = order.quotationNo || order.orderNo || `QT-${order.id.slice(-8).toUpperCase()}`;
+    const amount = Number(payment.amount ?? order.totalAmount ?? 0);
+    const url = `${getBaseUrl()}/admin/payment/${payment.id}/quotation`;
+
+    const body: FlexBox[] = [
+      kvRow("เลขที่ใบแจ้งราคา", code),
+      kvRow("ลูกค้า", customerName),
+      kvRow("ยอดที่ต้องชำระ", `฿${formatCurrency(amount)}`),
+    ];
+    if (order.dueAt) body.push(kvRow("วันนัดรับ", formatDateTime(order.dueAt.toISOString())));
+
+    const flex = buildFlexBubble({
+      shopName,
+      emoji: "🧾",
+      headline: "ใบแจ้งราคาออกแล้ว",
+      subline: "ชำระเงินเพื่อรับใบเสร็จได้เลย",
+      bodyContents: body,
+      buttonLabel: "ดูใบแจ้งราคา",
+      buttonUrl: url,
+      color: "#0EA5E9",
+      altText: `[${shopName}] ใบแจ้งราคา ${code}`,
+    });
+
+    await pushToCustomer(order.customerId, [flex]);
+    await pushToSubscribers("receiveNewOrder", [flex]);
+  } catch (error) {
+    console.error("[notify] notifyQuotationCreated", error);
   }
 };

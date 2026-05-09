@@ -5,6 +5,9 @@ import type { TableColumn } from "@nuxt/ui";
 import type { AdminPaymentRecord } from "~~/app/composables/useAdminPayments";
 import { formatCurrency, formatDateTime } from "~~/shared/utils/format";
 import type { Role } from "~~/shared/types/enums";
+import { paymentMethodLabels, paymentStatusColors, paymentStatusLabels } from "~~/shared/config/paymentConfig";
+import ConfirmPaymentModal from "~~/app/components/admin/payment/ConfirmPaymentModal.vue";
+import EditPaymentStateModal from "~~/app/components/admin/payment/EditPaymentStateModal.vue";
 
 definePageMeta({
   layout: "admin",
@@ -21,6 +24,42 @@ const { user } = useUser();
 const isAdmin = computed(() => (user.value?.role as Role | undefined) === "ADMIN");
 const { payments, isLoading, refresh, deletePayment } = useAdminPayments();
 
+const confirmModalOpen = ref(false);
+const confirmTarget = ref<AdminPaymentRecord | null>(null);
+const canConfirmPayment = (payment: AdminPaymentRecord) => payment.status !== "PAID" && payment.status !== "CANCELLED";
+const openConfirmModal = (payment: AdminPaymentRecord) => {
+  if (!canConfirmPayment(payment)) return;
+  confirmTarget.value = payment;
+  confirmModalOpen.value = true;
+};
+const onConfirmedFromList = async () => {
+  await refresh();
+};
+const editStateModalOpen = ref(false);
+const editStateTarget = ref<AdminPaymentRecord | null>(null);
+const openEditStateModal = (payment: AdminPaymentRecord) => {
+  editStateTarget.value = payment;
+  editStateModalOpen.value = true;
+};
+const onStateUpdatedFromList = async () => {
+  await refresh();
+};
+const canManagePaymentState = (payment: AdminPaymentRecord) => isAdmin.value || canConfirmPayment(payment);
+const getPaymentStateActionTitle = (payment: AdminPaymentRecord) => {
+  if (isAdmin.value) return "คลิกเพื่อแก้ไขสถานะ";
+  if (canConfirmPayment(payment)) return "คลิกเพื่อยืนยันการชำระเงิน";
+  return undefined;
+};
+const handlePaymentStateClick = (payment: AdminPaymentRecord) => {
+  if (isAdmin.value) {
+    openEditStateModal(payment);
+    return;
+  }
+  if (canConfirmPayment(payment)) {
+    openConfirmModal(payment);
+  }
+};
+
 onActivated(async () => {
   await refresh();
 });
@@ -31,7 +70,6 @@ const saleTypeOptions: Array<{ label: string; value: "all" | "PACKAGE" | "SERVIC
   { label: "งานซักรีด", value: "SERVICE" },
   { label: "งานซักรีด (รายเดือน)", value: "SERVICE_MEMBER" },
 ];
-
 const getAvatarProps = (customer?: AdminPaymentRecord["customer"] | null) => ({
   as: { img: "img" },
   src: customer?.image || "",
@@ -150,7 +188,10 @@ watch(() => pagination.value.pageIndex, () => {
 });
 
 const openPaymentDetail = (payment: AdminPaymentRecord) => navigateTo(`/admin/payment/${payment.id}`);
-const openReceipt = (payment: AdminPaymentRecord) => navigateTo(`/admin/payment/${payment.id}/receipt`);
+const openReceipt = (payment: AdminPaymentRecord) => {
+  const target = payment.status === "PAID" ? "receipt" : "quotation";
+  return navigateTo(`/admin/payment/${payment.id}/${target}`);
+};
 const openMemberDetail = (payment: AdminPaymentRecord) => navigateTo(`/admin/users/${payment.customer.id}`);
 const openServiceOrderDetail = (serviceOrderId: string) => navigateTo(`/admin/service-orders/${serviceOrderId}`);
 
@@ -181,6 +222,10 @@ const formatPaymentItems = (payment: AdminPaymentRecord) => {
   if (items.length) return items;
   return [`รายการผ้า ${payment.serviceOrder?.itemCount ?? 0} รายการ`];
 };
+
+const getPaymentMethodLabel = (payment: AdminPaymentRecord) => (
+  payment.method ? paymentMethodLabels[payment.method] : "-"
+);
 
 const isDeleteOpen = ref(false);
 const isBulkDeleteOpen = ref(false);
@@ -227,7 +272,7 @@ const confirmBulkDelete = async () => {
 const getActionItems = (payment: AdminPaymentRecord) => {
   const primaryItems: Array<Record<string, unknown>> = [
     { label: "ดูรายละเอียด", icon: "i-lucide-eye", onSelect: () => openPaymentDetail(payment) },
-    { label: "ดูใบเสร็จ", icon: "i-lucide-receipt", onSelect: () => openReceipt(payment) },
+    { label: payment.status === "PAID" ? "ใบเสร็จ" : "ใบแจ้งราคา", icon: "i-lucide-receipt", onSelect: () => openReceipt(payment) },
   ];
 
   const serviceOrderId = payment.serviceOrder?.id;
@@ -345,6 +390,32 @@ const columns: TableColumn<AdminPaymentRecord>[] = [
     },
   },
   {
+    accessorKey: "status",
+    header: "สถานะ",
+    cell: ({ row }) => {
+      const payment = row.original;
+      const color = paymentStatusColors[payment.status] ?? "neutral";
+      const label = paymentStatusLabels[payment.status] ?? payment.status;
+      return h(
+        "div",
+        {
+          class: canManagePaymentState(payment) ? "inline-flex cursor-pointer" : "inline-flex",
+          title: getPaymentStateActionTitle(payment),
+          onClick: (e: MouseEvent) => {
+            e.stopPropagation();
+            handlePaymentStateClick(payment);
+          },
+        },
+        [h(UBadge, { color, variant: "soft", size: "sm" }, () => label)],
+      );
+    },
+  },
+  {
+    accessorKey: "method",
+    header: "วิธีชำระ",
+    cell: ({ row }) => h("span", { class: "text-sm text-muted" }, getPaymentMethodLabel(row.original)),
+  },
+  {
     accessorKey: "createdAt",
     header: "วันที่สร้าง",
     cell: ({ row }) => h("p", { class: "text-sm" }, formatDateTime(row.original.createdAt)),
@@ -353,13 +424,29 @@ const columns: TableColumn<AdminPaymentRecord>[] = [
     id: "actions",
     header: "",
     cell: ({ row }) => {
+      const confirmButton = canConfirmPayment(row.original)
+        ? h(UButton, {
+            icon: "i-lucide-check",
+            size: "xs",
+            color: "success",
+            variant: "ghost",
+            title: "ยืนยันการชำระเงิน",
+            onClick: (e: MouseEvent) => {
+              e.stopPropagation();
+              openConfirmModal(row.original);
+            },
+          })
+        : null;
       const detailButton = h(UButton, {
         icon: "i-lucide-eye",
         size: "xs",
         color: "neutral",
         variant: "ghost",
         title: "ดูรายละเอียดการชำระเงิน",
-        onClick: () => openPaymentDetail(row.original),
+        onClick: (e: MouseEvent) => {
+          e.stopPropagation();
+          openPaymentDetail(row.original);
+        },
       });
 
       const menuButton = h(UButton, {
@@ -371,13 +458,14 @@ const columns: TableColumn<AdminPaymentRecord>[] = [
       });
 
       return h("div", { class: "flex items-center justify-end gap-1" }, [
+        confirmButton,
         detailButton,
         h(
           UDropdownMenu,
           { items: getActionItems(row.original), content: { align: "end" } },
           { default: () => menuButton },
         ),
-      ]);
+      ].filter(Boolean));
     },
   },
 ];
@@ -513,9 +601,36 @@ const columns: TableColumn<AdminPaymentRecord>[] = [
                         <p class="text-muted">วันที่สร้าง</p>
                         <p class="mt-1 text-highlighted">{{ formatDateTime(payment.createdAt) }}</p>
                       </div>
+                      <div>
+                        <p class="text-muted">สถานะ</p>
+                        <button
+                          type="button"
+                          class="mt-1 inline-flex"
+                          :class="canManagePaymentState(payment) ? 'cursor-pointer' : 'cursor-default'"
+                          :title="getPaymentStateActionTitle(payment)"
+                          @click="handlePaymentStateClick(payment)"
+                        >
+                          <UBadge :color="paymentStatusColors[payment.status]" variant="soft" size="sm">
+                            {{ paymentStatusLabels[payment.status] }}
+                          </UBadge>
+                        </button>
+                      </div>
+                      <div>
+                        <p class="text-muted">วิธีชำระ</p>
+                        <p class="mt-1 text-highlighted">{{ getPaymentMethodLabel(payment) }}</p>
+                      </div>
                     </div>
 
                     <div class="mt-3 flex items-center justify-end gap-1 border-t border-default pt-3">
+                      <UButton
+                        v-if="canConfirmPayment(payment)"
+                        icon="i-lucide-check"
+                        size="xs"
+                        color="success"
+                        variant="ghost"
+                        aria-label="ยืนยันการชำระเงิน"
+                        @click="openConfirmModal(payment)"
+                      />
                       <UButton icon="i-lucide-eye" size="xs" color="neutral" variant="ghost" aria-label="ดูรายละเอียดการชำระเงิน" @click="openPaymentDetail(payment)" />
                       <UButton icon="i-lucide-receipt" size="xs" color="primary" variant="ghost" aria-label="ดูใบเสร็จ" @click="openReceipt(payment)" />
                       <UDropdownMenu :items="getActionItems(payment)" :content="{ align: 'end' }">
@@ -662,4 +777,23 @@ const columns: TableColumn<AdminPaymentRecord>[] = [
       </template>
     </UIConfirmModal>
   </ClientOnly>
+
+  <ConfirmPaymentModal
+    v-if="confirmTarget"
+    v-model:open="confirmModalOpen"
+    :payment-id="confirmTarget.id"
+    :amount="Number(confirmTarget.amount ?? 0)"
+    @confirmed="onConfirmedFromList"
+  />
+
+  <EditPaymentStateModal
+    v-if="editStateTarget && isAdmin"
+    v-model:open="editStateModalOpen"
+    :payment-id="editStateTarget.id"
+    :payment-no="editStateTarget.paymentNo"
+    :amount="Number(editStateTarget.amount ?? 0)"
+    :status="editStateTarget.status"
+    :method="editStateTarget.method"
+    @updated="onStateUpdatedFromList"
+  />
 </template>

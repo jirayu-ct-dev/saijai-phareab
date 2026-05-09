@@ -1,72 +1,26 @@
-import { requireUser } from "~~/server/utils/auth";
-import { prisma } from "~~/server/utils/prisma";
+import { prisma } from "./prisma";
 
 const toNumber = (value: unknown) => Number(value ?? 0);
 
-export default defineEventHandler(async (event) => {
-  const user = requireUser(event);
-
-  const id = getRouterParam(event, "id");
-  if (!id) {
-    throw createError({ statusCode: 400, statusMessage: "Missing payment id" });
-  }
-
+export const buildPaymentDocumentPayload = async (paymentId: string) => {
   const payment = await prisma.paymentRecord.findFirst({
-    where: {
-      id,
-      userId: user.id,
-      deletedAt: null,
-      status: "PAID",
-    },
+    where: { id: paymentId, deletedAt: null },
     include: {
-      user: {
-        select: {
-          id: true,
-          name: true,
-          email: true,
-          phoneNumber: true,
-          image: true,
-        },
-      },
-      slipImage: {
-        select: {
-          id: true,
-          url: true,
-          secureUrl: true,
-        },
-      },
+      user: { select: { id: true, name: true, email: true, phoneNumber: true, image: true } },
+      slipImage: { select: { id: true, url: true, secureUrl: true } },
+      confirmedBy: { select: { id: true, name: true, email: true } },
       packageSale: {
         include: {
-          soldBy: {
-            select: {
-              id: true,
-              name: true,
-              email: true,
-            },
-          },
+          soldBy: { select: { id: true, name: true, email: true } },
           items: {
-            include: {
-              product: {
-                select: {
-                  id: true,
-                  name: true,
-                  packageType: true,
-                },
-              },
-            },
+            include: { product: { select: { id: true, name: true, packageType: true } } },
             orderBy: { createdAt: "asc" },
           },
         },
       },
       serviceOrder: {
         include: {
-          employee: {
-            select: {
-              id: true,
-              name: true,
-              email: true,
-            },
-          },
+          employee: { select: { id: true, name: true, email: true } },
           memberEntitlement: {
             select: {
               id: true,
@@ -80,24 +34,12 @@ export default defineEventHandler(async (event) => {
             include: {
               storefrontPrice: {
                 include: {
-                  storefrontService: {
-                    select: {
-                      id: true,
-                      name: true,
-                    },
-                  },
-                  storefrontItem: {
-                    select: {
-                      id: true,
-                      name: true,
-                    },
-                  },
+                  storefrontService: { select: { id: true, name: true } },
+                  storefrontItem: { select: { id: true, name: true } },
                 },
               },
             },
-            where: {
-              deletedAt: null,
-            },
+            where: { deletedAt: null },
             orderBy: { createdAt: "asc" },
           },
         },
@@ -105,16 +47,11 @@ export default defineEventHandler(async (event) => {
     },
   });
 
-  if (!payment) {
-    throw createError({ statusCode: 404, statusMessage: "Payment not found" });
-  }
+  if (!payment) return null;
 
   const usageHistory = payment.serviceOrder?.memberEntitlementId
     ? await prisma.serviceOrder.findMany({
-        where: {
-          memberEntitlementId: payment.serviceOrder.memberEntitlementId,
-          deletedAt: null,
-        },
+        where: { memberEntitlementId: payment.serviceOrder.memberEntitlementId, deletedAt: null },
         orderBy: { receivedAt: "asc" },
         select: {
           id: true,
@@ -157,9 +94,17 @@ export default defineEventHandler(async (event) => {
   return {
     id: payment.id,
     paymentNo: payment.paymentNo,
-    receiptType: payment.packageSaleId ? "PACKAGE" : "STOREFRONT",
+    receiptNo: payment.receiptNo,
+    quotationNo: payment.serviceOrder?.quotationNo ?? null,
+    status: payment.status,
+    method: payment.method,
+    receiptType: payment.packageSaleId ? ("PACKAGE" as const) : ("STOREFRONT" as const),
     createdAt: payment.createdAt.toISOString(),
     paidAt: payment.paidAt?.toISOString() ?? null,
+    confirmedAt: payment.confirmedAt?.toISOString() ?? null,
+    confirmedBy: payment.confirmedBy
+      ? { id: payment.confirmedBy.id, name: payment.confirmedBy.name, email: payment.confirmedBy.email }
+      : null,
     amount: toNumber(payment.amount),
     note: payment.note,
     vat: (() => {
@@ -174,11 +119,7 @@ export default defineEventHandler(async (event) => {
       };
     })(),
     slipImage: payment.slipImage
-      ? {
-          id: payment.slipImage.id,
-          url: payment.slipImage.url,
-          secureUrl: payment.slipImage.secureUrl,
-        }
+      ? { id: payment.slipImage.id, url: payment.slipImage.url, secureUrl: payment.slipImage.secureUrl }
       : null,
     customer: {
       id: payment.user.id,
@@ -196,11 +137,7 @@ export default defineEventHandler(async (event) => {
           discountAmount: toNumber(payment.packageSale.discountAmount),
           totalAmount: toNumber(payment.packageSale.totalAmount),
           soldBy: payment.packageSale.soldBy
-            ? {
-                id: payment.packageSale.soldBy.id,
-                name: payment.packageSale.soldBy.name,
-                email: payment.packageSale.soldBy.email,
-              }
+            ? { id: payment.packageSale.soldBy.id, name: payment.packageSale.soldBy.name, email: payment.packageSale.soldBy.email }
             : null,
           items: packageItems,
         }
@@ -209,6 +146,7 @@ export default defineEventHandler(async (event) => {
       ? {
           id: payment.serviceOrder.id,
           orderNo: payment.serviceOrder.orderNo,
+          quotationNo: payment.serviceOrder.quotationNo,
           isWalkIn: payment.serviceOrder.isWalkIn,
           walkInName: payment.serviceOrder.walkInName,
           walkInPhone: payment.serviceOrder.walkInPhone,
@@ -227,11 +165,7 @@ export default defineEventHandler(async (event) => {
           discountAmount: toNumber(payment.serviceOrder.discountAmount),
           totalAmount: toNumber(payment.serviceOrder.totalAmount),
           employee: payment.serviceOrder.employee
-            ? {
-                id: payment.serviceOrder.employee.id,
-                name: payment.serviceOrder.employee.name,
-                email: payment.serviceOrder.employee.email,
-              }
+            ? { id: payment.serviceOrder.employee.id, name: payment.serviceOrder.employee.name, email: payment.serviceOrder.employee.email }
             : null,
           hangerCharge: hangerChargeSource
             ? {
@@ -262,4 +196,6 @@ export default defineEventHandler(async (event) => {
         }
       : null,
   };
-});
+};
+
+export type PaymentDocumentPayload = NonNullable<Awaited<ReturnType<typeof buildPaymentDocumentPayload>>>;

@@ -14,6 +14,14 @@ export default defineEventHandler(async (event) => {
     });
   }
 
+  const mime = file.type || "";
+  if (!/^image\/(jpe?g|png|webp)$/i.test(mime)) {
+    throw createError({ statusCode: 400, statusMessage: "รองรับเฉพาะไฟล์ภาพ JPEG / PNG / WebP" });
+  }
+  if (file.data.length > 5 * 1024 * 1024) {
+    throw createError({ statusCode: 413, statusMessage: "ไฟล์เกินขนาดสูงสุด 5MB" });
+  }
+
   try {
     const uploaded = await uploadImageBufferToCloudinary(file.data, {
       folder: "saijai-phareab/admin-payment-slips",

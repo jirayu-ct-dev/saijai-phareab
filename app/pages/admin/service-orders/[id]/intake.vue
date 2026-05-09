@@ -20,7 +20,7 @@ const paymentId = computed(() => data.value?.payments[0]?.id ?? null);
 
 watchEffect(async () => {
   if (paymentId.value) {
-    await navigateTo(`/admin/payment/${paymentId.value}/receipt`, { replace: true });
+    await navigateTo(`/admin/payment/${paymentId.value}/quotation`, { replace: true });
   }
 });
 </script>

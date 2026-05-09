@@ -57,6 +57,26 @@ enum ServiceOrderStatus {
   CANCELLED
 }
 
+enum PaymentMethod {
+  CASH
+  TRANSFER
+}
+
+enum PaymentStatus {
+  UNPAID
+  PENDING_VERIFICATION
+  PAID
+  CANCELLED
+}
+
+enum PaymentAuditAction {
+  CREATED
+  CONFIRMED
+  CANCELLED
+  SLIP_UPLOADED
+  UPDATED
+}
+
 model User {
   id            String    @id @default(cuid())
   email         String    @unique
@@ -82,6 +102,8 @@ model User {
   employeeServiceOrders ServiceOrder[]      @relation("ServiceOrderEmployee")
   memberEntitlements    MemberEntitlement[] @relation("MemberEntitlementOwner")
   paymentRecords        PaymentRecord[]     @relation("PaymentUser")
+  confirmedPayments     PaymentRecord[]     @relation("PaymentConfirmedBy")
+  paymentAuditLogs      PaymentAuditLog[]   @relation("PaymentAuditActor")
   userAddresses         UserAddress[]
   uploadedImages        Image[]             @relation("ImageOwner")
 
@@ -368,6 +390,7 @@ model Basket {
 model ServiceOrder {
     id                   String             @id @default(cuid())
     orderNo              String?            @unique
+    quotationNo          String?            @unique
     customerId           String
     customer             User               @relation("ServiceOrderCustomer", fields: [customerId], references: [id])
     employeeId           String?
@@ -464,6 +487,7 @@ model ServiceOrderItemImage {
 model PaymentRecord {
   id                  String             @id @default(cuid())
   paymentNo           String?            @unique
+  receiptNo           String?            @unique
   userId              String
   user                User               @relation("PaymentUser", fields: [userId], references: [id])
   memberEntitlementId String?
@@ -473,10 +497,15 @@ model PaymentRecord {
   serviceOrderId      String?
   serviceOrder        ServiceOrder?      @relation(fields: [serviceOrderId], references: [id])
   amount              Decimal
+  status              PaymentStatus      @default(UNPAID)
+  method              PaymentMethod?
   slipImageId         String?
   slipImage           Image?             @relation("PaymentSlipImage", fields: [slipImageId], references: [id])
   note                String?
   paidAt              DateTime?
+  confirmedAt         DateTime?
+  confirmedById       String?
+  confirmedBy         User?              @relation("PaymentConfirmedBy", fields: [confirmedById], references: [id])
   metadata            Json?
   createdAt           DateTime           @default(now())
   updatedAt           DateTime           @updatedAt
@@ -484,12 +513,33 @@ model PaymentRecord {
   deletedById         String?
   deletedBy           User?              @relation("PaymentRecordDeletedBy", fields: [deletedById], references: [id])
 
+  auditLogs           PaymentAuditLog[]
+
   @@index([userId, createdAt])
   @@index([memberEntitlementId])
   @@index([packageSaleId])
   @@index([serviceOrderId])
   @@index([paymentNo])
+  @@index([receiptNo])
+  @@index([status, createdAt])
   @@map("payment_record")
+}
+
+model PaymentAuditLog {
+  id          String             @id @default(cuid())
+  paymentId   String
+  payment     PaymentRecord      @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  action      PaymentAuditAction
+  actorId     String?
+  actor       User?              @relation("PaymentAuditActor", fields: [actorId], references: [id])
+  beforeJson  Json?
+  afterJson   Json?
+  note        String?
+  createdAt   DateTime           @default(now())
+
+  @@index([paymentId, createdAt])
+  @@index([actorId])
+  @@map("payment_audit_log")
 }
 
 model UserAddress {
@@ -536,6 +586,8 @@ model BusinessSetting {
   vatIncluded         Boolean  @default(false)
   paymentNoPrefix     String   @default("PAY-")
   orderNoPrefix       String   @default("ORD-")
+  quotationNoPrefix   String   @default("QT-")
+  receiptNoPrefix     String   @default("RC-")
   minimumOrderAmount  Decimal  @default(0)
   packageRefundDays   Int      @default(7)
   updatedAt           DateTime @updatedAt
@@ -545,6 +597,7 @@ model BusinessSetting {
 
 model NotificationSetting {
   id                          String   @id @default("singleton")
+  notifyCustomerOnQuotation   Boolean  @default(true)
   notifyCustomerOnReceived    Boolean  @default(true)
   notifyCustomerOnProcessing  Boolean  @default(true)
   notifyCustomerOnDelivering  Boolean  @default(true)

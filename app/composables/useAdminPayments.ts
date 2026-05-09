@@ -1,3 +1,5 @@
+import type { PaymentMethod, PaymentStatus } from "~~/shared/types/enums";
+
 export type PaymentSlipImage = {
   id: string;
   secureUrl: string | null;
@@ -7,12 +9,17 @@ export type PaymentSlipImage = {
 export type AdminPaymentRecord = {
   id: string;
   paymentNo: string | null;
+  receiptNo: string | null;
+  quotationNo: string | null;
   amount: number;
-
+  status: PaymentStatus;
+  method: PaymentMethod | null;
+  isVerified: boolean;
   note: string | null;
   createdAt: string;
   updatedAt: string;
   paidAt: string | null;
+  confirmedAt: string | null;
   metadata: any | null;
   customer: {
     id: string;
@@ -60,6 +67,11 @@ export type UpdateAdminPaymentBody = {
   slipImageId?: string | null;
 };
 
+export type UpdateAdminPaymentStateBody = {
+  status: PaymentStatus;
+  method?: PaymentMethod | null;
+};
+
 export const useAdminPayments = () => {
   const notify = useNotify();
 
@@ -91,6 +103,18 @@ export const useAdminPayments = () => {
     }
   };
 
+  const updatePaymentState = async (id: string, body: UpdateAdminPaymentStateBody): Promise<boolean> => {
+    try {
+      await $fetch(`/api/admin/payments/${id}/state`, { method: "PUT", body });
+      await refresh();
+      notify.updated("สถานะการชำระเงิน");
+      return true;
+    } catch (error: unknown) {
+      notify.error(getErrorMessage(error, "ไม่สามารถอัปเดตสถานะการชำระเงินได้"));
+      return false;
+    }
+  };
+
   const deletePayment = async (id: string): Promise<boolean> => {
     try {
       await $fetch(`/api/admin/payments/${id}`, { method: "DELETE" });
@@ -118,12 +142,42 @@ export const useAdminPayments = () => {
     }
   };
 
+  const confirmPayment = async (
+    id: string,
+    body: { method: PaymentMethod; slipImageId?: string | null; note?: string | null },
+  ): Promise<boolean> => {
+    try {
+      await $fetch(`/api/admin/payments/${id}/confirm`, { method: "POST", body });
+      await refresh();
+      notify.success("ยืนยันการชำระเงินแล้ว");
+      return true;
+    } catch (error: unknown) {
+      notify.error(getErrorMessage(error, "ไม่สามารถยืนยันการชำระเงินได้"));
+      return false;
+    }
+  };
+
+  const cancelPayment = async (id: string, note?: string | null): Promise<boolean> => {
+    try {
+      await $fetch(`/api/admin/payments/${id}/cancel`, { method: "POST", body: { note: note ?? null } });
+      await refresh();
+      notify.success("ยกเลิกการชำระเงินแล้ว");
+      return true;
+    } catch (error: unknown) {
+      notify.error(getErrorMessage(error, "ไม่สามารถยกเลิกการชำระเงินได้"));
+      return false;
+    }
+  };
+
   return {
     payments,
     isLoading,
     refresh,
     updatePayment,
+    updatePaymentState,
     deletePayment,
     uploadSlip,
+    confirmPayment,
+    cancelPayment,
   };
 };

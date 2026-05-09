@@ -8,6 +8,8 @@ export type BusinessSettingValues = {
   vatIncluded: boolean;
   paymentNoPrefix: string;
   orderNoPrefix: string;
+  quotationNoPrefix: string;
+  receiptNoPrefix: string;
   minimumOrderAmount: number;
   packageRefundDays: number;
 };
@@ -30,6 +32,8 @@ const loadFromDb = async (): Promise<BusinessSettingValues> => {
     vatIncluded: setting.vatIncluded,
     paymentNoPrefix: setting.paymentNoPrefix,
     orderNoPrefix: setting.orderNoPrefix,
+    quotationNoPrefix: setting.quotationNoPrefix || "QT-",
+    receiptNoPrefix: setting.receiptNoPrefix || "RC-",
     minimumOrderAmount: Number(setting.minimumOrderAmount),
     packageRefundDays: setting.packageRefundDays,
   };

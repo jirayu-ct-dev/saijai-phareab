@@ -1,6 +1,7 @@
 import { addDays } from "date-fns";
 import { requireRole } from "~~/server/utils/auth";
 import { createPaymentNo } from "~~/server/utils/paymentNo";
+import { createReceiptNo } from "~~/server/utils/receiptNo";
 import { prisma } from "~~/server/utils/prisma";
 import { notifyReceipt } from "~~/server/utils/notify";
 import { getBusinessSetting } from "~~/server/utils/businessSetting";
@@ -135,15 +136,21 @@ export default defineEventHandler(async (event) => {
         }
       }
 
+      const method = body.slipImageId ? ("TRANSFER" as const) : ("CASH" as const);
       const payment = await tx.paymentRecord.create({
         data: {
           paymentNo: await createPaymentNo(),
+          receiptNo: await createReceiptNo(now),
           userId: body.customerId,
           packageSaleId: packageSale.id,
           amount: totalAmount,
+          status: "PAID",
+          method,
           slipImageId: body.slipImageId ?? null,
           note: body.note?.trim() || null,
           paidAt: now,
+          confirmedAt: now,
+          confirmedById: actor.id,
           metadata: {
             createdByAdminId: actor.id,
             source: "admin-package-sales",
@@ -151,6 +158,15 @@ export default defineEventHandler(async (event) => {
             discountAmount,
             vat: { rate: vat.vatRate, amount: vat.vatAmount, included: vat.vatIncluded, baseAmount: vat.baseAmount },
           },
+        },
+      });
+
+      await tx.paymentAuditLog.create({
+        data: {
+          paymentId: payment.id,
+          action: "CONFIRMED",
+          actorId: actor.id,
+          afterJson: { status: "PAID", method, source: "admin-package-sales" },
         },
       });
 

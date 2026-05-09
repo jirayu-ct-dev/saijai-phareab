@@ -1,7 +1,9 @@
 <script setup lang="ts">
-import { useTemplateRef } from "vue";
+import type { ComputedRef } from "vue";
+import { computed, useTemplateRef } from "vue";
 import { useThermalExport } from "~~/app/composables/useThermalExport";
 import { useThermalPrinter } from "~~/app/composables/useThermalPrinter";
+import ThermalExportDocument from "./ThermalExportDocument.vue";
 import PrinterConnectModal from "./PrinterConnectModal.vue";
 
 const props = defineProps<{
@@ -22,10 +24,15 @@ const emit = defineEmits<{
   print: [];
 }>();
 
-const slipElement = useTemplateRef<HTMLElement>("slipElement");
+type ThermalExportDocumentExpose = {
+  element: HTMLElement | null;
+};
 
-const { goBack, downloadPng } = useThermalExport(
-  slipElement,
+const exportDocument = useTemplateRef<ThermalExportDocumentExpose>("exportDocument");
+const exportElement = computed(() => exportDocument.value?.element ?? null);
+
+const { goBack, downloadPng, isExporting } = useThermalExport(
+  exportElement as ComputedRef<HTMLElement | null>,
   () => props.fileName,
   props.fallbackPath ?? "/admin",
 );
@@ -34,7 +41,7 @@ const { state: printerState } = useThermalPrinter();
 
 const showPrinterModal = ref(false);
 
-defineExpose({ goBack, downloadPng });
+defineExpose({ goBack, downloadPng, getPrintElement: () => exportElement.value });
 </script>
 
 <template>
@@ -63,7 +70,9 @@ defineExpose({ goBack, downloadPng });
               variant="outline"
               icon="i-lucide-image-down"
               class="shrink-0"
+              title="บันทึกเป็นไฟล์ PNG"
               aria-label="บันทึก PNG"
+              :loading="isExporting"
               :ui="{ label: 'hidden sm:inline' }"
               @click="downloadPng"
             />
@@ -114,11 +123,21 @@ defineExpose({ goBack, downloadPng });
         </div>
       </div>
 
-      <article v-else ref="slipElement" class="thermal-card mx-auto bg-white px-4 py-5 text-[13px] leading-5 text-black">
+      <article v-else class="thermal-card mx-auto bg-white px-4 py-5 text-[13px] leading-5 text-black">
         <slot />
       </article>
     </template>
   </UDashboardPanel>
+
+  <ClientOnly>
+    <Teleport to="body">
+      <div v-if="!isLoading && !hasError" class="thermal-export-host" aria-hidden="true">
+        <ThermalExportDocument ref="exportDocument">
+          <slot />
+        </ThermalExportDocument>
+      </div>
+    </Teleport>
+  </ClientOnly>
 
   <PrinterConnectModal v-model:open="showPrinterModal" />
 </template>
@@ -126,5 +145,18 @@ defineExpose({ goBack, downloadPng });
 <style scoped>
 .thermal-card {
   width: min(100%, 80mm);
+}
+
+.thermal-export-host {
+  position: fixed;
+  top: 0;
+  left: -10000px;
+  z-index: -1;
+  width: 390px;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  pointer-events: none;
+  background: #ffffff;
 }
 </style>

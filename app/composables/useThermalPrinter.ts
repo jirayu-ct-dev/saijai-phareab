@@ -42,7 +42,9 @@ export function useThermalPrinter() {
 
   function persist() {
     if (import.meta.client) {
-      localStorage.setItem('thermal-printer', JSON.stringify({ paperWidth: state.value.paperWidth }))
+      localStorage.setItem('thermal-printer', JSON.stringify({
+        paperWidth: state.value.paperWidth,
+      }))
     }
   }
 

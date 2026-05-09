@@ -3,10 +3,11 @@ import { getBusinessSetting } from "~~/server/utils/businessSetting";
 import { computeVat } from "~~/server/utils/vat";
 import { requireRole } from "~~/server/utils/auth";
 import { createPaymentNo } from "~~/server/utils/paymentNo";
+import { createQuotationNo } from "~~/server/utils/quotationNo";
 import { prisma } from "~~/server/utils/prisma";
 import { createServiceOrderNo } from "~~/server/utils/serviceOrderNo";
 import { ensureWalkInCustomer } from "~~/server/utils/walkInCustomer";
-import { notifyServiceOrderCreated, notifyServiceOrderStatusChanged } from "~~/server/utils/notify";
+import { notifyQuotationCreated, notifyServiceOrderCreated, notifyServiceOrderStatusChanged } from "~~/server/utils/notify";
 
 type CreateServiceOrderBody = {
   customerId?: string | null;
@@ -321,6 +322,7 @@ export default defineEventHandler(async (event) => {
       const serviceOrder = await tx.serviceOrder.create({
         data: {
           orderNo: await createServiceOrderNo(receivedAt),
+          quotationNo: await createQuotationNo(receivedAt),
           customerId: paymentUserId!,
           employeeId: actor.id,
           status: serviceOrderStatus,
@@ -392,13 +394,16 @@ export default defineEventHandler(async (event) => {
           memberEntitlementId: memberEntitlement?.id ?? null,
           serviceOrderId: serviceOrder.id,
           amount: payableAmount,
-          slipImageId: body.slipImageId ?? null,
+          status: "UNPAID",
+          method: null,
+          slipImageId: null,
           note: body.note?.trim() || null,
-          paidAt: new Date(),
+          paidAt: null,
           metadata: {
             createdByAdminId: actor.id,
             source: "admin-service-orders",
             orderNo: serviceOrder.orderNo,
+            quotationNo: serviceOrder.quotationNo,
             subtotalAmount,
             discountAmount,
             hangerCharge,
@@ -420,12 +425,27 @@ export default defineEventHandler(async (event) => {
         },
       });
 
+      await tx.paymentAuditLog.create({
+        data: {
+          paymentId: payment.id,
+          action: "CREATED",
+          actorId: actor.id,
+          afterJson: {
+            status: "UNPAID",
+            amount: payableAmount,
+            quotationNo: serviceOrder.quotationNo,
+          },
+        },
+      });
+
       return {
         id: serviceOrder.id,
         orderNo: serviceOrder.orderNo,
         paymentId: payment.id,
       };
     });
+
+    void notifyQuotationCreated({ serviceOrderId: created.id });
 
     if (serviceOrderStatus === "RECEIVED") {
       // Send RECEIVED notification first, then transition to PROCESSING

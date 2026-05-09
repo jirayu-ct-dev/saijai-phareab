@@ -15,13 +15,5 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 404, statusMessage: "Payment not found" });
   }
 
-  if (payload.status !== "PAID") {
-    throw createError({
-      statusCode: 409,
-      statusMessage: "ใบเสร็จจะออกได้หลังยืนยันการชำระเงินแล้วเท่านั้น",
-      data: { redirectTo: "quotation", paymentId: id },
-    });
-  }
-
   return payload;
 });

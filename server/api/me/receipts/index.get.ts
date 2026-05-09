@@ -9,6 +9,7 @@ export default defineEventHandler(async (event) => {
       where: {
         userId: user.id,
         deletedAt: null,
+        status: "PAID",
       },
       include: {
         serviceOrder: { select: { orderNo: true } },
@@ -35,6 +36,8 @@ export default defineEventHandler(async (event) => {
       return {
         id: receipt.id,
         paymentNo: receipt.paymentNo,
+        receiptNo: receipt.receiptNo,
+        method: receipt.method,
         type,
         detail,
         amount: Number(receipt.amount),

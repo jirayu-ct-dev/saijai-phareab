@@ -1,13 +1,48 @@
 import type { Ref } from "vue";
+import { nextTick, ref } from "vue";
 
-const EXPORT_WIDTH_PX = 302;
+const EXPORT_WIDTH_PX = 390;
+const EXPORT_PIXEL_RATIO = 3;
+
+const waitForFonts = async () => {
+  if (!import.meta.client || !("fonts" in document)) return;
+  await document.fonts.ready;
+};
+
+const waitForImages = async (element: HTMLElement) => {
+  const images = Array.from(element.querySelectorAll("img"));
+  await Promise.all(images.map(async (image) => {
+    if (image.complete && image.naturalWidth > 0) return;
+    try {
+      await image.decode();
+    } catch {
+      await new Promise<void>((resolve) => {
+        image.addEventListener("load", () => resolve(), { once: true });
+        image.addEventListener("error", () => resolve(), { once: true });
+      });
+    }
+  }));
+};
+
+const downloadBlob = (blob: Blob, fileName: string) => {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = fileName;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+};
 
 export function useThermalExport(
-  elementRef: Ref<HTMLElement | null>,
+  elementRef: Readonly<Ref<HTMLElement | null>>,
   fileName: Ref<string> | (() => string),
   fallbackPath = "/admin",
 ) {
   const resolveFileName = () => (typeof fileName === "function" ? fileName() : fileName.value);
+  const notify = useNotify();
+  const isExporting = ref(false);
 
   const goBack = () => {
     if (import.meta.client && window.history.length > 1) {
@@ -20,40 +55,31 @@ export function useThermalExport(
   const downloadPng = async () => {
     if (!import.meta.client || !elementRef.value) return;
 
-    const { toPng } = await import("html-to-image");
+    isExporting.value = true;
+    try {
+      await nextTick();
+      await waitForFonts();
+      await waitForImages(elementRef.value);
 
-    const exportHost = document.createElement("div");
-    exportHost.style.position = "fixed";
-    exportHost.style.left = "-10000px";
-    exportHost.style.top = "0";
-    exportHost.style.width = `${EXPORT_WIDTH_PX}px`;
-    exportHost.style.padding = "0";
-    exportHost.style.margin = "0";
-    exportHost.style.background = "#ffffff";
+      const { toBlob } = await import("html-to-image");
+      const fileNameWithExt = `${resolveFileName()}.png`;
+      const blob = await toBlob(elementRef.value, {
+        backgroundColor: "#ffffff",
+        cacheBust: true,
+        width: EXPORT_WIDTH_PX,
+        height: elementRef.value.scrollHeight,
+        pixelRatio: EXPORT_PIXEL_RATIO,
+      });
 
-    const clone = elementRef.value.cloneNode(true) as HTMLElement;
-    clone.style.width = `${EXPORT_WIDTH_PX}px`;
-    clone.style.maxWidth = `${EXPORT_WIDTH_PX}px`;
-    clone.style.margin = "0 auto";
-    clone.style.boxSizing = "border-box";
+      if (!blob) throw new Error("ไม่สามารถสร้างไฟล์ PNG ได้");
 
-    exportHost.appendChild(clone);
-    document.body.appendChild(exportHost);
-
-    const dataUrl = await toPng(clone, {
-      backgroundColor: "#ffffff",
-      pixelRatio: 2,
-      canvasWidth: EXPORT_WIDTH_PX,
-      skipFonts: true,
-    });
-
-    document.body.removeChild(exportHost);
-
-    const link = document.createElement("a");
-    link.href = dataUrl;
-    link.download = `${resolveFileName()}.png`;
-    link.click();
+      downloadBlob(blob, fileNameWithExt);
+    } catch (error) {
+      notify.error(error instanceof Error ? error.message : "ไม่สามารถบันทึก PNG ได้");
+    } finally {
+      isExporting.value = false;
+    }
   };
 
-  return { goBack, downloadPng };
+  return { goBack, downloadPng, isExporting };
 }

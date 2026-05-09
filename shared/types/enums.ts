@@ -31,6 +31,14 @@ export type BasketStatus = "AVAILABLE" | "IN_USE";
 export type PackageType = "MAIN" | "ADDON";
 export type DeductOn = "CREATED" | "COMPLETED";
 
+export type PaymentMethod = "CASH" | "TRANSFER";
+
+export type PaymentStatus =
+    | "UNPAID"
+    | "PENDING_VERIFICATION"
+    | "PAID"
+    | "CANCELLED";
+
 // ============================
 // SOFT DELETE (shared fields)
 // ============================

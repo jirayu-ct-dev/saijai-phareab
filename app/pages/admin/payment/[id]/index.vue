@@ -1,8 +1,11 @@
 ﻿<script setup lang="ts">
-import type { EntitlementStatus, PackageSaleStatus, ServiceOrderStatus } from "~~/shared/types/enums";
+import type { EntitlementStatus, PackageSaleStatus, PaymentMethod, PaymentStatus, Role, ServiceOrderStatus } from "~~/shared/types/enums";
 import { packageTypeColors, packageTypeLabels } from "~~/shared/config/packageConfig";
+import { paymentMethodLabels, paymentStatusColors, paymentStatusLabels } from "~~/shared/config/paymentConfig";
 import { formatCurrency, formatDateTime } from "~~/shared/utils/format";
 import { useAdminPayments } from "~~/app/composables/useAdminPayments";
+import ConfirmPaymentModal from "~~/app/components/admin/payment/ConfirmPaymentModal.vue";
+import EditPaymentStateModal from "~~/app/components/admin/payment/EditPaymentStateModal.vue";
 
 type BadgeColor = "error" | "primary" | "secondary" | "success" | "info" | "warning" | "neutral";
 type InfoRow = { label: string; value: string; valueClass?: string; dividerBefore?: boolean; href?: string };
@@ -12,9 +15,13 @@ type DetailItem = { id: string; title: string; metaLabel?: string | null; unitPr
 type PaymentDetailResponse = {
   id: string;
   paymentNo: string | null;
+  receiptNo: string | null;
+  status: PaymentStatus;
+  method: PaymentMethod | null;
   amount: number;
   note: string | null;
   paidAt: string | null;
+  confirmedAt: string | null;
   createdAt: string;
   updatedAt: string;
   metadata: unknown;
@@ -67,12 +74,53 @@ definePageMeta({ layout: "admin", middleware: ["role-employee"] });
 const route = useRoute();
 const paymentId = computed(() => String(route.params.id ?? ""));
 const notify = useNotify();
+const { user } = useUser();
+const isAdmin = computed(() => (user.value?.role as Role | undefined) === "ADMIN");
 const { updatePayment, uploadSlip } = useAdminPayments();
 const { data, status, refresh, error } = await useFetch<PaymentDetailResponse>(() => `/api/admin/payments/${paymentId.value}`, { key: () => `admin-payment-detail-${paymentId.value}` });
 
 const payment = computed(() => data.value ?? null);
 const isLoading = computed(() => status.value === "pending");
 const isPackagePayment = computed(() => Boolean(payment.value?.packageSale));
+
+const paymentStatus = computed<PaymentStatus>(() => payment.value?.status ?? "UNPAID");
+const canConfirmPayment = computed(
+  () => Boolean(payment.value) && paymentStatus.value !== "PAID" && paymentStatus.value !== "CANCELLED",
+);
+const confirmModalOpen = ref(false);
+const editStateModalOpen = ref(false);
+const onPaymentConfirmed = async () => {
+  await refresh();
+};
+const onPaymentStateUpdated = async () => {
+  await refresh();
+};
+const handlePaymentStatusBadgeClick = () => {
+  if (!payment.value) return;
+  if (isAdmin.value) {
+    editStateModalOpen.value = true;
+    return;
+  }
+  if (canConfirmPayment.value) {
+    confirmModalOpen.value = true;
+  }
+};
+const isPaymentStatusActionVisible = computed(() => isAdmin.value || canConfirmPayment.value);
+const paymentStatusActionLabel = computed(() => {
+  if (isAdmin.value) return "แก้ไขชำระเงิน";
+  if (canConfirmPayment.value) return "ยืนยันชำระเงิน";
+  return paymentStatusLabels[paymentStatus.value] ?? paymentStatus.value;
+});
+const paymentStatusActionIcon = computed(() => {
+  if (isAdmin.value) return "i-lucide-pencil";
+  if (canConfirmPayment.value) return "i-lucide-check";
+  return "i-lucide-circle";
+});
+const paymentStatusBadgeTitle = computed(() => {
+  if (isAdmin.value) return "คลิกเพื่อแก้ไขสถานะ";
+  if (canConfirmPayment.value) return "คลิกเพื่อยืนยันการชำระเงิน";
+  return undefined;
+});
 
 const entitlementStatusMap: Record<EntitlementStatus, { label: string; color: BadgeColor }> = {
   ACTIVE: { label: "ใช้งานอยู่", color: "success" },
@@ -143,7 +191,14 @@ const purchaseSectionTitle = computed(() => (isPackagePayment.value ? "ข้อ
 const totalsSectionTitle = computed(() => (isPackagePayment.value ? "สรุปยอดการซื้อ" : "สรุปยอดรายการผ้า"));
 const itemSectionTitle = computed(() => (isPackagePayment.value ? "รายการแพ็กเกจ" : "รายการผ้า"));
 const itemSectionDescription = computed(() => `${isPackagePayment.value ? payment.value?.packageSale?.items.length ?? 0 : payment.value?.serviceOrder?.items.length ?? 0} รายการ`);
-const paymentManagerDescription = "แก้ไขหมายเหตุและหลักฐานการชำระเงินได้";
+const paymentManagerDescription = "จัดการหมายเหตุและหลักฐานการชำระเงิน";
+const paymentDocumentLabel = computed(() => paymentStatus.value === "PAID" ? "ใบเสร็จ" : "ใบแจ้งราคา");
+const paymentDocumentIcon = computed(() => paymentStatus.value === "PAID" ? "i-lucide-receipt" : "i-lucide-file-text");
+const openPaymentDocument = () => {
+  if (!payment.value) return;
+  const target = paymentStatus.value === "PAID" ? "receipt" : "quotation";
+  void navigateTo(`/admin/payment/${payment.value.id}/${target}`);
+};
 
 const customerInfoRows = computed<InfoRow[]>(() => payment.value ? [
   { label: "ชื่อลูกค้า", value: payment.value.customer.name || "-" },
@@ -180,8 +235,13 @@ const purchaseInfoRows = computed<InfoRow[]>(() => {
 
 const paymentInfoRows = computed<InfoRow[]>(() => payment.value ? [
   { label: "เลขชำระเงิน", value: payment.value.paymentNo || "-" },
-  { label: "วันที่ชำระ", value: formatDateTime(payment.value.paidAt || payment.value.createdAt) },
-  { label: "หมายเหตุ", value: payment.value.note || "-", valueClass: "whitespace-pre-line" },
+  { label: "เลขใบเสร็จ", value: payment.value.receiptNo || "-" },
+  { label: "สถานะ", value: paymentStatusLabels[paymentStatus.value] ?? paymentStatus.value },
+  { label: "ยอดชำระ", value: formatCurrency(payment.value.amount), valueClass: "font-semibold text-highlighted" },
+  { label: "วิธีชำระ", value: payment.value.method ? paymentMethodLabels[payment.value.method] : "-" },
+  { label: "วันที่ชำระ", value: payment.value.paidAt ? formatDateTime(payment.value.paidAt) : "-" },
+  { label: "วันที่ยืนยัน", value: payment.value.confirmedAt ? formatDateTime(payment.value.confirmedAt) : "-" },
+  { label: "วันที่สร้าง", value: formatDateTime(payment.value.createdAt) },
 ] : []);
 
 const totalRows = computed<InfoRow[]>(() => {
@@ -313,32 +373,53 @@ const savePaymentChanges = async () => {
 <template>
   <UDashboardPanel id="payment-detail">
     <template #header>
-      <UDashboardNavbar :title="payment?.paymentNo || 'รายละเอียดการชำระเงิน'" icon="i-lucide-badge-info">
+      <UDashboardNavbar :title="payment?.receiptNo || payment?.paymentNo || 'รายละเอียดการชำระเงิน'" icon="i-lucide-badge-info">
         <template #leading>
           <UDashboardSidebarCollapse class="hidden lg:inline-flex" />
         </template>
         <template #right>
           <div class="flex flex-wrap items-center gap-2">
-            <UButton 
-              label="กลับ" 
-              color="neutral" 
-              variant="outline" 
-              icon="i-lucide-arrow-left" 
+            <UButton
+              label="กลับ"
+              color="neutral"
+              variant="outline"
+              icon="i-lucide-arrow-left"
               class="shrink-0"
               aria-label="กลับ"
               :ui="{ label: 'hidden sm:inline' }"
-              @click="goBack" 
+              @click="goBack"
             />
+            <UButton
+              v-if="payment && isPaymentStatusActionVisible"
+              :label="paymentStatusActionLabel"
+              :color="paymentStatusColors[paymentStatus]"
+              variant="subtle"
+              :icon="paymentStatusActionIcon"
+              class="shrink-0"
+              :title="paymentStatusBadgeTitle"
+              :aria-label="paymentStatusActionLabel"
+              :ui="{ label: 'hidden sm:inline' }"
+              @click="handlePaymentStatusBadgeClick"
+            />
+            <UBadge
+              v-else-if="payment"
+              :color="paymentStatusColors[paymentStatus]"
+              variant="soft"
+              size="md"
+              class="shrink-0"
+            >
+              {{ paymentStatusLabels[paymentStatus] }}
+            </UBadge>
             <UButton 
               v-if="payment" 
-              label="ใบเสร็จ" 
+              :label="paymentDocumentLabel"
               color="neutral" 
               variant="outline" 
-              icon="i-lucide-receipt" 
+              :icon="paymentDocumentIcon"
               class="shrink-0"
-              aria-label="ใบเสร็จ"
+              :aria-label="paymentDocumentLabel"
               :ui="{ label: 'hidden sm:inline' }"
-              @click="navigateTo(`/admin/payment/${payment.id}/receipt`)" 
+              @click="openPaymentDocument"
             />
             <UButton 
               icon="i-lucide-refresh-cw" 
@@ -649,5 +730,24 @@ const savePaymentChanges = async () => {
     :title="previewTitle"
     :image-url="previewUrl"
     image-alt="รูปหลักฐาน"
+  />
+
+  <ConfirmPaymentModal
+    v-if="payment && canConfirmPayment"
+    v-model:open="confirmModalOpen"
+    :payment-id="payment.id"
+    :amount="Number(payment.amount ?? 0)"
+    @confirmed="onPaymentConfirmed"
+  />
+
+  <EditPaymentStateModal
+    v-if="payment && isAdmin"
+    v-model:open="editStateModalOpen"
+    :payment-id="payment.id"
+    :payment-no="payment.paymentNo"
+    :amount="Number(payment.amount ?? 0)"
+    :status="payment.status"
+    :method="payment.method"
+    @updated="onPaymentStateUpdated"
   />
 </template>

@@ -89,7 +89,7 @@ async function handleDisconnect() {
             />
           </div>
           <p class="mt-1 text-xs text-muted">
-            {{ state.paperWidth === 80 ? '48 ตัวอักษรต่อบรรทัด' : '32 ตัวอักษรต่อบรรทัด' }}
+            พิมพ์เป็นภาพบิตแมปจากเว็บพรีวิว — รับประกันว่าผลพิมพ์ตรงกับหน้าจอ
           </p>
         </div>
 
