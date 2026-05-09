@@ -12,7 +12,7 @@ const props = withDefaults(defineProps<{
 
 <template>
   <section v-if="props.imageUrl" class="flex flex-col items-center gap-1">
-    <img :src="props.imageUrl" alt="LINE QR" class="h-27.5 w-27.5 object-contain" crossorigin="anonymous">
-    <p class="text-[11px] leading-4">{{ caption }}</p>
+    <img :src="props.imageUrl" alt="LINE QR" class="h-52 w-52 object-contain" crossorigin="anonymous">
+    <p class="text-[20px] leading-6">{{ caption }}</p>
   </section>
 </template>

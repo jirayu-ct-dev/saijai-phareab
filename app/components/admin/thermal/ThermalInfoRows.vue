@@ -16,7 +16,7 @@ const visibleRows = computed(() => props.rows.filter((row) => row.show !== false
 </script>
 
 <template>
-  <section class="grid gap-1 text-[12px] leading-4">
+  <section class="thermal-info-section grid gap-1 text-[22px]">
     <div
       v-for="(row, idx) in visibleRows"
       :key="idx"
@@ -29,11 +29,13 @@ const visibleRows = computed(() => props.rows.filter((row) => row.show !== false
 </template>
 
 <style scoped>
+.thermal-info-section { line-height: 1.45; }
+
 .thermal-info-row {
   display: grid;
-  grid-template-columns: 88px minmax(0, 1fr);
+  grid-template-columns: 180px minmax(0, 1fr);
   align-items: start;
-  gap: 12px;
+  gap: 16px;
 }
 
 .thermal-info-row > span:first-child {
@@ -43,5 +45,6 @@ const visibleRows = computed(() => props.rows.filter((row) => row.show !== false
 .thermal-info-row > span:last-child {
   min-width: 0;
   text-align: right;
+  overflow-wrap: anywhere;
 }
 </style>
