@@ -219,7 +219,7 @@ onUnmounted(() => {
               <div class="bg-gray-50 dark:bg-gray-800/60 border border-gray-100 dark:border-gray-700 rounded-2xl rounded-tl-sm p-3.5 max-w-[92%] opacity-0 animate-[fade-in_0.4s_ease-out_1s_forwards]">
                 <div class="font-semibold flex items-center gap-2 mb-2.5 text-gray-900 dark:text-white text-[13px]">
                   <span class="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
-                  กำลังซัก…
+                  กำลังดำเนินการ…
                 </div>
                 <div class="space-y-1.5 text-[12.5px] text-gray-600 dark:text-gray-400 mb-3">
                   <div class="flex justify-between gap-4">

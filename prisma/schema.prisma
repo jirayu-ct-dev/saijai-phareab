@@ -204,6 +204,7 @@ model PackageProduct {
   name         String
   description  String?
   packageType  PackageType @default(MAIN)
+  isDelivery   Boolean     @default(false)
   deductOn     DeductOn    @default(CREATED)
   price        Decimal
   credits      Int?

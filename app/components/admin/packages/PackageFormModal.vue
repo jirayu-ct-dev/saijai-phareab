@@ -17,6 +17,7 @@ interface FormState {
   name: string;
   description: string;
   packageType: "MAIN" | "ADDON";
+  isDelivery: boolean;
   deductOn: "CREATED" | "COMPLETED";
   price: number | null;
   credits: number | null;
@@ -28,6 +29,7 @@ const defaultState = (): FormState => ({
   name: "",
   description: "",
   packageType: "MAIN",
+  isDelivery: false,
   deductOn: "CREATED",
   price: null,
   credits: null,
@@ -65,6 +67,7 @@ watch(
       state.name = pkg.name;
       state.description = pkg.description ?? "";
       state.packageType = pkg.packageType as "MAIN" | "ADDON";
+      state.isDelivery = Boolean(pkg.isDelivery);
       state.deductOn = pkg.deductOn as "CREATED" | "COMPLETED";
       state.price = Number(pkg.price);
       state.credits = pkg.credits ?? null;
@@ -98,6 +101,7 @@ const handleSubmit = async () => {
     name: state.name.trim(),
     description: state.description.trim() || null,
     packageType: state.packageType,
+    isDelivery: state.packageType === "ADDON" ? state.isDelivery : false,
     deductOn: state.packageType === "ADDON" ? state.deductOn : "CREATED",
     price: state.price ?? 0,
     credits: state.credits,
@@ -158,6 +162,14 @@ const handleClose = () => emit("update:open", false);
             </div>
           </UFormField>
         </div>
+
+        <UFormField
+          v-if="state.packageType === 'ADDON'"
+          label="นี่คือบริการรับ-ส่งถึงบ้าน"
+          description="เมื่อลูกค้าซื้อแพ็กเกจนี้และ active อยู่ ระบบจะถือว่าออเดอร์ของลูกค้ามีบริการจัดส่งถึงบ้าน"
+        >
+          <USwitch v-model="state.isDelivery" color="primary" />
+        </UFormField>
 
         <UFormField v-if="state.packageType === 'ADDON'" label="หักเครดิตเมื่อ">
           <USelect

@@ -4,6 +4,7 @@ interface UpdatePackageBody {
     name?: string
     description?: string | null
     packageType?: 'MAIN' | 'ADDON'
+    isDelivery?: boolean
     deductOn?: 'CREATED' | 'COMPLETED'
     price?: number
     credits?: number | null
@@ -32,6 +33,7 @@ export default defineEventHandler(async (event) => {
                 ...(body.name !== undefined && { name: body.name.trim() }),
                 ...(body.description !== undefined && { description: body.description }),
                 ...(body.packageType !== undefined && { packageType: body.packageType }),
+                ...(body.isDelivery !== undefined && { isDelivery: body.isDelivery }),
                 ...(body.deductOn !== undefined && { deductOn: body.deductOn }),
                 ...(body.price !== undefined && { price: body.price }),
                 ...(body.credits !== undefined && { credits: body.credits }),

@@ -4,6 +4,7 @@ interface CreatePackageBody {
     name: string
     description?: string | null
     packageType: 'MAIN' | 'ADDON'
+    isDelivery?: boolean
     deductOn?: 'CREATED' | 'COMPLETED'
     price: number
     credits?: number | null
@@ -31,6 +32,7 @@ export default defineEventHandler(async (event) => {
                 name: body.name.trim(),
                 description: body.description?.trim() ?? null,
                 packageType: body.packageType ?? 'MAIN',
+                isDelivery: body.packageType === 'ADDON' ? Boolean(body.isDelivery) : false,
                 deductOn: body.deductOn ?? 'CREATED',
                 price: body.price,
                 credits: body.credits ?? null,

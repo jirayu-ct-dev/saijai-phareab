@@ -4,7 +4,7 @@ import { buildCsv, formatBangkokDateTime, parseDateRange, sendCsv } from "~~/ser
 
 const statusLabel: Record<string, string> = {
   RECEIVED: "รับผ้าแล้ว",
-  PROCESSING: "กำลังซัก",
+  PROCESSING: "กำลังดำเนินการ",
   DELIVERING: "พร้อมส่ง",
   COMPLETED: "เสร็จสิ้น",
   CANCELLED: "ยกเลิก",

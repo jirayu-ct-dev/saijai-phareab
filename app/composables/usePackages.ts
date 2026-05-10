@@ -8,6 +8,7 @@ export interface CreatePackageBody {
     name: string
     description?: string | null
     packageType: 'MAIN' | 'ADDON'
+    isDelivery?: boolean
     deductOn?: 'CREATED' | 'COMPLETED'
     price: number
     credits?: number | null

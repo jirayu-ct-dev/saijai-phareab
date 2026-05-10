@@ -3,23 +3,40 @@ import { pushMessage, type LineMessage } from "~~/server/utils/line-messaging";
 import type { ServiceOrderStatus } from "~~/shared/types/enums";
 import { formatDate, formatDateTime } from "~~/shared/utils/format";
 
+const customerHasDeliveryAddon = async (customerId: string): Promise<boolean> => {
+  const count = await prisma.memberEntitlement.count({
+    where: {
+      customerId,
+      status: "ACTIVE",
+      deletedAt: null,
+      product: { isDelivery: true, deletedAt: null },
+    },
+  });
+  return count > 0;
+};
+
 export const serviceOrderStatusLabels: Record<ServiceOrderStatus, string> = {
   RECEIVED: "รับผ้าแล้ว",
-  PROCESSING: "กำลังซัก",
+  PROCESSING: "กำลังดำเนินการ",
   DELIVERING: "พร้อมส่ง / กำลังจัดส่ง",
   COMPLETED: "ส่งผ้าเรียบร้อย",
   CANCELLED: "ยกเลิก",
 };
 
-const customerHeadline: Record<ServiceOrderStatus, string> = {
-  RECEIVED: "รับผ้าจากคุณเรียบร้อยแล้ว",
-  PROCESSING: "เริ่มซักผ้าให้คุณแล้ว",
-  DELIVERING: "ผ้าพร้อมส่งให้คุณแล้ว",
-  COMPLETED: "ส่งผ้าเรียบร้อย ขอบคุณที่ใช้บริการ",
-  CANCELLED: "ออเดอร์นี้ถูกยกเลิกแล้ว",
+const customerHeadlineFor = (status: ServiceOrderStatus, hasDelivery: boolean): string => {
+  if (status === "DELIVERING") {
+    return hasDelivery ? "กำลังจัดส่งผ้าถึงบ้านคุณ" : "ผ้าซักเสร็จแล้ว เชิญรับที่ร้าน";
+  }
+  switch (status) {
+    case "RECEIVED": return "รับผ้าจากคุณเรียบร้อยแล้ว";
+    case "PROCESSING": return "เริ่มซักผ้าให้คุณแล้ว";
+    case "COMPLETED": return "ส่งผ้าเรียบร้อย ขอบคุณที่ใช้บริการ";
+    case "CANCELLED": return "ออเดอร์นี้ถูกยกเลิกแล้ว";
+  }
+  return "";
 };
 
-const staffHeadline = (status: ServiceOrderStatus, customerName: string): string => {
+const staffHeadlineFor = (status: ServiceOrderStatus, customerName: string, hasDelivery: boolean): string => {
   const c = customerName || "ลูกค้า";
   switch (status) {
     case "RECEIVED":
@@ -27,7 +44,7 @@ const staffHeadline = (status: ServiceOrderStatus, customerName: string): string
     case "PROCESSING":
       return `เริ่มซักผ้าให้คุณ ${c} แล้ว`;
     case "DELIVERING":
-      return `ผ้าของคุณ ${c} พร้อมส่งแล้ว`;
+      return hasDelivery ? `กำลังจัดส่งผ้าให้คุณ ${c} ที่บ้าน` : `ผ้าของคุณ ${c} พร้อมให้รับที่ร้าน`;
     case "COMPLETED":
       return `ส่งผ้าให้คุณ ${c} เรียบร้อยแล้ว`;
     case "CANCELLED":
@@ -35,15 +52,19 @@ const staffHeadline = (status: ServiceOrderStatus, customerName: string): string
   }
 };
 
-const customerSubline = (status: ServiceOrderStatus): string | null => {
-  if (status === "DELIVERING") return "พร้อมให้คุณมารับ หรือกำลังจัดส่งให้แล้ว";
+const customerSublineFor = (status: ServiceOrderStatus, hasDelivery: boolean): string | null => {
+  if (status === "DELIVERING") {
+    return hasDelivery
+      ? "ทีมงานกำลังจัดส่งให้ — โปรดเตรียมผ้ารอบถัดไปไว้ให้พนักงานรับด้วยนะคะ/ครับ"
+      : "ผ้าของคุณพร้อมรับที่ร้านได้เลย ขอบคุณที่ใช้บริการ";
+  }
   if (status === "PROCESSING") return "ทีมงานกำลังดูแลผ้าของคุณอย่างดี";
   return null;
 };
 
-const staffSubline = (status: ServiceOrderStatus): string | null => {
+const staffSublineFor = (status: ServiceOrderStatus, hasDelivery: boolean): string | null => {
   if (status === "RECEIVED") return "มีออเดอร์ใหม่เข้าระบบ";
-  if (status === "DELIVERING") return "ผ้าพร้อมส่ง / ลูกค้ามารับได้แล้ว";
+  if (status === "DELIVERING") return hasDelivery ? "ทีมงานออกส่งผ้าแล้ว — รับผ้ารอบถัดไปกลับมาด้วย" : "ผ้าพร้อมให้ลูกค้ามารับ";
   if (status === "COMPLETED") return "ปิดงานเรียบร้อย";
   if (status === "CANCELLED") return "ออเดอร์ถูกยกเลิก";
   return null;
@@ -597,6 +618,7 @@ export const notifyServiceOrderCreated = async (params: { serviceOrderId: string
     const customerName = order.customer.name || order.customer.email || "ลูกค้า";
     const orderUrl = `${getBaseUrl()}/admin/service-orders/${order.id}`;
     const dueSubline = order.dueAt ? `รับผ้าได้: ${formatDateTime(order.dueAt.toISOString())}` : null;
+    const hasDelivery = await customerHasDeliveryAddon(order.customerId);
 
     const bodyContents = await buildOrderBody({
       order,
@@ -610,8 +632,8 @@ export const notifyServiceOrderCreated = async (params: { serviceOrderId: string
       buildFlexBubble({
         shopName,
         emoji: statusEmoji.RECEIVED,
-        headline: audience === "customer" ? customerHeadline.RECEIVED : staffHeadline("RECEIVED", customerName),
-        subline: audience === "customer" ? dueSubline : staffSubline("RECEIVED"),
+        headline: audience === "customer" ? customerHeadlineFor("RECEIVED", hasDelivery) : staffHeadlineFor("RECEIVED", customerName, hasDelivery),
+        subline: audience === "customer" ? dueSubline : staffSublineFor("RECEIVED", hasDelivery),
         bodyContents,
         buttonLabel: "ดูรายละเอียดออเดอร์",
         buttonUrl: orderUrl,
@@ -676,6 +698,7 @@ export const notifyServiceOrderStatusChanged = async (params: {
     const totalQty = order.serviceOrderItems.reduce((sum, item) => sum + item.quantity, 0);
     const customerName = order.customer.name || order.customer.email || "ลูกค้า";
     const orderUrl = `${getBaseUrl()}/admin/service-orders/${order.id}`;
+    const hasDelivery = await customerHasDeliveryAddon(order.customerId);
 
     const bodyContents = await buildOrderBody({
       order,
@@ -691,9 +714,9 @@ export const notifyServiceOrderStatusChanged = async (params: {
         emoji: statusEmoji[params.toStatus],
         headline:
           audience === "customer"
-            ? customerHeadline[params.toStatus]
-            : staffHeadline(params.toStatus, customerName),
-        subline: audience === "customer" ? customerSubline(params.toStatus) : staffSubline(params.toStatus),
+            ? customerHeadlineFor(params.toStatus, hasDelivery)
+            : staffHeadlineFor(params.toStatus, customerName, hasDelivery),
+        subline: audience === "customer" ? customerSublineFor(params.toStatus, hasDelivery) : staffSublineFor(params.toStatus, hasDelivery),
         bodyContents,
         buttonLabel: "ดูรายละเอียดออเดอร์",
         buttonUrl: orderUrl,

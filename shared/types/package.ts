@@ -17,6 +17,7 @@ export interface PackageProduct extends Timestamps, SoftDeletable {
   name: string;
   description: string | null;
   packageType: PackageType;
+  isDelivery: boolean;
   deductOn: DeductOn;
   price: number | string;
   credits: number | null;

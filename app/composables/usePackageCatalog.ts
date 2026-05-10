@@ -3,6 +3,7 @@ export type PosPackageProduct = {
   name: string;
   description: string | null;
   packageType: "MAIN" | "ADDON";
+  isDelivery: boolean;
   price: number;
   credits: number | null;
   validityDays: number | null;

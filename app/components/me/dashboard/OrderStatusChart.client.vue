@@ -84,13 +84,13 @@ const xTicks = (i: number) => {
   return `${d.getDate()}/${d.getMonth() + 1}`
 }
 
-const LABELS = ['รับผ้าแล้ว', 'กำลังซัก', 'เสร็จสิ้น']
+const LABELS = ['รับผ้าแล้ว', 'กำลังดำเนินการ', 'เสร็จสิ้น']
 
 const tooltipTemplate = (d: DataRecord) =>
   `<div class="space-y-1 text-sm p-1">
     <p class="font-medium">${d.date.getDate()}/${d.date.getMonth() + 1}/${d.date.getFullYear()}</p>
     <p>รับผ้าแล้ว: <b>${d.received}</b></p>
-    <p>กำลังซัก: <b>${d.processing}</b></p>
+    <p>กำลังดำเนินการ: <b>${d.processing}</b></p>
     <p>เสร็จสิ้น: <b>${d.completed}</b></p>
   </div>`
 </script>

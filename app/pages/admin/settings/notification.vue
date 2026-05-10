@@ -176,7 +176,7 @@ const roleLabel = (role: "ADMIN" | "EMPLOYEE" | "USER") =>
           </div>
           <div class="flex items-center justify-between">
             <div>
-              <p class="text-sm font-medium">กำลังซัก (PROCESSING)</p>
+              <p class="text-sm font-medium">กำลังดำเนินการ (PROCESSING)</p>
             </div>
             <USwitch v-model="form.notifyCustomerOnProcessing" />
           </div>

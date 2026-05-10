@@ -12,7 +12,7 @@ const { order, pending } = useMyOrderDetail(route.params.id as string);
 
 const orderSteps = [
   { value: "RECEIVED", label: "รับผ้าแล้ว", icon: "i-lucide-package" },
-  { value: "PROCESSING", label: "กำลังซัก", icon: "i-lucide-loader" },
+  { value: "PROCESSING", label: "กำลังดำเนินการ", icon: "i-lucide-loader" },
   { value: "DELIVERING", label: "พร้อมส่ง", icon: "i-lucide-truck" },
   { value: "COMPLETED", label: "เสร็จสิ้น", icon: "i-lucide-check-circle" },
 ];

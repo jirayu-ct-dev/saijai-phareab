@@ -184,7 +184,12 @@ const columns: TableColumn<Package>[] = [
           ],
         ),
         h("div", { class: "min-w-0" }, [
-          h("p", { class: "font-semibold text-highlighted truncate" }, pkg.name),
+          h("div", { class: "flex items-center gap-1.5 min-w-0" }, [
+            h("p", { class: "font-semibold text-highlighted truncate" }, pkg.name),
+            pkg.isDelivery && pkg.packageType === "ADDON"
+              ? h(UBadge, { color: "info", variant: "subtle", size: "xs" }, () => "รับ-ส่ง")
+              : null,
+          ]),
           h(
             "p",
             { class: "text-xs text-muted truncate max-w-48" },
