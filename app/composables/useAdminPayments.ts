@@ -70,6 +70,7 @@ export type UpdateAdminPaymentBody = {
 export type UpdateAdminPaymentStateBody = {
   status: PaymentStatus;
   method?: PaymentMethod | null;
+  slipImageId?: string | null;
 };
 
 export const useAdminPayments = () => {

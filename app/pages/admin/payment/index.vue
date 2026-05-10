@@ -272,7 +272,9 @@ const confirmBulkDelete = async () => {
 const getActionItems = (payment: AdminPaymentRecord) => {
   const primaryItems: Array<Record<string, unknown>> = [
     { label: "ดูรายละเอียด", icon: "i-lucide-eye", onSelect: () => openPaymentDetail(payment) },
-    { label: payment.status === "PAID" ? "ใบเสร็จ" : "ใบแจ้งราคา", icon: "i-lucide-receipt", onSelect: () => openReceipt(payment) },
+    payment.status === "PAID"
+      ? { label: "ดูใบเสร็จ", icon: "i-lucide-receipt", onSelect: () => openReceipt(payment) }
+      : { label: "ดูใบแจ้งราคา", icon: "i-lucide-file-text", onSelect: () => openReceipt(payment) },
   ];
 
   const serviceOrderId = payment.serviceOrder?.id;
@@ -632,7 +634,14 @@ const columns: TableColumn<AdminPaymentRecord>[] = [
                         @click="openConfirmModal(payment)"
                       />
                       <UButton icon="i-lucide-eye" size="xs" color="neutral" variant="ghost" aria-label="ดูรายละเอียดการชำระเงิน" @click="openPaymentDetail(payment)" />
-                      <UButton icon="i-lucide-receipt" size="xs" color="primary" variant="ghost" aria-label="ดูใบเสร็จ" @click="openReceipt(payment)" />
+                      <UButton
+                        :icon="payment.status === 'PAID' ? 'i-lucide-receipt' : 'i-lucide-file-text'"
+                        size="xs"
+                        color="primary"
+                        variant="ghost"
+                        :aria-label="payment.status === 'PAID' ? 'ดูใบเสร็จ' : 'ดูใบแจ้งราคา'"
+                        @click="openReceipt(payment)"
+                      />
                       <UDropdownMenu :items="getActionItems(payment)" :content="{ align: 'end' }">
                         <UButton icon="i-lucide-ellipsis" size="xs" color="neutral" variant="ghost" aria-label="เมนูเพิ่มเติม" />
                       </UDropdownMenu>
@@ -794,6 +803,7 @@ const columns: TableColumn<AdminPaymentRecord>[] = [
     :amount="Number(editStateTarget.amount ?? 0)"
     :status="editStateTarget.status"
     :method="editStateTarget.method"
+    :existing-slip="editStateTarget.slipImage ?? null"
     @updated="onStateUpdatedFromList"
   />
 </template>

@@ -4,6 +4,7 @@ import { getPaginationRowModel } from "@tanstack/table-core";
 import type { TableColumn } from "@nuxt/ui";
 import { h, resolveComponent } from "vue";
 import OrderItemPhotosField, { type OrderItemPhoto } from "~~/app/components/admin/pos/OrderItemPhotosField.vue";
+import EditPaymentStateModal from "~~/app/components/admin/payment/EditPaymentStateModal.vue";
 import type { PaymentSlipImage } from "~~/app/composables/useAdminPayments";
 import type {
   AdminServiceOrder,
@@ -208,7 +209,12 @@ const formatItemSummary = (order: AdminServiceOrder) => {
 };
 const formatOptionalDateTime = (value: string | null | undefined) => value ? formatDateTime(value) : "-";
 
-const openReceipt = (order: AdminServiceOrder) => navigateTo(`/admin/service-orders/${order.id}/intake`);
+const openDocument = (order: AdminServiceOrder) => {
+  const paymentId = order.payment?.id;
+  if (!paymentId) return navigateTo(`/admin/service-orders/${order.id}/intake`);
+  const path = order.payment?.status === "PAID" ? "receipt" : "quotation";
+  return navigateTo(`/admin/payment/${paymentId}/${path}`);
+};
 
 const isStatusOpen = ref(false);
 const isUpdatingStatus = ref(false);
@@ -1040,15 +1046,38 @@ const handleSubmit = async () => {
   }
 };
 
-const getActionItems = (order: AdminServiceOrder) => [
-  [
+const editPaymentOpen = ref(false);
+const editPaymentTarget = ref<AdminServiceOrder | null>(null);
+const openEditPaymentModal = (order: AdminServiceOrder) => {
+  if (!order.payment?.id) return;
+  editPaymentTarget.value = order;
+  editPaymentOpen.value = true;
+};
+const onPaymentUpdated = async () => {
+  await refresh();
+};
+
+const getActionItems = (order: AdminServiceOrder) => {
+  const primaryItems: Array<Record<string, unknown>> = [
     { label: "แก้ไขรายการ", icon: "i-lucide-pencil", onSelect: () => openEditModal(order) },
-    { label: "ดูใบเสร็จ", icon: "i-lucide-receipt", onSelect: () => openReceipt(order) },
-  ],
-  [
-    { label: "ลบรายการ", icon: "i-lucide-trash-2", color: "error", onSelect: () => openDeleteModal(order) },
-  ],
-];
+    order.payment?.status === "PAID"
+      ? { label: "ดูใบเสร็จ", icon: "i-lucide-receipt", onSelect: () => openDocument(order) }
+      : { label: "ดูใบแจ้งราคา", icon: "i-lucide-file-text", onSelect: () => openDocument(order) },
+  ];
+  if (order.payment?.id && order.status !== "COMPLETED") {
+    primaryItems.push({
+      label: "แก้ไขการชำระเงิน",
+      icon: "i-lucide-credit-card",
+      onSelect: () => openEditPaymentModal(order),
+    });
+  }
+  return [
+    primaryItems,
+    [
+      { label: "ลบรายการ", icon: "i-lucide-trash-2", color: "error", onSelect: () => openDeleteModal(order) },
+    ],
+  ];
+};
 
 const columns: TableColumn<AdminServiceOrder>[] = [
   {
@@ -2042,6 +2071,18 @@ const columns: TableColumn<AdminServiceOrder>[] = [
         </div>
       </template>
     </UModal>
+
+    <EditPaymentStateModal
+      v-if="editPaymentTarget?.payment?.id"
+      v-model:open="editPaymentOpen"
+      :payment-id="editPaymentTarget.payment.id"
+      :payment-no="editPaymentTarget.payment.paymentNo"
+      :amount="Number(editPaymentTarget.payment.amount ?? 0)"
+      :status="editPaymentTarget.payment.status"
+      :method="editPaymentTarget.payment.method"
+      :existing-slip="editPaymentTarget.payment.slipImage ?? null"
+      @updated="onPaymentUpdated"
+    />
 
     </ClientOnly>
 </template>

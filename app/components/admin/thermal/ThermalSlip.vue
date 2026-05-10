@@ -40,11 +40,13 @@ const { width: previewHostWidth } = useElementSize(previewHost);
 const { height: previewCardHeight } = useElementSize(previewCard);
 const { height: viewportHeight } = useWindowSize();
 const previewScale = computed(() => {
-  const availableWidth = Math.max(0, previewHostWidth.value - 24);
-  const availableHeight = Math.max(360, viewportHeight.value - 190);
-  const widthScale = availableWidth ? availableWidth / previewWidthPx.value : 1;
+  if (!previewHostWidth.value) return 0.5;
+  const sidePadding = previewHostWidth.value < 480 ? 8 : 24;
+  const availableWidth = Math.max(0, previewHostWidth.value - sidePadding);
+  const availableHeight = Math.max(360, viewportHeight.value - 180);
+  const widthScale = availableWidth / previewWidthPx.value;
   const heightScale = previewCardHeight.value ? availableHeight / previewCardHeight.value : 1;
-  return Math.min(1, Math.max(0.42, Math.min(widthScale, heightScale)));
+  return Math.min(1, Math.max(0.3, Math.min(widthScale, heightScale)));
 });
 const previewStageStyle = computed(() => ({
   width: `${previewWidthPx.value * previewScale.value}px`,
@@ -124,7 +126,7 @@ function goBack() {
               class="shrink-0"
               aria-label="พิมพ์"
               :ui="{ label: 'hidden sm:inline' }"
-              :disabled="!printerState.isConnected"
+              :disabled="isPrinting || printerState.isConnecting"
               :loading="isPrinting || printerState.isConnecting"
               @click="emit('print')"
             />
@@ -149,7 +151,7 @@ function goBack() {
           </div>
         </div>
 
-        <div v-else class="thermal-stage" :style="previewStageStyle">
+        <div v-else class="thermal-stage" :style="previewStageStyle" :class="{ 'opacity-0': !previewHostWidth }">
           <article ref="previewCard" class="thermal-card bg-white text-black shadow-sm" :style="previewCardStyle">
             <slot />
           </article>
@@ -166,21 +168,30 @@ function goBack() {
    scales it visually so the admin page can show the whole document width. */
 .thermal-scroll {
   width: 100%;
-  overflow: hidden;
+  max-width: 100%;
+  overflow-x: hidden;
+  overflow-y: visible;
   display: flex;
   justify-content: center;
   align-items: flex-start;
   padding: 16px 12px 32px;
+  box-sizing: border-box;
+}
+@media (max-width: 480px) {
+  .thermal-scroll { padding: 8px 4px 24px; }
 }
 
 .thermal-stage {
   position: relative;
   flex-shrink: 0;
+  margin-inline: auto;
+  overflow: hidden;
+  transition: opacity 120ms ease-out;
 }
 
 .thermal-card {
   flex-shrink: 0;
-  transform-origin: top center;
+  transform-origin: top left;
   /* Force every descendant onto the same font baseline used by the renderer.
      Tailwind's preflight on the admin layout sets a smaller base font, which
      would otherwise leak into the document via inheritance. */

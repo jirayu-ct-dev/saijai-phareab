@@ -122,6 +122,8 @@ export type AdminServiceOrder = {
     id: string | null;
     paymentNo: string | null;
     amount: number;
+    status: import("~~/shared/types/enums").PaymentStatus;
+    method: import("~~/shared/types/enums").PaymentMethod | null;
     paidAt: string | null;
     slipImage: {
       id: string;

@@ -192,7 +192,7 @@ const totalsSectionTitle = computed(() => (isPackagePayment.value ? "สรุ�
 const itemSectionTitle = computed(() => (isPackagePayment.value ? "รายการแพ็กเกจ" : "รายการผ้า"));
 const itemSectionDescription = computed(() => `${isPackagePayment.value ? payment.value?.packageSale?.items.length ?? 0 : payment.value?.serviceOrder?.items.length ?? 0} รายการ`);
 const paymentManagerDescription = "จัดการหมายเหตุและหลักฐานการชำระเงิน";
-const paymentDocumentLabel = computed(() => paymentStatus.value === "PAID" ? "ใบเสร็จ" : "ใบแจ้งราคา");
+const paymentDocumentLabel = computed(() => paymentStatus.value === "PAID" ? "ดูใบเสร็จ" : "ดูใบแจ้งราคา");
 const paymentDocumentIcon = computed(() => paymentStatus.value === "PAID" ? "i-lucide-receipt" : "i-lucide-file-text");
 const openPaymentDocument = () => {
   if (!payment.value) return;
@@ -748,6 +748,7 @@ const savePaymentChanges = async () => {
     :amount="Number(payment.amount ?? 0)"
     :status="payment.status"
     :method="payment.method"
+    :existing-slip="payment.slipImage ?? null"
     @updated="onPaymentStateUpdated"
   />
 </template>

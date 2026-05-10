@@ -12,8 +12,29 @@ const { state, connectUsb, connectBluetooth, disconnect, setPaperWidth } = useTh
 
 const hasWebUsb = import.meta.client && 'usb' in navigator
 const hasWebBt  = import.meta.client && 'bluetooth' in navigator
+const isSecureCtx = import.meta.client && window.isSecureContext
+
+function explainUnsupported(kind: 'usb' | 'bluetooth'): string | null {
+  if (!import.meta.client) return null
+  if (!isSecureCtx) {
+    return 'ต้องเปิดเว็บผ่าน HTTPS หรือ localhost เท่านั้น เบราว์เซอร์ถึงจะอนุญาตให้เชื่อมต่ออุปกรณ์'
+  }
+  const ua = navigator.userAgent
+  const isChromium = /Chrome|Edg|Opera/i.test(ua) && !/Firefox/i.test(ua)
+  if (!isChromium) {
+    return 'เบราว์เซอร์นี้ไม่รองรับ — กรุณาใช้ Chrome หรือ Edge เวอร์ชันล่าสุด'
+  }
+  if (kind === 'bluetooth') {
+    return 'เบราว์เซอร์นี้ไม่รองรับ Web Bluetooth — บน Linux อาจต้องเปิด flag ที่ chrome://flags#enable-experimental-web-platform-features และตรวจสอบว่าระบบ Bluetooth เปิดอยู่'
+  }
+  return 'เบราว์เซอร์นี้ไม่รองรับ WebUSB — ลองอัปเดต Chrome/Edge หรือใช้เครื่องที่รองรับ'
+}
 
 async function handleConnectUsb() {
+  if (!hasWebUsb) {
+    notify.error(explainUnsupported('usb') ?? 'ไม่สามารถเชื่อมต่อ USB ได้')
+    return
+  }
   await connectUsb()
   if (state.value.isConnected) {
     notify.success('เชื่อมต่อ USB เรียบร้อย')
@@ -24,6 +45,10 @@ async function handleConnectUsb() {
 }
 
 async function handleConnectBluetooth() {
+  if (!hasWebBt) {
+    notify.error(explainUnsupported('bluetooth') ?? 'ไม่สามารถเชื่อมต่อ Bluetooth ได้')
+    return
+  }
   await connectBluetooth()
   if (state.value.isConnected) {
     notify.success('เชื่อมต่อ Bluetooth เรียบร้อย')
@@ -88,9 +113,6 @@ async function handleDisconnect() {
               @click="setPaperWidth(58)"
             />
           </div>
-          <p class="mt-1 text-xs text-muted">
-            พิมพ์เป็นภาพบิตแมปจากเว็บพรีวิว — รับประกันว่าผลพิมพ์ตรงกับหน้าจอ
-          </p>
         </div>
 
         <!-- Connect buttons -->
@@ -103,7 +125,7 @@ async function handleDisconnect() {
             color="neutral"
             variant="outline"
             class="w-full justify-start"
-            :disabled="!hasWebUsb || state.isConnecting"
+            :disabled="state.isConnecting"
             :loading="state.isConnecting && state.connectionType === null"
             @click="handleConnectUsb"
           />
@@ -114,17 +136,10 @@ async function handleDisconnect() {
             color="neutral"
             variant="outline"
             class="w-full justify-start"
-            :disabled="!hasWebBt || state.isConnecting"
+            :disabled="state.isConnecting"
             :loading="state.isConnecting && state.connectionType === null"
             @click="handleConnectBluetooth"
           />
-
-          <p v-if="!hasWebUsb && !hasWebBt" class="text-xs text-error">
-            เบราว์เซอร์นี้ไม่รองรับการพิมพ์โดยตรง — ใช้ Chrome หรือ Edge เวอร์ชันล่าสุด
-          </p>
-          <p v-else-if="!hasWebUsb" class="text-xs text-muted">
-            WebUSB ต้องการ Chrome หรือ Edge
-          </p>
         </div>
 
         <!-- Browser support note -->

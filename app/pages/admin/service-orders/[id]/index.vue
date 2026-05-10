@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import type { ServiceOrderStatus } from "~~/shared/types/enums";
+import type { PaymentMethod, PaymentStatus, ServiceOrderStatus } from "~~/shared/types/enums";
 import { orderStatusColors, orderStatusLabels } from "~~/shared/config/orderConfig";
 import { formatCurrency, formatDateTime } from "~~/shared/utils/format";
 import ImagePreviewModal from "~~/app/components/UI/ImagePreviewModal.vue";
+import EditPaymentStateModal from "~~/app/components/admin/payment/EditPaymentStateModal.vue";
 
 type BadgeColor = "success" | "info" | "error" | "neutral" | "primary" | "secondary" | "warning";
 type InfoRow = { label: string; value: string; valueClass?: string; dividerBefore?: boolean };
@@ -72,6 +73,8 @@ type ServiceOrderDetailResponse = {
     id: string;
     paymentNo: string | null;
     amount: number;
+    status: PaymentStatus;
+    method: PaymentMethod | null;
     note: string | null;
     paidAt: string | null;
     verifiedAt: string | null;
@@ -121,9 +124,19 @@ const goBack = () => {
   void navigateTo("/admin/service-orders");
 };
 
-const openReceipt = () => {
+const isPaid = computed(() => latestPayment.value?.status === "PAID");
+const documentLabel = computed(() => (isPaid.value ? "ดูใบเสร็จ" : "ดูใบแจ้งราคา"));
+const documentIcon = computed(() => (isPaid.value ? "i-lucide-receipt" : "i-lucide-file-text"));
+
+const openDocument = () => {
   if (!order.value) return;
-  void navigateTo(`/admin/service-orders/${order.value.id}/intake`);
+  const paymentId = latestPayment.value?.id;
+  if (!paymentId) {
+    void navigateTo(`/admin/service-orders/${order.value.id}/intake`);
+    return;
+  }
+  const path = isPaid.value ? "receipt" : "quotation";
+  void navigateTo(`/admin/payment/${paymentId}/${path}`);
 };
 
 const getAvatarProps = (target?: ServiceOrderDetailResponse["customer"] | null) => ({
@@ -240,6 +253,11 @@ const usedCreditLabel = computed(() => {
   return `${order.value.creditUsed} เครดิต`;
 });
 const latestPayment = computed(() => order.value?.payments[0] ?? null);
+const canEditPayment = computed(() => Boolean(latestPayment.value) && order.value?.status !== "COMPLETED");
+const editPaymentOpen = ref(false);
+const onPaymentUpdated = async () => {
+  await refresh();
+};
 const itemCountLabel = computed(() => `${order.value?.items.length ?? 0} รายการ`);
 const totalQuantity = computed(() => (order.value?.items ?? []).reduce((sum, item) => sum + item.quantity, 0));
 
@@ -280,15 +298,26 @@ const getItemPhotos = (item: ServiceOrderDetailItem) =>
             :ui="{ label: 'hidden sm:inline' }"
             @click="goBack" 
           />
-            <UButton 
-            label="ดูใบเสร็จ" 
-            color="neutral" 
-            variant="outline" 
-            icon="i-lucide-receipt" 
+            <UButton
+              v-if="canEditPayment"
+              label="แก้ไขการชำระเงิน"
+              color="primary"
+              variant="subtle"
+              icon="i-lucide-credit-card"
+              class="shrink-0"
+              aria-label="แก้ไขการชำระเงิน"
+              :ui="{ label: 'hidden sm:inline' }"
+              @click="editPaymentOpen = true"
+            />
+            <UButton
+            :label="documentLabel"
+            color="neutral"
+            variant="outline"
+            :icon="documentIcon"
             class="shrink-0"
-            aria-label="ดูใบเสร็จ"
+            :aria-label="documentLabel"
             :ui="{ label: 'hidden sm:inline' }"
-            @click="openReceipt" 
+            @click="openDocument"
           />
           </div>
         </template>
@@ -636,5 +665,17 @@ const getItemPhotos = (item: ServiceOrderDetailItem) =>
     :title="previewTitle"
     :image-url="previewUrl"
     image-alt="รูปหลักฐาน"
+  />
+
+  <EditPaymentStateModal
+    v-if="latestPayment && canEditPayment"
+    v-model:open="editPaymentOpen"
+    :payment-id="latestPayment.id"
+    :payment-no="latestPayment.paymentNo"
+    :amount="Number(latestPayment.amount ?? 0)"
+    :status="latestPayment.status"
+    :method="latestPayment.method"
+    :existing-slip="latestPayment.slipImage ?? null"
+    @updated="onPaymentUpdated"
   />
 </template>

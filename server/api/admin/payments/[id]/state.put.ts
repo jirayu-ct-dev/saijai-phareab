@@ -7,6 +7,7 @@ import type { PaymentMethod, PaymentStatus } from "~~/shared/types/enums";
 type UpdatePaymentStateBody = {
   status?: PaymentStatus;
   method?: PaymentMethod | null;
+  slipImageId?: string | null;
 };
 
 const paymentStatuses = new Set<PaymentStatus>(["UNPAID", "PENDING_VERIFICATION", "PAID", "CANCELLED"]);
@@ -63,6 +64,19 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, statusMessage: "กรุณาเลือกวิธีชำระเงินเมื่อสถานะเป็นชำระแล้ว" });
   }
 
+  const slipProvided = Object.prototype.hasOwnProperty.call(body, "slipImageId");
+  const nextSlipImageId = slipProvided ? body.slipImageId ?? null : existing.slipImageId;
+
+  if (slipProvided && body.slipImageId) {
+    const slipExists = await prisma.image.findFirst({
+      where: { id: body.slipImageId },
+      select: { id: true },
+    });
+    if (!slipExists) {
+      throw createError({ statusCode: 400, statusMessage: "ไม่พบหลักฐานการชำระเงิน" });
+    }
+  }
+
   const now = new Date();
   const willBecomePaid = existing.status !== "PAID" && nextStatus === "PAID";
   const receiptNo = nextStatus === "PAID" ? existing.receiptNo ?? (await createReceiptNo(now)) : existing.receiptNo;
@@ -74,6 +88,7 @@ export default defineEventHandler(async (event) => {
         status: nextStatus,
         method: nextMethod ?? null,
         receiptNo,
+        slipImageId: nextSlipImageId,
         paidAt: nextStatus === "PAID" ? existing.paidAt ?? now : null,
         confirmedAt: nextStatus === "PAID" ? existing.confirmedAt ?? now : null,
         confirmedById: nextStatus === "PAID" ? existing.confirmedById ?? actor.id : null,
@@ -108,7 +123,7 @@ export default defineEventHandler(async (event) => {
           confirmedAt: nextStatus === "PAID" ? (existing.confirmedAt ?? now).toISOString() : null,
           confirmedById: nextStatus === "PAID" ? existing.confirmedById ?? actor.id : null,
           receiptNo,
-          slipImageId: existing.slipImageId,
+          slipImageId: nextSlipImageId,
         },
       },
     });

@@ -83,6 +83,10 @@ async function handleDownloadPng() {
 
 async function handlePrint() {
   if (!data.value) return;
+  if (!printerState.value.isConnected) {
+    notify.error("ยังไม่ได้เชื่อมต่อเครื่องพิมพ์ — กดไอคอนเครื่องพิมพ์เพื่อเชื่อมต่อก่อน");
+    return;
+  }
   isPrinting.value = true;
   try {
     const blob = await fetchDocument("escpos");
