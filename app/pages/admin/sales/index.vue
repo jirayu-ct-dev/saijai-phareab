@@ -86,6 +86,18 @@ const goToPaymentPage = async () => {
   await navigateTo("/admin/payment");
 };
 
+const workspaceKey = ref(0);
+const isRefreshing = ref(false);
+const handleRefresh = async () => {
+  isRefreshing.value = true;
+  try {
+    await refreshNuxtData();
+    workspaceKey.value += 1;
+  } finally {
+    isRefreshing.value = false;
+  }
+};
+
 const resultDescription = computed(() =>
   latestSaleResult.saleType === "PACKAGE"
     ? "บันทึกรายการขายแล้ว คุณสามารถเปิดใบเสร็จหรือไปหน้าการชำระเงินต่อได้"
@@ -103,6 +115,17 @@ const resultDescription = computed(() =>
 
         <template #right>
           <div class="flex min-w-0 items-center gap-1.5 sm:gap-2">
+            <UButton
+              icon="i-lucide-refresh-cw"
+              color="neutral"
+              variant="outline"
+              class="shrink-0"
+              title="รีเฟรชข้อมูล"
+              aria-label="รีเฟรชข้อมูล"
+              :loading="isRefreshing"
+              @click="handleRefresh"
+            />
+
             <UButton
               label="ชำระเงิน"
               icon="i-lucide-receipt"
@@ -169,8 +192,8 @@ const resultDescription = computed(() =>
           </div>
         </section>
 
-        <PackagePosWorkspace v-if="activeMode === 'packages'" @completed="handleCompleted" />
-        <StorefrontPosWorkspace v-else @completed="handleCompleted" />
+        <PackagePosWorkspace v-if="activeMode === 'packages'" :key="`pkg-${workspaceKey}`" @completed="handleCompleted" />
+        <StorefrontPosWorkspace v-else :key="`sf-${workspaceKey}`" @completed="handleCompleted" />
       </div>
     </template>
   </UDashboardPanel>

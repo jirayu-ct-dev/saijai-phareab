@@ -423,7 +423,7 @@ const getCatalogDescription = (item: { categoryName?: string | null; serviceName
 const mounted = ref(false);
 onMounted(() => { mounted.value = true; });
 const isXlQuery = useMediaQuery("(min-width: 1280px)");
-const isCompact = computed(() => mounted.value && !isXlQuery.value);
+const isCompact = computed(() => !mounted.value || !isXlQuery.value);
 const isCartOpen = ref(false);
 watch(isCompact, (value) => { if (!value) isCartOpen.value = false; });
 
@@ -736,7 +736,8 @@ const handleSubmit = async () => {
       :class="!isCompact
         ? 'space-y-6 xl:sticky xl:top-4 xl:self-start'
         : [
-            'fixed inset-y-0 right-0 z-50 flex w-full max-w-lg flex-col overflow-y-auto border-l border-default bg-default shadow-2xl transition-transform duration-200',
+            'fixed inset-y-0 right-0 z-50 flex w-full max-w-lg flex-col overflow-y-auto border-l border-default bg-default shadow-2xl',
+            mounted ? 'transition-transform duration-200' : '',
             isCartOpen ? 'translate-x-0' : 'translate-x-full',
           ]"
     >

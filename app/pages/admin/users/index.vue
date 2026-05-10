@@ -446,7 +446,7 @@ const columns: TableColumn<AdminUser>[] = [
           content: { align: 'start' }
         },
         {
-          default: () => h(UBadge, { color: badge.color, variant: 'subtle', class: 'cursor-pointer' }, () => badge.label),
+          default: () => h(UBadge, { color: badge.color, variant: 'subtle', icon: 'i-lucide-pencil', class: 'cursor-pointer' }, () => badge.label),
           content: () => h('div', { class: 'p-1 space-y-0.5' },
             roleItems.map((item) =>
               h(UButton, {
@@ -730,41 +730,46 @@ const columns: TableColumn<AdminUser>[] = [
                         </span>
                       </NuxtLink>
 
-                      <UBadge :variant="'subtle'" :color="EMAIL_STATUS_BADGE_MAP[user.emailVerified ? 'verified' : 'pending'].color" class="shrink-0">
-                        {{ EMAIL_STATUS_BADGE_MAP[user.emailVerified ? 'verified' : 'pending'].label }}
-                      </UBadge>
+                      <UPopover
+                        v-model:open="quickRoleOpenMap[user.id]"
+                        :content="{ align: 'end' }"
+                      >
+                        <UBadge
+                          :color="ROLE_BADGE_MAP[user.role].color"
+                          variant="subtle"
+                          icon="i-lucide-pencil"
+                          class="shrink-0 cursor-pointer"
+                        >
+                          {{ ROLE_BADGE_MAP[user.role].label }}
+                        </UBadge>
+
+                        <template #content>
+                          <div class="space-y-0.5 p-1">
+                            <UButton
+                              v-for="item in roleItems"
+                              :key="item.value"
+                              :label="item.label"
+                              :color="item.value === user.role ? 'primary' : 'neutral'"
+                              :variant="item.value === user.role ? 'subtle' : 'ghost'"
+                              size="xs"
+                              class="w-full justify-start"
+                              @click="handleQuickRoleChange(user, item.value)"
+                            />
+                          </div>
+                        </template>
+                      </UPopover>
                     </div>
 
                     <div class="mt-3 grid grid-cols-2 gap-2 border-t border-default pt-3 text-xs">
                       <div>
-                        <p class="text-muted">สิทธิ์</p>
-                        <UPopover
-                          v-model:open="quickRoleOpenMap[user.id]"
-                          :content="{ align: 'start' }"
+                        <p class="text-muted">อีเมล</p>
+                        <UBadge
+                          :variant="'subtle'"
+                          :color="EMAIL_STATUS_BADGE_MAP[user.emailVerified ? 'verified' : 'pending'].color"
+                          class="mt-1"
                         >
-                          <UBadge
-                            :color="ROLE_BADGE_MAP[user.role].color"
-                            variant="subtle"
-                            class="mt-1 cursor-pointer"
-                          >
-                            {{ ROLE_BADGE_MAP[user.role].label }}
-                          </UBadge>
-
-                          <template #content>
-                            <div class="space-y-0.5 p-1">
-                              <UButton
-                                v-for="item in roleItems"
-                                :key="item.value"
-                                :label="item.label"
-                                :color="item.value === user.role ? 'primary' : 'neutral'"
-                                :variant="item.value === user.role ? 'subtle' : 'ghost'"
-                                size="xs"
-                                class="w-full justify-start"
-                                @click="handleQuickRoleChange(user, item.value)"
-                              />
-                            </div>
-                          </template>
-                        </UPopover>
+                          {{ EMAIL_STATUS_BADGE_MAP[user.emailVerified ? 'verified' : 'pending'].label }}
+                        </UBadge>
                       </div>
                       <div>
                         <p class="text-muted">เบอร์โทร</p>

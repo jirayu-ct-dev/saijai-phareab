@@ -1163,7 +1163,7 @@ const columns: TableColumn<AdminServiceOrder>[] = [
     header: "สถานะ",
     cell: ({ row }) => {
       const order = row.original;
-      return h(UBadge, { color: orderStatusColors[order.status], variant: "subtle", class: "cursor-pointer", onClick: (e: MouseEvent) => { e.stopPropagation(); openStatusModal(order); } }, () => orderStatusLabels[order.status]);
+      return h(UBadge, { color: orderStatusColors[order.status], variant: "subtle", icon: "i-lucide-pencil", class: "cursor-pointer", onClick: (e: MouseEvent) => { e.stopPropagation(); openStatusModal(order); } }, () => orderStatusLabels[order.status]);
     },
   },
   {
@@ -1353,14 +1353,17 @@ const columns: TableColumn<AdminServiceOrder>[] = [
                         </button>
                       </div>
 
-                      <UBadge
-                        :color="orderStatusColors[order.status]"
-                        variant="subtle"
-                        class="shrink-0 cursor-pointer"
+                      <button
+                        type="button"
+                        class="shrink-0 inline-flex cursor-pointer items-center gap-1 rounded-full px-1 py-0.5 transition hover:bg-elevated/60"
+                        title="คลิกเพื่ออัพเดทสถานะงาน"
+                        aria-label="อัพเดทสถานะงาน"
                         @click="openStatusModal(order)"
                       >
-                        {{ orderStatusLabels[order.status] }}
-                      </UBadge>
+                        <UBadge :color="orderStatusColors[order.status]" variant="subtle" icon="i-lucide-pencil">
+                          {{ orderStatusLabels[order.status] }}
+                        </UBadge>
+                      </button>
                     </div>
 
                     <div class="mt-3 space-y-1 border-t border-default pt-3">

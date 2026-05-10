@@ -408,7 +408,7 @@ const columns: TableColumn<AdminPaymentRecord>[] = [
             handlePaymentStateClick(payment);
           },
         },
-        [h(UBadge, { color, variant: "soft", size: "sm" }, () => label)],
+        [h(UBadge, { color, variant: "soft", size: "sm", icon: canManagePaymentState(payment) ? "i-lucide-pencil" : undefined }, () => label)],
       );
     },
   },
@@ -579,9 +579,22 @@ const columns: TableColumn<AdminPaymentRecord>[] = [
                         </button>
                       </div>
 
-                      <UBadge :color="getSaleTypeColor(payment)" variant="subtle" class="shrink-0">
-                        {{ getSaleTypeLabel(payment) }}
-                      </UBadge>
+                      <button
+                        type="button"
+                        class="shrink-0 inline-flex items-center gap-1 rounded-full px-1 py-0.5 transition"
+                        :class="canManagePaymentState(payment) ? 'cursor-pointer hover:bg-elevated/60' : 'cursor-default'"
+                        :title="getPaymentStateActionTitle(payment)"
+                        :aria-label="canManagePaymentState(payment) ? 'เปลี่ยนสถานะการชำระเงิน' : undefined"
+                        @click="handlePaymentStateClick(payment)"
+                      >
+                        <UBadge
+                          :color="paymentStatusColors[payment.status]"
+                          variant="subtle"
+                          :icon="canManagePaymentState(payment) ? 'i-lucide-pencil' : undefined"
+                        >
+                          {{ paymentStatusLabels[payment.status] }}
+                        </UBadge>
+                      </button>
                     </div>
 
                     <div class="mt-3 space-y-1 border-t border-default pt-3">
@@ -604,18 +617,10 @@ const columns: TableColumn<AdminPaymentRecord>[] = [
                         <p class="mt-1 text-highlighted">{{ formatDateTime(payment.createdAt) }}</p>
                       </div>
                       <div>
-                        <p class="text-muted">สถานะ</p>
-                        <button
-                          type="button"
-                          class="mt-1 inline-flex"
-                          :class="canManagePaymentState(payment) ? 'cursor-pointer' : 'cursor-default'"
-                          :title="getPaymentStateActionTitle(payment)"
-                          @click="handlePaymentStateClick(payment)"
-                        >
-                          <UBadge :color="paymentStatusColors[payment.status]" variant="soft" size="sm">
-                            {{ paymentStatusLabels[payment.status] }}
-                          </UBadge>
-                        </button>
+                        <p class="text-muted">ประเภท</p>
+                        <UBadge :color="getSaleTypeColor(payment)" variant="subtle" class="mt-1">
+                          {{ getSaleTypeLabel(payment) }}
+                        </UBadge>
                       </div>
                       <div>
                         <p class="text-muted">วิธีชำระ</p>

@@ -35,6 +35,16 @@ const range = shallowRef<Range>({
   end: new Date(),
 });
 const period = ref<Period>("daily");
+
+const isRefreshing = ref(false);
+const handleRefresh = async () => {
+  isRefreshing.value = true;
+  try {
+    await refreshNuxtData();
+  } finally {
+    isRefreshing.value = false;
+  }
+};
 </script>
 
 <template>
@@ -46,6 +56,17 @@ const period = ref<Period>("daily");
         </template>
 
         <template #right>
+          <UButton
+            icon="i-lucide-refresh-cw"
+            color="neutral"
+            variant="outline"
+            size="md"
+            class="rounded-full"
+            title="รีเฟรชข้อมูล"
+            aria-label="รีเฟรชข้อมูล"
+            :loading="isRefreshing"
+            @click="handleRefresh"
+          />
           <UDropdownMenu :items="items">
             <UButton icon="i-lucide-plus" size="md" class="rounded-full" />
           </UDropdownMenu>
