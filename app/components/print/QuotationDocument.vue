@@ -207,8 +207,10 @@ const infoRows = computed(() => {
 
     <div class="thermal-dash mt-6" />
 
-    <footer class="pt-4 text-center text-[22px] text-neutral-700">
-      <p>เอกสารนี้เป็นใบแจ้งราคาเท่านั้น ใบเสร็จจะออกเมื่อยืนยันการชำระเงินแล้ว</p>
+    <footer class="pt-4 text-center">
+      <p class="text-[24px] font-bold">ขอบคุณที่ไว้วางใจใช้บริการ</p>
+      <p class="mt-2 text-[20px] text-neutral-700">เอกสารนี้เป็นใบแจ้งราคาเท่านั้น</p>
+      <p class="mt-1 text-[20px] text-neutral-700">ใบเสร็จจะออกให้เมื่อชำระเงินเรียบร้อยแล้ว</p>
     </footer>
   </article>
 </template>

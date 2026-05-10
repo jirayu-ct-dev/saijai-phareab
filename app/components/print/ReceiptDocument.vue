@@ -20,7 +20,6 @@ type ReceiptExtras = {
   method?: PaymentMethod | null;
   receiptNo?: string | null;
   confirmedAt?: string | null;
-  slipImage?: { id: string; url: string | null; secureUrl: string | null } | null;
 };
 
 type ReceiptLineItem = {
@@ -47,10 +46,6 @@ const paymentMethod = computed<PaymentMethod | null>(() => extras.value.method ?
 const paymentMethodLabel = computed(() =>
   paymentMethod.value ? paymentMethodLabels[paymentMethod.value] : null,
 );
-const slipImageUrl = computed(() => {
-  const slip = extras.value.slipImage;
-  return slip?.secureUrl || slip?.url || null;
-});
 const sellerName = computed(
   () => props.data.packageSale?.soldBy?.name ?? props.data.serviceOrder?.employee?.name ?? "-",
 );
@@ -288,24 +283,16 @@ const infoRows = computed(() => {
       <div class="mt-1 border-b-4 border-double border-black" />
     </section>
 
-    <template v-if="paymentMethod === 'TRANSFER' && slipImageUrl">
-      <div class="thermal-dash mt-4" />
-      <section class="mt-3">
-        <p class="text-center text-[22px] font-bold">หลักฐานการโอน</p>
-        <div class="mt-2 flex justify-center">
-          <img :src="slipImageUrl" alt="หลักฐานการโอน" class="max-h-48 rounded border border-neutral-300 object-contain">
-        </div>
-      </section>
-    </template>
-
     <div class="mt-4 flex flex-col items-center">
       <ThermalLineQr :image-url="shop?.lineQrImageUrl" />
     </div>
 
     <div class="thermal-dash mt-6" />
 
-    <footer class="pt-4 text-center text-[26px]">
-      <p>ขอบคุณที่ใช้บริการ</p>
+    <footer class="pt-4 text-center">
+      <p class="text-[28px] font-bold">ขอบคุณที่ใช้บริการ</p>
+      <p class="mt-2 text-[22px]">แล้วพบกันใหม่ค่ะ</p>
+      <p class="mt-3 text-[18px] text-neutral-700">โปรดเก็บใบเสร็จไว้เป็นหลักฐาน</p>
     </footer>
   </article>
 </template>
