@@ -58,28 +58,28 @@ const statCards = computed(() => [
     icon: "i-lucide-shopping-basket",
     to: "/admin/service-orders",
     value: stats.value?.receivedToday ?? 0,
-    toneClass: "border-info/20 bg-info/5 hover:bg-info/10",
+    toneClass: "border-info/20 bg-info/5 hover:bg-info/10 dark:border-default/25 dark:bg-elevated/45 dark:hover:bg-elevated/60",
   },
   {
     title: "รอดำเนินการ",
     icon: "i-lucide-loader-circle",
     to: "/admin/service-orders",
     value: stats.value?.inProgress ?? 0,
-    toneClass: "border-warning/20 bg-warning/5 hover:bg-warning/10",
+    toneClass: "border-warning/20 bg-warning/5 hover:bg-warning/10 dark:border-default/25 dark:bg-elevated/45 dark:hover:bg-elevated/60",
   },
   {
     title: "พร้อมส่งคืน",
     icon: "i-lucide-package-check",
     to: "/admin/service-orders",
     value: stats.value?.readyToDeliver ?? 0,
-    toneClass: "border-primary/20 bg-primary/5 hover:bg-primary/10",
+    toneClass: "border-primary/20 bg-primary/5 hover:bg-primary/10 dark:border-default/25 dark:bg-elevated/45 dark:hover:bg-elevated/60",
   },
   {
     title: "ส่งคืนวันนี้",
     icon: "i-lucide-check-circle",
     to: "/admin/service-orders",
     value: stats.value?.completedToday ?? 0,
-    toneClass: "border-success/20 bg-success/5 hover:bg-success/10",
+    toneClass: "border-success/20 bg-success/5 hover:bg-success/10 dark:border-default/25 dark:bg-elevated/45 dark:hover:bg-elevated/60",
   },
 ]);
 
@@ -119,7 +119,7 @@ const cardUi = {
                 :key="`sk-${i}`"
                 variant="subtle"
                 :ui="cardUi"
-                class="min-w-0 lg:rounded-none first:rounded-l-lg last:rounded-r-lg"
+                class="min-w-0 lg:rounded-none first:rounded-l-lg last:rounded-r-lg dark:border-default/25 dark:bg-elevated/45"
               >
                 <template #leading>
                   <div class="p-2.5 rounded-full bg-elevated animate-pulse size-10" />
@@ -156,7 +156,7 @@ const cardUi = {
                 :key="`fb-${i}`"
                 variant="subtle"
                 :ui="cardUi"
-                class="min-w-0 lg:rounded-none first:rounded-l-lg last:rounded-r-lg"
+                class="min-w-0 lg:rounded-none first:rounded-l-lg last:rounded-r-lg dark:border-default/25 dark:bg-elevated/45"
               >
                 <template #leading>
                   <div class="p-2.5 rounded-full bg-elevated animate-pulse size-10" />
@@ -174,7 +174,7 @@ const cardUi = {
         <ClientOnly>
           <AdminDashboardSales :period="period" :range="range" />
           <template #fallback>
-            <UCard>
+            <UCard class="dark:border-default/25 dark:bg-elevated/45">
               <div class="space-y-3">
                 <div v-for="i in 4" :key="i" class="h-10 rounded bg-elevated animate-pulse" />
               </div>

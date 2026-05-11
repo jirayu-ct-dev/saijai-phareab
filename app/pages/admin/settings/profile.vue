@@ -2,6 +2,7 @@
 import ProfileForm from "~~/app/components/account/ProfileForm.vue";
 import LineLinkSection from "~~/app/components/account/LineLinkSection.vue";
 import NotificationPreferenceForm from "~~/app/components/account/NotificationPreferenceForm.vue";
+import EmailVerificationSection from "~~/app/components/account/EmailVerificationSection.vue";
 
 definePageMeta({
   middleware: ["role-employee"],
@@ -17,6 +18,7 @@ definePageMeta({
     </div>
 
     <ProfileForm />
+    <EmailVerificationSection callback-url="/admin/settings/profile" />
     <LineLinkSection />
     <NotificationPreferenceForm />
   </div>

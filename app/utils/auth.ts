@@ -2,6 +2,7 @@ import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import { PrismaClient } from "~~/app/generated/prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
+import { renderResetPasswordEmail, renderVerificationEmail, sendEmail } from "~~/server/utils/email";
 
 const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL! });
 const prisma = new PrismaClient({ adapter });
@@ -22,6 +23,19 @@ export const auth = betterAuth({
   }),
   emailAndPassword: {
     enabled: true,
+    sendResetPassword: async ({ user, url }) => {
+      const { subject, html, text } = renderResetPasswordEmail({ name: user.name ?? null, url });
+      await sendEmail({ to: user.email, subject, html, text });
+    },
+    resetPasswordTokenExpiresIn: 3600,
+  },
+  emailVerification: {
+    sendOnSignUp: false,
+    autoSignInAfterVerification: true,
+    sendVerificationEmail: async ({ user, url }) => {
+      const { subject, html, text } = renderVerificationEmail({ name: user.name ?? null, url });
+      await sendEmail({ to: user.email, subject, html, text });
+    },
   },
   socialProviders: {
     line: {

@@ -28,7 +28,9 @@ const loadSessions = async () => {
   }
 };
 
-await loadSessions();
+onMounted(() => {
+  loadSessions();
+});
 
 const onRevoke = async (token?: string) => {
   if (!token) return;
