@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { getAdminListCardClass } from "~~/shared/config/adminUi";
+
 definePageMeta({
   middleware: ["role-admin"],
   layout: "admin",
@@ -185,11 +187,11 @@ const formatDate = (s: string) => new Date(s).toLocaleDateString("th-TH", { date
         ยังไม่มีพนักงานในระบบ
       </div>
 
-      <div v-else class="space-y-3">
+      <div v-else class="space-y-4">
         <div
           v-for="emp in employees"
           :key="emp.id"
-          class="flex items-center justify-between gap-3 rounded-lg border border-default p-3 flex-wrap"
+          :class="[getAdminListCardClass(emp.role === 'ADMIN' ? 'warning' : 'info'), 'flex items-center justify-between gap-3 flex-wrap']"
         >
           <div class="flex items-center gap-3 min-w-0">
             <UAvatar v-bind="getAvatarProps(emp.image, emp.name, emp.email)" size="md" />

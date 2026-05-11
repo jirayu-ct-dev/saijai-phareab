@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import PackagePosWorkspace from "~~/app/components/admin/pos/PackagePosWorkspace.vue";
 import StorefrontPosWorkspace from "~~/app/components/admin/pos/StorefrontPosWorkspace.vue";
+import { getAdminListCardClass } from "~~/shared/config/adminUi";
 
 type CompletedSalePayload = {
   paymentId: string;
@@ -154,7 +155,7 @@ const resultDescription = computed(() =>
 
     <template #body>
       <div class="space-y-4">
-        <section class="rounded-xl border border-default bg-default p-3">
+        <section class="rounded-xl border border-default/30 p-3">
           <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <div class="flex min-w-0 items-center gap-3">
               <div class="flex size-10 shrink-0 items-center justify-center rounded-lg bg-elevated text-highlighted">
@@ -167,7 +168,7 @@ const resultDescription = computed(() =>
             </div>
 
             <div
-              class="grid grid-cols-2 gap-1 rounded-lg bg-elevated p-1 lg:w-80"
+              class="grid grid-cols-2 gap-1 rounded-lg bg-elevated border border-default/30 p-1 lg:w-80"
               role="tablist"
               aria-label="เลือกประเภทงานขาย"
             >
@@ -200,7 +201,7 @@ const resultDescription = computed(() =>
 
   <UModal v-model:open="saleResultModalOpen" :title="latestSaleResult.title" :description="resultDescription">
     <template #body>
-      <div class="rounded-xl border border-default bg-default p-4 text-sm text-toned">
+      <div :class="[getAdminListCardClass(latestSaleResult.saleType === 'PACKAGE' ? 'secondary' : 'primary'), 'text-sm text-toned']">
         <p class="font-medium text-highlighted">รหัสรายการชำระเงิน</p>
         <p class="mt-1 break-all font-mono text-xs text-muted">{{ latestSaleResult.paymentId }}</p>
 

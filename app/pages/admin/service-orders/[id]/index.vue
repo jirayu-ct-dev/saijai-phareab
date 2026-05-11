@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { PaymentMethod, PaymentStatus, ServiceOrderStatus } from "~~/shared/types/enums";
 import { orderStatusColors, orderStatusLabels } from "~~/shared/config/orderConfig";
+import { getAdminListCardClass } from "~~/shared/config/adminUi";
 import { formatCurrency, formatDateTime } from "~~/shared/utils/format";
 import ImagePreviewModal from "~~/app/components/UI/ImagePreviewModal.vue";
 import EditPaymentStateModal from "~~/app/components/admin/payment/EditPaymentStateModal.vue";
@@ -509,11 +510,11 @@ const getItemPhotos = (item: ServiceOrderDetailItem) =>
           </template>
 
           <div class="space-y-3">
-            <div class="space-y-3 md:hidden">
+            <div class="space-y-4 md:hidden">
               <div
                 v-for="item in order.items"
                 :key="item.id"
-                class="rounded-xl border border-default bg-default p-3"
+                :class="getAdminListCardClass(item.isPackageIncluded ? 'success' : 'primary')"
               >
                 <div class="flex min-w-0 gap-3">
                   <div class="shrink-0">
@@ -598,7 +599,7 @@ const getItemPhotos = (item: ServiceOrderDetailItem) =>
                   <tr
                     v-for="item in order.items"
                     :key="item.id"
-                    class="border-t border-default align-top"
+                    class="border-t border-default/40 align-top odd:bg-default even:bg-elevated/70 transition-colors hover:bg-primary/10"
                   >
                     <td class="px-3 py-3">
                       <div class="flex flex-wrap gap-1">

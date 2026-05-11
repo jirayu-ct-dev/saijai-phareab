@@ -17,6 +17,7 @@ import {
   formatDateTime,
 } from "~~/shared/utils/format";
 import { cycleColumnSorting } from "~~/shared/utils/table";
+import { adminTableUi, getAdminListCardClass } from "~~/shared/config/adminUi";
 
 const props = defineProps<{
   packages: Package[];
@@ -359,11 +360,11 @@ const columns: TableColumn<Package>[] = [
         </p>
       </div>
 
-      <div v-else class="space-y-3">
+      <div v-else class="space-y-4">
         <div
           v-for="(pkg, index) in paginatedPackages"
           :key="pkg.id"
-          class="rounded-xl border border-default bg-default p-3"
+          :class="getAdminListCardClass(pkg.isActive ? (pkg.packageType === 'MAIN' ? 'primary' : 'info') : 'neutral')"
         >
           <div class="flex items-start gap-3">
             <UCheckbox
@@ -463,14 +464,7 @@ const columns: TableColumn<Package>[] = [
       :data="filteredPackages"
       :columns="columns"
       :loading="loading"
-      :ui="{
-        base: 'table-fixed border-separate border-spacing-0',
-        thead: '[&>tr]:bg-elevated/50 [&>tr]:after:content-none',
-        tbody: '[&>tr]:last:[&>td]:border-b-0 [&>tr]:transition-colors [&>tr]:hover:bg-elevated/60',
-        th: 'py-2 font-medium first:rounded-l-lg last:rounded-r-lg border-y border-default first:border-l last:border-r',
-        td: 'border-b border-default',
-        separator: 'h-0',
-      }"
+      :ui="adminTableUi"
     >
       <template #empty>
         <div class="flex flex-col items-center justify-center py-12 text-center text-muted">

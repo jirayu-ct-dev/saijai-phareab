@@ -3,6 +3,7 @@ import { h, resolveComponent, ref, computed, watch } from 'vue'
 import { getPaginationRowModel } from '@tanstack/table-core'
 import type { TableColumn } from '@nuxt/ui'
 import { cycleColumnSorting } from '~~/shared/utils/table'
+import { adminTableUi, getAdminCatalogItemToneClass } from '~~/shared/config/adminUi'
 
 const props = defineProps<{
   data: any
@@ -112,6 +113,9 @@ const formatPriceText = (item: any, service: any) => {
   }
   return `฿${Number(price).toLocaleString()}`
 }
+
+const getPricingItemToneClass = (item: any) =>
+  getAdminCatalogItemToneClass(item.categoryId || item.categoryName || item.name)
 
 watch(selectedCount, (count) => {
   if (!count) showBulkDeleteModal.value = false
@@ -292,7 +296,7 @@ const columns = computed<TableColumn<any>[]>(() => {
         })
       },
       cell: ({ row }: any) =>
-        h('div', { class: 'flex items-center gap-2' }, [
+        h('div', { class: ['flex items-center gap-2 rounded-lg border px-2 py-1.5', getPricingItemToneClass(row.original)] }, [
           h(UIcon, { name: 'i-lucide-shirt', class: 'size-4 text-primary shrink-0 opacity-70' }),
           h('span', { class: 'font-medium text-highlighted truncate max-w-48' }, row.getValue('name'))
         ])
@@ -433,11 +437,11 @@ const columns = computed<TableColumn<any>[]>(() => {
         <p>{{ search ? 'ไม่พบรายการที่ค้นหา' : 'ยังไม่มีรายการ' }}</p>
       </div>
 
-      <div v-else class="space-y-3">
+      <div v-else class="space-y-4">
         <div
           v-for="(item, index) in paginatedTableData"
           :key="item.id"
-          class="rounded-xl border border-default bg-default p-3"
+          :class="['rounded-xl border p-3 transition-colors', getPricingItemToneClass(item)]"
         >
           <div class="flex items-start gap-3">
             <UCheckbox
@@ -498,14 +502,7 @@ const columns = computed<TableColumn<any>[]>(() => {
       :data="tableData"
       :columns="columns"
       :loading="loading"
-      :ui="{
-        base: 'table-fixed border-separate border-spacing-0',
-        thead: '[&>tr]:bg-elevated/50 [&>tr]:after:content-none',
-        tbody: '[&>tr]:last:[&>td]:border-b-0',
-        th: 'py-2 font-medium first:rounded-l-lg last:rounded-r-lg border-y border-default first:border-l last:border-r',
-        td: 'border-b border-default',
-        separator: 'h-0'
-      }"
+      :ui="adminTableUi"
     >
       <template #empty>
         <div class="flex flex-col items-center justify-center py-12 text-center text-muted">

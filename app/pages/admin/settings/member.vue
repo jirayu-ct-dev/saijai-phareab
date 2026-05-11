@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { parseDate, type CalendarDate } from "@internationalized/date";
+import { getAdminListCardClass } from "~~/shared/config/adminUi";
 
 definePageMeta({
   middleware: ["role-admin"],
@@ -282,11 +283,11 @@ const isExpiringSoon = (s: string | null) => {
         ไม่พบสมาชิกตามเงื่อนไข
       </div>
 
-      <div v-else class="space-y-2">
+      <div v-else class="space-y-4">
         <div
           v-for="m in members"
           :key="m.id"
-          class="space-y-3 rounded-lg border border-default p-3"
+          :class="[getAdminListCardClass(isExpiringSoon(m.earliestEndAt) ? 'warning' : (m.activeCount > 0 ? 'success' : 'neutral')), 'space-y-3']"
         >
           <!-- Row 1: Avatar + ชื่อ + actions -->
           <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">

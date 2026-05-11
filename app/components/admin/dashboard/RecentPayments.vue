@@ -2,6 +2,7 @@
 import { h, resolveComponent } from 'vue'
 import type { TableColumn } from '@nuxt/ui'
 import type { Period, Range } from '~~/shared/types/dashboard'
+import { adminTableUi, getAdminListCardClass } from '~~/shared/config/adminUi'
 import { formatCurrency, formatDateTime } from '~~/shared/utils/format'
 
 const props = defineProps<{
@@ -116,11 +117,11 @@ const columns: TableColumn<RecentPayment>[] = [
         <p>ยังไม่มีรายการชำระเงิน</p>
       </div>
 
-      <div v-else class="space-y-3">
+      <div v-else class="space-y-4">
         <div
           v-for="payment in data"
           :key="payment.id"
-          class="rounded-xl border border-default bg-default p-3"
+          :class="getAdminListCardClass(payment.paymentType === 'PACKAGE' ? 'secondary' : 'primary')"
         >
           <div class="flex items-start justify-between gap-3">
             <div class="flex min-w-0 items-center gap-2">
@@ -181,13 +182,7 @@ const columns: TableColumn<RecentPayment>[] = [
       :columns="columns"
       :loading="status === 'pending'"
       class="hidden md:block"
-      :ui="{
-        base: 'table-fixed border-separate border-spacing-0',
-        thead: '[&>tr]:bg-elevated/50 [&>tr]:after:content-none',
-        tbody: '[&>tr]:last:[&>td]:border-b-0 [&>tr]:cursor-pointer [&>tr]:transition-colors [&>tr]:hover:bg-elevated/60',
-        th: 'first:rounded-l-lg last:rounded-r-lg border-y border-default first:border-l last:border-r',
-        td: 'border-b border-default',
-      }"
+      :ui="adminTableUi"
       @select="(_e: Event, row) => router.push(`/admin/payment/${row.original.id}`)"
     >
       <template #empty>

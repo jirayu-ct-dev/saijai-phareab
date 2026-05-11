@@ -6,7 +6,9 @@ import PosCheckoutPanel from "~~/app/components/admin/pos/PosCheckoutPanel.vue";
 import type { Photo } from "~~/app/components/UI/PhotoUpload.vue";
 import type { AdminSaleSlipImage } from "~~/app/composables/useAdminSales";
 import type { AdminServiceOrderImage } from "~~/app/composables/useAdminServiceOrders";
+import type { PosStorefrontCatalogItem } from "~~/app/composables/useStorefrontCatalog";
 import { useBusinessSetting } from "~~/app/composables/useBusinessSetting";
+import { getAdminCatalogItemToneClass } from "~~/shared/config/adminUi";
 import { formatCurrency } from "~~/shared/utils/format";
 
 type FormItemState = {
@@ -34,6 +36,10 @@ const { uploadSlip } = useAdminPayments();
 const searchQuery = ref("");
 const categoryFilter = ref<"all" | string>("all");
 const serviceFilter = ref<"all" | string>("all");
+
+const getCatalogItemToneClass = (item: Pick<PosStorefrontCatalogItem, "categoryId" | "categoryName" | "itemName">) => {
+  return getAdminCatalogItemToneClass(item.categoryId || item.categoryName || item.itemName);
+};
 
 const catalogMap = computed(() => new Map((items.value ?? []).map((item) => [item.id, item])));
 
@@ -647,14 +653,14 @@ const handleSubmit = async () => {
         </div>
 
         <div v-if="filteredCatalog.length">
-          <div class="divide-y divide-default md:hidden">
+          <div class="space-y-3 p-3 md:hidden">
             <div
               v-for="item in filteredCatalog"
               :key="item.id"
               role="button"
               tabindex="0"
-              class="px-4 py-3 transition hover:bg-elevated/40"
-              :class="getCatalogQuantity(item.id) > 0 ? 'bg-primary/5' : ''"
+              class="rounded-xl border px-4 py-3 transition hover:bg-elevated/40"
+              :class="getCatalogItemToneClass(item)"
               @click="incrementCatalogItem(item.id)"
               @keydown.enter.prevent="incrementCatalogItem(item.id)"
               @keydown.space.prevent="incrementCatalogItem(item.id)"
@@ -719,6 +725,7 @@ const handleSubmit = async () => {
               :is-range="isRangeItem(item.id)"
               :quantity="getCatalogQuantity(item.id)"
               :selected="getCatalogQuantity(item.id) > 0"
+              :tone-class="getCatalogItemToneClass(item)"
               @increment="incrementCatalogItem(item.id)"
               @decrement="decrementCatalogItem(item.id)"
               @change="setCatalogItemQuantity(item.id, $event)"

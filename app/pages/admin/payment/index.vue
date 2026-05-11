@@ -5,6 +5,7 @@ import type { TableColumn } from "@nuxt/ui";
 import type { AdminPaymentRecord } from "~~/app/composables/useAdminPayments";
 import { formatCurrency, formatDateTime } from "~~/shared/utils/format";
 import type { Role } from "~~/shared/types/enums";
+import { adminTableUi, getAdminListCardClass, type AdminCardTone } from "~~/shared/config/adminUi";
 import { paymentMethodLabels, paymentStatusColors, paymentStatusLabels } from "~~/shared/config/paymentConfig";
 import ConfirmPaymentModal from "~~/app/components/admin/payment/ConfirmPaymentModal.vue";
 import EditPaymentStateModal from "~~/app/components/admin/payment/EditPaymentStateModal.vue";
@@ -45,6 +46,13 @@ const onStateUpdatedFromList = async () => {
   await refresh();
 };
 const canManagePaymentState = (payment: AdminPaymentRecord) => isAdmin.value || canConfirmPayment(payment);
+const paymentCardTone = (payment: AdminPaymentRecord): AdminCardTone => {
+  if (payment.status === "PAID") return "success";
+  if (payment.status === "CANCELLED") return "error";
+  if (payment.status === "PENDING_VERIFICATION") return "warning";
+  if (payment.packageSale?.packageSaleId) return "secondary";
+  return "primary";
+};
 const getPaymentStateActionTitle = (payment: AdminPaymentRecord) => {
   if (isAdmin.value) return "คลิกเพื่อแก้ไขสถานะ";
   if (canConfirmPayment(payment)) return "คลิกเพื่อยืนยันการชำระเงิน";
@@ -408,7 +416,7 @@ const columns: TableColumn<AdminPaymentRecord>[] = [
             handlePaymentStateClick(payment);
           },
         },
-        [h(UBadge, { color, variant: "soft", size: "sm", icon: canManagePaymentState(payment) ? "i-lucide-pencil" : undefined }, () => label)],
+        [h(UBadge, { color, variant: "soft", size: "md", icon: canManagePaymentState(payment) ? "i-lucide-pencil" : undefined }, () => label)],
       );
     },
   },
@@ -542,11 +550,11 @@ const columns: TableColumn<AdminPaymentRecord>[] = [
               <p>ไม่พบรายการชำระเงิน</p>
             </div>
 
-            <div v-else class="space-y-3">
+            <div v-else class="space-y-4">
               <div
                 v-for="(payment, index) in paginatedPayments"
                 :key="payment.id"
-                class="rounded-xl border border-default bg-default p-3"
+                :class="getAdminListCardClass(paymentCardTone(payment))"
               >
                 <div class="flex items-start gap-3">
                   <UCheckbox
@@ -666,14 +674,7 @@ const columns: TableColumn<AdminPaymentRecord>[] = [
             :data="filteredPayments"
             :columns="columns"
             :loading="isLoading"
-            :ui="{
-              base: 'table-fixed border-separate border-spacing-0',
-              thead: '[&>tr]:bg-elevated/50 [&>tr]:after:content-none',
-              tbody: '[&>tr]:last:[&>td]:border-b-0 [&>tr]:transition-colors [&>tr]:hover:bg-elevated/60',
-              th: 'border-y border-default py-2 font-medium first:rounded-l-lg first:border-l last:rounded-r-lg last:border-r',
-              td: 'border-b border-default',
-              separator: 'h-0'
-            }"
+            :ui="adminTableUi"
           >
             <template #empty>
               <div class="flex flex-col items-center justify-center py-12 text-center text-muted">

@@ -1,11 +1,30 @@
 <script setup lang="ts">
-import { orderStatusLabels, orderStatusColors } from "~~/shared/config/orderConfig";
-import type { ServiceOrderStatus } from "~~/shared/types/enums";
+import { sub } from "date-fns";
+import type { DropdownMenuItem } from "@nuxt/ui";
+import type { Period, Range } from "~~/shared/types/dashboard";
 
 definePageMeta({
   middleware: ["role-employee"],
   layout: "admin",
 });
+
+const items = [[
+  {
+    label: "เพิ่มรายการรับผ้า",
+    icon: "i-lucide-shopping-basket",
+    to: "/admin/service-orders",
+  },
+  {
+    label: "เพิ่มรายการขาย",
+    icon: "i-lucide-shopping-cart",
+    to: "/admin/sales",
+  },
+  {
+    label: "ดูรายการชำระเงิน",
+    icon: "i-lucide-receipt",
+    to: "/admin/payment",
+  },
+]] satisfies DropdownMenuItem[][];
 
 interface EmployeeStats {
   receivedToday: number;
@@ -14,52 +33,54 @@ interface EmployeeStats {
   completedToday: number;
 }
 
-interface PendingOrder {
-  id: string;
-  orderNo: string | null;
-  status: ServiceOrderStatus;
-  createdAt: string | Date;
-  dueAt: string | Date | null;
-  customer: {
-    id: string | null;
-    name: string;
-    phoneNumber: string | null;
-    image: string | null;
-    lineUserId: string | null;
-  };
-}
-
 const { data: stats, status: statsStatus, refresh: refreshStats } = useAsyncData<EmployeeStats>(
   "employee-stats",
   () => $fetch("/api/admin/dashboard/employee-stats"),
   { server: false }
 );
-const { data: orders, status: ordersStatus, refresh: refreshOrders } = useAsyncData<PendingOrder[]>(
-  "employee-pending-orders",
-  () => $fetch("/api/admin/dashboard/pending-orders"),
-  { server: false, default: () => [] }
-);
 
 const isStatsPending = computed(() => statsStatus.value === "pending");
-const isOrdersPending = computed(() => ordersStatus.value === "pending");
 
-const getAvatarProps = (customer?: PendingOrder["customer"] | null) => ({
-  as: { img: "img" },
-  src: customer?.image || "",
-  alt: customer?.name || "ลูกค้า",
-  loading: "lazy" as const,
+const range = shallowRef<Range>({
+  start: sub(new Date(), { days: 14 }),
+  end: new Date(),
 });
+const period = ref<Period>("daily");
 
 function refresh() {
   refreshStats();
-  refreshOrders();
+  refreshNuxtData("recent-orders");
 }
 
 const statCards = computed(() => [
-  { title: "รับผ้าวันนี้", icon: "i-lucide-shopping-basket", to: "/admin/service-orders", value: stats.value?.receivedToday ?? 0 },
-  { title: "รอดำเนินการ", icon: "i-lucide-loader-circle", to: "/admin/service-orders", value: stats.value?.inProgress ?? 0 },
-  { title: "พร้อมส่งคืน", icon: "i-lucide-package-check", to: "/admin/service-orders", value: stats.value?.readyToDeliver ?? 0 },
-  { title: "ส่งคืนวันนี้", icon: "i-lucide-check-circle", to: "/admin/service-orders", value: stats.value?.completedToday ?? 0 },
+  {
+    title: "รับผ้าวันนี้",
+    icon: "i-lucide-shopping-basket",
+    to: "/admin/service-orders",
+    value: stats.value?.receivedToday ?? 0,
+    toneClass: "border-info/20 bg-info/5 hover:bg-info/10",
+  },
+  {
+    title: "รอดำเนินการ",
+    icon: "i-lucide-loader-circle",
+    to: "/admin/service-orders",
+    value: stats.value?.inProgress ?? 0,
+    toneClass: "border-warning/20 bg-warning/5 hover:bg-warning/10",
+  },
+  {
+    title: "พร้อมส่งคืน",
+    icon: "i-lucide-package-check",
+    to: "/admin/service-orders",
+    value: stats.value?.readyToDeliver ?? 0,
+    toneClass: "border-primary/20 bg-primary/5 hover:bg-primary/10",
+  },
+  {
+    title: "ส่งคืนวันนี้",
+    icon: "i-lucide-check-circle",
+    to: "/admin/service-orders",
+    value: stats.value?.completedToday ?? 0,
+    toneClass: "border-success/20 bg-success/5 hover:bg-success/10",
+  },
 ]);
 
 const cardUi = {
@@ -68,25 +89,6 @@ const cardUi = {
   leading: "p-2.5 rounded-full bg-primary/10 ring ring-inset ring-primary/25 flex-col",
   title: "font-normal text-muted text-xs truncate",
 };
-
-const columns = [
-  { accessorKey: "orderNo", header: "เลขที่" },
-  { accessorKey: "customer", header: "ลูกค้า" },
-  { accessorKey: "status", header: "สถานะ" },
-  { accessorKey: "dueAt", header: "นัดรับ" },
-  { id: "actions", header: "" },
-];
-
-function formatDate(dateStr: string | null) {
-  if (!dateStr) return "-";
-  const d = new Date(dateStr);
-  const local = new Date(d.getTime() + 7 * 60 * 60 * 1000);
-  return `${local.getUTCDate()}/${local.getUTCMonth() + 1}/${local.getUTCFullYear() + 543}`;
-}
-
-function openLineChat(lineUserId: string) {
-  window.open(`https://line.me/R/oaMessage/${lineUserId}`, "_blank");
-}
 </script>
 
 <template>
@@ -98,7 +100,9 @@ function openLineChat(lineUserId: string) {
         </template>
         <template #right>
           <UIButtonRefresh @click="refresh" />
-          <UButton icon="i-lucide-plus" size="md" class="rounded-full" to="/admin/service-orders/new" />
+          <UDropdownMenu :items="items">
+            <UButton icon="i-lucide-plus" size="md" class="rounded-full" />
+          </UDropdownMenu>
         </template>
       </UDashboardNavbar>
     </template>
@@ -135,9 +139,12 @@ function openLineChat(lineUserId: string) {
                 :to="card.to"
                 variant="subtle"
                 :ui="cardUi"
-                class="min-w-0 lg:rounded-none first:rounded-l-lg last:rounded-r-lg hover:z-1"
+                :class="[
+                  'min-w-0 lg:rounded-none first:rounded-l-lg last:rounded-r-lg hover:z-1',
+                  card.toneClass,
+                ]"
               >
-                <span class="break-words text-lg font-semibold leading-tight text-highlighted sm:text-2xl">{{ card.value }}</span>
+                <span class="wrap-break-word text-lg font-semibold leading-tight text-highlighted sm:text-2xl">{{ card.value }}</span>
               </UPageCard>
             </template>
           </UPageGrid>
@@ -163,150 +170,17 @@ function openLineChat(lineUserId: string) {
           </template>
         </ClientOnly>
 
-        <!-- Shortcuts -->
-        <div class="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:gap-3">
-          <UButton icon="i-lucide-shopping-basket" to="/admin/service-orders/new" color="primary" class="justify-center sm:justify-start">
-            รับผ้าใหม่
-          </UButton>
-          <UButton icon="i-lucide-scan-line" to="/admin/service-orders/scan" color="neutral" variant="outline" class="justify-center sm:justify-start">
-            สแกนสถานะ
-          </UButton>
-        </div>
-
-        <!-- Pending Orders -->
-        <UCard>
-          <template #header>
-            <div class="flex items-center justify-between">
-              <p class="font-semibold">รายการรอดำเนินการ</p>
-              <UBadge :label="String(orders?.length ?? 0)" color="neutral" variant="subtle" />
-            </div>
-          </template>
-
-          <ClientOnly>
-            <div class="md:hidden">
-              <div v-if="isOrdersPending" class="space-y-3">
-                <USkeleton v-for="i in 5" :key="i" class="h-32 w-full rounded-xl" />
-              </div>
-
-              <div v-else-if="!orders?.length" class="flex flex-col items-center justify-center py-8 text-muted">
-                <UIcon name="i-lucide-shopping-basket" class="mb-3 size-10 opacity-50" />
-                <p>ไม่มีรายการรอดำเนินการ</p>
-              </div>
-
-              <div v-else class="space-y-3">
-                <div
-                  v-for="order in orders"
-                  :key="order.id"
-                  class="rounded-xl border border-default bg-default p-3"
-                >
-                  <div class="flex items-start justify-between gap-3">
-                    <div class="min-w-0">
-                      <p class="truncate font-mono text-xs text-muted">{{ order.orderNo || order.id }}</p>
-                      <div class="mt-1 flex min-w-0 items-center gap-2">
-                        <UAvatar v-bind="getAvatarProps(order.customer)" size="sm" class="shrink-0" />
-                        <span class="min-w-0">
-                          <span class="block truncate text-sm font-medium text-highlighted">{{ order.customer.name }}</span>
-                          <span class="block truncate text-xs text-muted">{{ order.customer.phoneNumber || 'ไม่ระบุเบอร์' }}</span>
-                        </span>
-                      </div>
-                    </div>
-
-                    <UBadge
-                      :label="orderStatusLabels[order.status]"
-                      :color="orderStatusColors[order.status]"
-                      variant="subtle"
-                      class="shrink-0"
-                    />
-                  </div>
-
-                  <div class="mt-3 grid grid-cols-2 gap-2 border-t border-default pt-3 text-xs">
-                    <div>
-                      <p class="text-muted">นัดรับ</p>
-                      <p class="mt-1 text-highlighted">{{ formatDate(order.dueAt ? String(order.dueAt) : null) }}</p>
-                    </div>
-                    <div>
-                      <p class="text-muted">เลขที่</p>
-                      <p class="mt-1 truncate font-mono text-highlighted">{{ order.orderNo || order.id }}</p>
-                    </div>
-                  </div>
-
-                  <div class="mt-3 flex items-center justify-end gap-1 border-t border-default pt-3">
-                    <UButton
-                      v-if="order.customer.lineUserId"
-                      icon="i-lucide-message-circle"
-                      size="xs"
-                      color="success"
-                      variant="subtle"
-                      aria-label="แชท"
-                      @click="openLineChat(order.customer.lineUserId)"
-                    />
-                    <UButton
-                      icon="i-lucide-eye"
-                      size="xs"
-                      color="neutral"
-                      variant="ghost"
-                      aria-label="ดูรายการรับผ้า"
-                      :to="`/admin/service-orders/${order.id}`"
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <UTable :data="orders ?? []" :columns="columns" class="hidden md:block">
-              <template #customer-cell="{ row }">
-                <div class="flex items-center gap-2">
-                  <UAvatar v-bind="getAvatarProps(row.original.customer)" size="xs" />
-                  <div>
-                    <p class="text-sm font-medium">{{ row.original.customer.name }}</p>
-                    <p v-if="row.original.customer.phoneNumber" class="text-xs text-muted">
-                      {{ row.original.customer.phoneNumber }}
-                    </p>
-                  </div>
-                </div>
-              </template>
-
-              <template #status-cell="{ row }">
-                <UBadge
-                  :label="orderStatusLabels[row.original.status as ServiceOrderStatus]"
-                  :color="orderStatusColors[row.original.status as ServiceOrderStatus] as any"
-                  variant="subtle"
-                />
-              </template>
-
-              <template #dueAt-cell="{ row }">
-                {{ formatDate(row.original.dueAt) }}
-              </template>
-
-              <template #actions-cell="{ row }">
-                <div class="flex items-center gap-2 justify-end">
-                  <UButton
-                    v-if="row.original.customer.lineUserId"
-                    icon="i-lucide-message-circle"
-                    size="xs"
-                    color="success"
-                    variant="subtle"
-                    label="แชท"
-                    @click="openLineChat(row.original.customer.lineUserId)"
-                  />
-                  <UButton
-                    icon="i-lucide-eye"
-                    size="xs"
-                    color="neutral"
-                    variant="ghost"
-                    :to="`/admin/service-orders/${row.original.id}`"
-                  />
-                </div>
-              </template>
-            </UTable>
-
-            <template #fallback>
-              <div class="space-y-3 p-2">
+        <!-- Recent Orders -->
+        <ClientOnly>
+          <AdminDashboardSales :period="period" :range="range" />
+          <template #fallback>
+            <UCard>
+              <div class="space-y-3">
                 <div v-for="i in 4" :key="i" class="h-10 rounded bg-elevated animate-pulse" />
               </div>
-            </template>
-          </ClientOnly>
-        </UCard>
+            </UCard>
+          </template>
+        </ClientOnly>
 
       </div>
     </template>

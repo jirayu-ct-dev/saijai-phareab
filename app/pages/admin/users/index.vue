@@ -11,6 +11,7 @@ import type { Role } from '~~/shared/types/enums'
 import { cycleColumnSorting } from '~~/shared/utils/table'
 import { randomPassword } from '~~/shared/utils/random'
 import { formatDate } from '~~/shared/utils/format'
+import { adminTableUi, getAdminListCardClass, type AdminCardTone } from '~~/shared/config/adminUi'
 
 const UAvatar = resolveComponent('UAvatar')
 const UButton = resolveComponent('UButton')
@@ -59,6 +60,11 @@ const ROLE_BADGE_MAP: Record<Role, { color: 'neutral' | 'info' | 'warning'; labe
   USER: { color: 'neutral', label: 'ผู้ใช้งาน' },
   EMPLOYEE: { color: 'info', label: 'พนักงาน' },
   ADMIN: { color: 'warning', label: 'แอดมิน' }
+}
+const USER_CARD_TONE_MAP: Record<Role, AdminCardTone> = {
+  USER: 'neutral',
+  EMPLOYEE: 'info',
+  ADMIN: 'warning'
 }
 
 const EMAIL_STATUS_BADGE_MAP = {
@@ -705,11 +711,11 @@ const columns: TableColumn<AdminUser>[] = [
               <p>ไม่พบผู้ใช้งาน</p>
             </div>
 
-            <div v-else class="space-y-3">
+            <div v-else class="space-y-4">
               <div
                 v-for="(user, index) in paginatedUsers"
                 :key="user.id"
-                class="rounded-xl border border-default bg-default p-3"
+                :class="getAdminListCardClass(USER_CARD_TONE_MAP[user.role])"
               >
                 <div class="flex items-start gap-3">
                   <UCheckbox
@@ -823,14 +829,7 @@ const columns: TableColumn<AdminUser>[] = [
             :data="filteredUsers"
             :columns="columns"
             :loading="isLoading"
-            :ui="{
-              base: 'table-fixed border-separate border-spacing-0',
-              thead: '[&>tr]:bg-elevated/50 [&>tr]:after:content-none',
-              tbody: '[&>tr]:last:[&>td]:border-b-0 [&>tr]:transition-colors [&>tr]:hover:bg-elevated/60',
-              th: 'py-2 font-medium first:rounded-l-lg last:rounded-r-lg border-y border-default first:border-l last:border-r',
-              td: 'border-b border-default',
-              separator: 'h-0'
-            }"
+            :ui="adminTableUi"
           >
             <template #empty>
               <div class="flex flex-col items-center justify-center py-12 text-center text-muted">

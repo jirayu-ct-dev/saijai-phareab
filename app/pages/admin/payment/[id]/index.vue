@@ -2,6 +2,7 @@
 import type { EntitlementStatus, PackageSaleStatus, PaymentMethod, PaymentStatus, Role, ServiceOrderStatus } from "~~/shared/types/enums";
 import { packageTypeColors, packageTypeLabels } from "~~/shared/config/packageConfig";
 import { paymentMethodLabels, paymentStatusColors, paymentStatusLabels } from "~~/shared/config/paymentConfig";
+import { getAdminListCardClass } from "~~/shared/config/adminUi";
 import { formatCurrency, formatDateTime } from "~~/shared/utils/format";
 import { useAdminPayments } from "~~/app/composables/useAdminPayments";
 import ConfirmPaymentModal from "~~/app/components/admin/payment/ConfirmPaymentModal.vue";
@@ -538,11 +539,11 @@ const savePaymentChanges = async () => {
                 <p class="text-base font-semibold text-highlighted">{{ itemSectionTitle }} <span class="text-sm text-muted ml-2">{{ itemSectionDescription }}</span></p>
               </div>
             </div>
-            <div v-if="detailItems.length" class="space-y-3 p-4 md:hidden">
+            <div v-if="detailItems.length" class="space-y-4 p-4 md:hidden">
               <div
                 v-for="item in detailItems"
                 :key="item.id"
-                class="rounded-xl border border-default bg-default p-3"
+                :class="getAdminListCardClass(item.badgeColor || (isPackagePayment ? 'secondary' : 'primary'))"
               >
                 <div class="flex min-w-0 gap-3">
                   <div v-if="!isPackagePayment" class="shrink-0">
@@ -613,8 +614,8 @@ const savePaymentChanges = async () => {
                     <th class="w-28 px-5 py-2 text-right font-medium">รวม</th>
                   </tr>
                 </thead>
-                <tbody class="divide-y divide-default">
-                  <tr v-for="item in detailItems" :key="item.id" class="align-top">
+                <tbody class="divide-y divide-default/40">
+                  <tr v-for="item in detailItems" :key="item.id" class="align-top odd:bg-default even:bg-elevated/70 transition-colors hover:bg-primary/10">
                     <td v-if="!isPackagePayment" class="px-5 py-3">
                       <div class="flex flex-wrap gap-1">
                         <button

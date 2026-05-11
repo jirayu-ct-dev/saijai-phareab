@@ -9,6 +9,7 @@ defineProps<{
   quantity: number;
   selected?: boolean;
   isRange?: boolean;
+  toneClass?: string;
 }>();
 
 const emit = defineEmits<{
@@ -16,6 +17,12 @@ const emit = defineEmits<{
   decrement: [];
   change: [value: number];
 }>();
+
+const defaultSelectedToneClass = {
+  primary: "border-default/30 bg-primary/10 hover:bg-primary/15",
+  warning: "border-default/30 bg-warning/10 hover:bg-warning/15",
+  info: "border-default/30 bg-info/10 hover:bg-info/15",
+};
 </script>
 
 <template>
@@ -24,9 +31,7 @@ const emit = defineEmits<{
     tabindex="0"
     title="คลิกเพื่อเพิ่ม | คลิกขวาเพื่อลด"
     class="group relative flex cursor-pointer flex-col justify-between gap-2 rounded-xl border p-3 text-left transition-colors"
-    :class="selected
-      ? 'border-primary/60 bg-primary/5'
-      : 'border-default bg-default hover:bg-elevated/20'"
+    :class="toneClass || (selected ? defaultSelectedToneClass[badgeColor] : 'border-default/30 bg-default hover:bg-elevated/20')"
     @click="emit('increment')"
     @contextmenu.prevent="emit('decrement')"
     @keydown.enter.prevent="emit('increment')"

@@ -4,6 +4,7 @@ definePageMeta({
 })
 
 import { ref, watch } from 'vue'
+import { getAdminListCardClass } from '~~/shared/config/adminUi'
 
 const notify = useNotify()
 
@@ -356,8 +357,8 @@ watch(isManageOpen, (open) => {
                 <div
                   v-for="cat in pageData.categories"
                   :key="cat.id"
-                  class="flex items-center gap-2 rounded-lg border border-default px-3 py-2 transition-colors"
-                  :class="editingCategory?.id === cat.id ? 'border-primary/50 bg-primary/5' : 'hover:bg-elevated/50'"
+                  class="flex items-center gap-2 rounded-lg border px-3 py-2 transition-colors"
+                  :class="editingCategory?.id === cat.id ? 'border-default/30 bg-primary/10' : 'border-default/30 bg-elevated/70 hover:bg-elevated/80'"
                 >
                   <div class="min-w-0 flex-1 cursor-pointer" @click="openEditCategory(cat)">
                     <p class="truncate text-sm font-medium text-highlighted">{{ cat.name }}</p>
@@ -379,7 +380,7 @@ watch(isManageOpen, (open) => {
             </div>
 
             <!-- Form -->
-            <div class="space-y-3 rounded-xl border border-default p-3">
+            <div :class="[getAdminListCardClass('primary'), 'space-y-3']">
               <p class="text-xs font-semibold uppercase tracking-wide text-muted">
                 {{ editingCategory ? 'แก้ไขประเภท' : 'เพิ่มประเภทใหม่' }}
               </p>
@@ -421,8 +422,8 @@ watch(isManageOpen, (open) => {
                 <div
                   v-for="svc in pageData.services"
                   :key="svc.id"
-                  class="flex items-center gap-2 rounded-lg border border-default px-3 py-2 transition-colors"
-                  :class="editingService?.id === svc.id ? 'border-primary/50 bg-primary/5' : 'hover:bg-elevated/50'"
+                  class="flex items-center gap-2 rounded-lg border px-3 py-2 transition-colors"
+                  :class="editingService?.id === svc.id ? 'border-default/30 bg-info/10' : 'border-default/30 bg-elevated/70 hover:bg-elevated/80'"
                 >
                   <div class="min-w-0 flex-1 cursor-pointer" @click="openEditService(svc)">
                     <p class="truncate text-sm font-medium text-highlighted">{{ svc.name }}</p>
@@ -444,7 +445,7 @@ watch(isManageOpen, (open) => {
             </div>
 
             <!-- Form -->
-            <div class="space-y-3 rounded-xl border border-default p-3">
+            <div :class="[getAdminListCardClass('info'), 'space-y-3']">
               <p class="text-xs font-semibold uppercase tracking-wide text-muted">
                 {{ editingService ? 'แก้ไขบริการ' : 'เพิ่มบริการใหม่' }}
               </p>

@@ -13,6 +13,7 @@ import type {
 import { orderStatusColors, orderStatusLabels } from "~~/shared/config/orderConfig";
 import { useBusinessSetting } from "~~/app/composables/useBusinessSetting";
 import { formatCurrency, formatDateTime } from "~~/shared/utils/format";
+import { adminTableUi, getAdminListCardClass, type AdminCardTone } from "~~/shared/config/adminUi";
 import type { ServiceOrderStatus } from "~~/shared/types/enums";
 
 definePageMeta({
@@ -66,6 +67,13 @@ const serviceOrderStatusOptions: Array<{ label: string; value: ServiceOrderStatu
   { label: orderStatusLabels.COMPLETED, value: "COMPLETED" },
   { label: orderStatusLabels.CANCELLED, value: "CANCELLED" },
 ];
+const orderStatusCardTone: Record<ServiceOrderStatus, AdminCardTone> = {
+  RECEIVED: "info",
+  PROCESSING: "primary",
+  DELIVERING: "warning",
+  COMPLETED: "success",
+  CANCELLED: "error",
+};
 
 const table = useTemplateRef<TableInstance>("table");
 const rowSelection = ref<Record<string, boolean>>({});
@@ -1314,11 +1322,11 @@ const columns: TableColumn<AdminServiceOrder>[] = [
               <p>ไม่พบรายการรับผ้า</p>
             </div>
 
-            <div v-else class="space-y-3">
+            <div v-else class="space-y-4">
               <div
                 v-for="(order, index) in paginatedServiceOrders"
                 :key="order.id"
-                class="rounded-xl border border-default bg-default p-3"
+                :class="getAdminListCardClass(orderStatusCardTone[order.status])"
               >
                 <div class="flex items-start gap-3">
                   <UCheckbox
@@ -1417,14 +1425,7 @@ const columns: TableColumn<AdminServiceOrder>[] = [
             :columns="columns"
             :loading="isLoading"
             class="hidden md:block"
-            :ui="{
-              base: 'border-separate border-spacing-0',
-              thead: '[&>tr]:bg-elevated/50 [&>tr]:after:content-none',
-              tbody: '[&>tr]:last:[&>td]:border-b-0 [&>tr]:transition-colors [&>tr]:hover:bg-elevated/60',
-              th: 'border-y border-default py-2 font-medium first:rounded-l-lg first:border-l last:rounded-r-lg last:border-r',
-              td: 'border-b border-default',
-              separator: 'h-0'
-            }"
+            :ui="adminTableUi"
           >
             <template #empty>
               <div class="flex flex-col items-center justify-center py-12 text-center text-muted">
