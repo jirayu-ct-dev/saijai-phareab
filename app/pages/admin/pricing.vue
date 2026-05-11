@@ -358,7 +358,9 @@ watch(isManageOpen, (open) => {
                   v-for="cat in pageData.categories"
                   :key="cat.id"
                   class="flex items-center gap-2 rounded-lg border px-3 py-2 transition-colors"
-                  :class="editingCategory?.id === cat.id ? 'border-default/30 bg-primary/10' : 'border-default/30 bg-elevated/70 hover:bg-elevated/80'"
+                  :class="editingCategory?.id === cat.id
+                    ? 'border-default/35 bg-primary/10 dark:border-default/25 dark:bg-elevated/45'
+                    : 'border-default/35 bg-elevated/70 hover:bg-elevated/80 dark:border-default/25 dark:bg-elevated/45 dark:hover:bg-elevated/60'"
                 >
                   <div class="min-w-0 flex-1 cursor-pointer" @click="openEditCategory(cat)">
                     <p class="truncate text-sm font-medium text-highlighted">{{ cat.name }}</p>
@@ -423,7 +425,9 @@ watch(isManageOpen, (open) => {
                   v-for="svc in pageData.services"
                   :key="svc.id"
                   class="flex items-center gap-2 rounded-lg border px-3 py-2 transition-colors"
-                  :class="editingService?.id === svc.id ? 'border-default/30 bg-info/10' : 'border-default/30 bg-elevated/70 hover:bg-elevated/80'"
+                  :class="editingService?.id === svc.id
+                    ? 'border-default/35 bg-info/10 dark:border-default/25 dark:bg-elevated/45'
+                    : 'border-default/35 bg-elevated/70 hover:bg-elevated/80 dark:border-default/25 dark:bg-elevated/45 dark:hover:bg-elevated/60'"
                 >
                   <div class="min-w-0 flex-1 cursor-pointer" @click="openEditService(svc)">
                     <p class="truncate text-sm font-medium text-highlighted">{{ svc.name }}</p>

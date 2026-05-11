@@ -24,7 +24,7 @@ const orderStatusCardTone: Record<OrderStatus, AdminCardTone> = {
   RECEIVED: 'info',
   PROCESSING: 'primary',
   DELIVERING: 'warning',
-  COMPLETED: 'success',
+  COMPLETED: 'neutral',
   CANCELLED: 'error',
 }
 

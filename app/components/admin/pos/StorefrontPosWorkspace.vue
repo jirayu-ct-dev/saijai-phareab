@@ -30,7 +30,10 @@ const notify = useNotify();
 const { customers, isLoading: isCustomersLoading } = useAdminCustomerOptions();
 const { hangerPricePerUnit, washFoldPricePerKg, washFoldMinKg, vatRate, vatIncluded, computeVatPreview } = useBusinessSetting();
 const { items, refresh } = useStorefrontCatalog();
-const { createServiceOrder, uploadOrderImage } = useAdminServiceOrders();
+const { createServiceOrder, uploadOrderImage } = useAdminServiceOrders({
+  fetchList: false,
+  refreshAfterMutation: false,
+});
 const { uploadSlip } = useAdminPayments();
 
 const searchQuery = ref("");

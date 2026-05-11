@@ -234,7 +234,7 @@ const performRemoveSlip = () => {
         @confirm="performRemoveSlip"
       />
 
-      <div v-if="props.hidePaymentFields" class="rounded-xl border border-success/40 bg-success/10 p-3 text-sm">
+      <div v-if="props.hidePaymentFields" class="rounded-xl border border-default/35 bg-elevated/70 p-3 text-sm dark:border-default/25 dark:bg-elevated/45">
         <p class="font-medium text-success">ใช้สิทธิ์แพ็กเกจรายเดือน</p>
         <p class="text-muted">ไม่ต้องชำระเงินเพิ่ม ระบบจะตัดเครดิตให้อัตโนมัติ</p>
       </div>

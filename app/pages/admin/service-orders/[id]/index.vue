@@ -514,7 +514,7 @@ const getItemPhotos = (item: ServiceOrderDetailItem) =>
               <div
                 v-for="item in order.items"
                 :key="item.id"
-                :class="getAdminListCardClass(item.isPackageIncluded ? 'success' : 'primary')"
+                :class="getAdminListCardClass(item.isPackageIncluded ? 'neutral' : 'primary')"
               >
                 <div class="flex min-w-0 gap-3">
                   <div class="shrink-0">

@@ -721,7 +721,7 @@ onBeforeUnmount(() => {
                 <p class="text-xs text-muted">ยอดรวมสุทธิ</p>
                 <p class="mt-1 font-medium text-highlighted">{{ formatCurrency(order.totalAmount || 0) }}</p>
               </div>
-              <div v-if="hasMemberEntitlement" class="rounded-xl border border-success/40 bg-success/10 p-4">
+              <div v-if="hasMemberEntitlement" class="rounded-xl border border-default/35 bg-elevated/70 p-4 dark:border-default/25 dark:bg-elevated/45">
                 <p class="text-xs text-muted">เครดิตที่ใช้</p>
                 <p class="mt-1 font-semibold text-success">{{ usedCreditLabel }}</p>
                 <p class="text-xs text-muted">คงเหลือ {{ remainingCreditLabel }} | {{ memberPackageName }}</p>

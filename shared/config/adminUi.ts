@@ -4,13 +4,13 @@ export const adminListCardBaseClass =
   "rounded-xl border p-3 transition-colors active:bg-elevated/90";
 
 export const adminListCardToneClass: Record<AdminCardTone, string> = {
-  neutral: "border-default/40 bg-elevated/70 hover:bg-elevated/80",
-  primary: "border-default/40 bg-primary/10 hover:bg-primary/15",
-  secondary: "border-default/40 bg-secondary/10 hover:bg-secondary/15",
-  info: "border-default/40 bg-info/10 hover:bg-info/15",
-  warning: "border-default/40 bg-warning/10 hover:bg-warning/15",
-  success: "border-default/40 bg-success/10 hover:bg-success/15",
-  error: "border-default/40 bg-error/10 hover:bg-error/15",
+  neutral: "border-default/35 bg-elevated/70 hover:bg-elevated/80 dark:border-default/25 dark:bg-elevated/45 dark:hover:bg-elevated/60",
+  primary: "border-default/35 bg-primary/10 hover:bg-primary/15 dark:border-default/25 dark:bg-elevated/45 dark:hover:bg-elevated/60",
+  secondary: "border-default/35 bg-secondary/10 hover:bg-secondary/15 dark:border-default/25 dark:bg-elevated/45 dark:hover:bg-elevated/60",
+  info: "border-default/35 bg-info/10 hover:bg-info/15 dark:border-default/25 dark:bg-elevated/45 dark:hover:bg-elevated/60",
+  warning: "border-default/35 bg-warning/10 hover:bg-warning/15 dark:border-default/25 dark:bg-elevated/45 dark:hover:bg-elevated/60",
+  success: "border-default/35 bg-success/10 hover:bg-success/15 dark:border-default/25 dark:bg-elevated/45 dark:hover:bg-elevated/60",
+  error: "border-default/35 bg-error/10 hover:bg-error/15 dark:border-default/25 dark:bg-elevated/45 dark:hover:bg-elevated/60",
 };
 
 export const adminListCardClass = [adminListCardBaseClass, adminListCardToneClass.neutral].join(" ");
@@ -19,11 +19,11 @@ export const getAdminListCardClass = (tone: AdminCardTone = "neutral") =>
   [adminListCardBaseClass, adminListCardToneClass[tone]].join(" ");
 
 export const adminCatalogItemToneClasses = [
-  "border-default/30 bg-primary/10 hover:bg-primary/15",
-  "border-default/30 bg-info/10 hover:bg-info/15",
-  "border-default/30 bg-warning/10 hover:bg-warning/15",
-  "border-default/30 bg-success/10 hover:bg-success/15",
-  "border-default/30 bg-secondary/10 hover:bg-secondary/15",
+  "border-default/35 bg-primary/10 hover:bg-primary/15 dark:border-default/25 dark:bg-elevated/45 dark:hover:bg-elevated/60",
+  "border-default/35 bg-info/10 hover:bg-info/15 dark:border-default/25 dark:bg-elevated/45 dark:hover:bg-elevated/60",
+  "border-default/35 bg-warning/10 hover:bg-warning/15 dark:border-default/25 dark:bg-elevated/45 dark:hover:bg-elevated/60",
+  "border-default/35 bg-success/10 hover:bg-success/15 dark:border-default/25 dark:bg-elevated/45 dark:hover:bg-elevated/60",
+  "border-default/35 bg-secondary/10 hover:bg-secondary/15 dark:border-default/25 dark:bg-elevated/45 dark:hover:bg-elevated/60",
 ] as const;
 
 export const getAdminCatalogItemToneClass = (key: string | null | undefined) => {
@@ -34,9 +34,9 @@ export const getAdminCatalogItemToneClass = (key: string | null | undefined) => 
 
 export const adminTableUi = {
   base: "table-fixed border-separate border-spacing-0",
-  thead: "[&>tr]:bg-elevated/50 [&>tr]:after:content-none",
-  tbody: "[&>tr]:last:[&>td]:border-b-0 [&>tr:nth-child(odd)>td]:bg-primary/5 [&>tr:nth-child(even)>td]:bg-secondary/5 [&>tr:hover>td]:bg-info/10",
-  th: "border-y border-default/40 py-2 font-medium first:rounded-l-lg first:border-l last:rounded-r-lg last:border-r",
-  td: "border-b border-default/40 transition-colors",
+  thead: "[&>tr]:bg-elevated/50 dark:[&>tr]:bg-elevated/35 [&>tr]:after:content-none",
+  tbody: "[&>tr]:last:[&>td]:border-b-0 [&>tr:nth-child(odd)>td]:bg-primary/5 [&>tr:nth-child(even)>td]:bg-secondary/5 [&>tr:hover>td]:bg-info/10 dark:[&>tr:nth-child(odd)>td]:bg-elevated/25 dark:[&>tr:nth-child(even)>td]:bg-elevated/40 dark:[&>tr:hover>td]:bg-elevated/55",
+  th: "border-y border-default/35 py-2 font-medium first:rounded-l-lg first:border-l last:rounded-r-lg last:border-r dark:border-default/25",
+  td: "border-b border-default/35 transition-colors dark:border-default/25",
   separator: "h-0",
 } as const;

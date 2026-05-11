@@ -97,48 +97,54 @@ const onSubmit = async () => {
       <p class="text-sm text-muted mt-1">ข้อมูลพื้นฐานของร้านที่แสดงบนใบเสร็จและสลิป</p>
     </div>
 
-    <USkeleton v-if="isLoading" class="h-64 w-full rounded-lg" />
+    <ClientOnly>
+      <USkeleton v-if="isLoading" class="h-64 w-full rounded-lg" />
 
-    <UCard v-else>
-      <UForm :state="form" class="space-y-4" @submit="onSubmit">
-        <UFormField label="ชื่อร้าน" name="name" required>
-          <UInput v-model="form.name" placeholder="เช่น ร้านไสใจ ซักอบรีด" class="w-full" />
-        </UFormField>
+      <UCard v-else>
+        <UForm :state="form" class="space-y-4" @submit="onSubmit">
+          <UFormField label="ชื่อร้าน" name="name" required>
+            <UInput v-model="form.name" placeholder="เช่น ร้านไสใจ ซักอบรีด" class="w-full" />
+          </UFormField>
 
-        <UFormField label="เบอร์โทรศัพท์" name="phone">
-          <UInput v-model="form.phone" placeholder="เช่น 081-234-5678" class="w-full" />
-        </UFormField>
+          <UFormField label="เบอร์โทรศัพท์" name="phone">
+            <UInput v-model="form.phone" placeholder="เช่น 081-234-5678" class="w-full" />
+          </UFormField>
 
-        <UFormField label="ที่อยู่ร้าน" name="address">
-          <UTextarea v-model="form.address" placeholder="ที่อยู่ร้านสำหรับแสดงบนใบเสร็จ" :rows="3" class="w-full" />
-        </UFormField>
+          <UFormField label="ที่อยู่ร้าน" name="address">
+            <UTextarea v-model="form.address" placeholder="ที่อยู่ร้านสำหรับแสดงบนใบเสร็จ" :rows="3" class="w-full" />
+          </UFormField>
 
-        <UFormField label="โลโก้ร้าน" name="logoUrl">
-          <UIPhotoUpload
-            label="รูปโลโก้ร้าน"
-            description="รูปที่แสดงบนใบเสร็จและสลิป"
-            :photos="logoPhotos"
-            :max="1"
-            @update:photos="onLogoPhotosUpdate"
-          />
-        </UFormField>
+          <UFormField label="โลโก้ร้าน" name="logoUrl">
+            <UIPhotoUpload
+              label="รูปโลโก้ร้าน"
+              description="รูปที่แสดงบนใบเสร็จและสลิป"
+              :photos="logoPhotos"
+              :max="1"
+              @update:photos="onLogoPhotosUpdate"
+            />
+          </UFormField>
 
-        <UFormField label="QR Code LINE" name="lineQrImageUrl">
-          <UIPhotoUpload
-            label="รูป QR Code LINE"
-            description="รูป QR Code สำหรับแสดงท้ายใบเสร็จ"
-            :photos="lineQrPhotos"
-            :max="1"
-            @update:photos="onLineQrPhotosUpdate"
-          />
-        </UFormField>
+          <UFormField label="QR Code LINE" name="lineQrImageUrl">
+            <UIPhotoUpload
+              label="รูป QR Code LINE"
+              description="รูป QR Code สำหรับแสดงท้ายใบเสร็จ"
+              :photos="lineQrPhotos"
+              :max="1"
+              @update:photos="onLineQrPhotosUpdate"
+            />
+          </UFormField>
 
-        <div class="flex justify-end pt-2">
-          <UButton type="submit" :loading="isSaving" icon="i-lucide-save">
-            บันทึก
-          </UButton>
-        </div>
-      </UForm>
-    </UCard>
+          <div class="flex justify-end pt-2">
+            <UButton type="submit" :loading="isSaving" icon="i-lucide-save">
+              บันทึก
+            </UButton>
+          </div>
+        </UForm>
+      </UCard>
+
+      <template #fallback>
+        <USkeleton class="h-64 w-full rounded-lg" />
+      </template>
+    </ClientOnly>
   </div>
 </template>

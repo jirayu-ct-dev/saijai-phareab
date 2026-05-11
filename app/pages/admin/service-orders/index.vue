@@ -71,7 +71,7 @@ const orderStatusCardTone: Record<ServiceOrderStatus, AdminCardTone> = {
   RECEIVED: "info",
   PROCESSING: "primary",
   DELIVERING: "warning",
-  COMPLETED: "success",
+  COMPLETED: "neutral",
   CANCELLED: "error",
 };
 
@@ -1521,7 +1521,7 @@ const columns: TableColumn<AdminServiceOrder>[] = [
 
                 <div
                   v-if="canUseMemberPackage"
-                  class="rounded-xl border border-success/40 bg-success/10 p-3 md:col-span-2"
+                  class="rounded-xl border border-default/35 bg-elevated/70 p-3 dark:border-default/25 dark:bg-elevated/45 md:col-span-2"
                 >
                   <div class="flex items-start justify-between gap-3">
                     <div>

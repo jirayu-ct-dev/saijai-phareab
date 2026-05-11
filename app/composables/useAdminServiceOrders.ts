@@ -139,8 +139,15 @@ export type AdminServiceOrderImage = {
   url: string | null;
 };
 
-export const useAdminServiceOrders = () => {
+type UseAdminServiceOrdersOptions = {
+  fetchList?: boolean;
+  refreshAfterMutation?: boolean;
+};
+
+export const useAdminServiceOrders = (options: UseAdminServiceOrdersOptions = {}) => {
   const notify = useNotify();
+  const fetchList = options.fetchList ?? true;
+  const refreshAfterMutation = options.refreshAfterMutation ?? fetchList;
 
   const getErrorMessage = (error: unknown, fallback: string) => {
     if (error && typeof error === "object" && "data" in error) {
@@ -154,6 +161,7 @@ export const useAdminServiceOrders = () => {
   const { data: serviceOrders, status, refresh } = useFetch<AdminServiceOrder[]>("/api/admin/service-orders", {
     key: "admin-service-orders",
     default: () => [],
+    immediate: fetchList,
   });
 
   const isLoading = computed(() => status.value === "pending");
@@ -161,7 +169,7 @@ export const useAdminServiceOrders = () => {
   const createServiceOrder = async (body: CreateAdminServiceOrderBody): Promise<CreateAdminServiceOrderResult | null> => {
     try {
       const result = await $fetch<CreateAdminServiceOrderResult>("/api/admin/service-orders", { method: "POST", body });
-      await refresh();
+      if (refreshAfterMutation) await refresh();
       notify.created("รายการรับผ้า");
       return result;
     } catch (error: unknown) {
@@ -173,7 +181,7 @@ export const useAdminServiceOrders = () => {
   const updateServiceOrder = async (id: string, body: UpdateAdminServiceOrderBody): Promise<boolean> => {
     try {
       await $fetch(`/api/admin/service-orders/${id}`, { method: "PUT", body });
-      await refresh();
+      if (refreshAfterMutation) await refresh();
       notify.updated("รายการรับผ้า");
       return true;
     } catch (error: unknown) {
@@ -199,7 +207,7 @@ export const useAdminServiceOrders = () => {
       if (options && "deliveryImageId" in options) body.deliveryImageId = options.deliveryImageId ?? null;
       if (options?.addonUsages?.length) body.addonUsages = options.addonUsages;
       await $fetch(`/api/admin/service-orders/${id}/status`, { method: "PATCH", body });
-      await refresh();
+      if (refreshAfterMutation) await refresh();
       notify.updated("สถานะงาน");
       return true;
     } catch (error: unknown) {
@@ -211,7 +219,7 @@ export const useAdminServiceOrders = () => {
   const deleteServiceOrder = async (id: string): Promise<boolean> => {
     try {
       await $fetch(`/api/admin/service-orders/${id}`, { method: "DELETE" });
-      await refresh();
+      if (refreshAfterMutation) await refresh();
       notify.deleted("รายการรับผ้า");
       return true;
     } catch (error: unknown) {

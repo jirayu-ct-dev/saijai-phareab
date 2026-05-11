@@ -47,7 +47,7 @@ const onStateUpdatedFromList = async () => {
 };
 const canManagePaymentState = (payment: AdminPaymentRecord) => isAdmin.value || canConfirmPayment(payment);
 const paymentCardTone = (payment: AdminPaymentRecord): AdminCardTone => {
-  if (payment.status === "PAID") return "success";
+  if (payment.status === "PAID") return "neutral";
   if (payment.status === "CANCELLED") return "error";
   if (payment.status === "PENDING_VERIFICATION") return "warning";
   if (payment.packageSale?.packageSaleId) return "secondary";

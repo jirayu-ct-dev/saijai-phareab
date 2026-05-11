@@ -19,9 +19,9 @@ const emit = defineEmits<{
 }>();
 
 const defaultSelectedToneClass = {
-  primary: "border-default/30 bg-primary/10 hover:bg-primary/15",
-  warning: "border-default/30 bg-warning/10 hover:bg-warning/15",
-  info: "border-default/30 bg-info/10 hover:bg-info/15",
+  primary: "border-default/35 bg-primary/10 hover:bg-primary/15 dark:border-default/25 dark:bg-elevated/45 dark:hover:bg-elevated/60",
+  warning: "border-default/35 bg-warning/10 hover:bg-warning/15 dark:border-default/25 dark:bg-elevated/45 dark:hover:bg-elevated/60",
+  info: "border-default/35 bg-info/10 hover:bg-info/15 dark:border-default/25 dark:bg-elevated/45 dark:hover:bg-elevated/60",
 };
 </script>
 
@@ -31,7 +31,7 @@ const defaultSelectedToneClass = {
     tabindex="0"
     title="คลิกเพื่อเพิ่ม | คลิกขวาเพื่อลด"
     class="group relative flex cursor-pointer flex-col justify-between gap-2 rounded-xl border p-3 text-left transition-colors"
-    :class="toneClass || (selected ? defaultSelectedToneClass[badgeColor] : 'border-default/30 bg-default hover:bg-elevated/20')"
+    :class="toneClass || (selected ? defaultSelectedToneClass[badgeColor] : 'border-default/35 bg-default hover:bg-elevated/20 dark:border-default/25 dark:bg-elevated/45 dark:hover:bg-elevated/60')"
     @click="emit('increment')"
     @contextmenu.prevent="emit('decrement')"
     @keydown.enter.prevent="emit('increment')"
