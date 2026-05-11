@@ -308,7 +308,8 @@ const handleCreateUser = async () => {
   }
 }
 
-const quickRoleOpenMap = ref<Record<string, boolean>>({})
+const tableQuickRoleOpenMap = ref<Record<string, boolean>>({})
+const mobileQuickRoleOpenMap = ref<Record<string, boolean>>({})
 const roleItems = [
   { label: 'ผู้ใช้งาน', value: 'USER' as Role },
   { label: 'พนักงาน', value: 'EMPLOYEE' as Role },
@@ -316,7 +317,8 @@ const roleItems = [
 ]
 
 const handleQuickRoleChange = async (user: AdminUser, role: Role) => {
-  quickRoleOpenMap.value[user.id] = false
+  tableQuickRoleOpenMap.value[user.id] = false
+  mobileQuickRoleOpenMap.value[user.id] = false
   await updateUser(user.id, { role } as CreateAdminUserBody)
 }
 
@@ -447,8 +449,8 @@ const columns: TableColumn<AdminUser>[] = [
       return h(
         UPopover,
         {
-          open: quickRoleOpenMap.value[user.id] ?? false,
-          'onUpdate:open': (v: boolean) => { quickRoleOpenMap.value[user.id] = v },
+          open: tableQuickRoleOpenMap.value[user.id] ?? false,
+          'onUpdate:open': (v: boolean) => { tableQuickRoleOpenMap.value[user.id] = v },
           content: { align: 'start' }
         },
         {
@@ -737,7 +739,7 @@ const columns: TableColumn<AdminUser>[] = [
                       </NuxtLink>
 
                       <UPopover
-                        v-model:open="quickRoleOpenMap[user.id]"
+                        v-model:open="mobileQuickRoleOpenMap[user.id]"
                         :content="{ align: 'end' }"
                       >
                         <UBadge

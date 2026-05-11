@@ -296,7 +296,7 @@ const columns = computed<TableColumn<any>[]>(() => {
         })
       },
       cell: ({ row }: any) =>
-        h('div', { class: ['flex items-center gap-2 rounded-lg border px-2 py-1.5', getPricingItemToneClass(row.original)] }, [
+        h('div', { class: 'flex items-center gap-2 px-2 py-1.5' }, [
           h(UIcon, { name: 'i-lucide-shirt', class: 'size-4 text-primary shrink-0 opacity-70' }),
           h('span', { class: 'font-medium text-highlighted truncate max-w-48' }, row.getValue('name'))
         ])
