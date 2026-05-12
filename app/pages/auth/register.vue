@@ -22,6 +22,8 @@ const form = reactive({
     confirmPassword: "",
 });
 
+const acceptTerms = ref(false);
+
 async function handleSignUp() {
     // Validation
     if (form.password.length < 8) {
@@ -31,6 +33,11 @@ async function handleSignUp() {
 
     if (form.password !== form.confirmPassword) {
         notify.error("รหัสผ่านไม่ตรงกัน กรุณาตรวจสอบอีกครั้ง");
+        return;
+    }
+
+    if (!acceptTerms.value) {
+        notify.error("กรุณายอมรับเงื่อนไขการใช้บริการก่อนสมัครสมาชิก");
         return;
     }
 
@@ -227,17 +234,32 @@ watch(session, async (newSession) => {
               </UInput>
             </UFormField>
 
-            <div class="pt-4">
+            <!-- Terms & Privacy Checkbox -->
+            <div class="flex items-start gap-3 py-1">
+              <UCheckbox
+                v-model="acceptTerms"
+                id="accept-terms"
+                class="mt-0.5 shrink-0"
+              />
+              <label for="accept-terms" class="text-sm text-gray-600 dark:text-gray-400 cursor-pointer leading-snug">
+                ฉันยอมรับ
+                <NuxtLink to="/terms" class="text-primary font-semibold hover:underline">เงื่อนไขการใช้บริการ</NuxtLink>
+                และ
+                <NuxtLink to="/privacy" class="text-primary font-semibold hover:underline">นโยบายความเป็นส่วนตัว</NuxtLink>
+              </label>
+            </div>
+
+            <div class="pt-2">
                 <UButton 
                 type="submit" 
                 block 
                 color="primary" 
                 size="xl" 
                 :loading="loading" 
-                :disabled="loading || (form.password !== form.confirmPassword && form.confirmPassword !== '')"
+                :disabled="loading || !acceptTerms || (form.password !== form.confirmPassword && form.confirmPassword !== '')"
                 class="font-bold text-[15px] shadow-sm shadow-primary-500/20"
                 >
-                สร้างบัญชีผู้ใช้
+                สร้างบัญชี
                 <template #trailing>
                     <UIcon name="i-lucide-arrow-right" class="w-4 h-4 ml-1" />
                 </template>

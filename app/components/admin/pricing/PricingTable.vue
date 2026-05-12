@@ -445,10 +445,10 @@ const columns = computed<TableColumn<any>[]>(() => {
         >
           <div class="flex items-start gap-3">
             <UCheckbox
-              :model-value="isMobileRowSelected(index)"
+              :model-value="isMobileRowSelected(Number(index))"
               aria-label="เลือกแถว"
               class="mt-1"
-              @update:model-value="setMobileRowSelected(index, $event)"
+              @update:model-value="(val: boolean | 'indeterminate') => setMobileRowSelected(Number(index), val)"
             />
 
             <div class="min-w-0 flex-1">
