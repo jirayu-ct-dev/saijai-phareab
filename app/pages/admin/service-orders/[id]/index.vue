@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { PaymentMethod, PaymentStatus, ServiceOrderStatus } from "~~/shared/types/enums";
 import { orderStatusColors, orderStatusLabels } from "~~/shared/config/orderConfig";
-import { getAdminListCardClass } from "~~/shared/config/adminUi";
+import { adminMobileListCardClass } from "~~/shared/config/adminUi";
 import { formatCurrency, formatDateTime } from "~~/shared/utils/format";
 import ImagePreviewModal from "~~/app/components/UI/ImagePreviewModal.vue";
 import EditPaymentStateModal from "~~/app/components/admin/payment/EditPaymentStateModal.vue";
@@ -510,13 +510,13 @@ const getItemPhotos = (item: ServiceOrderDetailItem) =>
           </template>
 
           <div class="space-y-3">
-            <div class="space-y-4 md:hidden">
+            <div class="space-y-3 md:hidden">
               <div
                 v-for="item in order.items"
                 :key="item.id"
-                :class="getAdminListCardClass(item.isPackageIncluded ? 'neutral' : 'primary')"
+                :class="adminMobileListCardClass"
               >
-                <div class="flex min-w-0 gap-3">
+                <div class="flex min-w-0 gap-3 p-3">
                   <div class="shrink-0">
                     <div class="flex max-w-18 flex-wrap gap-1">
                       <button
@@ -559,7 +559,7 @@ const getItemPhotos = (item: ServiceOrderDetailItem) =>
                   </div>
                 </div>
 
-                <div class="mt-3 grid grid-cols-3 gap-2 border-t border-default pt-3 text-xs">
+                <div class="mx-3 mt-3 grid grid-cols-3 gap-2 border-t border-gray-100 pt-3 text-xs dark:border-gray-800">
                   <div>
                     <p class="text-muted">ราคา/ชิ้น</p>
                     <p class="mt-1 wrap-break-word font-medium text-highlighted">
@@ -578,7 +578,7 @@ const getItemPhotos = (item: ServiceOrderDetailItem) =>
                     >
                       {{ item.quantity }} เครดิต
                     </p>
-                    <p v-else class="mt-1 wrap-break-word font-semibold text-highlighted">{{ formatCurrency(item.totalPrice) }}</p>
+                    <p v-else class="mt-1 wrap-break-word text-lg font-semibold text-primary">{{ formatCurrency(item.totalPrice) }}</p>
                   </div>
                 </div>
               </div>

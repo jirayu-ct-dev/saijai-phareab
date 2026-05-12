@@ -11,7 +11,7 @@ import type { Role } from '~~/shared/types/enums'
 import { cycleColumnSorting } from '~~/shared/utils/table'
 import { randomPassword } from '~~/shared/utils/random'
 import { formatDate } from '~~/shared/utils/format'
-import { adminTableUi, getAdminListCardClass, type AdminCardTone } from '~~/shared/config/adminUi'
+import { adminMobileListCardClass, adminTableUi } from '~~/shared/config/adminUi'
 
 const UAvatar = resolveComponent('UAvatar')
 const UButton = resolveComponent('UButton')
@@ -60,11 +60,6 @@ const ROLE_BADGE_MAP: Record<Role, { color: 'neutral' | 'info' | 'warning'; labe
   USER: { color: 'neutral', label: 'ผู้ใช้งาน' },
   EMPLOYEE: { color: 'info', label: 'พนักงาน' },
   ADMIN: { color: 'warning', label: 'แอดมิน' }
-}
-const USER_CARD_TONE_MAP: Record<Role, AdminCardTone> = {
-  USER: 'neutral',
-  EMPLOYEE: 'info',
-  ADMIN: 'warning'
 }
 
 const EMAIL_STATUS_BADGE_MAP = {
@@ -713,13 +708,13 @@ const columns: TableColumn<AdminUser>[] = [
               <p>ไม่พบผู้ใช้งาน</p>
             </div>
 
-            <div v-else class="space-y-4">
+            <div v-else class="space-y-3">
               <div
                 v-for="(user, index) in paginatedUsers"
                 :key="user.id"
-                :class="getAdminListCardClass(USER_CARD_TONE_MAP[user.role])"
+                :class="adminMobileListCardClass"
               >
-                <div class="flex items-start gap-3">
+                <div class="flex items-start gap-3 p-3">
                   <UCheckbox
                     :model-value="isMobileRowSelected(index)"
                     :disabled="isSystemUser(user)"
@@ -745,6 +740,7 @@ const columns: TableColumn<AdminUser>[] = [
                         <UBadge
                           :color="ROLE_BADGE_MAP[user.role].color"
                           variant="subtle"
+                          size="xs"
                           icon="i-lucide-pencil"
                           class="shrink-0 cursor-pointer"
                         >
@@ -768,7 +764,7 @@ const columns: TableColumn<AdminUser>[] = [
                       </UPopover>
                     </div>
 
-                    <div class="mt-3 grid grid-cols-2 gap-2 border-t border-default pt-3 text-xs">
+                    <div class="mt-3 grid grid-cols-2 gap-2 border-t border-gray-100 pt-3 text-xs dark:border-gray-800">
                       <div>
                         <p class="text-muted">อีเมล</p>
                         <UBadge
@@ -785,7 +781,7 @@ const columns: TableColumn<AdminUser>[] = [
                       </div>
                     </div>
 
-                    <div class="mt-3 border-t border-default pt-3">
+                    <div class="mt-3 border-t border-gray-100 pt-3 dark:border-gray-800">
                       <p class="text-xs text-muted">แพ็กเกจปัจจุบัน</p>
                       <div v-if="getCurrentPackages(user).length" class="mt-1 space-y-1">
                         <div
@@ -803,7 +799,7 @@ const columns: TableColumn<AdminUser>[] = [
                       <p v-else class="mt-1 text-sm text-muted">ไม่มีแพ็กเกจที่ใช้งาน</p>
                     </div>
 
-                    <div class="mt-3 flex items-center justify-end gap-1 border-t border-default pt-3">
+                    <div class="mt-3 flex items-center justify-end gap-1 border-t border-gray-100 pt-3 dark:border-gray-800">
                       <UButton icon="i-lucide-eye" size="xs" color="neutral" variant="ghost" aria-label="ดูรายละเอียดลูกค้า" :to="`/admin/users/${user.id}`" />
                       <UIButtonChatLine
                         v-if="user.lineUserId"

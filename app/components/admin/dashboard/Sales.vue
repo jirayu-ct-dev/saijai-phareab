@@ -9,7 +9,7 @@ import {
   orderTypeLabels,
   orderTypeColors,
 } from '~~/shared/config/orderConfig'
-import { adminTableUi, getAdminListCardClass, type AdminCardTone } from '~~/shared/config/adminUi'
+import { adminMobileListCardClass, adminTableUi } from '~~/shared/config/adminUi'
 import { formatCurrency, formatDateTime } from '~~/shared/utils/format'
 
 const props = defineProps<{
@@ -19,14 +19,6 @@ const props = defineProps<{
 
 const UBadge = resolveComponent('UBadge')
 const UAvatar = resolveComponent('UAvatar')
-
-const orderStatusCardTone: Record<OrderStatus, AdminCardTone> = {
-  RECEIVED: 'info',
-  PROCESSING: 'primary',
-  DELIVERING: 'warning',
-  COMPLETED: 'neutral',
-  CANCELLED: 'error',
-}
 
 interface RecentOrder {
   id: string
@@ -165,12 +157,13 @@ const columns: TableColumn<RecentOrder>[] = [
         <p>ยังไม่มีออเดอร์</p>
       </div>
 
-      <div v-else class="space-y-4">
+      <div v-else class="space-y-3">
         <div
           v-for="order in data"
           :key="order.id"
-          :class="getAdminListCardClass(orderStatusCardTone[order.status])"
+          :class="adminMobileListCardClass"
         >
+          <div class="p-3">
           <div class="flex items-start justify-between gap-3">
             <div class="min-w-0">
               <p class="truncate font-mono text-xs text-muted">{{ order.orderNo ?? `#${order.id.slice(-6)}` }}</p>
@@ -191,6 +184,7 @@ const columns: TableColumn<RecentOrder>[] = [
               <UBadge
                 :color="orderStatusColors[order.status]"
                 variant="subtle"
+                size="xs"
               >
                 {{ orderStatusLabels[order.status] }}
               </UBadge>
@@ -200,23 +194,23 @@ const columns: TableColumn<RecentOrder>[] = [
             </div>
           </div>
 
-          <div class="mt-3 grid grid-cols-2 gap-2 border-t border-default pt-3 text-xs">
+          <div class="mt-3 grid grid-cols-2 gap-2 border-t border-gray-100 pt-3 text-xs dark:border-gray-800">
             <div>
               <p class="text-muted">ประเภท</p>
-              <UBadge :color="orderTypeColors[order.orderType]" variant="subtle" class="mt-1">
+              <UBadge :color="orderTypeColors[order.orderType]" variant="subtle" size="xs" class="mt-1">
                 {{ orderTypeLabels[order.orderType] }}
               </UBadge>
             </div>
             <div>
               <p class="text-muted">ยอด</p>
-              <p class="mt-1 font-semibold text-highlighted">{{ formatOrderAmount(order) }}</p>
+              <p class="mt-1 text-lg font-semibold text-primary">{{ formatOrderAmount(order) }}</p>
               <p v-if="order.hangerCharge" class="mt-0.5 text-muted">
                 ไม้แขวน {{ formatCurrency(order.hangerCharge.total) }}
               </p>
             </div>
           </div>
 
-          <div class="mt-3 flex items-center justify-end gap-1 border-t border-default pt-3">
+          <div class="mt-3 flex items-center justify-end gap-1 border-t border-gray-100 pt-3 dark:border-gray-800">
             <UIButtonChatLine
               v-if="order.customer.lineUserId"
               :line-user-id="order.customer.lineUserId"
@@ -231,6 +225,7 @@ const columns: TableColumn<RecentOrder>[] = [
               aria-label="ดูรายการรับผ้า"
               @click="router.push(`/admin/service-orders/${order.id}`)"
             />
+          </div>
           </div>
         </div>
       </div>

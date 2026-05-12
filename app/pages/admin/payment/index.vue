@@ -5,7 +5,7 @@ import type { TableColumn } from "@nuxt/ui";
 import type { AdminPaymentRecord } from "~~/app/composables/useAdminPayments";
 import { formatCurrency, formatDateTime } from "~~/shared/utils/format";
 import type { Role } from "~~/shared/types/enums";
-import { adminTableUi, getAdminListCardClass, type AdminCardTone } from "~~/shared/config/adminUi";
+import { adminMobileListCardClass, adminTableUi } from "~~/shared/config/adminUi";
 import { paymentMethodLabels, paymentStatusColors, paymentStatusLabels } from "~~/shared/config/paymentConfig";
 import ConfirmPaymentModal from "~~/app/components/admin/payment/ConfirmPaymentModal.vue";
 import EditPaymentStateModal from "~~/app/components/admin/payment/EditPaymentStateModal.vue";
@@ -46,13 +46,6 @@ const onStateUpdatedFromList = async () => {
   await refresh();
 };
 const canManagePaymentState = (payment: AdminPaymentRecord) => isAdmin.value || canConfirmPayment(payment);
-const paymentCardTone = (payment: AdminPaymentRecord): AdminCardTone => {
-  if (payment.status === "PAID") return "neutral";
-  if (payment.status === "CANCELLED") return "error";
-  if (payment.status === "PENDING_VERIFICATION") return "warning";
-  if (payment.packageSale?.packageSaleId) return "secondary";
-  return "primary";
-};
 const getPaymentStateActionTitle = (payment: AdminPaymentRecord) => {
   if (isAdmin.value) return "คลิกเพื่อแก้ไขสถานะ";
   if (canConfirmPayment(payment)) return "คลิกเพื่อยืนยันการชำระเงิน";
@@ -550,13 +543,13 @@ const columns: TableColumn<AdminPaymentRecord>[] = [
               <p>ไม่พบรายการชำระเงิน</p>
             </div>
 
-            <div v-else class="space-y-4">
+            <div v-else class="space-y-3">
               <div
                 v-for="(payment, index) in paginatedPayments"
                 :key="payment.id"
-                :class="getAdminListCardClass(paymentCardTone(payment))"
+                :class="adminMobileListCardClass"
               >
-                <div class="flex items-start gap-3">
+                <div class="flex items-start gap-3 p-3">
                   <UCheckbox
                     :model-value="isMobileRowSelected(index)"
                     aria-label="เลือกรายการ"
@@ -598,6 +591,7 @@ const columns: TableColumn<AdminPaymentRecord>[] = [
                         <UBadge
                           :color="paymentStatusColors[payment.status]"
                           variant="subtle"
+                          size="xs"
                           :icon="canManagePaymentState(payment) ? 'i-lucide-pencil' : undefined"
                         >
                           {{ paymentStatusLabels[payment.status] }}
@@ -605,20 +599,20 @@ const columns: TableColumn<AdminPaymentRecord>[] = [
                       </button>
                     </div>
 
-                    <div class="mt-3 space-y-1 border-t border-default pt-3">
+                    <div class="mt-3 space-y-1 border-t border-gray-100 pt-3 dark:border-gray-800">
                       <p v-for="item in formatPaymentItems(payment)" :key="item" class="text-sm text-highlighted">
                         {{ item }}
                       </p>
                     </div>
 
-                    <div class="mt-3 grid grid-cols-2 gap-2 border-t border-default pt-3 text-xs">
+                    <div class="mt-3 grid grid-cols-2 gap-2 border-t border-gray-100 pt-3 text-xs dark:border-gray-800">
                       <div>
                         <p class="text-muted">ยอดชำระ</p>
                         <template v-if="isServiceMember(payment) && Number(payment.amount ?? 0) === 0">
                           <p class="mt-1 font-semibold text-success">ใช้เครดิต</p>
                           <p class="mt-0.5 text-success">{{ Number(payment.serviceOrder?.creditUsed ?? 0) }} เครดิต</p>
                         </template>
-                        <p v-else class="mt-1 font-semibold text-highlighted">{{ formatCurrency(payment.amount) }}</p>
+                        <p v-else class="mt-1 text-lg font-semibold text-primary">{{ formatCurrency(payment.amount) }}</p>
                       </div>
                       <div>
                         <p class="text-muted">วันที่สร้าง</p>
@@ -626,7 +620,7 @@ const columns: TableColumn<AdminPaymentRecord>[] = [
                       </div>
                       <div>
                         <p class="text-muted">ประเภท</p>
-                        <UBadge :color="getSaleTypeColor(payment)" variant="subtle" class="mt-1">
+                        <UBadge :color="getSaleTypeColor(payment)" variant="subtle" size="xs" class="mt-1">
                           {{ getSaleTypeLabel(payment) }}
                         </UBadge>
                       </div>
@@ -636,7 +630,7 @@ const columns: TableColumn<AdminPaymentRecord>[] = [
                       </div>
                     </div>
 
-                    <div class="mt-3 flex items-center justify-end gap-1 border-t border-default pt-3">
+                    <div class="mt-3 flex items-center justify-end gap-1 border-t border-gray-100 pt-3 dark:border-gray-800">
                       <UButton
                         v-if="canConfirmPayment(payment)"
                         icon="i-lucide-check"

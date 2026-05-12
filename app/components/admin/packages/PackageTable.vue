@@ -17,7 +17,7 @@ import {
   formatDateTime,
 } from "~~/shared/utils/format";
 import { cycleColumnSorting } from "~~/shared/utils/table";
-import { adminTableUi, getAdminListCardClass } from "~~/shared/config/adminUi";
+import { adminMobileListCardClass, adminTableUi } from "~~/shared/config/adminUi";
 
 const props = defineProps<{
   packages: Package[];
@@ -360,13 +360,13 @@ const columns: TableColumn<Package>[] = [
         </p>
       </div>
 
-      <div v-else class="space-y-4">
+      <div v-else class="space-y-3">
         <div
           v-for="(pkg, index) in paginatedPackages"
           :key="pkg.id"
-          :class="getAdminListCardClass(pkg.isActive ? (pkg.packageType === 'MAIN' ? 'primary' : 'info') : 'neutral')"
+          :class="adminMobileListCardClass"
         >
-          <div class="flex items-start gap-3">
+          <div class="flex items-start gap-3 p-3">
             <UCheckbox
               :model-value="isMobileRowSelected(index)"
               aria-label="เลือกแพ็กเกจ"
@@ -395,24 +395,25 @@ const columns: TableColumn<Package>[] = [
                 <UBadge
                   :color="pkg.isActive ? packageActiveConfig.active.color : packageActiveConfig.inactive.color"
                   variant="subtle"
+                  size="xs"
                   class="shrink-0"
                 >
                   {{ pkg.isActive ? packageActiveConfig.active.label : packageActiveConfig.inactive.label }}
                 </UBadge>
               </div>
 
-              <div class="mt-3 grid grid-cols-2 gap-2 border-t border-default pt-3 text-xs">
+              <div class="mt-3 grid grid-cols-2 gap-2 border-t border-gray-100 pt-3 text-xs dark:border-gray-800">
                 <div>
                   <p class="text-muted">ประเภท</p>
-                  <UBadge :color="packageTypeColors[pkg.packageType]" variant="subtle" class="mt-1">
+                  <UBadge :color="packageTypeColors[pkg.packageType]" variant="subtle" size="xs" class="mt-1">
                     {{ packageTypeLabels[pkg.packageType] }}
                   </UBadge>
                 </div>
                 <div>
                   <p class="text-muted">ราคา</p>
                   <p
-                    class="mt-1 font-semibold"
-                    :class="Number(pkg.price) === 0 ? 'text-success' : 'text-highlighted'"
+                    class="mt-1 text-lg font-semibold"
+                    :class="Number(pkg.price) === 0 ? 'text-success' : 'text-primary'"
                   >
                     {{ getPackagePriceLabel(pkg) }}
                   </p>
@@ -431,6 +432,7 @@ const columns: TableColumn<Package>[] = [
                     v-if="pkg.packageType === 'ADDON'"
                     :color="pkg.deductOn === 'CREATED' ? 'info' : 'warning'"
                     variant="subtle"
+                    size="xs"
                     class="mt-1"
                   >
                     {{ getDeductOnLabel(pkg) }}
@@ -443,7 +445,7 @@ const columns: TableColumn<Package>[] = [
                 </div>
               </div>
 
-              <div class="mt-3 flex items-center justify-end gap-1 border-t border-default pt-3">
+              <div class="mt-3 flex items-center justify-end gap-1 border-t border-gray-100 pt-3 dark:border-gray-800">
                 <UButton icon="i-lucide-pencil" size="xs" color="neutral" variant="ghost" aria-label="แก้ไขแพ็กเกจ" @click="emit('edit', pkg)" />
                 <UButton icon="i-lucide-trash-2" size="xs" color="error" variant="ghost" aria-label="ลบแพ็กเกจ" @click="emit('delete', pkg)" />
               </div>

@@ -2,7 +2,7 @@
 import type { EntitlementStatus, PackageSaleStatus, PaymentMethod, PaymentStatus, Role, ServiceOrderStatus } from "~~/shared/types/enums";
 import { packageTypeColors, packageTypeLabels } from "~~/shared/config/packageConfig";
 import { paymentMethodLabels, paymentStatusColors, paymentStatusLabels } from "~~/shared/config/paymentConfig";
-import { getAdminListCardClass } from "~~/shared/config/adminUi";
+import { adminMobileListCardClass } from "~~/shared/config/adminUi";
 import { formatCurrency, formatDateTime } from "~~/shared/utils/format";
 import { useAdminPayments } from "~~/app/composables/useAdminPayments";
 import ConfirmPaymentModal from "~~/app/components/admin/payment/ConfirmPaymentModal.vue";
@@ -539,13 +539,13 @@ const savePaymentChanges = async () => {
                 <p class="text-base font-semibold text-highlighted">{{ itemSectionTitle }} <span class="text-sm text-muted ml-2">{{ itemSectionDescription }}</span></p>
               </div>
             </div>
-            <div v-if="detailItems.length" class="space-y-4 p-4 md:hidden">
+            <div v-if="detailItems.length" class="space-y-3 p-4 md:hidden">
               <div
                 v-for="item in detailItems"
                 :key="item.id"
-                :class="getAdminListCardClass(item.badgeColor || (isPackagePayment ? 'secondary' : 'primary'))"
+                :class="adminMobileListCardClass"
               >
-                <div class="flex min-w-0 gap-3">
+                <div class="flex min-w-0 gap-3 p-3">
                   <div v-if="!isPackagePayment" class="shrink-0">
                     <div class="flex max-w-18 flex-wrap gap-1">
                       <button
@@ -586,7 +586,7 @@ const savePaymentChanges = async () => {
                   </div>
                 </div>
 
-                <div class="mt-3 grid grid-cols-3 gap-2 border-t border-default pt-3 text-xs">
+                <div class="mx-3 mt-3 grid grid-cols-3 gap-2 border-t border-gray-100 pt-3 text-xs dark:border-gray-800">
                   <div>
                     <p class="text-muted">ราคา/หน่วย</p>
                     <p class="mt-1 wrap-break-word font-medium text-highlighted">{{ item.unitPriceLabel || "-" }}</p>
@@ -597,7 +597,7 @@ const savePaymentChanges = async () => {
                   </div>
                   <div class="text-right">
                     <p class="text-muted">รวม</p>
-                    <p class="mt-1 wrap-break-word font-semibold text-highlighted">{{ item.totalLabel }}</p>
+                    <p class="mt-1 wrap-break-word text-lg font-semibold text-primary">{{ item.totalLabel }}</p>
                   </div>
                 </div>
               </div>

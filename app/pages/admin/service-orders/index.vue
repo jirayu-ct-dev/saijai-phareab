@@ -13,7 +13,7 @@ import type {
 import { orderStatusColors, orderStatusLabels } from "~~/shared/config/orderConfig";
 import { useBusinessSetting } from "~~/app/composables/useBusinessSetting";
 import { formatCurrency, formatDateTime } from "~~/shared/utils/format";
-import { adminTableUi, getAdminListCardClass, type AdminCardTone } from "~~/shared/config/adminUi";
+import { adminMobileListCardClass, adminTableUi } from "~~/shared/config/adminUi";
 import type { ServiceOrderStatus } from "~~/shared/types/enums";
 
 definePageMeta({
@@ -67,13 +67,6 @@ const serviceOrderStatusOptions: Array<{ label: string; value: ServiceOrderStatu
   { label: orderStatusLabels.COMPLETED, value: "COMPLETED" },
   { label: orderStatusLabels.CANCELLED, value: "CANCELLED" },
 ];
-const orderStatusCardTone: Record<ServiceOrderStatus, AdminCardTone> = {
-  RECEIVED: "info",
-  PROCESSING: "primary",
-  DELIVERING: "warning",
-  COMPLETED: "neutral",
-  CANCELLED: "error",
-};
 
 const table = useTemplateRef<TableInstance>("table");
 const rowSelection = ref<Record<string, boolean>>({});
@@ -1322,13 +1315,13 @@ const columns: TableColumn<AdminServiceOrder>[] = [
               <p>ไม่พบรายการรับผ้า</p>
             </div>
 
-            <div v-else class="space-y-4">
+            <div v-else class="space-y-3">
               <div
                 v-for="(order, index) in paginatedServiceOrders"
                 :key="order.id"
-                :class="getAdminListCardClass(orderStatusCardTone[order.status])"
+                :class="adminMobileListCardClass"
               >
-                <div class="flex items-start gap-3">
+                <div class="flex items-start gap-3 p-3">
                   <UCheckbox
                     :model-value="isMobileRowSelected(index)"
                     aria-label="เลือกรายการ"
@@ -1368,25 +1361,25 @@ const columns: TableColumn<AdminServiceOrder>[] = [
                         aria-label="อัพเดทสถานะงาน"
                         @click="openStatusModal(order)"
                       >
-                        <UBadge :color="orderStatusColors[order.status]" variant="subtle" icon="i-lucide-pencil">
+                        <UBadge :color="orderStatusColors[order.status]" variant="subtle" size="xs" icon="i-lucide-pencil">
                           {{ orderStatusLabels[order.status] }}
                         </UBadge>
                       </button>
                     </div>
 
-                    <div class="mt-3 space-y-1 border-t border-default pt-3">
+                    <div class="mt-3 space-y-1 border-t border-gray-100 pt-3 dark:border-gray-800">
                       <p v-for="item in formatItemSummary(order)" :key="item" class="text-sm text-highlighted">
                         {{ item }}
                       </p>
                     </div>
 
-                    <div class="mt-3 grid grid-cols-3 gap-2 border-t border-default pt-3 text-xs">
+                    <div class="mt-3 grid grid-cols-3 gap-2 border-t border-gray-100 pt-3 text-xs dark:border-gray-800">
                       <div>
                         <p class="text-muted">ยอด/เครดิต</p>
                         <p v-if="order.memberEntitlement && Number(order.totalAmount ?? 0) === 0" class="mt-1 font-semibold text-success">
                           ใช้เครดิต
                         </p>
-                        <p v-else class="mt-1 font-semibold text-highlighted">{{ formatCurrency(Number(order.totalAmount ?? 0)) }}</p>
+                        <p v-else class="mt-1 text-lg font-semibold text-primary">{{ formatCurrency(Number(order.totalAmount ?? 0)) }}</p>
                         <p v-if="order.memberEntitlement" class="mt-0.5 text-success">
                           {{ order.creditUsed ?? 0 }} เครดิต
                         </p>
@@ -1403,7 +1396,7 @@ const columns: TableColumn<AdminServiceOrder>[] = [
                       </div>
                     </div>
 
-                    <div class="mt-3 flex items-center justify-end gap-1 border-t border-default pt-3">
+                    <div class="mt-3 flex items-center justify-end gap-1 border-t border-gray-100 pt-3 dark:border-gray-800">
                       <UButton icon="i-lucide-eye" size="xs" color="neutral" variant="ghost" aria-label="ดูรายละเอียดรายการรับผ้า" @click="openDetailPage(order)" />
                       <UButton icon="i-lucide-refresh-ccw" size="xs" color="primary" variant="ghost" aria-label="อัพเดทสถานะงาน" @click="openStatusModal(order)" />
                       <UDropdownMenu :items="getActionItems(order)" :content="{ align: 'end' }">

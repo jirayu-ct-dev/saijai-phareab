@@ -2,7 +2,7 @@
 import { h, resolveComponent } from 'vue'
 import type { TableColumn } from '@nuxt/ui'
 import type { Period, Range } from '~~/shared/types/dashboard'
-import { adminTableUi, getAdminListCardClass } from '~~/shared/config/adminUi'
+import { adminMobileListCardClass, adminTableUi } from '~~/shared/config/adminUi'
 import { formatCurrency, formatDateTime } from '~~/shared/utils/format'
 
 const props = defineProps<{
@@ -117,12 +117,13 @@ const columns: TableColumn<RecentPayment>[] = [
         <p>ยังไม่มีรายการชำระเงิน</p>
       </div>
 
-      <div v-else class="space-y-4">
+      <div v-else class="space-y-3">
         <div
           v-for="payment in data"
           :key="payment.id"
-          :class="getAdminListCardClass(payment.paymentType === 'PACKAGE' ? 'secondary' : 'primary')"
+          :class="adminMobileListCardClass"
         >
+          <div class="p-3">
           <div class="flex items-start justify-between gap-3">
             <div class="flex min-w-0 items-center gap-2">
               <UAvatar
@@ -139,17 +140,17 @@ const columns: TableColumn<RecentPayment>[] = [
             <UBadge
               :color="payment.paymentType === 'PACKAGE' ? 'secondary' : 'primary'"
               variant="subtle"
-              size="sm"
+              size="xs"
               class="shrink-0"
             >
               {{ payment.paymentType === 'PACKAGE' ? 'แพ็กเกจ' : 'ออเดอร์' }}
             </UBadge>
           </div>
 
-          <div class="mt-3 grid grid-cols-2 gap-2 border-t border-default pt-3 text-xs">
+          <div class="mt-3 grid grid-cols-2 gap-2 border-t border-gray-100 pt-3 text-xs dark:border-gray-800">
             <div>
               <p class="text-muted">ยอดชำระ</p>
-              <p class="mt-1 font-semibold text-highlighted">{{ formatCurrency(payment.amount) }}</p>
+              <p class="mt-1 text-lg font-semibold text-primary">{{ formatCurrency(payment.amount) }}</p>
             </div>
             <div>
               <p class="text-muted">เวลา</p>
@@ -157,7 +158,7 @@ const columns: TableColumn<RecentPayment>[] = [
             </div>
           </div>
 
-          <div class="mt-3 flex items-center justify-end gap-1 border-t border-default pt-3">
+          <div class="mt-3 flex items-center justify-end gap-1 border-t border-gray-100 pt-3 dark:border-gray-800">
             <UIButtonChatLine
               v-if="payment.customer.lineUserId"
               :line-user-id="payment.customer.lineUserId"
@@ -172,6 +173,7 @@ const columns: TableColumn<RecentPayment>[] = [
               aria-label="ดูรายการชำระเงิน"
               @click="router.push(`/admin/payment/${payment.id}`)"
             />
+          </div>
           </div>
         </div>
       </div>

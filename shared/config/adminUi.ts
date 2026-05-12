@@ -18,6 +18,9 @@ export const adminListCardClass = [adminListCardBaseClass, adminListCardToneClas
 export const getAdminListCardClass = (tone: AdminCardTone = "neutral") =>
   [adminListCardBaseClass, adminListCardToneClass[tone]].join(" ");
 
+export const adminMobileListCardClass =
+  "overflow-hidden rounded-xl border border-gray-100 bg-white shadow-sm transition-shadow duration-200 hover:shadow-md dark:border-gray-800 dark:bg-gray-900";
+
 export const adminCatalogItemToneClasses = [
   "border-default/35 bg-primary/10 hover:bg-primary/15 dark:border-default/25 dark:bg-elevated/45 dark:hover:bg-elevated/60",
   "border-default/35 bg-info/10 hover:bg-info/15 dark:border-default/25 dark:bg-elevated/45 dark:hover:bg-elevated/60",
