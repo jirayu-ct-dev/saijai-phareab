@@ -118,8 +118,8 @@ watch(session, async (newSession) => {
       <!-- Bottom: Footer -->
       <div class="relative z-10 flex gap-4 text-xs text-blue-200/70 mt-12">
         <span>&copy; 2026 ใส่ใจ ผ้าเรียบ</span>
-        <NuxtLink to="#" class="hover:text-white transition-colors">เงื่อนไข</NuxtLink>
-        <NuxtLink to="#" class="hover:text-white transition-colors">ความเป็นส่วนตัว</NuxtLink>
+        <NuxtLink to="/terms" class="hover:text-white transition-colors">เงื่อนไข</NuxtLink>
+        <NuxtLink to="/privacy" class="hover:text-white transition-colors">ความเป็นส่วนตัว</NuxtLink>
       </div>
     </div>
 
