@@ -6,16 +6,14 @@ type SessionUserWithRole = {
 };
 
 export default defineNuxtRouteMiddleware(async () => {
-  const authSession = useState<unknown | null>("auth:session", () => null);
-  const { data: session } = await authClient.useSession(useFetch);
+  const authSession = useState<any | null>("auth:session");
+  const session = authSession.value;
 
-  if (!session.value?.user) {
-    authSession.value = null;
+  if (!session?.user) {
     return navigateTo("/auth/login");
   }
 
-  authSession.value = session.value;
-  const role = (session.value.user as SessionUserWithRole).role;
+  const role = (session.user as SessionUserWithRole).role;
 
   if (role === "ADMIN" || role === "EMPLOYEE") {
     return navigateTo("/admin");

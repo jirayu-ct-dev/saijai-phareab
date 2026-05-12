@@ -160,53 +160,6 @@ onUnmounted(() => {
           <!-- Main chat card -->
           <div class="relative bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-3xl shadow-2xl overflow-hidden">
 
-        <!-- CTAs -->
-        <div class="flex flex-wrap justify-center gap-4 mb-16">
-          <template v-if="!session?.user">
-            <UButton
-              size="xl"
-              color="primary"
-              class="px-8 py-4 text-base font-bold rounded-2xl transition-all hover:scale-105 shadow-xl shadow-primary-500/20"
-              to="#per-item-pricing"
-            >
-              ดูราคาบริการ
-              <template #trailing>
-                <UIcon name="i-lucide-arrow-right" class="w-5 h-5" />
-              </template>
-            </UButton>
-            <UButton
-              size="xl"
-              variant="outline"
-              color="neutral"
-              class="px-8 py-4 text-base font-bold rounded-2xl border-2"
-              to="#contact"
-            >
-              ติดต่อเรา
-            </UButton>
-          </template>
-          <template v-else>
-            <UButton
-              size="xl"
-              color="primary"
-              class="px-8 py-4 text-base font-bold rounded-2xl transition-all hover:scale-105 shadow-xl shadow-primary-500/20"
-              to="/me"
-            >
-              ดูคำสั่งของฉัน
-              <template #trailing>
-                <UIcon name="i-lucide-arrow-right" class="w-5 h-5" />
-              </template>
-            </UButton>
-          </template>
-        </div>
-        <!-- ===== RIGHT COLUMN — LINE Mockup ===== -->
-        <div class="relative hidden lg:block">
-
-          <!-- Floating glow behind card -->
-          <div class="absolute inset-0 bg-gradient-to-br from-primary-200/30 to-blue-200/20 dark:from-primary-900/20 dark:to-blue-900/10 rounded-3xl blur-2xl scale-110 pointer-events-none" />
-
-          <!-- Main chat card -->
-          <div class="relative bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-3xl shadow-2xl overflow-hidden">
-
             <!-- Browser bar -->
             <div class="flex items-center gap-2 px-4 py-3 border-b border-gray-100 dark:border-gray-800 bg-gray-50/80 dark:bg-gray-950/80">
               <div class="flex gap-1.5">

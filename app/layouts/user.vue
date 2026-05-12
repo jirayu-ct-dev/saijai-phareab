@@ -74,13 +74,15 @@ const menu = computed<any[][]>(() => {
         exact: true,
         onSelect: closeSidebar,
       },
+      /* 
       {
         label: "ที่อยู่",
         icon: "i-lucide-map-pin",
         to: "/me/settings/addresses",
         exact: true,
         onSelect: closeSidebar,
-      },
+      }, 
+      */
     ] as any
   });
 

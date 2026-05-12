@@ -35,12 +35,13 @@ export const useUser = () => {
     return navigateTo('/auth/login')
   }
 
-  const login = async (email: string, password: string) => {
+  const login = async (email: string, password: string, rememberMe?: boolean) => {
     start();
     try {
       const { data, error } = await authClient.signIn.email({
         email,
         password,
+        rememberMe,
       });
 
       if (error) {
@@ -83,6 +84,10 @@ export const useUser = () => {
       if (!data) {
         throw new Error("ไม่พบข้อมูลผู้ใช้งาน");
       }
+
+      await refreshSession();
+      notify.success("สมัครสมาชิกสำเร็จ");
+      await redirectByRole(user.value?.role);
     } catch (error: any) {
       console.error(error);
       throw new Error(error.message || "เกิดข้อผิดพลาดในการสมัครสมาชิก");
@@ -102,16 +107,9 @@ export const useUser = () => {
       if (error) {
         throw new Error(error.message || "เข้าสู่ระบบด้วย LINE ไม่สำเร็จ");
       }
-
-      if (!data) {
-        throw new Error("ไม่พบข้อมูลผู้ใช้งาน");
-      }
-
-      console.log("user login data:", user);
-
-
-      // Redirect based on role
-      await redirectByRole(user.value?.role);
+      
+      // การทำ Social Login จะทำให้เบราว์เซอร์สลับหน้าไปที่ Provider (LINE) ทันที
+      // จึงไม่ควรเขียนโค้ดที่ต้องการประมวลผลต่อหลังจากบรรทัดนี้ เพราะอาจไม่ถูกเรียกหรือเกิดข้อผิดพลาด
 
     } catch (error: any) {
       console.error(error);

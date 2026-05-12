@@ -36,6 +36,24 @@ const period = ref<Period>("daily");
     </template>
 
     <template #body>
+      <!-- Email Verification Banner (Phase 3) -->
+      <div v-if="user && !user.emailVerified" class="mb-4">
+        <UAlert
+          color="warning"
+          variant="subtle"
+          icon="i-lucide-mail-warning"
+          title="ยังไม่ได้ยืนยันอีเมล"
+          description="ยืนยันอีเมลของคุณเพื่อรับใบเสร็จและการแจ้งเตือนทางอีเมล"
+          :actions="[{
+            label: 'ไปยืนยันอีเมล',
+            to: '/me/settings/profile',
+            color: 'warning',
+            variant: 'solid',
+          }]"
+          close
+        />
+      </div>
+
       <!-- Membership Card (Member เท่านั้น) -->
       <MeDashboardMembershipCard />
 
