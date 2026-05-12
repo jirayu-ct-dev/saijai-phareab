@@ -764,7 +764,7 @@ const columns: TableColumn<AdminUser>[] = [
                       </UPopover>
                     </div>
 
-                    <div class="mt-3 grid grid-cols-2 gap-2 border-t border-gray-100 pt-3 text-xs dark:border-gray-800">
+                    <div class="mt-3 grid grid-cols-2 gap-2 border-t border-slate-200 pt-3 text-xs dark:border-slate-800">
                       <div>
                         <p class="text-muted">อีเมล</p>
                         <UBadge
@@ -781,7 +781,7 @@ const columns: TableColumn<AdminUser>[] = [
                       </div>
                     </div>
 
-                    <div class="mt-3 border-t border-gray-100 pt-3 dark:border-gray-800">
+                    <div class="mt-3 border-t border-slate-200 pt-3 dark:border-slate-800">
                       <p class="text-xs text-muted">แพ็กเกจปัจจุบัน</p>
                       <div v-if="getCurrentPackages(user).length" class="mt-1 space-y-1">
                         <div
@@ -799,7 +799,7 @@ const columns: TableColumn<AdminUser>[] = [
                       <p v-else class="mt-1 text-sm text-muted">ไม่มีแพ็กเกจที่ใช้งาน</p>
                     </div>
 
-                    <div class="mt-3 flex items-center justify-end gap-1 border-t border-gray-100 pt-3 dark:border-gray-800">
+                    <div class="mt-3 flex items-center justify-end gap-1 border-t border-slate-200 pt-3 dark:border-slate-800">
                       <UButton icon="i-lucide-eye" size="xs" color="neutral" variant="ghost" aria-label="ดูรายละเอียดลูกค้า" :to="`/admin/users/${user.id}`" />
                       <UIButtonChatLine
                         v-if="user.lineUserId"

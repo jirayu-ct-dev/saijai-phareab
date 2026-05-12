@@ -4,7 +4,7 @@ definePageMeta({
 })
 
 import { ref, watch } from 'vue'
-import { getAdminListCardClass } from '~~/shared/config/adminUi'
+import { adminMobileListCardClass } from '~~/shared/config/adminUi'
 
 const notify = useNotify()
 
@@ -382,7 +382,7 @@ watch(isManageOpen, (open) => {
             </div>
 
             <!-- Form -->
-            <div :class="[getAdminListCardClass('primary'), 'space-y-3']">
+            <div :class="[adminMobileListCardClass, 'space-y-3 p-3']">
               <p class="text-xs font-semibold uppercase tracking-wide text-muted">
                 {{ editingCategory ? 'แก้ไขประเภท' : 'เพิ่มประเภทใหม่' }}
               </p>
@@ -449,7 +449,7 @@ watch(isManageOpen, (open) => {
             </div>
 
             <!-- Form -->
-            <div :class="[getAdminListCardClass('info'), 'space-y-3']">
+            <div :class="[adminMobileListCardClass, 'space-y-3 p-3']">
               <p class="text-xs font-semibold uppercase tracking-wide text-muted">
                 {{ editingService ? 'แก้ไขบริการ' : 'เพิ่มบริการใหม่' }}
               </p>

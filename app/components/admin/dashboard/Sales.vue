@@ -194,7 +194,7 @@ const columns: TableColumn<RecentOrder>[] = [
             </div>
           </div>
 
-          <div class="mt-3 grid grid-cols-2 gap-2 border-t border-gray-100 pt-3 text-xs dark:border-gray-800">
+          <div class="mt-3 grid grid-cols-2 gap-2 border-t border-slate-200 pt-3 text-xs dark:border-slate-800">
             <div>
               <p class="text-muted">ประเภท</p>
               <UBadge :color="orderTypeColors[order.orderType]" variant="subtle" size="xs" class="mt-1">
@@ -210,7 +210,7 @@ const columns: TableColumn<RecentOrder>[] = [
             </div>
           </div>
 
-          <div class="mt-3 flex items-center justify-end gap-1 border-t border-gray-100 pt-3 dark:border-gray-800">
+          <div class="mt-3 flex items-center justify-end gap-1 border-t border-slate-200 pt-3 dark:border-slate-800">
             <UIButtonChatLine
               v-if="order.customer.lineUserId"
               :line-user-id="order.customer.lineUserId"

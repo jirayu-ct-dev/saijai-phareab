@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import PackagePosWorkspace from "~~/app/components/admin/pos/PackagePosWorkspace.vue";
 import StorefrontPosWorkspace from "~~/app/components/admin/pos/StorefrontPosWorkspace.vue";
-import { getAdminListCardClass } from "~~/shared/config/adminUi";
+import { adminMobileListCardClass } from "~~/shared/config/adminUi";
 
 type CompletedSalePayload = {
   paymentId: string;
@@ -201,11 +201,14 @@ const resultDescription = computed(() =>
 
   <UModal v-model:open="saleResultModalOpen" :title="latestSaleResult.title" :description="resultDescription">
     <template #body>
-      <div :class="[getAdminListCardClass(latestSaleResult.saleType === 'PACKAGE' ? 'secondary' : 'primary'), 'text-sm text-toned']">
+      <div :class="[adminMobileListCardClass, 'p-3 text-sm text-toned']">
         <p class="font-medium text-highlighted">รหัสรายการชำระเงิน</p>
         <p class="mt-1 break-all font-mono text-xs text-muted">{{ latestSaleResult.paymentId }}</p>
 
-        <div v-if="latestSaleResult.saleType === 'STOREFRONT' && latestSaleResult.orderNo" class="mt-3 border-t border-default pt-3">
+        <div
+          v-if="latestSaleResult.saleType === 'STOREFRONT' && latestSaleResult.orderNo"
+          class="mt-3 border-t border-slate-200 pt-3 dark:border-slate-800"
+        >
           <p class="font-medium text-highlighted">เลขรับผ้า</p>
           <p class="mt-1 break-all font-mono text-xs text-muted">{{ latestSaleResult.orderNo }}</p>
         </div>

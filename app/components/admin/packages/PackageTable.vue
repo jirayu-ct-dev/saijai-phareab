@@ -402,7 +402,7 @@ const columns: TableColumn<Package>[] = [
                 </UBadge>
               </div>
 
-              <div class="mt-3 grid grid-cols-2 gap-2 border-t border-gray-100 pt-3 text-xs dark:border-gray-800">
+              <div class="mt-3 grid grid-cols-2 gap-2 border-t border-slate-200 pt-3 text-xs dark:border-slate-800">
                 <div>
                   <p class="text-muted">ประเภท</p>
                   <UBadge :color="packageTypeColors[pkg.packageType]" variant="subtle" size="xs" class="mt-1">
@@ -445,7 +445,7 @@ const columns: TableColumn<Package>[] = [
                 </div>
               </div>
 
-              <div class="mt-3 flex items-center justify-end gap-1 border-t border-gray-100 pt-3 dark:border-gray-800">
+              <div class="mt-3 flex items-center justify-end gap-1 border-t border-slate-200 pt-3 dark:border-slate-800">
                 <UButton icon="i-lucide-pencil" size="xs" color="neutral" variant="ghost" aria-label="แก้ไขแพ็กเกจ" @click="emit('edit', pkg)" />
                 <UButton icon="i-lucide-trash-2" size="xs" color="error" variant="ghost" aria-label="ลบแพ็กเกจ" @click="emit('delete', pkg)" />
               </div>

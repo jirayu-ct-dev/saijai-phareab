@@ -599,13 +599,13 @@ const columns: TableColumn<AdminPaymentRecord>[] = [
                       </button>
                     </div>
 
-                    <div class="mt-3 space-y-1 border-t border-gray-100 pt-3 dark:border-gray-800">
+                    <div class="mt-3 space-y-1 border-t border-slate-200 pt-3 dark:border-slate-800">
                       <p v-for="item in formatPaymentItems(payment)" :key="item" class="text-sm text-highlighted">
                         {{ item }}
                       </p>
                     </div>
 
-                    <div class="mt-3 grid grid-cols-2 gap-2 border-t border-gray-100 pt-3 text-xs dark:border-gray-800">
+                    <div class="mt-3 grid grid-cols-2 gap-2 border-t border-slate-200 pt-3 text-xs dark:border-slate-800">
                       <div>
                         <p class="text-muted">ยอดชำระ</p>
                         <template v-if="isServiceMember(payment) && Number(payment.amount ?? 0) === 0">
@@ -630,7 +630,7 @@ const columns: TableColumn<AdminPaymentRecord>[] = [
                       </div>
                     </div>
 
-                    <div class="mt-3 flex items-center justify-end gap-1 border-t border-gray-100 pt-3 dark:border-gray-800">
+                    <div class="mt-3 flex items-center justify-end gap-1 border-t border-slate-200 pt-3 dark:border-slate-800">
                       <UButton
                         v-if="canConfirmPayment(payment)"
                         icon="i-lucide-check"

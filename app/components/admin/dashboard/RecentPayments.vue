@@ -147,7 +147,7 @@ const columns: TableColumn<RecentPayment>[] = [
             </UBadge>
           </div>
 
-          <div class="mt-3 grid grid-cols-2 gap-2 border-t border-gray-100 pt-3 text-xs dark:border-gray-800">
+          <div class="mt-3 grid grid-cols-2 gap-2 border-t border-slate-200 pt-3 text-xs dark:border-slate-800">
             <div>
               <p class="text-muted">ยอดชำระ</p>
               <p class="mt-1 text-lg font-semibold text-primary">{{ formatCurrency(payment.amount) }}</p>
@@ -158,7 +158,7 @@ const columns: TableColumn<RecentPayment>[] = [
             </div>
           </div>
 
-          <div class="mt-3 flex items-center justify-end gap-1 border-t border-gray-100 pt-3 dark:border-gray-800">
+          <div class="mt-3 flex items-center justify-end gap-1 border-t border-slate-200 pt-3 dark:border-slate-800">
             <UIButtonChatLine
               v-if="payment.customer.lineUserId"
               :line-user-id="payment.customer.lineUserId"
