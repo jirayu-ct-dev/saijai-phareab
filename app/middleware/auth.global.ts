@@ -11,7 +11,7 @@ const fetchFreshSession = async () => {
 
 export default defineNuxtRouteMiddleware(async (to) => {
   const authSession = useState<unknown | null>("auth:session", () => null);
-  const publicRoutes = ["/", "/auth/login", "/auth/register"];
+  const publicRoutes = ["/", "/auth/login", "/auth/register", "/auth/forgot-password", "/auth/reset-password"];
 
   // Force a fresh session check first so the server can wipe a deleted user's session and set the signout-reason cookie.
   const preflight = await fetchFreshSession();
