@@ -2,11 +2,24 @@
 import type { EntitlementStatus, PackageSaleStatus, PaymentMethod, PaymentStatus, Role, ServiceOrderStatus } from "~~/shared/types/enums";
 import { packageTypeColors, packageTypeLabels } from "~~/shared/config/packageConfig";
 import { paymentMethodLabels, paymentStatusColors, paymentStatusLabels } from "~~/shared/config/paymentConfig";
-import { adminMobileListCardClass } from "~~/shared/config/adminUi";
+import * as adminUi from "~~/shared/config/adminUi";
 import { formatCurrency, formatDateTime } from "~~/shared/utils/format";
 import { useAdminPayments } from "~~/app/composables/useAdminPayments";
 import ConfirmPaymentModal from "~~/app/components/admin/payment/ConfirmPaymentModal.vue";
 import EditPaymentStateModal from "~~/app/components/admin/payment/EditPaymentStateModal.vue";
+
+const adminDashboardBodyClass =
+  adminUi.adminDashboardBodyClass
+  ?? "admin-dashboard flex flex-col gap-4 p-2 sm:gap-6 sm:p-6";
+const adminDashboardCardClass =
+  adminUi.adminDashboardCardClass
+  ?? "admin-dashboard-card rounded-md border border-default/30 bg-default p-4 shadow-[0_1px_2px_rgb(15_23_42/0.04),0_6px_18px_-10px_rgb(15_23_42/0.08)] dark:border-default/20 dark:bg-elevated/55";
+const adminMobileListCardClass =
+  adminUi.adminMobileListCardClass
+  ?? "overflow-hidden rounded-sm border border-default/30 bg-default transition-[background-color,border-color,box-shadow] duration-200 hover:border-default/45 hover:bg-default dark:border-default/20 dark:bg-elevated/55 dark:hover:bg-elevated/70";
+const adminEmptyStateClass =
+  adminUi.adminEmptyStateClass
+  ?? "flex flex-col items-center justify-center rounded-sm border border-dashed border-default/30 bg-default/55 px-3 py-5 text-center text-muted dark:border-default/20 dark:bg-elevated/30";
 
 type BadgeColor = "error" | "primary" | "secondary" | "success" | "info" | "warning" | "neutral";
 type InfoRow = { label: string; value: string; valueClass?: string; dividerBefore?: boolean; href?: string };
@@ -437,24 +450,25 @@ const savePaymentChanges = async () => {
       </UDashboardNavbar>
     </template>
     <template #body>
-      <div v-if="isLoading" class="grid min-w-0 gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
-        <div class="min-w-0 space-y-5">
-          <USkeleton class="h-96 rounded-2xl" />
-          <USkeleton class="h-128 rounded-2xl" />
+      <div :class="adminDashboardBodyClass">
+      <div v-if="isLoading" class="grid min-w-0 gap-4 sm:gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
+        <div class="min-w-0 space-y-4 sm:space-y-6">
+          <USkeleton class="h-96 rounded-md" />
+          <USkeleton class="h-128 rounded-md" />
         </div>
-        <div class="min-w-0 space-y-5">
-          <USkeleton class="h-168 rounded-2xl" />
+        <div class="min-w-0 space-y-4 sm:space-y-6">
+          <USkeleton class="h-168 rounded-md" />
         </div>
       </div>
 
-      <div v-else-if="error || !payment" class="rounded-2xl border border-default bg-default p-6">
+      <div v-else-if="error || !payment" class="rounded-md border border-default bg-default p-6">
         <p class="text-base font-semibold text-highlighted">ไม่พบข้อมูลการชำระเงิน</p>
         <p class="mt-2 text-sm text-muted">รายการนี้อาจถูกลบหรือคุณไม่มีสิทธิ์เข้าถึง</p>
       </div>
 
-      <div v-else class="grid min-w-0 gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
-        <div class="min-w-0 space-y-5">
-          <UCard :ui="{ root: 'rounded-2xl border border-default shadow-none', body: 'p-5' }">
+      <div v-else class="grid min-w-0 gap-4 sm:gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
+        <div class="min-w-0 space-y-4 sm:space-y-6">
+          <UCard :ui="{ root: 'rounded-md border border-default shadow-none', body: 'p-5' }">
             <div class="flex flex-wrap items-start justify-between gap-3">
               <div class="flex min-w-0 items-start gap-3">
                 <UAvatar v-bind="getAvatarProps(payment.customer)" size="lg" />
@@ -533,71 +547,65 @@ const savePaymentChanges = async () => {
             </div>
           </UCard>
 
-          <UCard :ui="{ root: 'rounded-2xl border border-default shadow-none', body: 'p-0' }">
-            <div class="flex flex-wrap items-start justify-between gap-3 border-b border-default px-5 py-4">
+          <section :class="[adminDashboardCardClass, 'overflow-hidden !p-0']">
+            <div class="flex flex-wrap items-center justify-between gap-2 border-b border-default/40 px-3 py-2">
               <div>
-                <p class="text-base font-semibold text-highlighted">{{ itemSectionTitle }} <span class="text-sm text-muted ml-2">{{ itemSectionDescription }}</span></p>
+                <p class="text-sm font-semibold text-highlighted">{{ itemSectionTitle }} <span class="ml-2 text-xs text-muted">{{ itemSectionDescription }}</span></p>
               </div>
             </div>
-            <div v-if="detailItems.length" class="space-y-3 p-4 md:hidden">
+            <div v-if="detailItems.length" class="space-y-1 p-2 md:hidden">
               <div
                 v-for="item in detailItems"
                 :key="item.id"
-                :class="adminMobileListCardClass"
+                :class="[adminMobileListCardClass, 'admin-dashboard-card rounded-md']"
               >
-                <div class="flex min-w-0 gap-3 p-3">
+                <div class="flex min-w-0 items-center gap-2 p-2">
                   <div v-if="!isPackagePayment" class="shrink-0">
-                    <div class="flex max-w-18 flex-wrap gap-1">
+                    <div class="flex size-14 items-center justify-center overflow-hidden rounded-md border border-default/30 bg-elevated/30 dark:border-default/20 dark:bg-elevated/45">
                       <button
-                        v-for="photo in item.photos"
-                        :key="photo.id"
+                        v-if="item.photos?.[0]"
                         type="button"
-                        class="relative size-14 overflow-hidden rounded-lg border border-default bg-muted/30"
-                        @click="openItemImagePreview(photo.secureUrl || photo.url, item.title)"
+                        class="relative size-full overflow-hidden"
+                        @click="openItemImagePreview(item.photos[0]?.secureUrl || item.photos[0]?.url, item.title)"
                       >
                         <NuxtImg
-                          :src="photo.secureUrl || photo.url || ''"
+                          :src="item.photos[0]?.secureUrl || item.photos[0]?.url || ''"
                           class="h-full w-full cursor-pointer object-cover"
                           sizes="56px"
                           loading="lazy"
                         />
                         <UBadge
-                          v-if="photo.isDamaged"
+                          v-if="item.photos[0]?.isDamaged"
                           color="error"
                           variant="solid"
                           size="xs"
                           class="absolute left-0.5 top-0.5"
                         >!</UBadge>
                       </button>
-                      <div
-                        v-if="!item.photos?.length"
-                        class="flex size-14 items-center justify-center rounded-lg border border-dashed border-default text-xs text-muted"
-                      >-</div>
+                      <UIcon v-else name="i-lucide-shirt" class="size-5 text-muted" />
                     </div>
                   </div>
 
                   <div class="min-w-0 flex-1">
-                    <div class="flex min-w-0 flex-wrap items-center gap-2">
-                      <p class="min-w-0 wrap-break-word font-medium text-highlighted">{{ item.title }}</p>
-                      <UBadge v-if="item.badgeLabel" :color="item.badgeColor || 'neutral'" variant="subtle" size="xs">{{ item.badgeLabel }}</UBadge>
+                    <div class="flex min-w-0 items-start justify-between gap-2">
+                      <div class="min-w-0">
+                        <div class="flex min-w-0 flex-wrap items-center gap-1.5">
+                          <p class="min-w-0 truncate text-sm font-medium text-highlighted">{{ item.title }}</p>
+                          <UBadge v-if="item.badgeLabel" :color="item.badgeColor || 'neutral'" variant="subtle" size="xs">{{ item.badgeLabel }}</UBadge>
+                        </div>
+                        <div class="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-muted">
+                          <span v-if="item.metaLabel" class="truncate">{{ item.metaLabel }}</span>
+                          <span>{{ item.quantityLabel }}</span>
+                          <span>{{ item.unitPriceLabel || "-" }}</span>
+                        </div>
+                      </div>
+                      <div class="shrink-0 text-right">
+                        <p class="text-sm font-semibold leading-none text-primary">{{ item.totalLabel }}</p>
+                        <p v-if="item.photos && item.photos.length > 1" class="mt-1 text-[10px] text-muted">รูป {{ item.photos.length }}</p>
+                      </div>
                     </div>
-                    <p v-if="item.metaLabel" class="wrap-break-word text-xs text-muted">{{ item.metaLabel }}</p>
-                    <p v-if="item.notes" class="mt-1 wrap-break-word text-xs text-muted whitespace-pre-line">{{ item.notes }}</p>
-                  </div>
-                </div>
 
-                <div class="mx-3 mt-3 grid grid-cols-3 gap-2 border-t border-slate-200 pt-3 text-xs dark:border-slate-800">
-                  <div>
-                    <p class="text-muted">ราคา/หน่วย</p>
-                    <p class="mt-1 wrap-break-word font-medium text-highlighted">{{ item.unitPriceLabel || "-" }}</p>
-                  </div>
-                  <div>
-                    <p class="text-muted">จำนวน</p>
-                    <p class="mt-1 wrap-break-word font-medium text-highlighted">{{ item.quantityLabel }}</p>
-                  </div>
-                  <div class="text-right">
-                    <p class="text-muted">รวม</p>
-                    <p class="mt-1 wrap-break-word text-lg font-semibold text-primary">{{ item.totalLabel }}</p>
+                    <p v-if="item.notes" class="mt-1 line-clamp-2 text-xs text-muted whitespace-pre-line">{{ item.notes }}</p>
                   </div>
                 </div>
               </div>
@@ -605,7 +613,7 @@ const savePaymentChanges = async () => {
 
             <div v-if="detailItems.length" class="hidden overflow-x-auto md:block">
               <table class="w-full min-w-160 text-sm">
-                <thead class="bg-elevated/40 text-xs text-muted">
+                <thead class="bg-elevated/50 text-xs text-muted dark:bg-elevated/40">
                   <tr>
                     <th v-if="!isPackagePayment" class="w-20 px-5 py-2 text-left font-medium">รูป</th>
                     <th class="px-5 py-2 text-left font-medium">รายการ</th>
@@ -615,14 +623,14 @@ const savePaymentChanges = async () => {
                   </tr>
                 </thead>
                 <tbody class="divide-y divide-default/40">
-                  <tr v-for="item in detailItems" :key="item.id" class="align-top odd:bg-default even:bg-elevated/70 transition-colors hover:bg-primary/10">
-                    <td v-if="!isPackagePayment" class="px-5 py-3">
+                  <tr v-for="item in detailItems" :key="item.id" class="align-top transition-colors even:bg-elevated/25 hover:bg-primary/[0.05] dark:even:bg-elevated/30">
+                    <td v-if="!isPackagePayment" class="px-3 py-2">
                       <div class="flex flex-wrap gap-1">
                         <button
                           v-for="photo in item.photos"
                           :key="photo.id"
                           type="button"
-                          class="relative size-14 overflow-hidden rounded-lg border border-default bg-muted/30"
+                          class="relative size-14 overflow-hidden rounded-md border border-default bg-muted/30"
                           @click="openItemImagePreview(photo.secureUrl || photo.url, item.title)"
                         >
                           <NuxtImg
@@ -641,11 +649,11 @@ const savePaymentChanges = async () => {
                         </button>
                         <div
                           v-if="!item.photos?.length"
-                          class="flex size-14 items-center justify-center rounded-lg border border-dashed border-default text-xs text-muted"
+                          class="flex size-14 items-center justify-center rounded-md border border-dashed border-default text-xs text-muted"
                         >-</div>
                       </div>
                     </td>
-                    <td class="px-5 py-3">
+                    <td class="px-3 py-2">
                       <div class="flex flex-wrap items-center gap-2">
                         <p class="wrap-break-word font-medium text-highlighted">{{ item.title }}</p>
                         <UBadge v-if="item.badgeLabel" :color="item.badgeColor || 'neutral'" variant="subtle" size="xs">{{ item.badgeLabel }}</UBadge>
@@ -653,19 +661,19 @@ const savePaymentChanges = async () => {
                       <p v-if="item.metaLabel" class="wrap-break-word text-xs text-muted">{{ item.metaLabel }}</p>
                       <p v-if="item.notes" class="mt-1 wrap-break-word text-xs text-muted whitespace-pre-line">{{ item.notes }}</p>
                     </td>
-                    <td class="px-5 py-3 text-right text-muted">{{ item.unitPriceLabel || "-" }}</td>
-                    <td class="px-5 py-3 text-right text-muted">{{ item.quantityLabel }}</td>
-                    <td class="px-5 py-3 text-right font-semibold text-highlighted">{{ item.totalLabel }}</td>
+                    <td class="px-3 py-2 text-right text-muted">{{ item.unitPriceLabel || "-" }}</td>
+                    <td class="px-3 py-2 text-right text-muted">{{ item.quantityLabel }}</td>
+                    <td class="px-3 py-2 text-right font-semibold text-highlighted">{{ item.totalLabel }}</td>
                   </tr>
                 </tbody>
               </table>
             </div>
-            <div v-else class="px-5 py-10 text-center text-sm text-muted">ไม่พบรายการในบิลนี้</div>
-          </UCard>
+            <div v-else :class="adminEmptyStateClass">ไม่พบรายการในบิลนี้</div>
+          </section>
         </div>
 
         <div class="min-w-0 space-y-5 xl:sticky xl:top-4 xl:self-start">
-          <UCard :ui="{ root: 'rounded-2xl border border-default shadow-none', body: 'p-5' }">
+          <UCard :ui="{ root: 'rounded-md border border-default shadow-none', body: 'p-5' }">
             <div class="flex flex-wrap items-start justify-between gap-3">
               <div>
                 <p class="text-base font-semibold text-highlighted">{{ totalsSectionTitle }}</p>
@@ -681,7 +689,7 @@ const savePaymentChanges = async () => {
             </div>
           </UCard>
 
-          <UCard :ui="{ root: 'rounded-2xl border border-default shadow-none', body: 'p-5' }">
+          <UCard :ui="{ root: 'rounded-md border border-default shadow-none', body: 'p-5' }">
             <div class="flex items-start justify-between gap-3">
               <div>
                 <p class="text-base font-semibold text-highlighted">การชำระเงิน</p>
@@ -711,7 +719,7 @@ const savePaymentChanges = async () => {
                 @update:photos="onSlipPhotosUpdate"
               />
 
-              <div class="rounded-xl border border-default p-4 text-sm">
+              <div class="rounded-md border border-default p-4 text-sm">
                 <div class="flex items-start justify-between gap-3">
                   <span class="text-muted">อัปเดตล่าสุด</span>
                   <span>{{ formatDateTime(payment.updatedAt) }}</span>
@@ -722,6 +730,7 @@ const savePaymentChanges = async () => {
             </div>
           </UCard>
         </div>
+      </div>
       </div>
     </template>
   </UDashboardPanel>

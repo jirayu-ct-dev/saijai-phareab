@@ -277,9 +277,9 @@ const isExpiringSoon = (s: string | null) => {
         </div>
       </div>
 
-      <USkeleton v-if="isLoading" class="h-64 w-full rounded-lg" />
+      <USkeleton v-if="isLoading" class="h-64 w-full rounded-md" />
 
-      <div v-else-if="!members?.length" class="rounded-lg border border-dashed border-default p-8 text-center text-sm text-muted">
+      <div v-else-if="!members?.length" class="rounded-md border border-dashed border-default p-8 text-center text-sm text-muted">
         ไม่พบสมาชิกตามเงื่อนไข
       </div>
 
@@ -487,7 +487,7 @@ const isExpiringSoon = (s: string | null) => {
             <span class="font-semibold">{{ deletingEnt?.entitlement.product.name }}</span>
             ของลูกค้านี้ใช่หรือไม่?
           </p>
-          <div class="rounded-lg border border-warning/30 bg-warning/5 p-3 text-xs text-warning">
+          <div class="rounded-md border border-warning/30 bg-warning/5 p-3 text-xs text-warning">
             ⚠ การลบจะตั้งสถานะเป็น CANCELLED และไม่ส่งผลต่อประวัติการใช้งานเดิม
           </div>
         </div>
@@ -504,7 +504,7 @@ const isExpiringSoon = (s: string | null) => {
       <template #body>
         <div class="space-y-3 text-sm">
           <p>คุณต้องการลบลูกค้า <span class="font-semibold">{{ deletingMember?.name || deletingMember?.email }}</span> ใช่หรือไม่?</p>
-          <div class="rounded-lg border border-warning/30 bg-warning/5 p-3 text-xs text-warning">
+          <div class="rounded-md border border-warning/30 bg-warning/5 p-3 text-xs text-warning">
             ⚠ ลูกค้าที่มีการใช้สิทธิ์แพ็กเกจไปแล้วจะลบไม่ได้ — แพ็กเกจที่ยังไม่ถูกใช้จะถูกยกเลิกอัตโนมัติ
           </div>
         </div>

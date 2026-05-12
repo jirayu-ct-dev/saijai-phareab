@@ -101,7 +101,7 @@ const tooltipTemplate = (d: DataRecord) =>
       <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div class="min-w-0">
           <p class="text-xs text-muted mb-1">เปรียบเทียบออเดอร์แต่ละประเภท</p>
-          <p class="break-words text-2xl font-semibold text-highlighted sm:text-3xl">
+          <p class="wrap-break-word text-2xl font-semibold text-highlighted sm:text-3xl">
             {{ isLoading ? '...' : total.toLocaleString() }}
             <span class="text-sm font-normal text-muted ml-1">ออเดอร์</span>
           </p>

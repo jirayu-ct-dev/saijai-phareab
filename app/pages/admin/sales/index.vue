@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import PackagePosWorkspace from "~~/app/components/admin/pos/PackagePosWorkspace.vue";
 import StorefrontPosWorkspace from "~~/app/components/admin/pos/StorefrontPosWorkspace.vue";
-import { adminMobileListCardClass } from "~~/shared/config/adminUi";
+import { adminDashboardBodyClass, adminMobileListCardClass } from "~~/shared/config/adminUi";
 
 type CompletedSalePayload = {
   paymentId: string;
@@ -154,11 +154,11 @@ const resultDescription = computed(() =>
     </template>
 
     <template #body>
-      <div class="space-y-4">
-        <section class="rounded-xl border border-default/30 p-3">
+      <div :class="adminDashboardBodyClass">
+        <section class="admin-dashboard-card rounded-md border border-default/30 bg-default p-4 shadow-[0_1px_2px_rgb(15_23_42/0.04),0_6px_18px_-10px_rgb(15_23_42/0.08)] dark:border-default/20 dark:bg-elevated/55 dark:shadow-[0_1px_2px_rgb(0_0_0/0.16),0_8px_22px_-12px_rgb(0_0_0/0.26)]">
           <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <div class="flex min-w-0 items-center gap-3">
-              <div class="flex size-10 shrink-0 items-center justify-center rounded-lg bg-elevated text-highlighted">
+              <div class="flex size-10 shrink-0 items-center justify-center rounded-md bg-elevated text-highlighted">
                 <UIcon :name="activeModeOption.icon" class="size-5" />
               </div>
               <div class="min-w-0">
@@ -168,7 +168,7 @@ const resultDescription = computed(() =>
             </div>
 
             <div
-              class="grid grid-cols-2 gap-1 rounded-lg bg-elevated border border-default/30 p-1 lg:w-80"
+              class="grid grid-cols-2 gap-1 rounded-md border border-default/30 bg-elevated p-1 lg:w-80"
               role="tablist"
               aria-label="เลือกประเภทงานขาย"
             >
@@ -207,7 +207,7 @@ const resultDescription = computed(() =>
 
         <div
           v-if="latestSaleResult.saleType === 'STOREFRONT' && latestSaleResult.orderNo"
-          class="mt-3 border-t border-slate-200 pt-3 dark:border-slate-800"
+          class="mt-3 border-t border-default/15 pt-3 dark:border-default/10"
         >
           <p class="font-medium text-highlighted">เลขรับผ้า</p>
           <p class="mt-1 break-all font-mono text-xs text-muted">{{ latestSaleResult.orderNo }}</p>

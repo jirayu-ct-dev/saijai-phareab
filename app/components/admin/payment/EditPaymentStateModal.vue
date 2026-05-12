@@ -115,7 +115,7 @@ const submit = async () => {
   <UModal v-model:open="open" title="แก้ไขการชำระเงิน">
     <template #body>
       <div class="space-y-4">
-        <div class="flex items-start justify-between gap-3 rounded-lg bg-elevated px-3 py-2 text-sm">
+        <div class="flex items-start justify-between gap-3 rounded-md bg-elevated px-3 py-2 text-sm">
           <span class="min-w-0 break-all font-mono text-muted">{{ paymentNo || paymentId }}</span>
           <span class="shrink-0 font-semibold text-highlighted">{{ formatCurrency(amount) }}</span>
         </div>

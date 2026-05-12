@@ -129,7 +129,7 @@ const setPreset = (preset: "this-month" | "last-month" | "last-30-days" | "this-
       </UCard>
     </div>
 
-    <div class="rounded-lg border border-default bg-elevated/30 p-4 text-xs text-muted">
+    <div class="rounded-md border border-default bg-elevated/30 p-4 text-xs text-muted">
       💡 ไฟล์ CSV รองรับภาษาไทย (UTF-8 with BOM) สามารถเปิดด้วย Excel หรือ Google Sheets ได้ทันที
     </div>
   </div>

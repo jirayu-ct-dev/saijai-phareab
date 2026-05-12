@@ -254,7 +254,7 @@ const tocAnchors = sections.map((s) => ({ id: s.id, title: s.title, icon: s.icon
       v-for="s in sections"
       :id="s.id"
       :key="s.id"
-      class="rounded-2xl border border-default bg-default p-6 scroll-mt-20"
+      class="rounded-md border border-default bg-default p-6 scroll-mt-20"
     >
       <div class="flex items-center gap-3 mb-4">
         <UIcon :name="s.icon" class="size-6 text-primary" />
@@ -272,7 +272,7 @@ const tocAnchors = sections.map((s) => ({ id: s.id, title: s.title, icon: s.icon
           </ol>
           <div
             v-else-if="p.type === 'note'"
-            class="rounded-lg border border-info/30 bg-info/5 p-3 text-info text-xs"
+            class="rounded-md border border-info/30 bg-info/5 p-3 text-info text-xs"
           >
             💡 {{ p.text }}
           </div>

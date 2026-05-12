@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { adminCatalogCardBaseClass } from "~~/shared/config/adminUi";
+
 defineProps<{
   title: string;
   description?: string | null;
@@ -19,9 +21,9 @@ const emit = defineEmits<{
 }>();
 
 const defaultSelectedToneClass = {
-  primary: "border-default/35 bg-primary/10 hover:bg-primary/15 dark:border-default/25 dark:bg-elevated/45 dark:hover:bg-elevated/60",
-  warning: "border-default/35 bg-warning/10 hover:bg-warning/15 dark:border-default/25 dark:bg-elevated/45 dark:hover:bg-elevated/60",
-  info: "border-default/35 bg-info/10 hover:bg-info/15 dark:border-default/25 dark:bg-elevated/45 dark:hover:bg-elevated/60",
+  primary: "border-primary/30 bg-primary/[0.05] hover:bg-primary/[0.08] dark:border-primary/25 dark:bg-elevated/65 dark:hover:bg-elevated/75",
+  warning: "border-warning/30 bg-warning/[0.06] hover:bg-warning/[0.09] dark:border-warning/25 dark:bg-elevated/65 dark:hover:bg-elevated/75",
+  info: "border-info/30 bg-info/[0.05] hover:bg-info/[0.08] dark:border-info/25 dark:bg-elevated/65 dark:hover:bg-elevated/75",
 };
 </script>
 
@@ -30,8 +32,11 @@ const defaultSelectedToneClass = {
     role="button"
     tabindex="0"
     title="คลิกเพื่อเพิ่ม | คลิกขวาเพื่อลด"
-    class="group relative flex cursor-pointer flex-col justify-between gap-2 rounded-xl border p-3 text-left transition-colors"
-    :class="toneClass || (selected ? defaultSelectedToneClass[badgeColor] : 'border-default/35 bg-default hover:bg-elevated/20 dark:border-default/25 dark:bg-elevated/45 dark:hover:bg-elevated/60')"
+    :class="[
+      adminCatalogCardBaseClass,
+      'admin-pos-catalog-card rounded-md',
+      toneClass || (selected ? defaultSelectedToneClass[badgeColor] : 'border-default/30 bg-default hover:border-default/45 dark:border-default/20 dark:bg-elevated/55 dark:hover:bg-elevated/70')
+    ]"
     @click="emit('increment')"
     @contextmenu.prevent="emit('decrement')"
     @keydown.enter.prevent="emit('increment')"
@@ -43,7 +48,7 @@ const defaultSelectedToneClass = {
       <UBadge :color="badgeColor" variant="subtle" size="xs" class="mt-0.5">{{ badgeLabel }}</UBadge>
     </div>
 
-    <div class="flex items-end justify-between gap-2">
+    <div class="flex items-end justify-between gap-3 border-t border-default/15 pt-2.5 dark:border-default/10">
       <div class="min-w-0">
         <p class="text-sm font-semibold text-highlighted">{{ priceLabel }}</p>
         <p v-if="metaLabel" class="truncate text-xs text-muted">{{ metaLabel }}</p>
@@ -64,3 +69,9 @@ const defaultSelectedToneClass = {
     </div>
   </div>
 </template>
+
+<style scoped>
+.admin-pos-catalog-card {
+  border-radius: 0.375rem !important;
+}
+</style>

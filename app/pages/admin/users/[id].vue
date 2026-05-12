@@ -2,6 +2,11 @@
 import { packageTypeColors, packageTypeLabels } from '~~/shared/config/packageConfig'
 import { orderStatusLabels } from '~~/shared/config/orderConfig'
 import { formatCurrency, formatDateTime } from '~~/shared/utils/format'
+import * as adminUi from '~~/shared/config/adminUi'
+
+const adminDashboardBodyClass =
+  adminUi.adminDashboardBodyClass
+  ?? 'admin-dashboard flex flex-col gap-4 p-2 sm:gap-6 sm:p-6'
 import type {
   EntitlementStatus,
   PackageSaleStatus,
@@ -205,32 +210,32 @@ const statCards = computed(() => {
 
   const s = stats.value
   const cards = [
-    {
+    s.totalEntitlementCount > 0 && {
       title: 'แพ็กเกจที่ใช้งานอยู่',
       icon: 'i-lucide-package-check',
       value: String(s.activeEntitlementCount),
       hint: `สิทธิ์ทั้งหมด ${s.totalEntitlementCount}`
     },
-    {
+    s.mainCreditsInitial > 0 && {
       title: 'เครดิตหลัก',
       icon: 'i-lucide-coins',
-      value: s.mainCreditsInitial > 0 ? `${s.mainCreditsRemaining}/${s.mainCreditsInitial}` : '-',
-      hint: s.mainCreditsInitial > 0 ? `ใช้ไป ${s.mainCreditsInitial - s.mainCreditsRemaining}` : 'ไม่มีแพ็กเกจหลัก'
+      value: `${s.mainCreditsRemaining}/${s.mainCreditsInitial}`,
+      hint: `ใช้ไป ${s.mainCreditsInitial - s.mainCreditsRemaining}`
     },
-    {
+    s.addonCreditsInitial > 0 && {
       title: 'เครดิตเสริม',
       icon: 'i-lucide-sparkles',
-      value: s.addonCreditsInitial > 0 ? `${s.addonCreditsRemaining}/${s.addonCreditsInitial}` : '-',
-      hint: s.addonCreditsInitial > 0 ? `ใช้ไป ${s.addonCreditsInitial - s.addonCreditsRemaining}` : 'ไม่มีแพ็กเกจเสริม'
+      value: `${s.addonCreditsRemaining}/${s.addonCreditsInitial}`,
+      hint: `ใช้ไป ${s.addonCreditsInitial - s.addonCreditsRemaining}`
     },
-    {
+    s.totalPayments > 0 && {
       title: 'ยอดชำระสะสม',
       icon: 'i-lucide-banknote',
       value: formatCurrency(s.totalSpent),
       hint: `${s.totalPayments} รายการชำระเงิน`,
       to: '/admin/payment'
     },
-    {
+    s.totalServiceOrders > 0 && {
       title: 'รายการผ้าทั้งหมด',
       icon: 'i-lucide-clipboard-list',
       value: String(s.totalServiceOrders),
@@ -238,7 +243,7 @@ const statCards = computed(() => {
       to: '/admin/service-orders'
     }
   ]
-  return cards
+  return cards.filter(Boolean) as Array<{ title: string; icon: string; value: string; hint: string; to?: string }>
 })
 
 const paymentSummary = (payment: UserDetailResponse['recentPayments'][number]) => {
@@ -304,17 +309,21 @@ const orderItemCount = (order: UserDetailResponse['recentServiceOrders'][number]
 
     <template #body>
       <!-- Error State -->
-      <div v-if="error" class="rounded-2xl border border-error/40 bg-error/5 p-6 text-error">
-        {{ error.statusMessage || 'ไม่สามารถโหลดรายละเอียดลูกค้าได้' }}
+      <div v-if="error" :class="adminDashboardBodyClass">
+        <div class="rounded-md border border-error/40 bg-error/5 p-6 text-error">
+          {{ error.statusMessage || 'ไม่สามารถโหลดรายละเอียดลูกค้าได้' }}
+        </div>
       </div>
 
       <!-- Loading State -->
-      <div v-else-if="!user || !stats" class="flex items-center justify-center py-20 text-muted">
-        กำลังโหลดข้อมูล...
+      <div v-else-if="!user || !stats" :class="adminDashboardBodyClass">
+        <div class="flex items-center justify-center py-20 text-muted">
+          กำลังโหลดข้อมูล...
+        </div>
       </div>
 
       <!-- Main Content -->
-      <div v-else class="space-y-4 p-4 md:space-y-6 md:p-6">
+      <div v-else :class="adminDashboardBodyClass">
 
         <!-- SECTION 1: Profile Header -->
         <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -421,7 +430,7 @@ const orderItemCount = (order: UserDetailResponse['recentServiceOrders'][number]
               <UButton icon="i-lucide-arrow-up-right" color="neutral" variant="ghost" size="xs" @click="navigateTo('/admin/sales')" />
             </div>
             <div v-if="recentSales.length" class="divide-y divide-default">
-              <div v-for="sale in recentSales" :key="sale.id" class="py-2.5 first:pt-0 last:pb-0 cursor-pointer hover:bg-elevated/50 -mx-2 px-2 rounded-lg transition-colors" @click="navigateTo('/admin/sales')">
+              <div v-for="sale in recentSales" :key="sale.id" class="py-2.5 first:pt-0 last:pb-0 cursor-pointer hover:bg-elevated/50 -mx-2 px-2 rounded-md transition-colors" @click="navigateTo('/admin/sales')">
                 <div class="flex items-center justify-between gap-2">
                   <p class="text-xs text-highlighted truncate">{{ saleSummary(sale) }}</p>
                   <span class="text-xs font-semibold text-highlighted shrink-0">{{ formatCurrency(sale.totalAmount) }}</span>
@@ -445,7 +454,7 @@ const orderItemCount = (order: UserDetailResponse['recentServiceOrders'][number]
               <UButton icon="i-lucide-arrow-up-right" color="neutral" variant="ghost" size="xs" @click="navigateTo('/admin/service-orders')" />
             </div>
             <div v-if="recentServiceOrders.length" class="divide-y divide-default">
-              <div v-for="order in recentServiceOrders" :key="order.id" class="py-2.5 first:pt-0 last:pb-0 cursor-pointer hover:bg-elevated/50 -mx-2 px-2 rounded-lg transition-colors" @click="navigateTo(`/admin/service-orders/${order.id}`)">
+              <div v-for="order in recentServiceOrders" :key="order.id" class="py-2.5 first:pt-0 last:pb-0 cursor-pointer hover:bg-elevated/50 -mx-2 px-2 rounded-md transition-colors" @click="navigateTo(`/admin/service-orders/${order.id}`)">
                 <div class="flex items-center justify-between gap-2">
                   <p class="text-xs text-highlighted truncate">{{ orderItemCount(order) }} ชิ้น</p>
                   <span class="text-xs font-semibold text-highlighted shrink-0">{{ formatOrderTotal(order.totalAmount) }}</span>
@@ -469,7 +478,7 @@ const orderItemCount = (order: UserDetailResponse['recentServiceOrders'][number]
               <UButton icon="i-lucide-arrow-up-right" color="neutral" variant="ghost" size="xs" @click="navigateTo('/admin/payment')" />
             </div>
             <div v-if="recentPayments.length" class="divide-y divide-default">
-              <div v-for="payment in recentPayments" :key="payment.id" class="py-2.5 first:pt-0 last:pb-0 cursor-pointer hover:bg-elevated/50 -mx-2 px-2 rounded-lg transition-colors" @click="navigateTo(`/admin/payment/${payment.id}`)">
+              <div v-for="payment in recentPayments" :key="payment.id" class="py-2.5 first:pt-0 last:pb-0 cursor-pointer hover:bg-elevated/50 -mx-2 px-2 rounded-md transition-colors" @click="navigateTo(`/admin/payment/${payment.id}`)">
                 <div class="flex items-center justify-between gap-2">
                   <p class="text-xs text-highlighted truncate">{{ paymentSummary(payment) }}</p>
                   <span class="text-xs font-semibold text-highlighted shrink-0">{{ formatCurrency(payment.amount) }}</span>

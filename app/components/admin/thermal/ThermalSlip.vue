@@ -137,13 +137,13 @@ function goBack() {
 
     <template #body>
       <div ref="previewHost" class="thermal-scroll">
-        <div v-if="isLoading" class="thermal-card rounded-2xl border border-default bg-default p-6" :style="{ width: `${previewWidthPx}px`, maxWidth: '100%' }">
+        <div v-if="isLoading" class="thermal-card rounded-md border border-default bg-default p-6" :style="{ width: `${previewWidthPx}px`, maxWidth: '100%' }">
           <USkeleton class="mx-auto h-5 w-40" />
           <USkeleton class="mx-auto mt-2 h-4 w-56" />
           <USkeleton class="mt-6 h-80 w-full" />
         </div>
 
-        <div v-else-if="hasError" class="thermal-card rounded-2xl border border-default bg-default p-6" :style="{ width: `${previewWidthPx}px`, maxWidth: '100%' }">
+        <div v-else-if="hasError" class="thermal-card rounded-md border border-default bg-default p-6" :style="{ width: `${previewWidthPx}px`, maxWidth: '100%' }">
           <p class="text-base font-semibold text-highlighted">{{ emptyTitle || "ไม่พบข้อมูล" }}</p>
           <p class="mt-2 text-sm text-muted">{{ emptyMessage || "รายการนี้อาจถูกลบหรือยังไม่พร้อมสำหรับพิมพ์" }}</p>
           <div class="mt-4">

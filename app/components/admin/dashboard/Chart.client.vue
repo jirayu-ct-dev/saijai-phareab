@@ -82,7 +82,7 @@ const template = (d: DataRecord) => `${formatLabel(d.date)}: ${formatCurrency(d.
     <template #header>
       <div>
         <p class="text-xs text-muted mb-1.5">รายได้รวม</p>
-        <p class="break-words text-2xl font-semibold text-highlighted sm:text-3xl">
+        <p class="wrap-break-word text-2xl font-semibold text-highlighted sm:text-3xl">
           {{ isLoading ? '...' : formatCurrency(total) }}
         </p>
       </div>

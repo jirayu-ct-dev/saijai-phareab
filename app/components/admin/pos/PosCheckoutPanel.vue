@@ -28,6 +28,8 @@ const props = defineProps<{
   uploadedSlipUrl?: string | null;
   uploadedSlipLabel?: string | null;
   hidePaymentFields?: boolean;
+  flat?: boolean;
+  sectionClass?: string;
 }>();
 
 const emit = defineEmits<{
@@ -102,75 +104,88 @@ const performRemoveSlip = () => {
   emit("remove-slip");
   slipRemoveOpen.value = false;
 };
+
+const panelClass = computed(() =>
+  props.flat
+    ? "space-y-2"
+    : "admin-dashboard-card admin-pos-checkout-card rounded-md border border-default/30 bg-default p-4 shadow-[0_1px_2px_rgb(15_23_42/0.04),0_6px_18px_-10px_rgb(15_23_42/0.08)] dark:border-default/20 dark:bg-elevated/55 dark:shadow-[0_1px_2px_rgb(0_0_0/0.16),0_8px_22px_-12px_rgb(0_0_0/0.26)] sm:p-5",
+);
+const panelContentClass = computed(() => props.flat ? "space-y-2" : "mt-5 space-y-4");
+const panelSectionClass = computed(() =>
+  props.sectionClass
+  ?? "admin-dashboard-card admin-pos-checkout-card rounded-md border border-default/30 bg-default p-2 shadow-[0_1px_2px_rgb(15_23_42/0.04)] dark:border-default/20 dark:bg-elevated/55",
+);
 </script>
 
 <template>
-  <section class="rounded-2xl border border-default bg-default p-5">
-    <div>
+  <section :class="panelClass">
+    <div v-if="!props.flat">
       <p class="text-lg font-semibold text-highlighted">{{ props.title }}</p>
       <p class="text-sm text-muted">{{ props.description }}</p>
     </div>
 
-    <div class="mt-5 space-y-4">
-      <div v-if="props.allowWalkIn" class="space-y-3">
-        <UFormField label="ประเภทลูกค้า">
-          <URadioGroup v-model="customerMode" orientation="horizontal" :items="customerModeOptions" value-key="value" />
-        </UFormField>
-
-        <div v-if="props.isWalkIn" class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
-          <UFormField label="ชื่อลูกค้าหน้าร้าน">
-            <UInput
-              :model-value="props.walkInName || ''"
-              placeholder="เช่น คุณเอ"
-              @update:model-value="emit('update:walkInName', String($event || ''))"
-            />
+    <div :class="panelContentClass">
+      <div :class="props.flat ? panelSectionClass : 'space-y-3'">
+        <div v-if="props.allowWalkIn" class="space-y-3">
+          <UFormField label="ประเภทลูกค้า">
+            <URadioGroup v-model="customerMode" orientation="horizontal" :items="customerModeOptions" value-key="value" />
           </UFormField>
 
-          <UFormField label="เบอร์โทร">
-            <UInput
-              :model-value="props.walkInPhone || ''"
-              placeholder="เช่น 08xxxxxxxx"
-              @update:model-value="emit('update:walkInPhone', String($event || ''))"
-            />
-          </UFormField>
+          <div v-if="props.isWalkIn" class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
+            <UFormField label="ชื่อลูกค้าหน้าร้าน">
+              <UInput
+                :model-value="props.walkInName || ''"
+                placeholder="เช่น คุณเอ"
+                @update:model-value="emit('update:walkInName', String($event || ''))"
+              />
+            </UFormField>
+
+            <UFormField label="เบอร์โทร">
+              <UInput
+                :model-value="props.walkInPhone || ''"
+                placeholder="เช่น 08xxxxxxxx"
+                @update:model-value="emit('update:walkInPhone', String($event || ''))"
+              />
+            </UFormField>
+          </div>
         </div>
-      </div>
 
-      <UFormField v-if="!props.allowWalkIn || !props.isWalkIn" label="ลูกค้า" required>
-        <USelectMenu
-          :model-value="props.customerId"
-          :items="props.customerOptions"
-          value-key="value"
-          label-key="label"
-          searchable
-          :loading="props.customerLoading"
-          :avatar="getAvatarProps(selectedCustomer)"
-          class="w-full"
-          @update:model-value="emit('update:customerId', String($event || ''))"
-        >
-          <template #item="{ item }">
-            <div class="flex items-center gap-3">
-              <UAvatar v-bind="getAvatarProps(item)" size="sm" />
-              <div class="min-w-0">
-                <p class="truncate font-medium text-highlighted">{{ item.name || item.email }}</p>
-                <p class="truncate text-xs text-muted">
-                  {{ item.phoneNumber ? `${item.phoneNumber} | ` : "" }}{{ item.email }}
-                </p>
+        <UFormField v-if="!props.allowWalkIn || !props.isWalkIn" label="ลูกค้า" required>
+          <USelectMenu
+            :model-value="props.customerId"
+            :items="props.customerOptions"
+            value-key="value"
+            label-key="label"
+            searchable
+            :loading="props.customerLoading"
+            :avatar="getAvatarProps(selectedCustomer)"
+            class="w-full"
+            @update:model-value="emit('update:customerId', String($event || ''))"
+          >
+            <template #item="{ item }">
+              <div class="flex items-center gap-3">
+                <UAvatar v-bind="getAvatarProps(item)" size="sm" />
+                <div class="min-w-0">
+                  <p class="truncate font-medium text-highlighted">{{ item.name || item.email }}</p>
+                  <p class="truncate text-xs text-muted">
+                    {{ item.phoneNumber ? `${item.phoneNumber} | ` : "" }}{{ item.email }}
+                  </p>
+                </div>
               </div>
-            </div>
-          </template>
+            </template>
 
-          <template #empty>
-            <div class="px-3 py-2 text-sm text-muted">ไม่พบรายชื่อลูกค้า</div>
-          </template>
-        </USelectMenu>
-      </UFormField>
+            <template #empty>
+              <div class="px-3 py-2 text-sm text-muted">ไม่พบรายชื่อลูกค้า</div>
+            </template>
+          </USelectMenu>
+        </UFormField>
+      </div>
 
       <slot name="cart" />
       <slot name="summary" />
 
       <!-- comment ไว้ก่อน ไม่ต้องมาลบ -->
-      <!-- <div v-if="!props.hidePaymentFields" class="rounded-xl border border-dashed border-default p-4">
+      <!-- <div v-if="!props.hidePaymentFields" class="rounded-md border border-dashed border-default p-4">
         <div class="flex items-center justify-between gap-3">
           <div>
             <p class="font-medium text-highlighted">{{ slipLabel }}</p>
@@ -195,7 +210,7 @@ const performRemoveSlip = () => {
           @change="onSlipFileSelected"
         >
         <div v-if="slipDisplayUrl" class="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
-          <div class="group relative overflow-hidden rounded-xl border border-default bg-muted/30">
+          <div class="group relative overflow-hidden rounded-md border border-default bg-muted/30">
             <img
               :src="slipDisplayUrl"
               :alt="slipLabel"
@@ -234,24 +249,29 @@ const performRemoveSlip = () => {
         @confirm="performRemoveSlip"
       />
 
-      <div v-if="props.hidePaymentFields" class="rounded-xl border border-default/35 bg-elevated/70 p-3 text-sm dark:border-default/25 dark:bg-elevated/45">
+      <div
+        v-if="props.hidePaymentFields"
+        :class="props.flat ? [panelSectionClass, 'text-sm'] : 'rounded-md border border-default/35 bg-elevated/70 p-3 text-sm dark:border-default/25 dark:bg-elevated/45'"
+      >
         <p class="font-medium text-success">ใช้สิทธิ์แพ็กเกจรายเดือน</p>
         <p class="text-muted">ไม่ต้องชำระเงินเพิ่ม ระบบจะตัดเครดิตให้อัตโนมัติ</p>
       </div>
 
-      <UFormField label="หมายเหตุ">
-        <UTextarea
-          :model-value="props.note"
-          class="w-full"
-          :rows="3"
-          placeholder="รายละเอียดเพิ่มเติมของรายการนี้"
-          @update:model-value="emit('update:note', String($event || ''))"
-        />
-      </UFormField>
+      <div :class="props.flat ? panelSectionClass : ''">
+        <UFormField label="หมายเหตุ">
+          <UTextarea
+            :model-value="props.note"
+            class="w-full"
+            :rows="3"
+            placeholder="รายละเอียดเพิ่มเติมของรายการนี้"
+            @update:model-value="emit('update:note', String($event || ''))"
+          />
+        </UFormField>
+      </div>
 
       <slot name="discount" />
 
-      <div class="rounded-2xl border border-default bg-default p-4 text-default">
+      <div :class="props.flat ? [panelSectionClass, 'text-default'] : 'rounded-md bg-elevated/35 p-4 text-default dark:bg-elevated/25'">
         <div class="flex items-center justify-between gap-3">
           <div>
             <p class="text-sm/5 text-muted">{{ props.totalLabel }}</p>
@@ -263,10 +283,16 @@ const performRemoveSlip = () => {
         </div>
       </div>
 
-      <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
+      <div :class="props.flat ? [panelSectionClass, 'grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2'] : 'grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2'">
         <UButton label="ล้างข้อมูล" icon="i-lucide-rotate-ccw" color="neutral" variant="outline" block @click="emit('reset')" />
         <UButton :label="props.submitLabel" icon="i-lucide-check" color="neutral" block :loading="props.isSubmitting" @click="emit('submit')" />
       </div>
     </div>
   </section>
 </template>
+
+<style scoped>
+.admin-pos-checkout-card {
+  border-radius: 0.375rem !important;
+}
+</style>

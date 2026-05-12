@@ -1,5 +1,6 @@
 <script setup lang="ts">
 definePageMeta({
+  layout: 'admin',
   middleware: ['role-admin']
 })
 
@@ -11,7 +12,20 @@ import type { Role } from '~~/shared/types/enums'
 import { cycleColumnSorting } from '~~/shared/utils/table'
 import { randomPassword } from '~~/shared/utils/random'
 import { formatDate } from '~~/shared/utils/format'
-import { adminMobileListCardClass, adminTableUi } from '~~/shared/config/adminUi'
+import * as adminUi from '~~/shared/config/adminUi'
+
+const adminDashboardBodyClass =
+  adminUi.adminDashboardBodyClass
+  ?? 'admin-dashboard flex flex-col gap-4 p-2 sm:gap-6 sm:p-6'
+const adminDashboardCardClass =
+  adminUi.adminDashboardCardClass
+  ?? 'admin-dashboard-card rounded-md border border-default/30 bg-default p-4 shadow-[0_1px_2px_rgb(15_23_42/0.04),0_6px_18px_-10px_rgb(15_23_42/0.08)] dark:border-default/20 dark:bg-elevated/55'
+const adminFilterBarClass =
+  adminUi.adminFilterBarClass
+  ?? 'admin-dashboard-card rounded-md border border-default/30 bg-default p-2 shadow-[0_1px_2px_rgb(15_23_42/0.04)] dark:border-default/20 dark:bg-elevated/55'
+const adminEmptyStateClass = adminUi.adminEmptyStateClass
+const adminMobileListCardClass = adminUi.adminMobileListCardClass
+const adminTableUi = adminUi.adminTableUi
 
 const UAvatar = resolveComponent('UAvatar')
 const UButton = resolveComponent('UButton')
@@ -588,18 +602,16 @@ const columns: TableColumn<AdminUser>[] = [
     </template>
 
     <template #body>
-      <div class="flex flex-col gap-4">
-        <div class="flex flex-wrap items-center justify-between gap-1.5">
-          <div class="w-full md:w-auto">
+      <div :class="adminDashboardBodyClass">
+        <section class="flex flex-col gap-1">
+        <div :class="[adminFilterBarClass, '!px-3 !py-3 flex flex-col gap-1.5']">
+          <div class="flex flex-wrap items-center gap-1.5">
             <UInput
               v-model="searchQuery"
-              class="w-full md:max-w-sm"
+              class="min-w-0 flex-1 md:max-w-sm"
               icon="i-lucide-search"
               placeholder="ค้นหาชื่อ อีเมล เบอร์โทร หรือแพ็กเกจ"
             />
-          </div>
-
-          <div class="flex flex-wrap items-center gap-1.5">
             <UButton
               v-if="selectedRowsCount"
               label="ลบ"
@@ -612,34 +624,33 @@ const columns: TableColumn<AdminUser>[] = [
                 <UKbd>{{ selectedRowsCount }}</UKbd>
               </template>
             </UButton>
-
-            <USelect
-              v-model="roleFilter"
-              :items="ROLE_FILTER_OPTIONS"
-              value-key="value"
-              class="min-w-32"
-            />
-
-            <USelect
-              v-model="packageFilter"
-              :items="packageFilterOptions"
-              value-key="value"
-              class="min-w-44"
-            />
-
-            <USelect
-              v-model="verificationFilter"
-              :items="EMAIL_VERIFICATION_OPTIONS"
-              value-key="value"
-              class="min-w-32"
-            />
-
             <UButton
               icon="i-lucide-refresh-cw"
               color="neutral"
               variant="outline"
               :loading="isLoading"
               @click="handleRefresh"
+            />
+          </div>
+
+          <div class="grid grid-cols-3 gap-1.5">
+            <USelect
+              v-model="roleFilter"
+              :items="ROLE_FILTER_OPTIONS"
+              value-key="value"
+              class="min-w-0"
+            />
+            <USelect
+              v-model="packageFilter"
+              :items="packageFilterOptions"
+              value-key="value"
+              class="min-w-0"
+            />
+            <USelect
+              v-model="verificationFilter"
+              :items="EMAIL_VERIFICATION_OPTIONS"
+              value-key="value"
+              class="min-w-0"
             />
           </div>
         </div>
@@ -699,107 +710,93 @@ const columns: TableColumn<AdminUser>[] = [
 
         <ClientOnly>
           <div class="md:hidden">
-            <div v-if="isLoading" class="space-y-3">
-              <USkeleton v-for="i in 5" :key="i" class="h-40 w-full rounded-xl" />
+            <div v-if="isLoading" class="space-y-1">
+              <USkeleton v-for="i in 5" :key="i" class="h-24 w-full rounded-md" />
             </div>
 
-            <div v-else-if="!paginatedUsers.length" class="flex flex-col items-center justify-center rounded-xl border border-dashed border-default py-12 text-center text-muted">
+            <div v-else-if="!paginatedUsers.length" :class="adminEmptyStateClass">
               <UIcon name="i-lucide-users" class="mb-3 size-10 opacity-60" />
               <p>ไม่พบผู้ใช้งาน</p>
             </div>
 
-            <div v-else class="space-y-3">
+            <div v-else class="space-y-1">
               <div
                 v-for="(user, index) in paginatedUsers"
                 :key="user.id"
-                :class="adminMobileListCardClass"
+                :class="[adminMobileListCardClass, 'admin-dashboard-card rounded-md']"
               >
-                <div class="flex items-start gap-3 p-3">
+                <div class="flex items-center gap-2 p-2">
                   <UCheckbox
                     :model-value="isMobileRowSelected(index)"
                     :disabled="isSystemUser(user)"
                     aria-label="เลือกผู้ใช้งาน"
-                    class="mt-1"
+                    class="shrink-0"
                     @update:model-value="setMobileRowSelected(index, $event)"
                   />
+                  <NuxtLink :to="`/admin/users/${user.id}`" class="shrink-0">
+                    <UAvatar v-bind="getAvatarProps(user)" size="sm" />
+                  </NuxtLink>
 
                   <div class="min-w-0 flex-1">
                     <div class="flex min-w-0 items-start justify-between gap-2">
-                      <NuxtLink :to="`/admin/users/${user.id}`" class="flex min-w-0 items-center gap-2 hover:opacity-75">
-                        <UAvatar v-bind="getAvatarProps(user)" size="sm" class="shrink-0" />
-                        <span class="min-w-0">
-                          <span class="block truncate text-sm font-medium text-highlighted">{{ user.name || '-' }}</span>
-                          <span class="block truncate text-xs text-muted">{{ user.email }}</span>
-                        </span>
-                      </NuxtLink>
+                      <div class="min-w-0 flex-1">
+                        <NuxtLink :to="`/admin/users/${user.id}`" class="block max-w-full truncate text-sm font-medium text-highlighted hover:underline">
+                          {{ user.name || '-' }}
+                        </NuxtLink>
+                        <NuxtLink :to="`/admin/users/${user.id}`" class="block max-w-full truncate text-[11px] text-muted hover:underline">
+                          {{ user.email }}
+                        </NuxtLink>
+                      </div>
 
-                      <UPopover
-                        v-model:open="mobileQuickRoleOpenMap[user.id]"
-                        :content="{ align: 'end' }"
-                      >
+                      <div class="flex shrink-0 flex-col items-end gap-1">
+                        <UPopover
+                          v-model:open="mobileQuickRoleOpenMap[user.id]"
+                          :content="{ align: 'end' }"
+                        >
+                          <UBadge
+                            :color="ROLE_BADGE_MAP[user.role].color"
+                            variant="subtle"
+                            size="xs"
+                            icon="i-lucide-pencil"
+                            class="cursor-pointer"
+                          >
+                            {{ ROLE_BADGE_MAP[user.role].label }}
+                          </UBadge>
+
+                          <template #content>
+                            <div class="space-y-0.5 p-1">
+                              <UButton
+                                v-for="item in roleItems"
+                                :key="item.value"
+                                :label="item.label"
+                                :color="item.value === user.role ? 'primary' : 'neutral'"
+                                :variant="item.value === user.role ? 'subtle' : 'ghost'"
+                                size="xs"
+                                class="w-full justify-start"
+                                @click="handleQuickRoleChange(user, item.value)"
+                              />
+                            </div>
+                          </template>
+                        </UPopover>
                         <UBadge
-                          :color="ROLE_BADGE_MAP[user.role].color"
                           variant="subtle"
                           size="xs"
-                          icon="i-lucide-pencil"
-                          class="shrink-0 cursor-pointer"
-                        >
-                          {{ ROLE_BADGE_MAP[user.role].label }}
-                        </UBadge>
-
-                        <template #content>
-                          <div class="space-y-0.5 p-1">
-                            <UButton
-                              v-for="item in roleItems"
-                              :key="item.value"
-                              :label="item.label"
-                              :color="item.value === user.role ? 'primary' : 'neutral'"
-                              :variant="item.value === user.role ? 'subtle' : 'ghost'"
-                              size="xs"
-                              class="w-full justify-start"
-                              @click="handleQuickRoleChange(user, item.value)"
-                            />
-                          </div>
-                        </template>
-                      </UPopover>
-                    </div>
-
-                    <div class="mt-3 grid grid-cols-2 gap-2 border-t border-slate-200 pt-3 text-xs dark:border-slate-800">
-                      <div>
-                        <p class="text-muted">อีเมล</p>
-                        <UBadge
-                          :variant="'subtle'"
                           :color="EMAIL_STATUS_BADGE_MAP[user.emailVerified ? 'verified' : 'pending'].color"
-                          class="mt-1"
                         >
                           {{ EMAIL_STATUS_BADGE_MAP[user.emailVerified ? 'verified' : 'pending'].label }}
                         </UBadge>
                       </div>
-                      <div>
-                        <p class="text-muted">เบอร์โทร</p>
-                        <p class="mt-1 truncate text-highlighted">{{ user.phoneNumber || '-' }}</p>
-                      </div>
                     </div>
 
-                    <div class="mt-3 border-t border-slate-200 pt-3 dark:border-slate-800">
-                      <p class="text-xs text-muted">แพ็กเกจปัจจุบัน</p>
-                      <div v-if="getCurrentPackages(user).length" class="mt-1 space-y-1">
-                        <div
-                          v-for="entitlement in getCurrentPackages(user).slice(0, 2)"
-                          :key="entitlement.id"
-                          class="min-w-0"
-                        >
-                          <p class="truncate text-sm font-medium text-highlighted">{{ entitlement.product.name }}</p>
-                          <p class="truncate text-xs text-muted">{{ getPackageSummary(entitlement) }}</p>
-                        </div>
-                        <p v-if="getCurrentPackages(user).length > 2" class="text-xs text-muted">
-                          + อีก {{ getCurrentPackages(user).length - 2 }} แพ็กเกจ
-                        </p>
-                      </div>
-                      <p v-else class="mt-1 text-sm text-muted">ไม่มีแพ็กเกจที่ใช้งาน</p>
+                    <div class="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-muted">
+                      <span v-if="user.phoneNumber">{{ user.phoneNumber }}</span>
+                      <span v-if="getCurrentPackages(user).length">
+                        {{ getCurrentPackages(user)[0]?.product.name }}<span v-if="getCurrentPackages(user).length > 1"> + อีก {{ getCurrentPackages(user).length - 1 }} แพ็กเกจ</span>
+                      </span>
+                      <span v-else>ไม่มีแพ็กเกจที่ใช้งาน</span>
                     </div>
 
-                    <div class="mt-3 flex items-center justify-end gap-1 border-t border-slate-200 pt-3 dark:border-slate-800">
+                    <div class="mt-1 flex items-center justify-end gap-1">
                       <UButton icon="i-lucide-eye" size="xs" color="neutral" variant="ghost" aria-label="ดูรายละเอียดลูกค้า" :to="`/admin/users/${user.id}`" />
                       <UIButtonChatLine
                         v-if="user.lineUserId"
@@ -817,26 +814,28 @@ const columns: TableColumn<AdminUser>[] = [
             </div>
           </div>
 
-          <UTable
-            ref="table"
-            v-model:column-visibility="columnVisibility"
-            v-model:row-selection="rowSelection"
-            v-model:pagination="pagination"
-            :pagination-options="{ getPaginationRowModel: getPaginationRowModel() }"
-            class="hidden shrink-0 md:block"
-            :data="filteredUsers"
-            :columns="columns"
-            :loading="isLoading"
-            :ui="adminTableUi"
-          >
-            <template #empty>
-              <div class="flex flex-col items-center justify-center py-12 text-center text-muted">
-                <UIcon name="i-lucide-users" class="mb-3 size-10 opacity-60" />
-                <p>ไม่พบผู้ใช้งาน</p>
-              </div>
-            </template>
-          </UTable>
+          <div :class="[adminDashboardCardClass, 'hidden overflow-hidden !p-0 md:block']">
+            <UTable
+              ref="table"
+              v-model:column-visibility="columnVisibility"
+              v-model:row-selection="rowSelection"
+              v-model:pagination="pagination"
+              :pagination-options="{ getPaginationRowModel: getPaginationRowModel() }"
+              :data="filteredUsers"
+              :columns="columns"
+              :loading="isLoading"
+              :ui="adminTableUi"
+            >
+              <template #empty>
+                <div :class="adminEmptyStateClass">
+                  <UIcon name="i-lucide-users" class="mb-3 size-10 opacity-60" />
+                  <p>ไม่พบผู้ใช้งาน</p>
+                </div>
+              </template>
+            </UTable>
+          </div>
         </ClientOnly>
+        </section>
 
         <div class="mt-auto flex flex-wrap items-center justify-between gap-3 border-t border-default pt-4">
           <div class="text-sm text-muted">

@@ -2,6 +2,7 @@
 import { sub } from "date-fns";
 import type { DropdownMenuItem } from "@nuxt/ui";
 import type { Period, Range } from "~~/shared/types/dashboard";
+import { adminDashboardBodyClass, adminMetricCardClass } from "~~/shared/config/adminUi";
 
 definePageMeta({
   middleware: ["role-employee"],
@@ -58,35 +59,31 @@ const statCards = computed(() => [
     icon: "i-lucide-shopping-basket",
     to: "/admin/service-orders",
     value: stats.value?.receivedToday ?? 0,
-    toneClass: "border-info/20 bg-info/5 hover:bg-info/10 dark:border-default/25 dark:bg-elevated/45 dark:hover:bg-elevated/60",
   },
   {
     title: "รอดำเนินการ",
     icon: "i-lucide-loader-circle",
     to: "/admin/service-orders",
     value: stats.value?.inProgress ?? 0,
-    toneClass: "border-warning/20 bg-warning/5 hover:bg-warning/10 dark:border-default/25 dark:bg-elevated/45 dark:hover:bg-elevated/60",
   },
   {
     title: "พร้อมส่งคืน",
     icon: "i-lucide-package-check",
     to: "/admin/service-orders",
     value: stats.value?.readyToDeliver ?? 0,
-    toneClass: "border-primary/20 bg-primary/5 hover:bg-primary/10 dark:border-default/25 dark:bg-elevated/45 dark:hover:bg-elevated/60",
   },
   {
     title: "ส่งคืนวันนี้",
     icon: "i-lucide-check-circle",
     to: "/admin/service-orders",
     value: stats.value?.completedToday ?? 0,
-    toneClass: "border-success/20 bg-success/5 hover:bg-success/10 dark:border-default/25 dark:bg-elevated/45 dark:hover:bg-elevated/60",
   },
 ]);
 
 const cardUi = {
   container: "gap-y-1.5",
   wrapper: "items-start",
-  leading: "p-2.5 rounded-full bg-primary/10 ring ring-inset ring-primary/25 flex-col",
+  leading: "p-2.5 rounded-full bg-default/80 ring ring-inset ring-default/70 dark:bg-elevated/70 dark:ring-default/45 flex-col",
   title: "font-normal text-muted text-xs truncate",
 };
 </script>
@@ -108,18 +105,18 @@ const cardUi = {
     </template>
 
     <template #body>
-      <div class="flex flex-col gap-4 p-4 sm:gap-6 sm:p-6">
+      <div :class="adminDashboardBodyClass">
 
         <!-- Stats -->
         <ClientOnly>
-          <UPageGrid class="grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4 lg:gap-px">
+          <UPageGrid class="grid-cols-2 gap-1 sm:gap-1.5 lg:grid-cols-4">
             <template v-if="isStatsPending">
               <UPageCard
                 v-for="i in 4"
                 :key="`sk-${i}`"
                 variant="subtle"
                 :ui="cardUi"
-                class="min-w-0 lg:rounded-none first:rounded-l-lg last:rounded-r-lg dark:border-default/25 dark:bg-elevated/45"
+                :class="adminMetricCardClass"
               >
                 <template #leading>
                   <div class="p-2.5 rounded-full bg-elevated animate-pulse size-10" />
@@ -139,10 +136,7 @@ const cardUi = {
                 :to="card.to"
                 variant="subtle"
                 :ui="cardUi"
-                :class="[
-                  'min-w-0 lg:rounded-none first:rounded-l-lg last:rounded-r-lg hover:z-1',
-                  card.toneClass,
-                ]"
+                :class="[adminMetricCardClass, 'hover:z-1']"
               >
                 <span class="wrap-break-word text-lg font-semibold leading-tight text-highlighted sm:text-2xl">{{ card.value }}</span>
               </UPageCard>
@@ -150,13 +144,13 @@ const cardUi = {
           </UPageGrid>
 
           <template #fallback>
-            <UPageGrid class="grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4 lg:gap-px">
+            <UPageGrid class="grid-cols-2 gap-1 sm:gap-1.5 lg:grid-cols-4">
               <UPageCard
                 v-for="i in 4"
                 :key="`fb-${i}`"
                 variant="subtle"
                 :ui="cardUi"
-                class="min-w-0 lg:rounded-none first:rounded-l-lg last:rounded-r-lg dark:border-default/25 dark:bg-elevated/45"
+                :class="adminMetricCardClass"
               >
                 <template #leading>
                   <div class="p-2.5 rounded-full bg-elevated animate-pulse size-10" />
@@ -174,7 +168,7 @@ const cardUi = {
         <ClientOnly>
           <AdminDashboardSales :period="period" :range="range" />
           <template #fallback>
-            <UCard class="dark:border-default/25 dark:bg-elevated/45">
+            <UCard>
               <div class="space-y-3">
                 <div v-for="i in 4" :key="i" class="h-10 rounded bg-elevated animate-pulse" />
               </div>

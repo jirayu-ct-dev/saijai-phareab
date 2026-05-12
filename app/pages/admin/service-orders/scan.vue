@@ -709,24 +709,24 @@ onBeforeUnmount(() => {
             </template>
 
             <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-              <div class="rounded-xl border border-default bg-elevated/30 p-4">
+              <div class="rounded-md border border-default bg-elevated/30 p-4">
                 <p class="text-xs text-muted">วันนัดรับ</p>
                 <p class="mt-1 font-medium text-highlighted">{{ order.dueAt ? formatDateTime(order.dueAt) : "-" }}</p>
               </div>
-              <div class="rounded-xl border border-default bg-elevated/30 p-4">
+              <div class="rounded-md border border-default bg-elevated/30 p-4">
                 <p class="text-xs text-muted">จำนวนรายการ / ชิ้น</p>
                 <p class="mt-1 font-medium text-highlighted">{{ order.items.length }} รายการ | {{ totalQuantity }} ชิ้น</p>
               </div>
-              <div class="rounded-xl border border-default bg-elevated/30 p-4">
+              <div class="rounded-md border border-default bg-elevated/30 p-4">
                 <p class="text-xs text-muted">ยอดรวมสุทธิ</p>
                 <p class="mt-1 font-medium text-highlighted">{{ formatCurrency(order.totalAmount || 0) }}</p>
               </div>
-              <div v-if="hasMemberEntitlement" class="rounded-xl border border-default/35 bg-elevated/70 p-4 dark:border-default/25 dark:bg-elevated/45">
+              <div v-if="hasMemberEntitlement" class="rounded-md border border-default/35 bg-elevated/70 p-4 dark:border-default/25 dark:bg-elevated/45">
                 <p class="text-xs text-muted">เครดิตที่ใช้</p>
                 <p class="mt-1 font-semibold text-success">{{ usedCreditLabel }}</p>
                 <p class="text-xs text-muted">คงเหลือ {{ remainingCreditLabel }} | {{ memberPackageName }}</p>
               </div>
-              <div v-else class="rounded-xl border border-default bg-elevated/30 p-4">
+              <div v-else class="rounded-md border border-default bg-elevated/30 p-4">
                 <p class="text-xs text-muted">ตะกร้า / QR</p>
                 <p class="mt-1 font-medium text-highlighted">{{ order.basket?.label || order.basket?.qrCode || "-" }}</p>
               </div>
@@ -757,7 +757,7 @@ onBeforeUnmount(() => {
                             v-for="photo in (item.photos?.length ? item.photos : (item.image ? [{ id: item.image.id, imageId: item.image.id, isDamaged: false, sortOrder: 0, secureUrl: item.image.secureUrl, url: item.image.url }] : []))"
                             :key="photo.id"
                             type="button"
-                            class="relative size-14 overflow-hidden rounded-lg border border-default bg-muted/30"
+                            class="relative size-14 overflow-hidden rounded-md border border-default bg-muted/30"
                             @click="openImagePreview(photo.secureUrl || photo.url, `${item.label}`)"
                           >
                             <NuxtImg
@@ -776,7 +776,7 @@ onBeforeUnmount(() => {
                           </button>
                           <div
                             v-if="!item.photos?.length && !item.image"
-                            class="flex size-14 items-center justify-center rounded-lg border border-dashed border-default text-xs text-muted"
+                            class="flex size-14 items-center justify-center rounded-md border border-dashed border-default text-xs text-muted"
                           >-</div>
                         </div>
                       </td>
@@ -807,7 +807,7 @@ onBeforeUnmount(() => {
               </div>
             </div>
 
-            <div v-if="order.note" class="mt-4 rounded-xl border border-default bg-elevated/20 p-4">
+            <div v-if="order.note" class="mt-4 rounded-md border border-default bg-elevated/20 p-4">
               <p class="text-xs text-muted">หมายเหตุ</p>
               <p class="mt-1 whitespace-pre-line text-sm text-highlighted">{{ order.note }}</p>
             </div>
@@ -869,7 +869,7 @@ onBeforeUnmount(() => {
       >
         <template #body>
           <div v-if="order" class="space-y-5">
-            <div class="rounded-2xl border border-default p-4">
+            <div class="rounded-md border border-default p-4">
               <div class="flex items-center gap-3">
                 <UAvatar size="lg" v-bind="getAvatarProps(order.customer)" />
                 <div class="min-w-0">
@@ -962,7 +962,7 @@ onBeforeUnmount(() => {
                 <div
                   v-for="entry in addonPickerEntries"
                   :key="entry.entitlementId"
-                  class="flex flex-wrap items-center gap-3 rounded-xl border border-default p-3"
+                  class="flex flex-wrap items-center gap-3 rounded-md border border-default p-3"
                 >
                   <UCheckbox v-model="entry.selected" />
                   <div class="min-w-0 flex-1">
@@ -1008,9 +1008,9 @@ onBeforeUnmount(() => {
     <template #body>
       <div class="space-y-3">
         <div v-if="cameraError" class="text-sm text-error">{{ cameraError }}</div>
-        <div v-else class="relative overflow-hidden rounded-lg bg-black aspect-video flex items-center justify-center">
+        <div v-else class="relative overflow-hidden rounded-md bg-black aspect-video flex items-center justify-center">
           <video ref="cameraVideo" class="w-full h-full object-cover" autoplay muted playsinline />
-          <div class="absolute inset-0 border-4 border-white/30 rounded-lg pointer-events-none" />
+          <div class="absolute inset-0 border-4 border-white/30 rounded-md pointer-events-none" />
           <div v-if="isCameraStarting" class="absolute inset-0 flex items-center justify-center bg-black/50 text-white text-sm">กำลังเปิดกล้อง...</div>
         </div>
         <UButton label="ปิดกล้อง" icon="i-lucide-x" color="neutral" variant="outline" block @click="closeCameraScan" />

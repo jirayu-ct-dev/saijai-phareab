@@ -11,6 +11,7 @@ export type CreateAdminServiceOrderBody = {
   items?: Array<{
     storefrontPriceId: string;
     quantity: number;
+    unitPrice?: number | null;
     imageId?: string | null;
     notes?: string | null;
     photos?: Array<{ imageId: string; isDamaged: boolean; sortOrder?: number }>;

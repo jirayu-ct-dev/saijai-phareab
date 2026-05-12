@@ -15,6 +15,14 @@ import {
   packageTypeColors,
 } from "~~/shared/config/packageConfig";
 import { formatCurrency } from "~~/shared/utils/format";
+import * as adminUi from "~~/shared/config/adminUi";
+
+const adminDashboardBodyClass =
+  adminUi.adminDashboardBodyClass
+  ?? "admin-dashboard flex flex-col gap-4 p-2 sm:gap-6 sm:p-6";
+const adminFilterBarClass =
+  adminUi.adminFilterBarClass
+  ?? "admin-dashboard-card rounded-md border border-default/30 bg-default p-2 shadow-[0_1px_2px_rgb(15_23_42/0.04)] dark:border-default/20 dark:bg-elevated/55";
 
 const {
   loading,
@@ -25,13 +33,20 @@ const {
   refresh,
 } = usePackages();
 
-const tabItems: TabsItem[] = [
-  { label: "ทั้งหมด", value: "all" },
-  { label: "แพ็กเกจหลัก", value: "main" },
-  { label: "แพ็กเกจเสริม", value: "addon" },
-];
+const hasMainPackages = computed(() => getPackagesByTab("main").length > 0);
+const hasAddonPackages = computed(() => getPackagesByTab("addon").length > 0);
+
+const tabItems = computed<TabsItem[]>(() => {
+  const items: TabsItem[] = [{ label: "ทั้งหมด", value: "all" }];
+  if (hasMainPackages.value) items.push({ label: "แพ็กเกจหลัก", value: "main" });
+  if (hasAddonPackages.value) items.push({ label: "แพ็กเกจเสริม", value: "addon" });
+  return items;
+});
 
 const activeTab = ref<PackageTabKey>("all");
+watch(tabItems, (items) => {
+  if (!items.some((item) => item.value === activeTab.value)) activeTab.value = "all";
+});
 const filteredPackages = computed(() => getPackagesByTab(activeTab.value));
 
 const isFormOpen = ref(false);
@@ -130,15 +145,17 @@ const handleRemoveFromBulkDelete = (pkgId: string) => {
     </template>
 
     <template #body>
-      <div class="flex flex-col gap-4 p-4">
-        <UTabs
-          v-model="activeTab"
-          color="neutral"
-          variant="link"
-          :content="false"
-          :items="tabItems"
-          class="w-full"
-        />
+      <div :class="adminDashboardBodyClass">
+        <div v-if="tabItems.length > 1" :class="[adminFilterBarClass, '!px-3 !py-1']">
+          <UTabs
+            v-model="activeTab"
+            color="neutral"
+            variant="link"
+            :content="false"
+            :items="tabItems"
+            class="w-full"
+          />
+        </div>
 
         <AdminPackagesPackageTable
           :packages="filteredPackages"
@@ -225,7 +242,7 @@ const handleRemoveFromBulkDelete = (pkgId: string) => {
           class="flex items-center gap-3"
         >
           <div
-            class="size-10 rounded-lg flex items-center justify-center shrink-0"
+            class="size-10 rounded-md flex items-center justify-center shrink-0"
             :class="pkg.packageType === 'MAIN' ? 'bg-primary/10' : 'bg-info/10'"
           >
             <UIcon

@@ -5,10 +5,27 @@ import type { TableColumn } from "@nuxt/ui";
 import type { AdminPaymentRecord } from "~~/app/composables/useAdminPayments";
 import { formatCurrency, formatDateTime } from "~~/shared/utils/format";
 import type { Role } from "~~/shared/types/enums";
-import { adminMobileListCardClass, adminTableUi } from "~~/shared/config/adminUi";
+import * as adminUi from "~~/shared/config/adminUi";
 import { paymentMethodLabels, paymentStatusColors, paymentStatusLabels } from "~~/shared/config/paymentConfig";
 import ConfirmPaymentModal from "~~/app/components/admin/payment/ConfirmPaymentModal.vue";
 import EditPaymentStateModal from "~~/app/components/admin/payment/EditPaymentStateModal.vue";
+
+const adminDashboardBodyClass =
+  adminUi.adminDashboardBodyClass
+  ?? "admin-dashboard flex flex-col gap-4 p-2 sm:gap-6 sm:p-6";
+const adminDashboardCardClass =
+  adminUi.adminDashboardCardClass
+  ?? "admin-dashboard-card rounded-md border border-default/30 bg-default p-4 shadow-[0_1px_2px_rgb(15_23_42/0.04),0_6px_18px_-10px_rgb(15_23_42/0.08)] dark:border-default/20 dark:bg-elevated/55";
+const adminFilterBarClass =
+  adminUi.adminFilterBarClass
+  ?? "admin-dashboard-card rounded-md border border-default/30 bg-default p-2 shadow-[0_1px_2px_rgb(15_23_42/0.04)] dark:border-default/20 dark:bg-elevated/55";
+const adminEmptyStateClass =
+  adminUi.adminEmptyStateClass
+  ?? "flex flex-col items-center justify-center rounded-sm border border-dashed border-default/30 bg-default/55 px-3 py-5 text-center text-muted dark:border-default/20 dark:bg-elevated/30";
+const adminMobileListCardClass =
+  adminUi.adminMobileListCardClass
+  ?? "overflow-hidden rounded-sm border border-default/30 bg-default transition-[background-color,border-color,box-shadow] duration-200 hover:border-default/45 hover:bg-default dark:border-default/20 dark:bg-elevated/55 dark:hover:bg-elevated/70";
+const adminTableUi = adminUi.adminTableUi;
 
 definePageMeta({
   layout: "admin",
@@ -225,7 +242,7 @@ const formatPaymentItems = (payment: AdminPaymentRecord) => {
 };
 
 const getPaymentMethodLabel = (payment: AdminPaymentRecord) => (
-  payment.method ? paymentMethodLabels[payment.method] : "-"
+  payment.method ? paymentMethodLabels[payment.method] : "ยังไม่ชำระ"
 );
 
 const isDeleteOpen = ref(false);
@@ -498,139 +515,129 @@ const columns: TableColumn<AdminPaymentRecord>[] = [
 
     <template #body>
       <ClientOnly>
-        <div class="flex flex-col gap-4">
-          <div class="flex flex-wrap items-center justify-between gap-2">
-            <UInput
-              v-model="searchQuery"
-              class="w-full md:max-w-sm"
-              icon="i-lucide-search"
-              placeholder="ค้นหาลูกค้า เลขชำระ เลขรับผ้า หรือชื่อรายการ"
-            />
+        <div :class="adminDashboardBodyClass">
+          <section class="flex flex-col gap-1">
+            <div :class="[adminFilterBarClass, 'flex items-center gap-2 !px-3 !py-3']">
+              <UInput
+                v-model="searchQuery"
+                class="min-w-0 flex-1 md:max-w-sm"
+                icon="i-lucide-search"
+                placeholder="ค้นหาลูกค้า เลขชำระ เลขรับผ้า หรือชื่อรายการ"
+              />
 
-            <div class="flex flex-wrap items-center gap-2">
+              <USelect v-model="saleTypeFilter" :items="saleTypeOptions" value-key="value" class="w-30 shrink-0 sm:w-40" />
+
               <UButton
                 v-if="isAdmin && selectedRowsCount"
-                label="ลบ"
                 color="error"
                 variant="subtle"
                 icon="i-lucide-trash"
+                class="shrink-0"
+                :aria-label="`ลบ ${selectedRowsCount} รายการ`"
                 @click="isBulkDeleteOpen = true"
               >
                 <template #trailing>
-                  <UKbd>{{ selectedRowsCount }}</UKbd>
+                  <UKbd class="hidden sm:inline-flex">{{ selectedRowsCount }}</UKbd>
                 </template>
               </UButton>
 
-              <USelect v-model="saleTypeFilter" :items="saleTypeOptions" value-key="value" class="min-w-36" />
               <UButton
                 icon="i-lucide-refresh-cw"
                 color="neutral"
                 variant="outline"
                 title="รีเฟรชรายการ"
+                class="shrink-0"
                 :loading="isLoading"
                 @click="refresh"
               />
             </div>
-          </div>
 
-          <div class="md:hidden">
+            <div class="md:hidden">
             <div v-if="isLoading" class="space-y-3">
-              <USkeleton v-for="i in 5" :key="i" class="h-40 w-full rounded-xl" />
+              <USkeleton v-for="i in 5" :key="i" class="h-40 w-full rounded-md" />
             </div>
 
-            <div v-else-if="!paginatedPayments.length" class="flex flex-col items-center justify-center rounded-xl border border-dashed border-default py-12 text-center text-muted">
+            <div v-else-if="!paginatedPayments.length" :class="adminEmptyStateClass">
               <UIcon name="i-lucide-receipt" class="mb-3 size-10 opacity-60" />
               <p>ไม่พบรายการชำระเงิน</p>
             </div>
 
-            <div v-else class="space-y-3">
+            <div v-else class="space-y-1">
               <div
                 v-for="(payment, index) in paginatedPayments"
                 :key="payment.id"
-                :class="adminMobileListCardClass"
+                :class="[adminMobileListCardClass, 'admin-dashboard-card rounded-md']"
               >
-                <div class="flex items-start gap-3 p-3">
+                <div class="flex items-center gap-2 p-2">
                   <UCheckbox
                     :model-value="isMobileRowSelected(index)"
                     aria-label="เลือกรายการ"
-                    class="mt-1"
+                    class="shrink-0"
                     @update:model-value="setMobileRowSelected(index, $event)"
                   />
 
+                  <UAvatar v-bind="getAvatarProps(payment.customer)" size="sm" class="shrink-0" />
+
                   <div class="min-w-0 flex-1">
                     <div class="flex min-w-0 items-start justify-between gap-2">
-                      <div class="min-w-0">
+                      <div class="min-w-0 flex-1">
                         <button
                           type="button"
-                          class="break-all font-mono text-xs text-muted hover:underline"
+                          class="block max-w-full truncate text-left text-sm font-medium text-highlighted hover:underline"
+                          @click="openMemberDetail(payment)"
+                        >
+                          {{ payment.customer.name || "-" }}
+                        </button>
+                        <button
+                          type="button"
+                          class="block max-w-full truncate font-mono text-[10px] text-muted hover:underline"
                           @click="openPaymentDetail(payment)"
                         >
                           {{ payment.paymentNo || payment.id }}
                         </button>
-                        <button
-                          type="button"
-                          class="mt-1 flex min-w-0 items-center gap-2 text-left"
-                          @click="openMemberDetail(payment)"
-                        >
-                          <UAvatar v-bind="getAvatarProps(payment.customer)" size="sm" class="shrink-0" />
-                          <span class="min-w-0">
-                            <span class="block truncate text-sm font-medium text-highlighted">{{ payment.customer.name || "-" }}</span>
-                            <span class="block truncate text-xs text-muted">{{ payment.customer.email }}</span>
-                          </span>
-                        </button>
                       </div>
 
-                      <button
-                        type="button"
-                        class="shrink-0 inline-flex items-center gap-1 rounded-full px-1 py-0.5 transition"
-                        :class="canManagePaymentState(payment) ? 'cursor-pointer hover:bg-elevated/60' : 'cursor-default'"
-                        :title="getPaymentStateActionTitle(payment)"
-                        :aria-label="canManagePaymentState(payment) ? 'เปลี่ยนสถานะการชำระเงิน' : undefined"
-                        @click="handlePaymentStateClick(payment)"
-                      >
-                        <UBadge
-                          :color="paymentStatusColors[payment.status]"
-                          variant="subtle"
-                          size="xs"
-                          :icon="canManagePaymentState(payment) ? 'i-lucide-pencil' : undefined"
+                      <div class="flex shrink-0 flex-col items-end gap-1">
+                        <button
+                          type="button"
+                          class="inline-flex items-center rounded-md transition"
+                          :class="canManagePaymentState(payment) ? 'cursor-pointer hover:bg-elevated/60' : 'cursor-default'"
+                          :title="getPaymentStateActionTitle(payment)"
+                          :aria-label="canManagePaymentState(payment) ? 'เปลี่ยนสถานะการชำระเงิน' : undefined"
+                          @click="handlePaymentStateClick(payment)"
                         >
-                          {{ paymentStatusLabels[payment.status] }}
-                        </UBadge>
-                      </button>
+                          <UBadge
+                            :color="paymentStatusColors[payment.status]"
+                            variant="subtle"
+                            size="xs"
+                            :icon="canManagePaymentState(payment) ? 'i-lucide-pencil' : undefined"
+                          >
+                            {{ paymentStatusLabels[payment.status] }}
+                          </UBadge>
+                        </button>
+                        <template v-if="isServiceMember(payment) && Number(payment.amount ?? 0) === 0">
+                          <span class="text-sm font-semibold leading-none text-success">ใช้เครดิต</span>
+                          <span class="text-[10px] text-muted">{{ Number(payment.serviceOrder?.creditUsed ?? 0) }} เครดิต</span>
+                        </template>
+                        <span v-else class="text-sm font-semibold leading-none text-primary">{{ formatCurrency(payment.amount) }}</span>
+                      </div>
                     </div>
 
-                    <div class="mt-3 space-y-1 border-t border-slate-200 pt-3 dark:border-slate-800">
-                      <p v-for="item in formatPaymentItems(payment)" :key="item" class="text-sm text-highlighted">
+                    <div class="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-muted">
+                      <UBadge :color="getSaleTypeColor(payment)" variant="subtle" size="xs">
+                        {{ getSaleTypeLabel(payment) }}
+                      </UBadge>
+                      <span>{{ getPaymentMethodLabel(payment) }}</span>
+                      <span>{{ formatDateTime(payment.createdAt) }}</span>
+                    </div>
+
+                    <div class="mt-1 min-w-0 space-y-0.5">
+                      <p v-for="item in formatPaymentItems(payment)" :key="item" class="truncate text-xs text-highlighted">
                         {{ item }}
                       </p>
                     </div>
 
-                    <div class="mt-3 grid grid-cols-2 gap-2 border-t border-slate-200 pt-3 text-xs dark:border-slate-800">
-                      <div>
-                        <p class="text-muted">ยอดชำระ</p>
-                        <template v-if="isServiceMember(payment) && Number(payment.amount ?? 0) === 0">
-                          <p class="mt-1 font-semibold text-success">ใช้เครดิต</p>
-                          <p class="mt-0.5 text-success">{{ Number(payment.serviceOrder?.creditUsed ?? 0) }} เครดิต</p>
-                        </template>
-                        <p v-else class="mt-1 text-lg font-semibold text-primary">{{ formatCurrency(payment.amount) }}</p>
-                      </div>
-                      <div>
-                        <p class="text-muted">วันที่สร้าง</p>
-                        <p class="mt-1 text-highlighted">{{ formatDateTime(payment.createdAt) }}</p>
-                      </div>
-                      <div>
-                        <p class="text-muted">ประเภท</p>
-                        <UBadge :color="getSaleTypeColor(payment)" variant="subtle" size="xs" class="mt-1">
-                          {{ getSaleTypeLabel(payment) }}
-                        </UBadge>
-                      </div>
-                      <div>
-                        <p class="text-muted">วิธีชำระ</p>
-                        <p class="mt-1 text-highlighted">{{ getPaymentMethodLabel(payment) }}</p>
-                      </div>
-                    </div>
-
-                    <div class="mt-3 flex items-center justify-end gap-1 border-t border-slate-200 pt-3 dark:border-slate-800">
+                    <div class="mt-1 flex items-center justify-end gap-1">
                       <UButton
                         v-if="canConfirmPayment(payment)"
                         icon="i-lucide-check"
@@ -659,24 +666,26 @@ const columns: TableColumn<AdminPaymentRecord>[] = [
             </div>
           </div>
 
-          <UTable
-            ref="table"
-            v-model:row-selection="rowSelection"
-            v-model:pagination="pagination"
-            :pagination-options="{ getPaginationRowModel: getPaginationRowModel() }"
-            class="hidden md:block"
-            :data="filteredPayments"
-            :columns="columns"
-            :loading="isLoading"
-            :ui="adminTableUi"
-          >
-            <template #empty>
-              <div class="flex flex-col items-center justify-center py-12 text-center text-muted">
-                <UIcon name="i-lucide-receipt" class="mb-3 size-10 opacity-60" />
-                <p>ไม่พบรายการชำระเงิน</p>
-              </div>
-            </template>
-          </UTable>
+            <div :class="[adminDashboardCardClass, 'hidden overflow-hidden !p-0 md:block']">
+            <UTable
+              ref="table"
+              v-model:row-selection="rowSelection"
+              v-model:pagination="pagination"
+              :pagination-options="{ getPaginationRowModel: getPaginationRowModel() }"
+              :data="filteredPayments"
+              :columns="columns"
+              :loading="isLoading"
+              :ui="adminTableUi"
+            >
+              <template #empty>
+                <div :class="adminEmptyStateClass">
+                  <UIcon name="i-lucide-receipt" class="mb-3 size-10 opacity-60" />
+                  <p>ไม่พบรายการชำระเงิน</p>
+                </div>
+              </template>
+            </UTable>
+            </div>
+          </section>
 
           <div class="mt-auto flex flex-wrap items-center justify-between gap-3 border-t border-default pt-4">
             <div class="text-sm text-muted">
@@ -702,7 +711,7 @@ const columns: TableColumn<AdminPaymentRecord>[] = [
                 <USkeleton class="h-10 w-28" />
               </div>
             </div>
-            <USkeleton class="h-105 w-full rounded-xl" />
+            <USkeleton class="h-105 w-full rounded-md" />
           </div>
         </template>
       </ClientOnly>

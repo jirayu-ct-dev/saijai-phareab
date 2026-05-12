@@ -2,6 +2,7 @@
 import { sub } from "date-fns";
 import type { DropdownMenuItem } from "@nuxt/ui";
 import type { Period, Range } from "~~/shared/types/dashboard";
+import { adminMetricCardClass } from "~~/shared/config/adminUi";
 
 definePageMeta({
   middleware: ["role-admin-home"],
@@ -86,11 +87,11 @@ const handleRefresh = async () => {
     </template>
 
     <template #body>
-      <div class="flex flex-col gap-4 p-4 sm:gap-6 sm:p-6">
+      <div class="admin-dashboard flex flex-col gap-4 p-2 sm:gap-6 sm:p-6">
         <ClientOnly>
           <AdminDashboardStats :period="period" :range="range" />
           <template #fallback>
-            <UPageGrid class="grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4 lg:gap-px">
+            <UPageGrid class="grid-cols-2 gap-4 lg:grid-cols-4">
               <UPageCard
                 v-for="i in 4"
                 :key="i"
@@ -101,7 +102,7 @@ const handleRefresh = async () => {
                   leading: 'p-2.5 rounded-full bg-primary/10 ring ring-inset ring-primary/25 flex-col',
                   title: 'font-normal text-muted text-xs',
                 }"
-                class="min-w-0 lg:rounded-none first:rounded-l-lg last:rounded-r-lg"
+                :class="[adminMetricCardClass, 'admin-dashboard-card']"
               >
                 <template #leading>
                   <div class="p-2.5 rounded-full bg-elevated animate-pulse size-10" />
@@ -118,7 +119,7 @@ const handleRefresh = async () => {
           <AdminDashboardChart :period="period" :range="range" />
           <AdminDashboardOrderTypeChart :period="period" :range="range" />
         </div>
-        <div class="flex flex-col gap-4">
+        <div class="flex flex-col gap-4 sm:gap-6">
           <ClientOnly>
             <AdminDashboardRecentPayments :period="period" :range="range" />
             <AdminDashboardSales :period="period" :range="range" />

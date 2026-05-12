@@ -8,8 +8,18 @@ import type { AdminSaleSlipImage } from "~~/app/composables/useAdminSales";
 import type { AdminServiceOrderImage } from "~~/app/composables/useAdminServiceOrders";
 import type { PosStorefrontCatalogItem } from "~~/app/composables/useStorefrontCatalog";
 import { useBusinessSetting } from "~~/app/composables/useBusinessSetting";
-import { getAdminCatalogItemToneClass } from "~~/shared/config/adminUi";
+import * as adminUi from "~~/shared/config/adminUi";
 import { formatCurrency } from "~~/shared/utils/format";
+
+const dashboardCardClass =
+  adminUi.adminDashboardCardClass
+  ?? "admin-dashboard-card rounded-md border border-default/30 bg-default p-4 shadow-[0_1px_2px_rgb(15_23_42/0.04),0_6px_18px_-10px_rgb(15_23_42/0.08)] dark:border-default/20 dark:bg-elevated/55 dark:shadow-[0_1px_2px_rgb(0_0_0/0.16),0_8px_22px_-12px_rgb(0_0_0/0.26)]";
+const filterBarClass =
+  adminUi.adminFilterBarClass
+  ?? "admin-dashboard-card rounded-md border border-default/30 bg-default p-2 shadow-[0_1px_2px_rgb(15_23_42/0.04)] dark:border-default/20 dark:bg-elevated/55";
+const mobileListCardClass = adminUi.adminMobileListCardClass;
+const emptyStateClass = adminUi.adminEmptyStateClass;
+const checkoutSectionClass = dashboardCardClass;
 
 type FormItemState = {
   key: string;
@@ -39,10 +49,6 @@ const { uploadSlip } = useAdminPayments();
 const searchQuery = ref("");
 const categoryFilter = ref<"all" | string>("all");
 const serviceFilter = ref<"all" | string>("all");
-
-const getCatalogItemToneClass = (item: Pick<PosStorefrontCatalogItem, "categoryId" | "categoryName" | "itemName">) => {
-  return getAdminCatalogItemToneClass(item.categoryId || item.categoryName || item.itemName);
-};
 
 const catalogMap = computed(() => new Map((items.value ?? []).map((item) => [item.id, item])));
 
@@ -614,10 +620,10 @@ const handleSubmit = async () => {
 </script>
 
 <template>
-  <div class="grid min-w-0 grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1fr)_420px]">
-    <div class="min-w-0 space-y-4">
-      <section class="overflow-hidden rounded-xl border border-default bg-default">
-        <div class="border-b border-default p-4">
+  <div class="grid min-w-0 grid-cols-1 gap-4 sm:gap-6 xl:grid-cols-[minmax(0,1fr)_420px]">
+    <div class="min-w-0 space-y-4 sm:space-y-6">
+      <section class="flex flex-col gap-3">
+        <div :class="dashboardCardClass">
           <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <div class="min-w-0">
               <p class="text-base font-semibold text-highlighted">เลือกบริการ</p>
@@ -625,7 +631,7 @@ const handleSubmit = async () => {
             </div>
 
             <div class="flex flex-col gap-2 sm:flex-row sm:items-center">
-              <div class="flex items-center justify-between gap-3 rounded-lg border border-default px-3 py-2 sm:w-72">
+              <div class="flex items-center justify-between gap-3 rounded-md border border-default px-3 py-2 sm:w-72">
                 <div class="min-w-0">
                   <p class="text-sm font-medium text-highlighted">ซัก-พับ ชั่งกิโล</p>
                   <p class="truncate text-xs text-muted">
@@ -647,23 +653,20 @@ const handleSubmit = async () => {
           </div>
         </div>
 
-        <div class="sticky top-0 z-10 border-b border-default bg-default/95 p-3 backdrop-blur">
-          <div class="grid grid-cols-2 gap-2 md:grid-cols-[minmax(0,1fr)_180px_180px]">
-            <UInput v-model="searchQuery" icon="i-lucide-search" placeholder="ค้นหาบริการหรือชนิดผ้า" class="col-span-2 w-full md:col-span-1" />
-            <USelect v-model="categoryFilter" :items="categoryOptions" value-key="value" class="w-full" />
-            <USelect v-model="serviceFilter" :items="serviceOptions" value-key="value" class="w-full" />
-          </div>
+        <div :class="[filterBarClass, 'grid grid-cols-2 gap-2 md:grid-cols-[minmax(0,1fr)_180px_180px]']">
+          <UInput v-model="searchQuery" icon="i-lucide-search" placeholder="ค้นหาบริการหรือชนิดผ้า" class="col-span-2 w-full md:col-span-1" />
+          <USelect v-model="categoryFilter" :items="categoryOptions" value-key="value" class="w-full" />
+          <USelect v-model="serviceFilter" :items="serviceOptions" value-key="value" class="w-full" />
         </div>
 
         <div v-if="filteredCatalog.length">
-          <div class="space-y-3 p-3 md:hidden">
+          <div class="space-y-1 md:hidden">
             <div
               v-for="item in filteredCatalog"
               :key="item.id"
               role="button"
               tabindex="0"
-              class="rounded-xl border px-4 py-3 transition hover:bg-elevated/40"
-              :class="getCatalogItemToneClass(item)"
+              :class="[mobileListCardClass, 'admin-dashboard-card rounded-md px-4 py-3']"
               @click="incrementCatalogItem(item.id)"
               @keydown.enter.prevent="incrementCatalogItem(item.id)"
               @keydown.space.prevent="incrementCatalogItem(item.id)"
@@ -671,13 +674,13 @@ const handleSubmit = async () => {
               <div class="flex min-w-0 items-start justify-between gap-3">
                 <div class="min-w-0">
                   <div class="flex min-w-0 flex-wrap items-center gap-2">
-                    <p class="min-w-0 break-words text-sm font-medium text-highlighted">{{ item.label }}</p>
+                    <p class="min-w-0 wrap-break-word text-sm font-medium text-highlighted">{{ item.label }}</p>
                     <UBadge v-if="isRangeItem(item.id)" color="warning" variant="subtle" size="xs">กำหนดราคา</UBadge>
                     <UBadge v-else-if="getCatalogQuantity(item.id) > 0" color="primary" variant="subtle" size="xs">
                       {{ getCatalogQuantity(item.id) }} ชิ้น
                     </UBadge>
                   </div>
-                  <p class="mt-0.5 break-words text-xs text-muted">{{ getCatalogDescription(item) }}</p>
+                  <p class="mt-0.5 wrap-break-word text-xs text-muted">{{ getCatalogDescription(item) }}</p>
                 </div>
 
                 <p class="shrink-0 text-sm font-semibold text-highlighted">
@@ -714,7 +717,7 @@ const handleSubmit = async () => {
             </div>
           </div>
 
-          <div class="hidden grid-cols-2 gap-3 p-4 md:grid lg:grid-cols-3 xl:grid-cols-3 2xl:grid-cols-4">
+          <div class="hidden grid-cols-2 gap-3 md:grid lg:grid-cols-3 xl:grid-cols-3 2xl:grid-cols-4">
             <PosCatalogCard
               v-for="item in filteredCatalog"
               :key="item.id"
@@ -728,7 +731,6 @@ const handleSubmit = async () => {
               :is-range="isRangeItem(item.id)"
               :quantity="getCatalogQuantity(item.id)"
               :selected="getCatalogQuantity(item.id) > 0"
-              :tone-class="getCatalogItemToneClass(item)"
               @increment="incrementCatalogItem(item.id)"
               @decrement="decrementCatalogItem(item.id)"
               @change="setCatalogItemQuantity(item.id, $event)"
@@ -736,7 +738,7 @@ const handleSubmit = async () => {
           </div>
         </div>
 
-        <div v-else class="p-10 text-center text-sm text-muted">
+        <div v-else :class="emptyStateClass">
           ไม่พบบริการที่ตรงกับตัวกรอง
         </div>
       </section>
@@ -744,21 +746,23 @@ const handleSubmit = async () => {
 
     <aside
       :class="!isCompact
-        ? 'space-y-6 xl:sticky xl:top-4 xl:self-start'
+        ? 'space-y-4 rounded-md sm:space-y-6 xl:sticky xl:top-4 xl:self-start'
         : [
-            'fixed inset-y-0 right-0 z-50 flex w-full max-w-lg flex-col overflow-y-auto border-l border-default bg-default shadow-2xl',
+            'admin-workspace fixed inset-y-0 right-0 z-50 flex w-full max-w-lg flex-col overflow-y-auto border-l border-default shadow-2xl',
             mounted ? 'transition-transform duration-200' : '',
             isCartOpen ? 'translate-x-0' : 'translate-x-full',
           ]"
     >
-      <div v-if="isCompact" class="sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-default bg-default px-4 py-3">
+      <div v-if="isCompact" class="sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-default bg-default px-4 py-3 dark:bg-elevated/55">
         <p class="text-base font-semibold text-highlighted">ตะกร้ารับผ้า</p>
         <UButton icon="i-lucide-x" color="neutral" variant="ghost" size="sm" aria-label="ปิด" @click="isCartOpen = false" />
       </div>
-      <div :class="isCompact ? 'p-4' : ''">
+      <div :class="isCompact ? 'flex-1 p-2' : ''">
       <PosCheckoutPanel
         title="ตะกร้ารับผ้า"
         description="สรุปรายการผ้า วันนัดรับ และการชำระเงินในหน้าเดียว"
+        :flat="isCompact"
+        :section-class="checkoutSectionClass"
         :customer-id="form.customerId"
         :customer-options="customerOptions"
         :customer-loading="isCustomersLoading"
@@ -787,7 +791,7 @@ const handleSubmit = async () => {
         @reset="resetForm"
       >
         <template #cart>
-          <div class="space-y-3 border-t border-default pt-4">
+          <div :class="[checkoutSectionClass, 'space-y-3']">
             <div v-if="form.washFoldMode" class="border-l-2 border-warning pl-3">
               <div class="flex items-center justify-between gap-3">
                 <p class="text-sm font-medium text-highlighted">ซัก-พับ ชั่งกิโล</p>
@@ -885,7 +889,7 @@ const handleSubmit = async () => {
         </template>
 
         <template #summary>
-          <div class="space-y-3 border-t border-default pt-4 text-sm">
+          <div :class="[checkoutSectionClass, 'space-y-3 text-sm']">
             <div class="flex items-center justify-between gap-3">
               <span class="text-muted">รวมค่าบริการ</span>
               <span class="font-medium text-highlighted">{{ formatCurrency(subtotalAmount) }}</span>
@@ -951,27 +955,29 @@ const handleSubmit = async () => {
         </template>
 
         <template #discount>
-          <UFormField v-if="!isMemberWithZeroTotal" label="ส่วนลด">
-            <UInputNumber
-              :model-value="form.discountAmount"
-              :min="0"
-              :max="subtotalAmount"
-              :step="1"
-              :format-options="{ minimumFractionDigits: 0, maximumFractionDigits: 2 }"
-              class="w-full"
-              @update:model-value="form.discountAmount = Number.isFinite($event) ? $event : 0"
-            />
-          </UFormField>
+          <div :class="[checkoutSectionClass, 'space-y-3']">
+            <UFormField v-if="!isMemberWithZeroTotal" label="ส่วนลด">
+              <UInputNumber
+                :model-value="form.discountAmount"
+                :min="0"
+                :max="subtotalAmount"
+                :step="1"
+                :format-options="{ minimumFractionDigits: 0, maximumFractionDigits: 2 }"
+                class="w-full"
+                @update:model-value="form.discountAmount = Number.isFinite($event) ? $event : 0"
+              />
+            </UFormField>
 
-          <UIPhotoUpload
-            label="รูปหลักฐานการรับผ้า"
-            :photos="intakePhotos"
-            :max="1"
-            :disabled="isSubmitting"
-            capture="environment"
-            confirm-remove
-            @update:photos="onIntakePhotosUpdate"
-          />
+            <UIPhotoUpload
+              label="รูปหลักฐานการรับผ้า"
+              :photos="intakePhotos"
+              :max="1"
+              :disabled="isSubmitting"
+              capture="environment"
+              confirm-remove
+              @update:photos="onIntakePhotosUpdate"
+            />
+          </div>
         </template>
       </PosCheckoutPanel>
       </div>

@@ -63,7 +63,7 @@ const onSubmit = async () => {
       <p class="text-sm text-muted mt-1">ค่าบริการเสริม ภาษี และเลขเอกสาร</p>
     </div>
 
-    <USkeleton v-if="isLoading" class="h-64 w-full rounded-lg" />
+    <USkeleton v-if="isLoading" class="h-64 w-full rounded-md" />
 
     <template v-else>
       <UCard>

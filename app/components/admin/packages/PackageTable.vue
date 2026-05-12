@@ -17,7 +17,17 @@ import {
   formatDateTime,
 } from "~~/shared/utils/format";
 import { cycleColumnSorting } from "~~/shared/utils/table";
-import { adminMobileListCardClass, adminTableUi } from "~~/shared/config/adminUi";
+import * as adminUi from "~~/shared/config/adminUi";
+
+const adminDashboardCardClass =
+  adminUi.adminDashboardCardClass
+  ?? "admin-dashboard-card rounded-md border border-default/30 bg-default p-4 shadow-[0_1px_2px_rgb(15_23_42/0.04),0_6px_18px_-10px_rgb(15_23_42/0.08)] dark:border-default/20 dark:bg-elevated/55";
+const adminFilterBarClass =
+  adminUi.adminFilterBarClass
+  ?? "admin-dashboard-card rounded-md border border-default/30 bg-default p-2 shadow-[0_1px_2px_rgb(15_23_42/0.04)] dark:border-default/20 dark:bg-elevated/55";
+const adminEmptyStateClass = adminUi.adminEmptyStateClass;
+const adminMobileListCardClass = adminUi.adminMobileListCardClass;
+const adminTableUi = adminUi.adminTableUi;
 
 const props = defineProps<{
   packages: Package[];
@@ -173,7 +183,7 @@ const columns: TableColumn<Package>[] = [
           "div",
           {
             class: [
-              "size-10 rounded-lg flex items-center justify-center shrink-0",
+              "size-10 rounded-md flex items-center justify-center shrink-0",
               pkg.packageType === "MAIN" ? "bg-primary/10" : "bg-info/10",
             ],
           },
@@ -310,49 +320,42 @@ const columns: TableColumn<Package>[] = [
 </script>
 
 <template>
-  <div class="flex flex-col gap-4">
-    <div class="flex flex-wrap items-center justify-between gap-1.5">
-      <div class="flex items-center gap-1.5 w-full md:w-auto">
-        <UInput
-          v-model="searchQuery"
-          class="w-full md:max-w-sm"
-          icon="i-lucide-search"
-          placeholder="ค้นหาชื่อหรือรายละเอียด..."
-        />
-      </div>
-
-      <div class="flex w-full flex-wrap items-center gap-1.5 md:w-auto">
-        <UButton
-          v-if="selectedRowsCount > 0"
-          label="ลบ"
-          color="error"
-          variant="subtle"
-          icon="i-lucide-trash"
-          @click="handleBulkDelete"
-        >
-          <template #trailing>
-            <UKbd>{{ selectedRowsCount }}</UKbd>
-          </template>
-        </UButton>
-
-        <USelect
-          v-model="statusFilter"
-          :items="STATUS_OPTIONS"
-          value-key="value"
-          class="min-w-0 flex-1 sm:min-w-36"
-        />
-
-        <UIButtonRefresh :loading="loading" @refresh="emit('refresh')" />
-      </div>
+  <section class="flex flex-col gap-1">
+    <div :class="[adminFilterBarClass, '!px-3 !py-3 flex flex-wrap items-center gap-1.5']">
+      <UInput
+        v-model="searchQuery"
+        class="min-w-0 flex-1 md:max-w-sm"
+        icon="i-lucide-search"
+        placeholder="ค้นหาชื่อหรือรายละเอียด..."
+      />
+      <UButton
+        v-if="selectedRowsCount > 0"
+        label="ลบ"
+        color="error"
+        variant="subtle"
+        icon="i-lucide-trash"
+        @click="handleBulkDelete"
+      >
+        <template #trailing>
+          <UKbd>{{ selectedRowsCount }}</UKbd>
+        </template>
+      </UButton>
+      <USelect
+        v-model="statusFilter"
+        :items="STATUS_OPTIONS"
+        value-key="value"
+        class="min-w-0 sm:min-w-36"
+      />
+      <UIButtonRefresh :loading="loading" @refresh="emit('refresh')" />
     </div>
 
     <ClientOnly>
     <div class="md:hidden">
-      <div v-if="loading" class="space-y-3">
-        <USkeleton v-for="i in 5" :key="i" class="h-40 w-full rounded-xl" />
+      <div v-if="loading" class="space-y-1">
+        <USkeleton v-for="i in 5" :key="i" class="h-24 w-full rounded-md" />
       </div>
 
-      <div v-else-if="!paginatedPackages.length" class="flex flex-col items-center justify-center rounded-xl border border-dashed border-default py-12 text-center text-muted">
+      <div v-else-if="!paginatedPackages.length" :class="adminEmptyStateClass">
         <UIcon name="i-lucide-package-x" class="mb-3 size-10 opacity-60" />
         <p class="font-medium">ไม่พบแพ็กเกจ</p>
         <p class="mt-1 text-sm">
@@ -360,92 +363,61 @@ const columns: TableColumn<Package>[] = [
         </p>
       </div>
 
-      <div v-else class="space-y-3">
+      <div v-else class="space-y-1">
         <div
           v-for="(pkg, index) in paginatedPackages"
           :key="pkg.id"
-          :class="adminMobileListCardClass"
+          :class="[adminMobileListCardClass, 'admin-dashboard-card rounded-md']"
         >
-          <div class="flex items-start gap-3 p-3">
+          <div class="flex items-center gap-2 p-2">
             <UCheckbox
               :model-value="isMobileRowSelected(index)"
               aria-label="เลือกแพ็กเกจ"
-              class="mt-1"
+              class="shrink-0"
               @update:model-value="setMobileRowSelected(index, $event)"
             />
+            <div
+              class="flex size-9 shrink-0 items-center justify-center rounded-md"
+              :class="pkg.packageType === 'MAIN' ? 'bg-primary/10' : 'bg-info/10'"
+            >
+              <UIcon
+                :name="pkg.packageType === 'MAIN' ? 'i-lucide-package' : 'i-lucide-puzzle'"
+                :class="pkg.packageType === 'MAIN' ? 'size-5 text-primary' : 'size-5 text-info'"
+              />
+            </div>
 
             <div class="min-w-0 flex-1">
               <div class="flex min-w-0 items-start justify-between gap-2">
-                <div class="flex min-w-0 items-start gap-2">
-                  <div
-                    class="flex size-10 shrink-0 items-center justify-center rounded-lg"
-                    :class="pkg.packageType === 'MAIN' ? 'bg-primary/10' : 'bg-info/10'"
+                <div class="min-w-0 flex-1">
+                  <p class="truncate text-sm font-medium text-highlighted">{{ pkg.name }}</p>
+                  <p class="truncate text-[11px] text-muted">{{ pkg.description || "ไม่มีคำอธิบาย" }}</p>
+                </div>
+
+                <div class="flex shrink-0 flex-col items-end gap-1">
+                  <UBadge
+                    :color="pkg.isActive ? packageActiveConfig.active.color : packageActiveConfig.inactive.color"
+                    variant="subtle"
+                    size="xs"
                   >
-                    <UIcon
-                      :name="pkg.packageType === 'MAIN' ? 'i-lucide-package' : 'i-lucide-puzzle'"
-                      :class="pkg.packageType === 'MAIN' ? 'size-5 text-primary' : 'size-5 text-info'"
-                    />
-                  </div>
-                  <div class="min-w-0">
-                    <p class="truncate text-sm font-semibold text-highlighted">{{ pkg.name }}</p>
-                    <p class="line-clamp-2 text-xs text-muted">{{ pkg.description || "ไม่มีคำอธิบาย" }}</p>
-                  </div>
-                </div>
-
-                <UBadge
-                  :color="pkg.isActive ? packageActiveConfig.active.color : packageActiveConfig.inactive.color"
-                  variant="subtle"
-                  size="xs"
-                  class="shrink-0"
-                >
-                  {{ pkg.isActive ? packageActiveConfig.active.label : packageActiveConfig.inactive.label }}
-                </UBadge>
-              </div>
-
-              <div class="mt-3 grid grid-cols-2 gap-2 border-t border-slate-200 pt-3 text-xs dark:border-slate-800">
-                <div>
-                  <p class="text-muted">ประเภท</p>
-                  <UBadge :color="packageTypeColors[pkg.packageType]" variant="subtle" size="xs" class="mt-1">
-                    {{ packageTypeLabels[pkg.packageType] }}
+                    {{ pkg.isActive ? packageActiveConfig.active.label : packageActiveConfig.inactive.label }}
                   </UBadge>
-                </div>
-                <div>
-                  <p class="text-muted">ราคา</p>
-                  <p
-                    class="mt-1 text-lg font-semibold"
+                  <span
+                    class="text-sm font-semibold leading-none"
                     :class="Number(pkg.price) === 0 ? 'text-success' : 'text-primary'"
                   >
                     {{ getPackagePriceLabel(pkg) }}
-                  </p>
-                </div>
-                <div>
-                  <p class="text-muted">เครดิต</p>
-                  <p class="mt-1 font-semibold text-primary">{{ formatCredits(pkg.credits) }}</p>
-                </div>
-                <div>
-                  <p class="text-muted">ระยะเวลา</p>
-                  <p class="mt-1 text-highlighted">{{ formatDays(pkg.validityDays) }}</p>
-                </div>
-                <div>
-                  <p class="text-muted">หักเครดิตเมื่อ</p>
-                  <UBadge
-                    v-if="pkg.packageType === 'ADDON'"
-                    :color="pkg.deductOn === 'CREATED' ? 'info' : 'warning'"
-                    variant="subtle"
-                    size="xs"
-                    class="mt-1"
-                  >
-                    {{ getDeductOnLabel(pkg) }}
-                  </UBadge>
-                  <p v-else class="mt-1 text-muted">{{ getDeductOnLabel(pkg) }}</p>
-                </div>
-                <div>
-                  <p class="text-muted">สร้างเมื่อ</p>
-                  <p class="mt-1 text-highlighted">{{ formatDateTime(pkg.createdAt) }}</p>
+                  </span>
                 </div>
               </div>
 
-              <div class="mt-3 flex items-center justify-end gap-1 border-t border-slate-200 pt-3 dark:border-slate-800">
+              <div class="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-muted">
+                <span>{{ packageTypeLabels[pkg.packageType] }}</span>
+                <span>{{ formatCredits(pkg.credits) }}</span>
+                <span>{{ formatDays(pkg.validityDays) }}</span>
+                <span v-if="pkg.packageType === 'ADDON'">หัก: {{ getDeductOnLabel(pkg) }}</span>
+              </div>
+
+              <div class="mt-1 flex items-center justify-end gap-1">
                 <UButton icon="i-lucide-pencil" size="xs" color="neutral" variant="ghost" aria-label="แก้ไขแพ็กเกจ" @click="emit('edit', pkg)" />
                 <UButton icon="i-lucide-trash-2" size="xs" color="error" variant="ghost" aria-label="ลบแพ็กเกจ" @click="emit('delete', pkg)" />
               </div>
@@ -455,6 +427,7 @@ const columns: TableColumn<Package>[] = [
       </div>
     </div>
 
+    <div :class="[adminDashboardCardClass, 'hidden shrink-0 overflow-hidden !p-0 md:block']">
     <UTable
       ref="table"
       v-model:column-visibility="columnVisibility"
@@ -462,14 +435,13 @@ const columns: TableColumn<Package>[] = [
       v-model:pagination="pagination"
       v-model:expanded="expanded"
       :pagination-options="{ getPaginationRowModel: getPaginationRowModel() }"
-      class="hidden shrink-0 md:block"
       :data="filteredPackages"
       :columns="columns"
       :loading="loading"
       :ui="adminTableUi"
     >
       <template #empty>
-        <div class="flex flex-col items-center justify-center py-12 text-center text-muted">
+        <div :class="adminEmptyStateClass">
           <UIcon name="i-lucide-package-x" class="size-10 mb-3 opacity-60" />
           <p class="font-medium">ไม่พบแพ็กเกจ</p>
           <p class="text-sm mt-1">
@@ -544,6 +516,7 @@ const columns: TableColumn<Package>[] = [
         </div>
       </template>
     </UTable>
+    </div>
 
     <div class="flex items-center justify-between gap-3 border-t border-default pt-4 mt-auto flex-wrap">
       <div class="text-sm text-muted">
@@ -560,5 +533,5 @@ const columns: TableColumn<Package>[] = [
       </div>
     </div>
     </ClientOnly>
-  </div>
+  </section>
 </template>

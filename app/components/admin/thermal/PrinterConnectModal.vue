@@ -70,7 +70,7 @@ async function handleDisconnect() {
       <div class="space-y-5">
 
         <!-- Connection status -->
-        <div class="flex items-center gap-3 rounded-lg border border-default p-3">
+        <div class="flex items-center gap-3 rounded-md border border-default p-3">
           <span
             class="size-3 shrink-0 rounded-full"
             :class="state.isConnected ? 'bg-green-500' : 'bg-neutral-300'"

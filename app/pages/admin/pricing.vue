@@ -4,7 +4,18 @@ definePageMeta({
 })
 
 import { ref, watch } from 'vue'
-import { adminMobileListCardClass } from '~~/shared/config/adminUi'
+import * as adminUi from '~~/shared/config/adminUi'
+
+const adminDashboardBodyClass =
+  adminUi.adminDashboardBodyClass
+  ?? 'admin-dashboard flex flex-col gap-4 p-2 sm:gap-6 sm:p-6'
+const adminDashboardCardClass =
+  adminUi.adminDashboardCardClass
+  ?? 'admin-dashboard-card rounded-md border border-default/30 bg-default p-4 shadow-[0_1px_2px_rgb(15_23_42/0.04),0_6px_18px_-10px_rgb(15_23_42/0.08)] dark:border-default/20 dark:bg-elevated/55'
+const adminFilterBarClass =
+  adminUi.adminFilterBarClass
+  ?? 'admin-dashboard-card rounded-md border border-default/30 bg-default p-2 shadow-[0_1px_2px_rgb(15_23_42/0.04)] dark:border-default/20 dark:bg-elevated/55'
+const adminMobileListCardClass = adminUi.adminMobileListCardClass
 
 const notify = useNotify()
 
@@ -70,6 +81,21 @@ const isAddItemModalOpen = ref(false)
 const isSavingItem = ref(false)
 const newItemData = ref({ name: '', categoryId: '', description: '' })
 const newItemPrices = ref<Record<string, number | string | undefined>>({})
+const newItemPricesMin = ref<Record<string, number | string | undefined>>({})
+const newItemPricesMax = ref<Record<string, number | string | undefined>>({})
+const newItemRangeEnabled = ref<Record<string, boolean>>({})
+
+const resetNewItemForm = () => {
+  newItemData.value = { name: '', categoryId: '', description: '' }
+  newItemPrices.value = {}
+  newItemPricesMin.value = {}
+  newItemPricesMax.value = {}
+  newItemRangeEnabled.value = {}
+}
+
+watch(isAddItemModalOpen, (open) => {
+  if (!open) resetNewItemForm()
+})
 
 const saveNewItem = async () => {
   if (!newItemData.value.name) return
@@ -86,21 +112,26 @@ const saveNewItem = async () => {
 
     for (const service of pageData.value.services) {
       const newPrice = newItemPrices.value[service.id]
-      if (newPrice !== null && newPrice !== undefined && newPrice !== '') {
-        await $fetch('/api/admin/pricing/price', {
-          method: 'PUT',
-          body: { storefrontItemId: created.id, storefrontServiceId: service.id, price: Number(newPrice) }
-        })
-        mockPrices.value.push({ storefrontItemId: created.id, storefrontServiceId: service.id, price: Number(newPrice) })
-      }
+      if (newPrice === null || newPrice === undefined || newPrice === '') continue
+      const isRange = newItemRangeEnabled.value[service.id]
+      const priceMin = isRange && newItemPricesMin.value[service.id] !== undefined && newItemPricesMin.value[service.id] !== ''
+        ? Number(newItemPricesMin.value[service.id])
+        : null
+      const priceMax = isRange && newItemPricesMax.value[service.id] !== undefined && newItemPricesMax.value[service.id] !== ''
+        ? Number(newItemPricesMax.value[service.id])
+        : null
+      await $fetch('/api/admin/pricing/price', {
+        method: 'PUT',
+        body: { storefrontItemId: created.id, storefrontServiceId: service.id, price: Number(newPrice), priceMin, priceMax }
+      })
+      mockPrices.value.push({ storefrontItemId: created.id, storefrontServiceId: service.id, price: Number(newPrice), priceMin, priceMax })
     }
 
     mockItems.value.push(created)
     pageData.value.items = [...mockItems.value]
     pageData.value.prices = [...mockPrices.value]
     isAddItemModalOpen.value = false
-    newItemData.value = { name: '', categoryId: '', description: '' }
-    newItemPrices.value = {}
+    resetNewItemForm()
     notify.success('เพิ่มรายการเรียบร้อยแล้ว')
   } catch {
     notify.error('เกิดข้อผิดพลาด กรุณาลองใหม่')
@@ -280,47 +311,86 @@ watch(isManageOpen, (open) => {
     </template>
 
     <template #body>
-      <AdminPricingTable
-        :data="pageData"
-        :loading="pending"
-        @update-price="handleUpdatePrice"
-        @update-item="handleUpdateItem"
-        @delete-item="handleDeleteItem"
-        @refresh="refresh"
-      />
+      <div :class="adminDashboardBodyClass">
+        <AdminPricingTable
+          :data="pageData"
+          :loading="pending"
+          @update-price="handleUpdatePrice"
+          @update-item="handleUpdateItem"
+          @delete-item="handleDeleteItem"
+          @refresh="refresh"
+        />
+      </div>
     </template>
   </UDashboardPanel>
 
   <!-- Add Item Modal -->
-  <UModal v-model:open="isAddItemModalOpen" title="เพิ่มรายการซักใหม่" description="กำหนดชื่อ ประเภท และราคาตามบริการ">
+  <UModal
+    v-model:open="isAddItemModalOpen"
+    title="เพิ่มรายการซักใหม่"
+    description="กำหนดชื่อ ประเภท และราคาตามบริการ"
+    :ui="{ content: 'max-w-3xl', body: 'admin-workspace !p-2 sm:!p-4' }"
+  >
     <template #body>
-      <div class="space-y-4">
-        <UFormField label="ชื่อรายการ" required>
-          <UInput v-model="newItemData.name" class="w-full" placeholder="เช่น เสื้อ, กางเกงยีนส์" />
-        </UFormField>
-
-        <UFormField label="ประเภท / หมวดหมู่">
-          <USelect
-            v-model="newItemData.categoryId"
-            :items="pageData.categories"
-            label-key="name"
-            value-key="id"
-            class="w-full"
-            placeholder="เลือกประเภท"
-          />
-        </UFormField>
-
-        <UFormField label="ราคาตามบริการ">
+      <div class="flex flex-col gap-3 sm:gap-4">
+        <div :class="adminDashboardCardClass">
+          <p class="mb-3 font-medium text-highlighted">ข้อมูลรายการ</p>
           <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <UFormField v-for="service in pageData.services" :key="service.id" :label="service.name">
-              <UInput v-model.number="newItemPrices[service.id]" type="number" class="w-full" placeholder="-" />
+            <UFormField label="ชื่อรายการ" required>
+              <UInput v-model="newItemData.name" class="w-full" placeholder="เช่น เสื้อ, กางเกงยีนส์" />
+            </UFormField>
+            <UFormField label="ประเภท / หมวดหมู่">
+              <USelect
+                v-model="newItemData.categoryId"
+                :items="pageData.categories"
+                label-key="name"
+                value-key="id"
+                class="w-full"
+                placeholder="เลือกประเภท"
+              />
+            </UFormField>
+            <UFormField label="หมายเหตุ" class="sm:col-span-2">
+              <UInput v-model="newItemData.description" class="w-full" placeholder="เช่น คิดตามขนาด, 5 บาท/ตร.ม." />
             </UFormField>
           </div>
-        </UFormField>
+        </div>
 
-        <UFormField label="หมายเหตุ">
-          <UInput v-model="newItemData.description" class="w-full" placeholder="เช่น คิดตามขนาด, 5 บาท/ตร.ม." />
-        </UFormField>
+        <div :class="adminDashboardCardClass">
+          <p class="mb-3 font-medium text-highlighted">ราคาตามบริการ</p>
+          <div class="space-y-2">
+            <div
+              v-for="service in pageData.services"
+              :key="service.id"
+              class="space-y-2 rounded-md border border-default/25 bg-elevated/30 p-3 dark:border-default/15 dark:bg-elevated/25"
+            >
+              <div class="flex items-center justify-between gap-2">
+                <span class="text-sm font-medium text-highlighted">{{ service.name }}</span>
+                <div class="flex items-center gap-1.5">
+                  <span class="text-xs text-muted">ช่วงราคา</span>
+                  <USwitch v-model="newItemRangeEnabled[service.id]" size="xs" />
+                </div>
+              </div>
+              <UInput
+                v-if="!newItemRangeEnabled[service.id]"
+                v-model.number="newItemPrices[service.id]"
+                type="number"
+                class="w-full"
+                placeholder="ราคา"
+              />
+              <div v-else class="grid grid-cols-3 items-end gap-2">
+                <UFormField label="ต่ำสุด">
+                  <UInput v-model.number="newItemPricesMin[service.id]" type="number" class="w-full" placeholder="0" @update:model-value="newItemPrices[service.id] = newItemPricesMin[service.id]" />
+                </UFormField>
+                <UFormField label="สูงสุด">
+                  <UInput v-model.number="newItemPricesMax[service.id]" type="number" class="w-full" placeholder="0" />
+                </UFormField>
+                <UFormField label="ราคาเริ่มต้น">
+                  <UInput v-model.number="newItemPrices[service.id]" type="number" class="w-full" placeholder="ใช้ค่าต่ำสุด" />
+                </UFormField>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </template>
     <template #footer>
@@ -336,31 +406,34 @@ watch(isManageOpen, (open) => {
     v-model:open="isManageOpen"
     title="จัดการประเภทและบริการ"
     description="เพิ่ม แก้ไข หรือลบประเภทสินค้าและประเภทบริการ"
-    :ui="{ content: 'max-w-2xl' }"
+    :ui="{ content: 'max-w-3xl', body: 'admin-workspace !p-2 sm:!p-4' }"
   >
     <template #body>
       <UTabs
         v-model="manageTab"
+        color="neutral"
+        variant="link"
         :items="[
           { label: 'ประเภทสินค้า', value: 'category', slot: 'category', icon: 'i-lucide-layers' },
           { label: 'บริการ', value: 'service', slot: 'service', icon: 'i-lucide-sparkles' }
         ]"
+        :ui="{ list: [adminFilterBarClass, '!px-3'] }"
         class="w-full"
       >
         <!-- ── Category Tab ── -->
         <template #category>
-          <div class="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4">
             <!-- List -->
-            <div class="space-y-2">
+            <div :class="[adminDashboardCardClass, 'space-y-2']">
               <p class="text-xs font-semibold uppercase tracking-wide text-muted">รายการประเภท</p>
               <div v-if="pageData.categories.length" class="space-y-1">
                 <div
                   v-for="cat in pageData.categories"
                   :key="cat.id"
-                  class="flex items-center gap-2 rounded-lg border px-3 py-2 transition-colors"
+                  class="flex items-center gap-2 rounded-md border px-3 py-2 transition-colors"
                   :class="editingCategory?.id === cat.id
-                    ? 'border-default/35 bg-primary/10 dark:border-default/25 dark:bg-elevated/45'
-                    : 'border-default/35 bg-elevated/70 hover:bg-elevated/80 dark:border-default/25 dark:bg-elevated/45 dark:hover:bg-elevated/60'"
+                    ? 'border-primary/30 bg-primary/[0.05] dark:border-primary/25 dark:bg-elevated/65'
+                    : 'border-default/25 bg-elevated/30 hover:border-default/40 hover:bg-elevated/50 dark:border-default/15 dark:bg-elevated/25 dark:hover:bg-elevated/45'"
                 >
                   <div class="min-w-0 flex-1 cursor-pointer" @click="openEditCategory(cat)">
                     <p class="truncate text-sm font-medium text-highlighted">{{ cat.name }}</p>
@@ -376,13 +449,13 @@ watch(isManageOpen, (open) => {
                   />
                 </div>
               </div>
-              <p v-else class="rounded-lg border border-dashed border-default p-4 text-center text-sm text-muted">
+              <p v-else class="rounded-md border border-dashed border-default/30 p-4 text-center text-sm text-muted dark:border-default/20">
                 ยังไม่มีประเภทสินค้า
               </p>
             </div>
 
             <!-- Form -->
-            <div :class="[adminMobileListCardClass, 'space-y-3 p-3']">
+            <div :class="[adminDashboardCardClass, 'space-y-3']">
               <p class="text-xs font-semibold uppercase tracking-wide text-muted">
                 {{ editingCategory ? 'แก้ไขประเภท' : 'เพิ่มประเภทใหม่' }}
               </p>
@@ -416,18 +489,18 @@ watch(isManageOpen, (open) => {
 
         <!-- ── Service Tab ── -->
         <template #service>
-          <div class="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4">
             <!-- List -->
-            <div class="space-y-2">
+            <div :class="[adminDashboardCardClass, 'space-y-2']">
               <p class="text-xs font-semibold uppercase tracking-wide text-muted">รายการบริการ</p>
               <div v-if="pageData.services.length" class="space-y-1">
                 <div
                   v-for="svc in pageData.services"
                   :key="svc.id"
-                  class="flex items-center gap-2 rounded-lg border px-3 py-2 transition-colors"
+                  class="flex items-center gap-2 rounded-md border px-3 py-2 transition-colors"
                   :class="editingService?.id === svc.id
-                    ? 'border-default/35 bg-info/10 dark:border-default/25 dark:bg-elevated/45'
-                    : 'border-default/35 bg-elevated/70 hover:bg-elevated/80 dark:border-default/25 dark:bg-elevated/45 dark:hover:bg-elevated/60'"
+                    ? 'border-info/30 bg-info/[0.05] dark:border-info/25 dark:bg-elevated/65'
+                    : 'border-default/25 bg-elevated/30 hover:border-default/40 hover:bg-elevated/50 dark:border-default/15 dark:bg-elevated/25 dark:hover:bg-elevated/45'"
                 >
                   <div class="min-w-0 flex-1 cursor-pointer" @click="openEditService(svc)">
                     <p class="truncate text-sm font-medium text-highlighted">{{ svc.name }}</p>
@@ -443,13 +516,13 @@ watch(isManageOpen, (open) => {
                   />
                 </div>
               </div>
-              <p v-else class="rounded-lg border border-dashed border-default p-4 text-center text-sm text-muted">
+              <p v-else class="rounded-md border border-dashed border-default/30 p-4 text-center text-sm text-muted dark:border-default/20">
                 ยังไม่มีบริการ
               </p>
             </div>
 
             <!-- Form -->
-            <div :class="[adminMobileListCardClass, 'space-y-3 p-3']">
+            <div :class="[adminDashboardCardClass, 'space-y-3']">
               <p class="text-xs font-semibold uppercase tracking-wide text-muted">
                 {{ editingService ? 'แก้ไขบริการ' : 'เพิ่มบริการใหม่' }}
               </p>

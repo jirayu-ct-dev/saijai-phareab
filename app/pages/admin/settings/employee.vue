@@ -180,10 +180,10 @@ const formatDate = (s: string) => new Date(s).toLocaleDateString("th-TH", { date
       </div>
     </div>
 
-    <USkeleton v-if="isLoading" class="h-64 w-full rounded-lg" />
+    <USkeleton v-if="isLoading" class="h-64 w-full rounded-md" />
 
     <UCard v-else>
-      <div v-if="!employees?.length" class="rounded-lg border border-dashed border-default p-8 text-center text-sm text-muted">
+      <div v-if="!employees?.length" class="rounded-md border border-dashed border-default p-8 text-center text-sm text-muted">
         ยังไม่มีพนักงานในระบบ
       </div>
 

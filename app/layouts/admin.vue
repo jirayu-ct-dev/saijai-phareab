@@ -227,14 +227,14 @@ const groups = computed(() => [
 </script>
 
 <template>
-  <UDashboardGroup unit="rem">
+  <UDashboardGroup unit="rem" class="admin-shell">
       <UDashboardSidebar
         id="default"
         v-model:open="open"
         collapsible
         resizable
-        class="bg-elevated/25"
-        :ui="{ footer: 'lg:border-t lg:border-default' }"
+        class="admin-sidebar bg-default/80 backdrop-blur-sm"
+        :ui="{ footer: 'lg:border-t lg:border-default/60' }"
       >
         <template #header="{ collapsed }">
           <AppLogo :collapsed="collapsed" label="ADMIN PANEL" :to="homeTarget" />
@@ -279,7 +279,7 @@ const groups = computed(() => [
         </aside>
       </template>
 
-    <div class="flex min-h-0 flex-1 flex-col overflow-y-auto">
+    <div class="admin-workspace flex min-h-0 flex-1 flex-col overflow-y-auto">
       <slot />
     </div>
   </UDashboardGroup>

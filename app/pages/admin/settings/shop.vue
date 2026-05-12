@@ -98,7 +98,7 @@ const onSubmit = async () => {
     </div>
 
     <ClientOnly>
-      <USkeleton v-if="isLoading" class="h-64 w-full rounded-lg" />
+      <USkeleton v-if="isLoading" class="h-64 w-full rounded-md" />
 
       <UCard v-else>
         <UForm :state="form" class="space-y-4" @submit="onSubmit">
@@ -143,7 +143,7 @@ const onSubmit = async () => {
       </UCard>
 
       <template #fallback>
-        <USkeleton class="h-64 w-full rounded-lg" />
+        <USkeleton class="h-64 w-full rounded-md" />
       </template>
     </ClientOnly>
   </div>

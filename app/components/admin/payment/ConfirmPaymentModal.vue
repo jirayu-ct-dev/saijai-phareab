@@ -88,7 +88,7 @@ const submit = async () => {
   <UModal v-model:open="open" title="ยืนยันการชำระเงิน">
     <template #body>
       <div class="space-y-4">
-        <div class="flex items-center justify-between rounded-lg bg-elevated p-3">
+        <div class="flex items-center justify-between rounded-md bg-elevated p-3">
           <span class="text-sm text-muted">ยอดที่ต้องชำระ</span>
           <span class="text-lg font-semibold">{{ amount.toLocaleString("th-TH", { minimumFractionDigits: 2 }) }} ฿</span>
         </div>

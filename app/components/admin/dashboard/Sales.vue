@@ -9,7 +9,7 @@ import {
   orderTypeLabels,
   orderTypeColors,
 } from '~~/shared/config/orderConfig'
-import { adminMobileListCardClass, adminTableUi } from '~~/shared/config/adminUi'
+import { adminEmptyStateClass, adminMobileListCardClass, adminTableUi } from '~~/shared/config/adminUi'
 import { formatCurrency, formatDateTime } from '~~/shared/utils/format'
 
 const props = defineProps<{
@@ -131,120 +131,77 @@ const columns: TableColumn<RecentOrder>[] = [
 </script>
 
 <template>
-  <UCard>
-    <template #header>
-      <div class="flex items-center justify-between">
-        <p class="font-semibold">รายการรับผ้าล่าสุด</p>
-        <UButton
-          to="/admin/service-orders"
-          variant="link"
-          color="primary"
-          size="sm"
-          trailing-icon="i-lucide-arrow-right"
-        >
-          ดูทั้งหมด
-        </UButton>
-      </div>
-    </template>
+  <section class="flex flex-col gap-1">
+    <div class="admin-dashboard-card flex items-center justify-between rounded-md border border-default/30 bg-default px-3 py-2 shadow-[0_1px_2px_rgb(15_23_42/0.04)] dark:border-default/20 dark:bg-elevated/55">
+      <p class="font-semibold text-highlighted">รายการรับผ้าล่าสุด</p>
+      <UButton
+        to="/admin/service-orders"
+        variant="link"
+        color="primary"
+        size="sm"
+        trailing-icon="i-lucide-arrow-right"
+      >
+        ดูทั้งหมด
+      </UButton>
+    </div>
 
     <div class="md:hidden">
-      <div v-if="status === 'pending'" class="space-y-3">
-        <USkeleton v-for="i in 4" :key="i" class="h-36 w-full rounded-xl" />
+      <div v-if="status === 'pending'" class="space-y-1">
+        <USkeleton v-for="i in 4" :key="i" class="h-36 w-full rounded-md" />
       </div>
 
-      <div v-else-if="!data?.length" class="flex flex-col items-center justify-center py-8 text-muted">
+      <div v-else-if="!data?.length" :class="adminEmptyStateClass">
         <UIcon name="i-lucide-shopping-basket" class="mb-3 size-10 opacity-50" />
         <p>ยังไม่มีออเดอร์</p>
       </div>
 
-      <div v-else class="space-y-3">
+      <div v-else class="space-y-1">
         <div
           v-for="order in data"
           :key="order.id"
-          :class="adminMobileListCardClass"
+          :class="[adminMobileListCardClass, 'admin-dashboard-card rounded-md']"
         >
-          <div class="p-3">
-          <div class="flex items-start justify-between gap-3">
-            <div class="min-w-0">
-              <p class="truncate font-mono text-xs text-muted">{{ order.orderNo ?? `#${order.id.slice(-6)}` }}</p>
-              <div class="mt-1 flex min-w-0 items-center gap-2">
-                <UAvatar
-                  v-bind="getAvatarProps(order.customer)"
-                  size="sm"
-                  class="shrink-0"
-                />
-                <span class="min-w-0">
-                  <span class="block truncate text-sm font-medium text-highlighted">{{ order.customer.name }}</span>
-                  <span class="block truncate text-xs text-muted">{{ order.customer.phoneNumber || 'ไม่ระบุเบอร์' }}</span>
-                </span>
+          <div class="flex items-center gap-2 p-2">
+            <UAvatar v-bind="getAvatarProps(order.customer)" size="sm" class="shrink-0" />
+            <div class="min-w-0 flex-1">
+              <div class="flex min-w-0 items-baseline gap-1.5">
+                <span class="truncate text-sm font-medium text-highlighted">{{ order.customer.name }}</span>
+                <span class="shrink-0 font-mono text-[10px] text-muted">{{ order.orderNo ?? `#${order.id.slice(-6)}` }}</span>
+              </div>
+              <div class="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-muted">
+                <UBadge :color="orderTypeColors[order.orderType]" variant="subtle" size="xs">{{ orderTypeLabels[order.orderType] }}</UBadge>
+                <UBadge :color="orderStatusColors[order.status]" variant="subtle" size="xs">{{ orderStatusLabels[order.status] }}</UBadge>
+                <span>{{ formatDateTime(order.createdAt) }}</span>
               </div>
             </div>
-
-            <div class="flex shrink-0 flex-col items-end gap-1 text-right">
-              <UBadge
-                :color="orderStatusColors[order.status]"
-                variant="subtle"
-                size="xs"
-              >
-                {{ orderStatusLabels[order.status] }}
-              </UBadge>
-              <span class="text-[11px] leading-tight text-muted">
-                {{ formatDateTime(order.createdAt) }}
-              </span>
+            <div class="flex shrink-0 flex-col items-end gap-0.5">
+              <span class="text-sm font-semibold text-primary leading-none">{{ formatOrderAmount(order) }}</span>
+              <span v-if="order.hangerCharge" class="text-[10px] text-muted">ไม้แขวน {{ formatCurrency(order.hangerCharge.total) }}</span>
             </div>
-          </div>
-
-          <div class="mt-3 grid grid-cols-2 gap-2 border-t border-slate-200 pt-3 text-xs dark:border-slate-800">
-            <div>
-              <p class="text-muted">ประเภท</p>
-              <UBadge :color="orderTypeColors[order.orderType]" variant="subtle" size="xs" class="mt-1">
-                {{ orderTypeLabels[order.orderType] }}
-              </UBadge>
+            <div class="flex shrink-0 items-center">
+              <UIButtonChatLine v-if="order.customer.lineUserId" :line-user-id="order.customer.lineUserId" icon-only size="xs" />
+              <UButton icon="i-lucide-eye" size="xs" color="neutral" variant="ghost" aria-label="ดูรายการรับผ้า" @click="router.push(`/admin/service-orders/${order.id}`)" />
             </div>
-            <div>
-              <p class="text-muted">ยอด</p>
-              <p class="mt-1 text-lg font-semibold text-primary">{{ formatOrderAmount(order) }}</p>
-              <p v-if="order.hangerCharge" class="mt-0.5 text-muted">
-                ไม้แขวน {{ formatCurrency(order.hangerCharge.total) }}
-              </p>
-            </div>
-          </div>
-
-          <div class="mt-3 flex items-center justify-end gap-1 border-t border-slate-200 pt-3 dark:border-slate-800">
-            <UIButtonChatLine
-              v-if="order.customer.lineUserId"
-              :line-user-id="order.customer.lineUserId"
-              icon-only
-              size="xs"
-            />
-            <UButton
-              icon="i-lucide-eye"
-              size="xs"
-              color="neutral"
-              variant="ghost"
-              aria-label="ดูรายการรับผ้า"
-              @click="router.push(`/admin/service-orders/${order.id}`)"
-            />
-          </div>
           </div>
         </div>
       </div>
     </div>
 
-    <UTable
-      :data="data"
-      :columns="columns"
-      :loading="status === 'pending'"
-      class="hidden md:block"
-      :ui="adminTableUi"
-      @select="(_e: Event, row) => router.push(`/admin/service-orders/${row.original.id}`)"
-    >
-      <template #empty>
-        <div class="flex flex-col items-center justify-center py-8 text-muted">
-          <UIcon name="i-lucide-shopping-basket" class="size-10 mb-3 opacity-50" />
-          <p>ยังไม่มีออเดอร์</p>
-        </div>
-      </template>
-    </UTable>
-  </UCard>
+    <div class="admin-dashboard-card hidden overflow-hidden rounded-md border border-default/30 bg-default shadow-[0_1px_2px_rgb(15_23_42/0.04)] md:block dark:border-default/20 dark:bg-elevated/55">
+      <UTable
+        :data="data"
+        :columns="columns"
+        :loading="status === 'pending'"
+        :ui="adminTableUi"
+        @select="(_e: Event, row) => router.push(`/admin/service-orders/${row.original.id}`)"
+      >
+        <template #empty>
+          <div :class="adminEmptyStateClass">
+            <UIcon name="i-lucide-shopping-basket" class="size-10 mb-3 opacity-50" />
+            <p>ยังไม่มีออเดอร์</p>
+          </div>
+        </template>
+      </UTable>
+    </div>
+  </section>
 </template>

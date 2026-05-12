@@ -239,9 +239,9 @@ const handleSubmit = async () => {
 </script>
 
 <template>
-  <div class="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1.7fr)_420px]">
-    <div class="space-y-6">
-      <section class="rounded-2xl border border-default bg-default p-5">
+  <div class="grid grid-cols-1 gap-4 sm:gap-6 xl:grid-cols-[minmax(0,1.7fr)_420px]">
+    <div class="space-y-4 sm:space-y-6">
+      <section class="flex flex-col gap-4">
         <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
             <p class="text-lg font-semibold text-highlighted">ขายแพ็กเกจ</p>
@@ -249,7 +249,7 @@ const handleSubmit = async () => {
           </div>
 
           <div class="flex flex-wrap items-center gap-2">
-            <div class="ml-auto flex flex-wrap gap-2">
+            <div class="ml-auto rounded-md border border-default/30 bg-default p-2 shadow-[0_1px_2px_rgb(15_23_42/0.04)] dark:border-default/20 dark:bg-elevated/55">
               <div class="flex flex-col gap-2">
                 <UInput v-model="searchQuery" icon="i-lucide-search" placeholder="ค้นหาชื่อแพ็กเกจ" class="w-full md:w-72" />
                 <div class="flex ml-auto gap-1">
@@ -268,7 +268,7 @@ const handleSubmit = async () => {
           </div>
         </div>
 
-        <div class="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-3 2xl:grid-cols-4">
+        <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-3 2xl:grid-cols-4">
           <PosCatalogCard
             v-for="pkg in filteredProducts"
             :key="pkg.id"
@@ -287,7 +287,7 @@ const handleSubmit = async () => {
             @change="setProductQuantity(pkg.id, $event)"
           />
 
-          <div v-if="filteredProducts.length === 0" class="col-span-full rounded-2xl border border-dashed border-default p-10 text-center text-muted">
+          <div v-if="filteredProducts.length === 0" class="col-span-full rounded-md border border-dashed border-default p-10 text-center text-muted">
             ไม่พบแพ็กเกจที่ตรงกับตัวกรอง
           </div>
         </div>
@@ -296,7 +296,7 @@ const handleSubmit = async () => {
 
     <aside
       :class="isXl
-        ? 'space-y-6 xl:sticky xl:top-4 xl:self-start'
+        ? 'space-y-4 sm:space-y-6 xl:sticky xl:top-4 xl:self-start'
         : [
             'fixed inset-y-0 right-0 z-50 flex w-full max-w-lg flex-col overflow-y-auto border-l border-default bg-default shadow-2xl transition-transform duration-200',
             isCartOpen ? 'translate-x-0' : 'translate-x-full',
@@ -330,7 +330,7 @@ const handleSubmit = async () => {
         @reset="resetForm"
       >
         <template #cart>
-          <div class="rounded-2xl border border-default bg-default p-4">
+          <div class="rounded-md bg-elevated/35 p-4 dark:bg-elevated/25">
             <div class="flex items-center justify-between gap-3">
               <p class="font-medium text-highlighted">รายการที่เลือก</p>
               <span class="text-sm text-muted">{{ totalQuantity }} ชิ้น</span>
@@ -338,7 +338,7 @@ const handleSubmit = async () => {
 
             <div v-if="cartItems.length" class="mt-3 space-y-1">
               <div v-for="item in cartItems" :key="item.key">
-                <div class="flex items-center gap-1.5 rounded-lg px-1.5 py-1 hover:bg-elevated/30">
+                <div class="flex items-center gap-1.5 rounded-md px-1.5 py-1 hover:bg-elevated/30">
                   <p class="min-w-0 flex-1 truncate text-sm text-highlighted">{{ item.name }}</p>
                   <UInputNumber
                     :model-value="item.quantity"
@@ -356,7 +356,7 @@ const handleSubmit = async () => {
               </div>
             </div>
 
-            <div v-else class="mt-4 rounded-xl border border-dashed border-default p-6 text-center text-sm text-muted">
+            <div v-else class="mt-4 rounded-md border border-dashed border-default p-6 text-center text-sm text-muted">
               ยังไม่ได้เลือกแพ็กเกจ
             </div>
           </div>

@@ -155,7 +155,7 @@ const roleLabel = (role: "ADMIN" | "EMPLOYEE" | "USER") =>
       <p class="text-sm text-muted mt-1">ตั้งค่าการแจ้งเตือนผ่าน LINE สำหรับลูกค้าและทีมงาน</p>
     </div>
 
-    <USkeleton v-if="isLoading" class="h-64 w-full rounded-lg" />
+    <USkeleton v-if="isLoading" class="h-64 w-full rounded-md" />
 
     <template v-else>
       <UCard>
@@ -253,7 +253,7 @@ const roleLabel = (role: "ADMIN" | "EMPLOYEE" | "USER") =>
           </div>
         </template>
 
-        <div v-if="!data?.subscribers?.length" class="rounded-lg border border-dashed border-default p-8 text-center text-sm text-muted">
+        <div v-if="!data?.subscribers?.length" class="rounded-md border border-dashed border-default p-8 text-center text-sm text-muted">
           ยังไม่มีผู้รับการแจ้งเตือน
         </div>
 
@@ -261,7 +261,7 @@ const roleLabel = (role: "ADMIN" | "EMPLOYEE" | "USER") =>
           <div
             v-for="sub in data.subscribers"
             :key="sub.id"
-            class="rounded-lg border border-default p-4 space-y-3"
+            class="rounded-md border border-default p-4 space-y-3"
           >
             <div class="flex items-center justify-between gap-3 flex-wrap">
               <div class="flex items-center gap-3">

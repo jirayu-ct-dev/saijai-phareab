@@ -3,7 +3,17 @@ import { h, resolveComponent, ref, computed, watch } from 'vue'
 import { getPaginationRowModel } from '@tanstack/table-core'
 import type { TableColumn } from '@nuxt/ui'
 import { cycleColumnSorting } from '~~/shared/utils/table'
-import { adminTableUi, getAdminCatalogItemToneClass } from '~~/shared/config/adminUi'
+import * as adminUi from '~~/shared/config/adminUi'
+
+const adminDashboardCardClass =
+  adminUi.adminDashboardCardClass
+  ?? 'admin-dashboard-card rounded-md border border-default/30 bg-default p-4 shadow-[0_1px_2px_rgb(15_23_42/0.04),0_6px_18px_-10px_rgb(15_23_42/0.08)] dark:border-default/20 dark:bg-elevated/55'
+const adminFilterBarClass =
+  adminUi.adminFilterBarClass
+  ?? 'admin-dashboard-card rounded-md border border-default/30 bg-default p-2 shadow-[0_1px_2px_rgb(15_23_42/0.04)] dark:border-default/20 dark:bg-elevated/55'
+const adminEmptyStateClass = adminUi.adminEmptyStateClass
+const adminMobileListCardClass = adminUi.adminMobileListCardClass
+const adminTableUi = adminUi.adminTableUi
 
 const props = defineProps<{
   data: any
@@ -113,9 +123,6 @@ const formatPriceText = (item: any, service: any) => {
   }
   return `฿${Number(price).toLocaleString()}`
 }
-
-const getPricingItemToneClass = (item: any) =>
-  getAdminCatalogItemToneClass(item.categoryId || item.categoryName || item.name)
 
 watch(selectedCount, (count) => {
   if (!count) showBulkDeleteModal.value = false
@@ -344,41 +351,34 @@ const columns = computed<TableColumn<any>[]>(() => {
 </script>
 
 <template>
-  <div class="flex flex-col gap-4">
-    <div class="flex flex-wrap items-center justify-between gap-1.5">
-      <div class="w-full md:w-auto">
-        <UInput
-          v-model="search"
-          class="w-full md:max-w-sm"
-          icon="i-lucide-search"
-          placeholder="ค้นหารายการ..."
-        />
-      </div>
-
-      <div class="flex flex-wrap items-center gap-1.5">
-        <UButton
-          v-if="selectedCount"
-          label="ลบ"
-          color="error"
-          variant="subtle"
-          icon="i-lucide-trash"
-          @click="showBulkDeleteModal = true"
-        >
-          <template #trailing>
-            <UKbd>{{ selectedCount }}</UKbd>
-          </template>
-        </UButton>
-
-        <USelect
-          v-model="filterCategory"
-          :items="categoryOptions"
-          label-key="name"
-          value-key="id"
-          class="min-w-36"
-        />
-
-        <UIButtonRefresh :loading="loading" @refresh="emit('refresh')" />
-      </div>
+  <section class="flex flex-col gap-1">
+    <div :class="[adminFilterBarClass, '!px-3 !py-3 flex flex-wrap items-center gap-1.5']">
+      <UInput
+        v-model="search"
+        class="min-w-0 flex-1 md:max-w-sm"
+        icon="i-lucide-search"
+        placeholder="ค้นหารายการ..."
+      />
+      <UButton
+        v-if="selectedCount"
+        label="ลบ"
+        color="error"
+        variant="subtle"
+        icon="i-lucide-trash"
+        @click="showBulkDeleteModal = true"
+      >
+        <template #trailing>
+          <UKbd>{{ selectedCount }}</UKbd>
+        </template>
+      </UButton>
+      <USelect
+        v-model="filterCategory"
+        :items="categoryOptions"
+        label-key="name"
+        value-key="id"
+        class="min-w-0 sm:min-w-36"
+      />
+      <UIButtonRefresh :loading="loading" @refresh="emit('refresh')" />
     </div>
 
     <ClientOnly>
@@ -428,61 +428,55 @@ const columns = computed<TableColumn<any>[]>(() => {
     </UModal>
 
     <div class="md:hidden">
-      <div v-if="loading" class="space-y-3">
-        <USkeleton v-for="i in 5" :key="i" class="h-40 w-full rounded-xl" />
+      <div v-if="loading" class="space-y-1">
+        <USkeleton v-for="i in 5" :key="i" class="h-24 w-full rounded-md" />
       </div>
 
-      <div v-else-if="!paginatedTableData.length" class="flex flex-col items-center justify-center rounded-xl border border-dashed border-default py-12 text-center text-muted">
+      <div v-else-if="!paginatedTableData.length" :class="adminEmptyStateClass">
         <UIcon name="i-lucide-list-x" class="mb-3 size-10 opacity-60" />
         <p>{{ search ? 'ไม่พบรายการที่ค้นหา' : 'ยังไม่มีรายการ' }}</p>
       </div>
 
-      <div v-else class="space-y-4">
+      <div v-else class="space-y-1">
         <div
           v-for="(item, index) in paginatedTableData"
           :key="item.id"
-          :class="['rounded-xl border p-3 transition-colors', getPricingItemToneClass(item)]"
+          :class="[adminMobileListCardClass, 'admin-dashboard-card rounded-md']"
         >
-          <div class="flex items-start gap-3">
+          <div class="flex items-center gap-2 p-2">
             <UCheckbox
               :model-value="isMobileRowSelected(index)"
               aria-label="เลือกแถว"
-              class="mt-1"
+              class="shrink-0"
               @update:model-value="setMobileRowSelected(index, $event)"
             />
+            <UIcon name="i-lucide-shirt" class="size-4 shrink-0 text-primary opacity-70" />
 
             <div class="min-w-0 flex-1">
               <div class="flex min-w-0 items-start justify-between gap-2">
-                <div class="flex min-w-0 items-center gap-2">
-                  <UIcon name="i-lucide-shirt" class="size-4 shrink-0 text-primary opacity-70" />
-                  <div class="min-w-0">
-                    <p class="truncate text-sm font-medium text-highlighted">{{ item.name }}</p>
-                    <p class="truncate text-xs text-muted">{{ item.description || 'ไม่มีหมายเหตุ' }}</p>
-                  </div>
+                <div class="min-w-0 flex-1">
+                  <p class="truncate text-sm font-medium text-highlighted">{{ item.name }}</p>
+                  <p class="truncate text-[11px] text-muted">{{ item.description || 'ไม่มีหมายเหตุ' }}</p>
                 </div>
-
-                <UBadge variant="subtle" color="primary" class="shrink-0">
+                <UBadge variant="subtle" color="primary" size="xs" class="shrink-0">
                   {{ item.categoryName }}
                 </UBadge>
               </div>
 
-              <div class="mt-3 grid grid-cols-2 gap-2 border-t border-default pt-3">
-                <div
+              <div class="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-muted">
+                <span
                   v-for="service in data?.services ?? []"
                   :key="service.id"
-                  class="min-w-0 rounded-lg bg-elevated/50 p-2"
                 >
-                  <p class="truncate text-xs text-muted">{{ service.name }}</p>
-                  <p
-                    class="mt-1 truncate text-sm font-semibold"
+                  {{ service.name }}:
+                  <span
+                    class="font-medium"
                     :class="formatPriceText(item, service) === '-' ? 'text-muted' : 'text-primary'"
-                  >
-                    {{ formatPriceText(item, service) }}
-                  </p>
-                </div>
+                  >{{ formatPriceText(item, service) }}</span>
+                </span>
               </div>
 
-              <div class="mt-3 flex items-center justify-end gap-1 border-t border-default pt-3">
+              <div class="mt-1 flex items-center justify-end gap-1">
                 <UButton icon="i-lucide-pencil" size="xs" color="neutral" variant="ghost" aria-label="แก้ไขรายการ" @click="openEditItem(item)" />
                 <UButton icon="i-lucide-trash-2" size="xs" color="error" variant="ghost" aria-label="ลบรายการ" @click="openDeleteItem(item)" />
               </div>
@@ -492,27 +486,28 @@ const columns = computed<TableColumn<any>[]>(() => {
       </div>
     </div>
 
-    <UTable
-      ref="table"
-      v-model:column-visibility="columnVisibility"
-      v-model:row-selection="rowSelection"
-      v-model:pagination="pagination"
-      :pagination-options="{ getPaginationRowModel: getPaginationRowModel() }"
-      class="hidden shrink-0 md:block"
-      :data="tableData"
-      :columns="columns"
-      :loading="loading"
-      :ui="adminTableUi"
-    >
-      <template #empty>
-        <div class="flex flex-col items-center justify-center py-12 text-center text-muted">
-          <UIcon name="i-lucide-list-x" class="mb-3 size-10 opacity-60" />
-          <p>{{ search ? 'ไม่พบรายการที่ค้นหา' : 'ยังไม่มีรายการ' }}</p>
-        </div>
-      </template>
-    </UTable>
+    <div :class="[adminDashboardCardClass, 'hidden shrink-0 overflow-hidden !p-0 md:block']">
+      <UTable
+        ref="table"
+        v-model:column-visibility="columnVisibility"
+        v-model:row-selection="rowSelection"
+        v-model:pagination="pagination"
+        :pagination-options="{ getPaginationRowModel: getPaginationRowModel() }"
+        :data="tableData"
+        :columns="columns"
+        :loading="loading"
+        :ui="adminTableUi"
+      >
+        <template #empty>
+          <div :class="adminEmptyStateClass">
+            <UIcon name="i-lucide-list-x" class="mb-3 size-10 opacity-60" />
+            <p>{{ search ? 'ไม่พบรายการที่ค้นหา' : 'ยังไม่มีรายการ' }}</p>
+          </div>
+        </template>
+      </UTable>
+    </div>
 
-    <div class="mt-auto flex flex-wrap items-center justify-between gap-3 border-t border-default pt-4">
+    <div class="mt-auto flex flex-wrap items-center justify-between gap-3 border-t border-default/30 pt-4 dark:border-default/20">
       <div class="text-sm text-muted">
         เลือก {{ selectedCount }} จาก {{ filteredRowCount }} แถวทั้งหมด
       </div>
@@ -526,53 +521,65 @@ const columns = computed<TableColumn<any>[]>(() => {
       </div>
     </div>
     </ClientOnly>
-  </div>
+  </section>
 
   <!-- Edit Modal -->
   <UModal
     v-model:open="editItemModal"
     title="แก้ไขรายการ"
     :description="`แก้ไขข้อมูลและราคา: ${activeItem.name}`"
+    :ui="{ content: 'max-w-3xl', body: 'admin-workspace !p-2 sm:!p-4' }"
   >
     <template #body>
-      <div class="space-y-4">
-        <UFormField label="ชื่อรายการ" required>
-          <UInput v-model="activeItem.name" class="w-full" placeholder="เช่น เสื้อ, กางเกงยีนส์" />
-        </UFormField>
+      <div class="flex flex-col gap-3 sm:gap-4">
+        <div :class="adminDashboardCardClass">
+          <p class="mb-3 font-medium text-highlighted">ข้อมูลรายการ</p>
+          <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <UFormField label="ชื่อรายการ" required>
+              <UInput v-model="activeItem.name" class="w-full" placeholder="เช่น เสื้อ, กางเกงยีนส์" />
+            </UFormField>
+            <UFormField label="ประเภท / หมวดหมู่">
+              <USelect
+                v-model="activeItem.categoryId"
+                :items="data?.categories ?? []"
+                label-key="name"
+                value-key="id"
+                class="w-full"
+              />
+            </UFormField>
+            <UFormField label="หมายเหตุ" class="sm:col-span-2">
+              <UInput
+                v-model="activeItem.description"
+                class="w-full"
+                placeholder="เช่น คิดตามขนาด, 5 บาท/ตร.ม."
+              />
+            </UFormField>
+          </div>
+        </div>
 
-        <UFormField label="ประเภท / หมวดหมู่">
-          <USelect
-            v-model="activeItem.categoryId"
-            :items="data?.categories ?? []"
-            label-key="name"
-            value-key="id"
-            class="w-full"
-          />
-        </UFormField>
-
-        <UFormField label="ราคาตามบริการ">
-          <div class="space-y-4">
+        <div :class="adminDashboardCardClass">
+          <p class="mb-3 font-medium text-highlighted">ราคาตามบริการ</p>
+          <div class="space-y-2">
             <div
               v-for="service in data?.services"
               :key="service.id"
-              class="border border-default rounded-lg p-3 space-y-2"
+              class="space-y-2 rounded-md border border-default/25 bg-elevated/30 p-3 dark:border-default/15 dark:bg-elevated/25"
             >
               <div class="flex items-center justify-between gap-2">
-                <span class="text-sm font-medium">{{ service.name }}</span>
+                <span class="text-sm font-medium text-highlighted">{{ service.name }}</span>
                 <div class="flex items-center gap-1.5">
                   <span class="text-xs text-muted">ช่วงราคา</span>
                   <USwitch v-model="activeItemRangeEnabled[service.id]" size="xs" />
                 </div>
               </div>
-              <div v-if="!activeItemRangeEnabled[service.id]">
-                <UInput
-                  v-model.number="activeItemPrices[service.id]"
-                  type="number"
-                  class="w-full"
-                  placeholder="ราคา"
-                />
-              </div>
-              <div v-else class="grid grid-cols-3 gap-2 items-end">
+              <UInput
+                v-if="!activeItemRangeEnabled[service.id]"
+                v-model.number="activeItemPrices[service.id]"
+                type="number"
+                class="w-full"
+                placeholder="ราคา"
+              />
+              <div v-else class="grid grid-cols-3 items-end gap-2">
                 <UFormField label="ต่ำสุด">
                   <UInput v-model.number="activeItemPricesMin[service.id]" type="number" class="w-full" placeholder="0" @update:model-value="activeItemPrices[service.id] = activeItemPricesMin[service.id]" />
                 </UFormField>
@@ -585,15 +592,7 @@ const columns = computed<TableColumn<any>[]>(() => {
               </div>
             </div>
           </div>
-        </UFormField>
-
-        <UFormField label="หมายเหตุ">
-          <UInput
-            v-model="activeItem.description"
-            class="w-full"
-            placeholder="เช่น คิดตามขนาด, 5 บาท/ตร.ม."
-          />
-        </UFormField>
+        </div>
       </div>
     </template>
     <template #footer>
