@@ -155,7 +155,6 @@ onMounted(() => {
                 size="lg" 
                 class="w-full mt-1.5" 
                 required
-                :ui="{ icon: { trailing: { pointer: '' } } }"
               >
                 <template #trailing>
                   <UButton
@@ -183,7 +182,6 @@ onMounted(() => {
                 size="lg" 
                 class="w-full mt-1.5" 
                 required
-                :ui="{ icon: { trailing: { pointer: '' } } }"
               >
                 <template #trailing>
                   <UButton

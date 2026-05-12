@@ -11,7 +11,11 @@ definePageMeta({
 <template>
   <UDashboardPage>
     <UDashboardPanel grow>
-      <UDashboardNavbar title="ความปลอดภัย" />
+      <UDashboardNavbar title="ความปลอดภัย">
+        <template #leading>
+          <UDashboardSidebarCollapse />
+        </template>
+      </UDashboardNavbar>
 
       <div class="p-6 max-w-2xl mx-auto space-y-6 w-full">
         <PasswordChangeForm />

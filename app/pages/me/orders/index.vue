@@ -11,7 +11,7 @@ import type { TableColumn } from "@nuxt/ui";
 const { orders, meta, page, pageSize, status, pending } = useMyOrders();
 
 const statusOptions = [
-  { label: "ทั้งหมด", value: "" },
+  { label: "สถานะทั้งหมด", value: "" },
   { label: orderStatusLabels.RECEIVED, value: "RECEIVED" },
   { label: orderStatusLabels.PROCESSING, value: "PROCESSING" },
   { label: orderStatusLabels.DELIVERING, value: "DELIVERING" },
@@ -32,16 +32,17 @@ const columns: TableColumn<any>[] = [
 <template>
   <UDashboardPage>
     <UDashboardPanel grow>
-      <UDashboardNavbar title="รายการออเดอร์" />
+      <UDashboardNavbar title="รายการออเดอร์">
+        <template #leading>
+          <UDashboardSidebarCollapse />
+        </template>
+      </UDashboardNavbar>
 
       <UDashboardToolbar>
         <template #left>
-          <USelectMenu
+          <USelect
             v-model="status"
-            :options="statusOptions"
-            option-attribute="label"
-            value-attribute="value"
-            placeholder="สถานะทั้งหมด"
+            :items="statusOptions"
             class="w-48"
           />
         </template>

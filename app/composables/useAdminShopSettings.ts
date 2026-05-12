@@ -24,7 +24,7 @@ export const useAdminShopSettings = () => {
       await refresh();
       notify.updated();
     } catch (e) {
-      notify.serverError(e);
+      notify.serverError();
     }
   };
 

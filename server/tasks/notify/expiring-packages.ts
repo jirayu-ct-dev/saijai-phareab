@@ -7,11 +7,11 @@ export default defineTask({
   },
   async run() {
     try {
-      const results = await runExpiringPackageNotifications();
-      return { result: { ok: true, results } };
+      await runExpiringPackageNotifications();
+      return { result: "Success" };
     } catch (error) {
       console.error("[task:notify:expiring-packages] failed", error);
-      return { result: { ok: false, error: (error as Error).message } };
+      return { result: "Failed" };
     }
   },
 });

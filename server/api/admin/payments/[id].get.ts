@@ -224,15 +224,17 @@ export default defineEventHandler(async (event) => {
     isPackageIncluded: item.isPackageIncluded,
     notes: item.notes,
     storefrontPriceId: item.storefrontPriceId,
-    service: {
+    service: item.storefrontPrice ? {
       id: item.storefrontPrice.storefrontService.id,
       name: item.storefrontPrice.storefrontService.name,
-    },
-    item: {
+    } : null,
+    item: item.storefrontPrice ? {
       id: item.storefrontPrice.storefrontItem.id,
       name: item.storefrontPrice.storefrontItem.name,
-    },
-    label: `${item.storefrontPrice.storefrontService.name} ${item.storefrontPrice.storefrontItem.name}`.trim(),
+    } : null,
+    label: item.storefrontPrice 
+      ? `${item.storefrontPrice.storefrontService.name} ${item.storefrontPrice.storefrontItem.name}`.trim()
+      : item.weightLabel || "ไม่มีข้อมูล",
     image: item.image ? { id: item.image.id, url: item.image.url, secureUrl: item.image.secureUrl } : null,
     photos: item.photos.map((photo) => ({
       id: photo.id,

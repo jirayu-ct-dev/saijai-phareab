@@ -186,7 +186,6 @@ watch(session, async (newSession) => {
                 size="lg" 
                 class="w-full mt-1.5" 
                 required
-                :ui="{ icon: { trailing: { pointer: '' } } }"
               >
                 <template #trailing>
                   <UButton
@@ -214,7 +213,6 @@ watch(session, async (newSession) => {
                 size="lg" 
                 class="w-full mt-1.5" 
                 required
-                :ui="{ icon: { trailing: { pointer: '' } } }"
               >
                 <template #trailing>
                   <UButton
