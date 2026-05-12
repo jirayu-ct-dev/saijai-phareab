@@ -24,53 +24,63 @@ const menu = computed<NavigationMenuItem[]>(() => [
     }
 ])
 
-const itemsDropdown = computed<DropdownMenuItem[][]>(() => [
-    [
-        {
-            label: user.value?.name || 'ผู้ใช้งาน',
-            avatar: userAvatar.value,
-            type: 'label'
-        }
-    ],
-    [
-        {
-            label: 'Profile',
-            icon: 'i-lucide-user'
-        },
-        {
-            label: 'Settings',
-            icon: 'i-lucide-cog'
-        }
-    ],
-    [
-        {
-            label: 'member',
-            icon: 'i-lucide-users',
-            to: '/member'
-        },
-        {
-            label: 'employee',
-            icon: 'i-lucide-user-cog',
-            to: '/employee'
-        },
-        {
-            label: 'admin',
-            icon: 'i-lucide-user-cog',
+const itemsDropdown = computed<DropdownMenuItem[][]>(() => {
+    const roleLinks: DropdownMenuItem[] = []
+
+    if (user.value?.role === 'ADMIN') {
+        roleLinks.push({
+            label: 'หน้าหลักผู้ดูแลระบบ',
+            icon: 'i-lucide-shield',
             to: '/admin'
-        },
-    ],
-    [
-        {
-            label: 'Logout',
-            icon: 'i-lucide-log-out',
-            color: 'error',
-            class: 'cursor-pointer',
-            onClick: () => {
-                logout();
+        })
+    } else if (user.value?.role === 'EMPLOYEE') {
+        roleLinks.push({
+            label: 'หน้าหลักพนักงาน',
+            icon: 'i-lucide-briefcase',
+            to: '/admin/employee-dashboard'
+        })
+    } else {
+        roleLinks.push({
+            label: 'หน้าหลักสมาชิก',
+            icon: 'i-lucide-layout-dashboard',
+            to: '/me'
+        })
+    }
+
+    return [
+        [
+            {
+                label: user.value?.name || 'ผู้ใช้งาน',
+                avatar: userAvatar.value,
+                type: 'label'
             }
-        }
+        ],
+        [
+            {
+                label: 'Profile',
+                icon: 'i-lucide-user',
+                to: '/me'
+            },
+            {
+                label: 'Settings',
+                icon: 'i-lucide-cog',
+                to: '/settings'
+            }
+        ],
+        roleLinks,
+        [
+            {
+                label: 'Logout',
+                icon: 'i-lucide-log-out',
+                color: 'error',
+                class: 'cursor-pointer',
+                onClick: () => {
+                    logout();
+                }
+            }
+        ]
     ]
-])
+})
 
 </script>
 
