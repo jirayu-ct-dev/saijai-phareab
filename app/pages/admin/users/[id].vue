@@ -362,53 +362,67 @@ const orderItemCount = (order: UserDetailResponse['recentServiceOrders'][number]
       <div v-else :class="adminDashboardBodyClass">
 
         <!-- SECTION 1: Profile Header -->
-        <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <div class="flex items-center gap-3">
-            <UAvatar v-bind="getAvatarProps(user)" size="lg" class="shrink-0 sm:size-14" />
-            <div class="min-w-0">
-              <div class="flex flex-wrap items-center gap-2">
-                <h1 class="truncate text-lg font-bold text-highlighted sm:text-xl">
-                  {{ user.name || user.email || '-' }}
-                </h1>
-                <UBadge v-if="hasMembership" color="primary" variant="subtle" size="sm">
-                  <UIcon name="i-lucide-crown" class="size-3 mr-1" />ลูกค้ารายเดือน
-                </UBadge>
-              </div>
-              <p class="mt-0.5 text-xs text-muted break-all sm:text-sm">{{ user.email }}</p>
-              <div class="mt-1.5 flex flex-wrap items-center gap-1">
-                <UBadge color="neutral" variant="subtle" size="sm">{{ roleLabelMap[user.role] }}</UBadge>
-                <UBadge :color="user.emailVerified ? 'success' : 'warning'" variant="subtle" size="sm">
-                  {{ user.emailVerified ? 'ยืนยันอีเมลแล้ว' : 'รอยืนยันอีเมล' }}
-                </UBadge>
+        <UCard :ui="{ body: 'p-4! sm:p-5!' }">
+          <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div class="flex items-start gap-4">
+              <UAvatar v-bind="getAvatarProps(user)" size="xl" class="shrink-0 ring-2 ring-primary/15" />
+              <div class="min-w-0 space-y-1.5">
+                <div class="flex flex-wrap items-center gap-2">
+                  <h1 class="truncate text-xl font-bold text-highlighted sm:text-2xl">
+                    {{ user.name || user.email || '-' }}
+                  </h1>
+                  <UBadge v-if="hasMembership" color="primary" variant="subtle" size="sm" :ui="{ base: 'rounded-md!' }">
+                    <UIcon name="i-lucide-crown" class="size-3 mr-1" />ลูกค้ารายเดือน
+                  </UBadge>
+                </div>
+                <p class="text-xs text-muted break-all sm:text-sm flex items-center gap-1.5">
+                  <UIcon name="i-lucide-mail" class="size-3.5 shrink-0" />
+                  {{ user.email }}
+                </p>
+                <p v-if="user.phoneNumber" class="text-xs text-muted sm:text-sm flex items-center gap-1.5">
+                  <UIcon name="i-lucide-phone" class="size-3.5 shrink-0" />
+                  {{ user.phoneNumber }}
+                </p>
+                <div class="flex flex-wrap items-center gap-1.5 pt-1">
+                  <UBadge color="neutral" variant="subtle" size="sm" :ui="{ base: 'rounded-md!' }">{{ roleLabelMap[user.role] }}</UBadge>
+                  <UBadge :color="user.emailVerified ? 'success' : 'warning'" variant="subtle" size="sm" :ui="{ base: 'rounded-md!' }">
+                    <UIcon :name="user.emailVerified ? 'i-lucide-check-circle' : 'i-lucide-clock'" class="size-3 mr-1" />
+                    {{ user.emailVerified ? 'ยืนยันอีเมลแล้ว' : 'รอยืนยันอีเมล' }}
+                  </UBadge>
+                  <UBadge v-if="user.lineUserId" color="success" variant="subtle" size="sm" icon="i-simple-icons-line" :ui="{ base: 'rounded-md!' }">LINE</UBadge>
+                </div>
               </div>
             </div>
+            <UIButtonChatLine :line-user-id="user.lineUserId" label="แชท LINE" size="sm" class="self-start shrink-0" />
           </div>
-          <UIButtonChatLine :line-user-id="user.lineUserId" label="แชท LINE" size="sm" class="self-start" />
-        </div>
+        </UCard>
 
         <!-- SECTION 2: Stats Grid -->
-        <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+        <div v-if="statCards.length" class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
           <UCard
             v-for="card in statCards"
             :key="card.title"
             :to="card.to"
-            variant="subtle"
             :ui="{ body: 'p-3 sm:p-4' }"
-            class="hover:ring-1 hover:ring-primary/30 transition"
+            :class="['transition', card.to ? 'hover:ring-1 hover:ring-primary/40 cursor-pointer' : '']"
           >
-            <div class="flex items-center gap-2 mb-1">
-              <UIcon :name="card.icon" class="size-4 text-primary shrink-0" />
-              <p class="text-xs text-muted truncate">{{ card.title }}</p>
+            <div class="flex items-start gap-2.5">
+              <div class="flex size-9 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
+                <UIcon :name="card.icon" class="size-4.5" />
+              </div>
+              <div class="min-w-0 flex-1">
+                <p class="text-xs text-muted truncate">{{ card.title }}</p>
+                <p class="mt-0.5 text-lg font-bold text-highlighted truncate leading-tight">{{ card.value }}</p>
+                <p class="text-[10px] text-muted truncate">{{ card.hint }}</p>
+              </div>
             </div>
-            <p class="text-xl font-bold text-highlighted truncate">{{ card.value }}</p>
-            <p class="text-xs text-muted mt-0.5 truncate">{{ card.hint }}</p>
           </UCard>
         </div>
 
         <!-- SECTION 3: ข้อมูลทั่วไป + แพ็กเกจ -->
         <div class="grid gap-4 lg:grid-cols-2">
           <!-- ข้อมูลทั่วไป -->
-          <UCard :ui="{ body: 'p-4 sm:p-5' }">
+          <UCard :ui="{ body: 'p-4! sm:p-5!' }">
             <p class="text-sm font-semibold text-highlighted mb-3">ข้อมูลทั่วไป</p>
             <dl class="space-y-2.5">
               <div v-for="row in customerRows" :key="row.label" class="flex items-baseline justify-between gap-3">
@@ -419,7 +433,7 @@ const orderItemCount = (order: UserDetailResponse['recentServiceOrders'][number]
           </UCard>
 
           <!-- แพ็กเกจ -->
-          <UCard id="packages" :ui="{ body: 'p-4 sm:p-5' }">
+          <UCard id="packages" :ui="{ body: 'p-4! sm:p-5!' }">
             <div class="flex items-center justify-between gap-2 mb-3">
               <p class="text-sm font-semibold text-highlighted">แพ็กเกจ</p>
               <UBadge color="neutral" variant="subtle" size="sm">{{ entitlements.length }} รายการ</UBadge>
@@ -434,7 +448,7 @@ const orderItemCount = (order: UserDetailResponse['recentServiceOrders'][number]
                 <div class="min-w-0 flex-1">
                   <div class="flex flex-wrap items-center gap-1">
                     <p class="text-sm text-highlighted truncate">{{ entitlement.product.name }}</p>
-                    <UBadge :color="packageTypeColors[entitlement.product.packageType]" variant="subtle" size="xs">
+                    <UBadge :color="packageTypeColors[entitlement.product.packageType]" variant="subtle" size="xs" :ui="{ base: 'rounded-md!' }">
                       {{ packageTypeLabels[entitlement.product.packageType] }}
                     </UBadge>
                   </div>
@@ -444,7 +458,7 @@ const orderItemCount = (order: UserDetailResponse['recentServiceOrders'][number]
                     <template v-if="entitlement.endAt"> · หมด {{ formatDateTime(entitlement.endAt) }}</template>
                   </p>
                 </div>
-                <UBadge :color="entitlementStatusMap[entitlement.status].color" variant="subtle" size="xs" class="shrink-0">
+                <UBadge :color="entitlementStatusMap[entitlement.status].color" variant="subtle" size="xs" class="shrink-0" :ui="{ base: 'rounded-md!' }">
                   {{ entitlementStatusMap[entitlement.status].label }}
                 </UBadge>
               </div>
@@ -457,7 +471,7 @@ const orderItemCount = (order: UserDetailResponse['recentServiceOrders'][number]
         <div class="grid gap-4 lg:grid-cols-3">
 
           <!-- การซื้อแพ็กเกจ -->
-          <UCard :ui="{ body: 'p-4 sm:p-5' }">
+          <UCard :ui="{ body: 'p-4! sm:p-5!' }">
             <div class="flex items-center justify-between gap-2 mb-3">
               <div class="flex items-center gap-1.5">
                 <p class="text-sm font-semibold text-highlighted">การซื้อแพ็กเกจ</p>
@@ -481,7 +495,7 @@ const orderItemCount = (order: UserDetailResponse['recentServiceOrders'][number]
           </UCard>
 
           <!-- รายการผ้า -->
-          <UCard :ui="{ body: 'p-4 sm:p-5' }">
+          <UCard :ui="{ body: 'p-4! sm:p-5!' }">
             <div class="flex items-center justify-between gap-2 mb-3">
               <div class="flex items-center gap-1.5">
                 <p class="text-sm font-semibold text-highlighted">รายการผ้า</p>
@@ -505,7 +519,7 @@ const orderItemCount = (order: UserDetailResponse['recentServiceOrders'][number]
           </UCard>
 
           <!-- การชำระเงิน -->
-          <UCard :ui="{ body: 'p-4 sm:p-5' }">
+          <UCard :ui="{ body: 'p-4! sm:p-5!' }">
             <div class="flex items-center justify-between gap-2 mb-3">
               <div class="flex items-center gap-1.5">
                 <p class="text-sm font-semibold text-highlighted">การชำระเงิน</p>

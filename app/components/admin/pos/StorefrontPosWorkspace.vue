@@ -761,6 +761,7 @@ const handleSubmit = async () => {
     </div>
 
     <aside
+      v-show="mounted"
       :class="!isCompact
         ? 'space-y-4 rounded-md sm:space-y-6 xl:sticky xl:top-4 xl:self-start'
         : [
