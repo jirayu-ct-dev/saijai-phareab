@@ -265,11 +265,14 @@ const onToggleActive = async (emp: Employee) => {
             </div>
           </div>
           <div class="flex items-center justify-end gap-2 sm:shrink-0">
-            <USwitch
-              :model-value="emp.isActive"
-              :disabled="emp.id === actor?.id"
-              @update:model-value="onToggleActive(emp)"
-            />
+            <div class="flex flex-col items-center gap-0.5">
+              <USwitch
+                :model-value="emp.isActive"
+                :disabled="emp.id === actor?.id"
+                @update:model-value="onToggleActive(emp)"
+              />
+              <span class="text-[10px] leading-none text-muted">{{ emp.isActive ? 'ใช้งาน' : 'พัก' }}</span>
+            </div>
             <USelect
               :model-value="emp.role"
               :items="[
