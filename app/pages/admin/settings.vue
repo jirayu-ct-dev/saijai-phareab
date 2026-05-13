@@ -40,7 +40,7 @@ const links = computed(() => [isAdmin.value ? adminLinks : employeeLinks])
     </template>
 
     <template #body>
-      <div class="flex flex-col gap-4 sm:gap-6 lg:gap-12 w-full lg:max-w-2xl mx-auto">
+      <div class="mx-auto flex w-full flex-col gap-3 lg:max-w-2xl">
         <NuxtPage />
       </div>
     </template>

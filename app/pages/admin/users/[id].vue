@@ -6,7 +6,8 @@ import * as adminUi from '~~/shared/config/adminUi'
 
 const adminDashboardBodyClass =
   adminUi.adminDashboardBodyClass
-  ?? 'admin-dashboard flex flex-col gap-4 p-2 sm:gap-6 sm:p-6'
+  ?? 'admin-dashboard flex flex-col gap-3 p-2 sm:p-6'
+const userDetailBodyClass = [adminDashboardBodyClass, '!gap-3'].join(' ')
 import type {
   EntitlementStatus,
   PackageSaleStatus,
@@ -314,7 +315,7 @@ const orderItemCount = (order: UserDetailResponse['recentServiceOrders'][number]
 
     <template #body>
       <!-- Loading Skeleton -->
-      <div v-if="showSkeleton" :class="adminDashboardBodyClass">
+      <div v-if="showSkeleton" :class="userDetailBodyClass">
         <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div class="flex items-center gap-3">
             <USkeleton class="size-16 rounded-full" />
@@ -333,7 +334,7 @@ const orderItemCount = (order: UserDetailResponse['recentServiceOrders'][number]
           <USkeleton v-for="i in 4" :key="`u-stat-${i}`" class="h-20 w-full rounded-md" />
         </div>
 
-        <div class="grid gap-4 sm:gap-6 lg:grid-cols-2">
+        <div class="grid gap-3 lg:grid-cols-2">
           <div v-for="i in 4" :key="`u-card-${i}`" class="rounded-md border border-default bg-default p-5 space-y-3">
             <USkeleton class="h-5 w-40 rounded" />
             <div class="space-y-2">
@@ -344,14 +345,14 @@ const orderItemCount = (order: UserDetailResponse['recentServiceOrders'][number]
       </div>
 
       <!-- Error State -->
-      <div v-else-if="error" :class="adminDashboardBodyClass">
+      <div v-else-if="error" :class="userDetailBodyClass">
         <div class="rounded-md border border-error/40 bg-error/5 p-6 text-error">
           {{ error.statusMessage || 'ไม่สามารถโหลดรายละเอียดลูกค้าได้' }}
         </div>
       </div>
 
       <!-- Not Found -->
-      <div v-else-if="!user || !stats" :class="adminDashboardBodyClass">
+      <div v-else-if="!user || !stats" :class="userDetailBodyClass">
         <div class="rounded-md border border-default bg-default p-6">
           <p class="text-base font-semibold text-highlighted">ไม่พบข้อมูลลูกค้า</p>
           <p class="mt-2 text-sm text-muted">ลูกค้านี้อาจถูกลบหรือคุณไม่มีสิทธิ์เข้าถึง</p>
@@ -359,7 +360,7 @@ const orderItemCount = (order: UserDetailResponse['recentServiceOrders'][number]
       </div>
 
       <!-- Main Content -->
-      <div v-else :class="adminDashboardBodyClass">
+      <div v-else :class="userDetailBodyClass">
 
         <!-- SECTION 1: Profile Header -->
         <UCard :ui="{ body: 'p-4! sm:p-5!' }">
@@ -420,7 +421,7 @@ const orderItemCount = (order: UserDetailResponse['recentServiceOrders'][number]
         </div>
 
         <!-- SECTION 3: ข้อมูลทั่วไป + แพ็กเกจ -->
-        <div class="grid gap-4 lg:grid-cols-2">
+        <div class="grid gap-3 lg:grid-cols-2">
           <!-- ข้อมูลทั่วไป -->
           <UCard :ui="{ body: 'p-4! sm:p-5!' }">
             <p class="text-sm font-semibold text-highlighted mb-3">ข้อมูลทั่วไป</p>
@@ -468,7 +469,7 @@ const orderItemCount = (order: UserDetailResponse['recentServiceOrders'][number]
         </div>
 
         <!-- SECTION 4: กิจกรรมล่าสุด -->
-        <div class="grid gap-4 lg:grid-cols-3">
+        <div class="grid gap-3 lg:grid-cols-3">
 
           <!-- การซื้อแพ็กเกจ -->
           <UCard :ui="{ body: 'p-4! sm:p-5!' }">

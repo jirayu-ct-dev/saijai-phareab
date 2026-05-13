@@ -38,7 +38,6 @@ type DeletedDataResponse = {
   pageCount: number;
 };
 
-const adminDashboardBodyClass = adminUi.adminDashboardBodyClass;
 const adminDashboardCardClass = adminUi.adminDashboardCardClass;
 const adminFilterBarClass = adminUi.adminFilterBarClass;
 const adminMobileListCardClass = adminUi.adminMobileListCardClass;
@@ -120,6 +119,11 @@ const paginationSummary = computed(() => {
   const start = (page.value - 1) * limit.value + 1;
   const end = Math.min(total.value, page.value * limit.value);
   return `${start}-${end} / ${total.value}`;
+});
+const selectionSummary = computed(() => {
+  if (!total.value) return "0 รายการ";
+  if (selectedCount.value) return `เลือก ${selectedCount.value} / ${total.value}`;
+  return paginationSummary.value;
 });
 const hardDeleteItemCount = computed(() => hardDeleteTargets.value.length || (hardDeleteTarget.value ? 1 : 0));
 const hardDeleteTitle = computed(() => {
@@ -285,21 +289,16 @@ const confirmHardDelete = async () => {
 
 <template>
   <UDashboardPanel id="deleted-data">
-    <div :class="adminDashboardBodyClass">
+    <div class="mx-auto w-full max-w-6xl space-y-3 p-2 sm:p-6">
       <section :class="adminDashboardCardClass">
-        <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div class="flex items-center justify-between gap-3">
           <div class="min-w-0">
             <h1 class="text-xl font-semibold text-highlighted">จัดการข้อมูลที่ถูกลบ</h1>
             <p class="mt-1 text-sm text-muted">กู้คืนหรือลบถาวรข้อมูล soft-deleted ทั้งระบบ</p>
           </div>
-          <div class="flex shrink-0 items-center gap-2">
-            <UBadge v-if="selectedCount" color="primary" variant="subtle">
-              เลือก {{ selectedCount }}
-            </UBadge>
-            <UBadge color="warning" variant="subtle" icon="i-lucide-trash-2">
-              {{ paginationSummary }}
-            </UBadge>
-          </div>
+          <UBadge color="warning" variant="subtle" class="shrink-0">
+            {{ selectionSummary }}
+          </UBadge>
         </div>
       </section>
 
@@ -319,20 +318,11 @@ const confirmHardDelete = async () => {
               placeholder="ค้นหาชื่อ อีเมล เลขออเดอร์ หรือเลขชำระ"
               class="min-w-0 flex-1"
             />
-          </div>
-          <div class="flex shrink-0 items-center gap-1.5">
-            <USelect
-              v-model="selectedType"
-              :items="typeOptions"
-              value-key="value"
-              class="w-43 shrink-0"
-            />
             <UButton
               v-if="selectedCount"
               icon="i-lucide-rotate-ccw"
               color="neutral"
               variant="outline"
-              size="sm"
               aria-label="กู้คืนที่เลือก"
               :loading="isBulkRestoring"
               @click="openBulkRestore"
@@ -343,7 +333,6 @@ const confirmHardDelete = async () => {
               color="error"
               variant="subtle"
               aria-label="ลบที่เลือก"
-              size="sm"
               @click="openBulkHardDelete"
             />
             <UButton
@@ -352,6 +341,14 @@ const confirmHardDelete = async () => {
               variant="outline"
               :loading="isLoading"
               @click="handleRefresh"
+            />
+          </div>
+          <div class="flex shrink-0 items-center justify-end gap-1.5">
+            <USelect
+              v-model="selectedType"
+              :items="typeOptions"
+              value-key="value"
+              class="w-43 shrink-0"
             />
           </div>
         </div>

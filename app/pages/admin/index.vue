@@ -2,7 +2,7 @@
 import { sub } from "date-fns";
 import type { DropdownMenuItem } from "@nuxt/ui";
 import type { Period, Range } from "~~/shared/types/dashboard";
-import { adminMetricCardClass } from "~~/shared/config/adminUi";
+import { adminDashboardBodyClass, adminMetricCardClass } from "~~/shared/config/adminUi";
 
 definePageMeta({
   middleware: ["role-admin-home"],
@@ -87,11 +87,11 @@ const handleRefresh = async () => {
     </template>
 
     <template #body>
-      <div class="admin-dashboard flex flex-col gap-4 p-2 sm:gap-6 sm:p-6">
+      <div :class="adminDashboardBodyClass">
         <ClientOnly>
           <AdminDashboardStats :period="period" :range="range" />
           <template #fallback>
-            <UPageGrid class="grid-cols-2 gap-4 lg:grid-cols-4">
+            <UPageGrid class="grid-cols-2 gap-3 lg:grid-cols-4">
               <UPageCard
                 v-for="i in 4"
                 :key="i"
@@ -115,11 +115,11 @@ const handleRefresh = async () => {
             </UPageGrid>
           </template>
         </ClientOnly>
-        <div class="grid grid-cols-1 gap-4 xl:grid-cols-2">
+        <div class="grid grid-cols-1 gap-3 xl:grid-cols-2">
           <AdminDashboardChart :period="period" :range="range" />
           <AdminDashboardOrderTypeChart :period="period" :range="range" />
         </div>
-        <div class="flex flex-col gap-4 sm:gap-6">
+        <div class="flex flex-col gap-3">
           <ClientOnly>
             <AdminDashboardRecentPayments :period="period" :range="range" />
             <AdminDashboardSales :period="period" :range="range" />

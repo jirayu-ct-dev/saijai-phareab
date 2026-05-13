@@ -12,7 +12,7 @@ import type { ServiceOrderStatus } from "~~/shared/types/enums";
 
 const adminDashboardBodyClass =
   adminUi.adminDashboardBodyClass
-  ?? "admin-dashboard flex flex-col gap-4 p-2 sm:gap-6 sm:p-6";
+  ?? "admin-dashboard flex flex-col gap-3 p-2 sm:p-6";
 const adminDashboardCardClass =
   adminUi.adminDashboardCardClass
   ?? "admin-dashboard-card rounded-md border border-default/30 bg-default p-4 shadow-[0_1px_2px_rgb(15_23_42/0.04),0_6px_18px_-10px_rgb(15_23_42/0.08)] dark:border-default/20 dark:bg-elevated/55";

@@ -48,7 +48,7 @@ export const adminMobileListCardClass = [
 
 /* Page-level paddings & gaps — follows the approved admin dashboard rhythm */
 export const adminDashboardBodyClass =
-  "admin-dashboard flex flex-col gap-4 p-2 sm:gap-6 sm:p-6";
+  "admin-dashboard flex flex-col gap-3 p-2 sm:p-6";
 
 export const adminDashboardCardClass = [
   "admin-dashboard-card rounded-md border p-4",

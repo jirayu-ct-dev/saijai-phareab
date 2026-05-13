@@ -202,7 +202,7 @@ const onToggleActive = async (emp: Employee) => {
 </script>
 
 <template>
-  <div class="mx-auto w-full max-w-5xl space-y-3 p-2 sm:space-y-4 sm:p-6">
+  <div class="mx-auto w-full max-w-5xl space-y-3 p-2 sm:p-6">
     <div class="flex flex-col gap-3 rounded-md border border-default/30 bg-default px-4 py-3 shadow-[0_1px_2px_rgb(15_23_42/0.04)] dark:border-default/20 dark:bg-elevated/55 sm:flex-row sm:items-center sm:justify-between">
       <div class="min-w-0">
         <h1 class="text-xl font-semibold">จัดการพนักงาน</h1>

@@ -620,8 +620,8 @@ const handleSubmit = async () => {
 </script>
 
 <template>
-  <div class="grid min-w-0 grid-cols-1 gap-4 sm:gap-6 xl:grid-cols-[minmax(0,1fr)_420px]">
-    <div class="min-w-0 space-y-4 sm:space-y-6">
+  <div class="grid min-w-0 grid-cols-1 gap-3 xl:grid-cols-[minmax(0,1fr)_420px]">
+    <div class="min-w-0 space-y-3">
       <section class="flex flex-col gap-3">
         <div :class="dashboardCardClass">
           <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
@@ -784,7 +784,7 @@ const handleSubmit = async () => {
     <aside
       v-show="mounted"
       :class="!isCompact
-        ? 'space-y-4 rounded-md sm:space-y-6 xl:sticky xl:top-4 xl:self-start'
+        ? 'space-y-3 rounded-md xl:sticky xl:top-4 xl:self-start'
         : [
             'admin-workspace fixed inset-y-0 right-0 z-50 flex w-full max-w-lg flex-col overflow-y-auto border-l border-default shadow-2xl',
             mounted ? 'transition-transform duration-200' : '',

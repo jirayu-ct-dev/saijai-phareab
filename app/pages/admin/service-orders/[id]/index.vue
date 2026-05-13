@@ -10,7 +10,7 @@ import EditServiceOrderModal from "~~/app/components/admin/service-orders/EditSe
 
 const adminDashboardBodyClass =
   adminUi.adminDashboardBodyClass
-  ?? "admin-dashboard flex flex-col gap-4 p-2 sm:gap-6 sm:p-6";
+  ?? "admin-dashboard flex flex-col gap-3 p-2 sm:p-6";
 const adminDashboardCardClass =
   adminUi.adminDashboardCardClass
   ?? "admin-dashboard-card rounded-md border border-default/30 bg-default p-4 shadow-[0_1px_2px_rgb(15_23_42/0.04),0_6px_18px_-10px_rgb(15_23_42/0.08)] dark:border-default/20 dark:bg-elevated/55";
@@ -400,7 +400,7 @@ const getItemPhotos = (item: ServiceOrderDetailItem) =>
 
     <template #body>
       <div :class="adminDashboardBodyClass">
-      <div v-if="showSkeleton" class="space-y-4 sm:space-y-6">
+      <div v-if="showSkeleton" class="space-y-3">
         <div class="rounded-md border border-default bg-default p-5">
           <div class="flex items-start gap-3">
             <USkeleton class="size-12 rounded-full" />
@@ -411,8 +411,8 @@ const getItemPhotos = (item: ServiceOrderDetailItem) =>
             <USkeleton class="h-6 w-20 rounded-full" />
           </div>
         </div>
-        <div class="grid gap-4 sm:gap-6 xl:grid-cols-[minmax(0,1.3fr)_360px]">
-          <div class="space-y-4">
+        <div class="grid gap-3 xl:grid-cols-[minmax(0,1.3fr)_360px]">
+          <div class="space-y-3">
             <div class="rounded-md border border-default bg-default p-5 space-y-3">
               <USkeleton class="h-4 w-32 rounded" />
               <div class="grid gap-x-6 gap-y-2 lg:grid-cols-2">
@@ -431,7 +431,7 @@ const getItemPhotos = (item: ServiceOrderDetailItem) =>
               </div>
             </div>
           </div>
-          <div class="space-y-4">
+          <div class="space-y-3">
             <div class="rounded-md border border-default bg-default p-5 space-y-3">
               <USkeleton class="h-5 w-36 rounded" />
               <div class="space-y-2">
@@ -458,7 +458,7 @@ const getItemPhotos = (item: ServiceOrderDetailItem) =>
         </div>
       </div>
 
-      <div v-else class="space-y-4 sm:space-y-6">
+      <div v-else class="space-y-3">
         <section class="grid grid-cols-2 gap-3 lg:grid-cols-4">
           <div :class="[adminDashboardCardClass, 'p-3!']">
             <div class="space-y-1">
@@ -496,8 +496,8 @@ const getItemPhotos = (item: ServiceOrderDetailItem) =>
           </div>
         </section>
 
-        <section :class="[adminDashboardCardClass, 'space-y-5']">
-          <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <section :class="[adminDashboardCardClass, 'space-y-3']">
+          <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
             <div class="flex min-w-0 items-center gap-4">
               <UAvatar size="xl" v-bind="getAvatarProps(order.customer)" />
               <div class="min-w-0 space-y-1">

@@ -9,7 +9,7 @@ import EditPaymentStateModal from "~~/app/components/admin/payment/EditPaymentSt
 
 const adminDashboardBodyClass =
   adminUi.adminDashboardBodyClass
-  ?? "admin-dashboard flex flex-col gap-4 p-2 sm:gap-6 sm:p-6";
+  ?? "admin-dashboard flex flex-col gap-3 p-2 sm:p-6";
 const adminDashboardCardClass =
   adminUi.adminDashboardCardClass
   ?? "admin-dashboard-card rounded-md border border-default/30 bg-default p-4 shadow-[0_1px_2px_rgb(15_23_42/0.04),0_6px_18px_-10px_rgb(15_23_42/0.08)] dark:border-default/20 dark:bg-elevated/55";
@@ -432,8 +432,8 @@ const savePaymentChanges = async () => {
     </template>
     <template #body>
       <div :class="adminDashboardBodyClass">
-      <div v-if="isLoading" class="grid min-w-0 gap-4 sm:gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
-        <div class="min-w-0 space-y-4 sm:space-y-6">
+      <div v-if="isLoading" class="grid min-w-0 gap-3 xl:grid-cols-[minmax(0,1fr)_360px]">
+        <div class="min-w-0 space-y-3">
           <div class="rounded-md border border-default bg-default p-5">
             <div class="flex items-start gap-3">
               <USkeleton class="size-12 rounded-full" />
@@ -475,7 +475,7 @@ const savePaymentChanges = async () => {
           </div>
         </div>
 
-        <div class="min-w-0 space-y-4 sm:space-y-6 xl:sticky xl:top-4 xl:self-start">
+        <div class="min-w-0 space-y-3 xl:sticky xl:top-4 xl:self-start">
           <div class="rounded-md border border-default bg-default p-5 space-y-3">
             <USkeleton class="h-5 w-36 rounded" />
             <USkeleton class="h-3 w-48 rounded" />
@@ -508,8 +508,8 @@ const savePaymentChanges = async () => {
         <p class="mt-2 text-sm text-muted">รายการนี้อาจถูกลบหรือคุณไม่มีสิทธิ์เข้าถึง</p>
       </div>
 
-      <div v-else class="grid min-w-0 gap-4 sm:gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
-        <div class="min-w-0 space-y-4 sm:space-y-6">
+      <div v-else class="grid min-w-0 gap-3 xl:grid-cols-[minmax(0,1fr)_360px]">
+        <div class="min-w-0 space-y-3">
           <UCard :ui="{ root: 'rounded-md border border-default shadow-none', body: 'p-5' }">
             <div class="flex flex-wrap items-start justify-between gap-3">
               <div class="flex min-w-0 items-start gap-3">
@@ -534,7 +534,7 @@ const savePaymentChanges = async () => {
               </div>
             </div>
 
-            <div class="mt-5 space-y-5">
+            <div class="mt-3 space-y-3">
               <section>
                 <p class="text-sm font-medium text-highlighted">ข้อมูลลูกค้า</p>
                 <div class="mt-3 grid gap-x-6 gap-y-2 text-sm lg:grid-cols-2 lg:[&>*:nth-child(odd)]:pr-4 lg:[&>*:nth-child(even)]:border-l lg:[&>*:nth-child(even)]:border-dashed lg:[&>*:nth-child(even)]:border-default lg:[&>*:nth-child(even)]:pl-4">
@@ -714,7 +714,7 @@ const savePaymentChanges = async () => {
           </section>
         </div>
 
-        <div class="min-w-0 space-y-5 xl:sticky xl:top-4 xl:self-start">
+        <div class="min-w-0 space-y-3 xl:sticky xl:top-4 xl:self-start">
           <UCard :ui="{ root: 'rounded-md border border-default shadow-none', body: 'p-5' }">
             <div class="flex flex-wrap items-start justify-between gap-3">
               <div>

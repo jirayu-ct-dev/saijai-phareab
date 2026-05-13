@@ -8,7 +8,7 @@ import * as adminUi from '~~/shared/config/adminUi'
 
 const adminDashboardBodyClass =
   adminUi.adminDashboardBodyClass
-  ?? 'admin-dashboard flex flex-col gap-4 p-2 sm:gap-6 sm:p-6'
+  ?? 'admin-dashboard flex flex-col gap-3 p-2 sm:p-6'
 const adminDashboardCardClass =
   adminUi.adminDashboardCardClass
   ?? 'admin-dashboard-card rounded-md border border-default/30 bg-default p-4 shadow-[0_1px_2px_rgb(15_23_42/0.04),0_6px_18px_-10px_rgb(15_23_42/0.08)] dark:border-default/20 dark:bg-elevated/55'
@@ -346,7 +346,7 @@ watch(isManageOpen, (open) => {
     }"
   >
     <template #body>
-      <div class="flex flex-col gap-3 sm:gap-4">
+      <div class="flex flex-col gap-3">
         <div :class="adminDashboardCardClass">
           <p class="mb-3 font-medium text-highlighted">ข้อมูลรายการ</p>
           <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -441,7 +441,7 @@ watch(isManageOpen, (open) => {
       >
         <!-- ── Category Tab ── -->
         <template #category>
-          <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4">
+          <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <!-- List -->
             <div :class="[adminDashboardCardClass, 'space-y-2']">
               <p class="text-xs font-semibold uppercase tracking-wide text-muted">รายการประเภท</p>
@@ -508,7 +508,7 @@ watch(isManageOpen, (open) => {
 
         <!-- ── Service Tab ── -->
         <template #service>
-          <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4">
+          <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <!-- List -->
             <div :class="[adminDashboardCardClass, 'space-y-2']">
               <p class="text-xs font-semibold uppercase tracking-wide text-muted">รายการบริการ</p>

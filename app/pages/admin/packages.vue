@@ -19,7 +19,7 @@ import * as adminUi from "~~/shared/config/adminUi";
 
 const adminDashboardBodyClass =
   adminUi.adminDashboardBodyClass
-  ?? "admin-dashboard flex flex-col gap-4 p-2 sm:gap-6 sm:p-6";
+  ?? "admin-dashboard flex flex-col gap-3 p-2 sm:p-6";
 const adminFilterBarClass =
   adminUi.adminFilterBarClass
   ?? "admin-dashboard-card rounded-md border border-default/30 bg-default p-2 shadow-[0_1px_2px_rgb(15_23_42/0.04)] dark:border-default/20 dark:bg-elevated/55";
