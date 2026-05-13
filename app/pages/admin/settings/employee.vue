@@ -259,7 +259,7 @@ const formatDate = (s: string) => new Date(s).toLocaleDateString("th-TH", { date
     <UModal
       v-model:open="isCreateOpen"
       title="สร้างพนักงานใหม่"
-      :ui="{ body: '!bg-default !p-4 dark:!bg-elevated/55' }"
+      :ui="{ body: '!bg-default p-4! dark:!bg-elevated/55' }"
     >
       <template #body>
         <div class="space-y-3">
@@ -300,7 +300,7 @@ const formatDate = (s: string) => new Date(s).toLocaleDateString("th-TH", { date
     <UModal
       v-model:open="isPromoteOpen"
       title="เลือกผู้ใช้จากระบบ"
-      :ui="{ content: 'max-w-md', body: '!bg-default !p-4 dark:!bg-elevated/55' }"
+      :ui="{ content: 'max-w-md', body: '!bg-default p-4! dark:!bg-elevated/55' }"
     >
       <template #body>
         <div class="space-y-4">

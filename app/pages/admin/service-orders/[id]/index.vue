@@ -460,7 +460,7 @@ const getItemPhotos = (item: ServiceOrderDetailItem) =>
 
       <div v-else class="space-y-4 sm:space-y-6">
         <section class="grid grid-cols-2 gap-3 lg:grid-cols-4">
-          <div :class="[adminDashboardCardClass, '!p-3']">
+          <div :class="[adminDashboardCardClass, 'p-3!']">
             <div class="space-y-1">
               <p class="text-xs text-muted">สถานะล่าสุด</p>
               <UBadge :color="orderStatusBadgeColors[order.status]" variant="subtle" size="lg">
@@ -469,14 +469,14 @@ const getItemPhotos = (item: ServiceOrderDetailItem) =>
               <p class="text-xs text-muted">อัปเดต {{ formatDateTime(order.updatedAt) }}</p>
             </div>
           </div>
-          <div :class="[adminDashboardCardClass, '!p-3']">
+          <div :class="[adminDashboardCardClass, 'p-3!']">
             <div class="space-y-1">
               <p class="text-xs text-muted">จำนวนรายการ</p>
               <p class="text-lg font-semibold text-highlighted">{{ itemCountLabel }}</p>
               <p class="text-xs text-muted">{{ totalQuantity }} ชิ้น</p>
             </div>
           </div>
-          <div :class="[adminDashboardCardClass, '!p-3']">
+          <div :class="[adminDashboardCardClass, 'p-3!']">
             <div class="space-y-1">
               <p class="text-xs text-muted">ยอดรวมสุทธิ</p>
               <p :class="['text-lg font-semibold', isMemberZero ? 'text-success' : 'text-primary']">
@@ -487,7 +487,7 @@ const getItemPhotos = (item: ServiceOrderDetailItem) =>
               </p>
             </div>
           </div>
-          <div v-if="hasMemberEntitlement" :class="[adminDashboardCardClass, '!p-3']">
+          <div v-if="hasMemberEntitlement" :class="[adminDashboardCardClass, 'p-3!']">
             <div class="space-y-1">
               <p class="text-xs text-muted">เครดิตที่ใช้</p>
               <p class="text-lg font-semibold text-highlighted">{{ usedCreditLabel }}</p>
@@ -705,7 +705,7 @@ const getItemPhotos = (item: ServiceOrderDetailItem) =>
                   <tr
                     v-for="item in order.items"
                     :key="item.id"
-                    class="border-t border-default/40 align-top transition-colors even:bg-elevated/25 hover:bg-primary/[0.05] dark:even:bg-elevated/30"
+                    class="border-t border-default/40 align-top transition-colors even:bg-elevated/25 hover:bg-primary/5 dark:even:bg-elevated/30"
                   >
                     <td class="px-3 py-2">
                       <div class="flex flex-wrap gap-1">

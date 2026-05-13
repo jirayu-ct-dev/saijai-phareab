@@ -23,8 +23,8 @@ export const useAdminShopSettings = () => {
       await $fetch("/api/admin/settings/shop", { method: "PUT", body });
       await refresh();
       notify.updated();
-    } catch (e) {
-      notify.serverError(e);
+    } catch {
+      notify.serverError();
     }
   };
 

@@ -61,7 +61,7 @@ const onToggle = async (value: boolean) => {
         <USkeleton v-if="isLoading" class="h-32 w-full rounded-md" />
 
         <template v-else>
-          <section :class="[adminDashboardCardClass, 'flex items-center gap-3 !p-3 sm:!p-4']">
+          <section :class="[adminDashboardCardClass, 'flex items-center gap-3 p-3! sm:p-4!']">
             <div class="flex size-10 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
               <UIcon name="i-lucide-bell" class="size-5" />
             </div>
@@ -71,7 +71,7 @@ const onToggle = async (value: boolean) => {
             </div>
           </section>
 
-          <section :class="[adminDashboardCardClass, '!p-3 sm:!p-4']">
+          <section :class="[adminDashboardCardClass, 'p-3! sm:p-4!']">
             <div v-if="!user" class="text-sm text-muted">กรุณาเข้าสู่ระบบ</div>
 
             <div v-else class="space-y-3 sm:space-y-4">

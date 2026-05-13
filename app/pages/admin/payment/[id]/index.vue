@@ -665,7 +665,7 @@ const savePaymentChanges = async () => {
                   </tr>
                 </thead>
                 <tbody class="divide-y divide-default/40">
-                  <tr v-for="item in detailItems" :key="item.id" class="align-top transition-colors even:bg-elevated/25 hover:bg-primary/[0.05] dark:even:bg-elevated/30">
+                  <tr v-for="item in detailItems" :key="item.id" class="align-top transition-colors even:bg-elevated/25 hover:bg-primary/5 dark:even:bg-elevated/30">
                     <td v-if="!isPackagePayment" class="px-3 py-2">
                       <div class="flex flex-wrap gap-1">
                         <button

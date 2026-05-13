@@ -135,7 +135,7 @@ const setPreset = (preset: "this-month" | "last-month" | "last-30-days" | "this-
       </div>
     </div>
 
-    <div :class="[adminEmptyStateClass, '!flex-row !items-start !justify-start gap-2 px-y! text-left text-xs']">
+    <div :class="[adminEmptyStateClass, 'flex-row! items-start! justify-start! gap-2 px-y! text-left text-xs']">
       <UIcon name="i-lucide-lightbulb" class="mt-0.5 size-4 shrink-0 text-primary" />
       <span>ไฟล์ CSV รองรับภาษาไทย (UTF-8 with BOM) สามารถเปิดด้วย Excel หรือ Google Sheets ได้ทันที</span>
     </div>

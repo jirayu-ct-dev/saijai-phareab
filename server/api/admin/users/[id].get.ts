@@ -327,7 +327,9 @@ export default defineEventHandler(async (event) => {
           quantity: item.quantity,
           totalPrice: Number(item.totalPrice),
           isPackageIncluded: item.isPackageIncluded,
-          label: `${item.storefrontPrice.storefrontItem.name} / ${item.storefrontPrice.storefrontService.name}`,
+          label: item.storefrontPrice
+            ? `${item.storefrontPrice.storefrontItem.name} / ${item.storefrontPrice.storefrontService.name}`
+            : "",
         })),
       })),
     };

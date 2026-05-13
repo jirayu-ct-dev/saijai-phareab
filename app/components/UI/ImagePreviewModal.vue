@@ -13,7 +13,7 @@ withDefaults(defineProps<{
 </script>
 
 <template>
-  <UModal v-model:open="open" :title="title" :ui="{ body: 'admin-workspace !p-2 sm:!p-4', content: 'max-w-3xl' }">
+  <UModal v-model:open="open" :title="title" :ui="{ body: 'admin-workspace !p-2 sm:p-4!', content: 'max-w-3xl' }">
     <template #body>
       <div class="rounded-md border border-default/30 bg-default p-2 dark:border-default/20 dark:bg-elevated/55">
         <img

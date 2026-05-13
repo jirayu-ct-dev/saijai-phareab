@@ -340,7 +340,7 @@ watch(isManageOpen, (open) => {
     description="กำหนดชื่อ ประเภท และราคาตามบริการ"
     :ui="{
       content: 'max-w-3xl bg-default dark:bg-default',
-      body: '!p-2 sm:!p-4 bg-default dark:bg-default',
+      body: '!p-2 sm:p-4! bg-default dark:bg-default',
       header: 'bg-default dark:bg-default',
       footer: 'bg-default dark:bg-default',
     }"
@@ -422,7 +422,7 @@ watch(isManageOpen, (open) => {
     description="เพิ่ม แก้ไข หรือลบประเภทสินค้าและประเภทบริการ"
     :ui="{
       content: 'max-w-3xl bg-default dark:bg-default',
-      body: '!p-2 sm:!p-4 bg-default dark:bg-default',
+      body: '!p-2 sm:p-4! bg-default dark:bg-default',
       header: 'bg-default dark:bg-default',
       footer: 'bg-default dark:bg-default',
     }"
@@ -451,7 +451,7 @@ watch(isManageOpen, (open) => {
                   :key="cat.id"
                   class="flex items-center gap-2 rounded-md border px-3 py-2 transition-colors"
                   :class="editingCategory?.id === cat.id
-                    ? 'border-primary/30 bg-primary/[0.05] dark:border-primary/25 dark:bg-elevated/65'
+                    ? 'border-primary/30 bg-primary/5 dark:border-primary/25 dark:bg-elevated/65'
                     : 'border-default/25 bg-elevated/30 hover:border-default/40 hover:bg-elevated/50 dark:border-default/15 dark:bg-elevated/25 dark:hover:bg-elevated/45'"
                 >
                   <div class="min-w-0 flex-1 cursor-pointer" @click="openEditCategory(cat)">
@@ -518,7 +518,7 @@ watch(isManageOpen, (open) => {
                   :key="svc.id"
                   class="flex items-center gap-2 rounded-md border px-3 py-2 transition-colors"
                   :class="editingService?.id === svc.id
-                    ? 'border-info/30 bg-info/[0.05] dark:border-info/25 dark:bg-elevated/65'
+                    ? 'border-info/30 bg-info/5 dark:border-info/25 dark:bg-elevated/65'
                     : 'border-default/25 bg-elevated/30 hover:border-default/40 hover:bg-elevated/50 dark:border-default/15 dark:bg-elevated/25 dark:hover:bg-elevated/45'"
                 >
                   <div class="min-w-0 flex-1 cursor-pointer" @click="openEditService(svc)">

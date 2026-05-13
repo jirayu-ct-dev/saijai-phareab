@@ -582,7 +582,7 @@ const columns = computed<TableColumn<any>[]>(() => {
     :description="`แก้ไขข้อมูลและราคา: ${activeItem.name}`"
     :ui="{
       content: 'max-w-3xl bg-default dark:bg-default',
-      body: '!p-2 sm:!p-4 bg-default dark:bg-default',
+      body: '!p-2 sm:p-4! bg-default dark:bg-default',
       header: 'bg-default dark:bg-default',
       footer: 'bg-default dark:bg-default',
     }"

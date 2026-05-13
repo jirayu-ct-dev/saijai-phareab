@@ -502,7 +502,7 @@ const isExpiringSoon = (s: string | null) => {
     <UModal
       v-model:open="isEntOpen"
       title="แก้ไขแพ็กเกจสมาชิก"
-      :ui="{ body: '!bg-default !p-4 dark:!bg-elevated/55' }"
+      :ui="{ body: '!bg-default p-4! dark:!bg-elevated/55' }"
     >
       <template #body>
         <div class="space-y-3">
@@ -565,7 +565,7 @@ const isExpiringSoon = (s: string | null) => {
     <UModal
       v-model:open="isEntDeleteOpen"
       title="ลบแพ็กเกจสมาชิก"
-      :ui="{ body: '!bg-default !p-4 dark:!bg-elevated/55' }"
+      :ui="{ body: '!bg-default p-4! dark:!bg-elevated/55' }"
     >
       <template #body>
         <div class="space-y-3 text-sm">
@@ -591,7 +591,7 @@ const isExpiringSoon = (s: string | null) => {
     <UModal
       v-model:open="isDeleteOpen"
       title="ยืนยันการลบ"
-      :ui="{ body: '!bg-default !p-4 dark:!bg-elevated/55' }"
+      :ui="{ body: '!bg-default p-4! dark:!bg-elevated/55' }"
     >
       <template #body>
         <div class="space-y-3 text-sm">

@@ -6,12 +6,7 @@ export default defineTask({
     description: "Send LINE notifications for packages nearing expiration",
   },
   async run() {
-    try {
-      const results = await runExpiringPackageNotifications();
-      return { result: { ok: true, results } };
-    } catch (error) {
-      console.error("[task:notify:expiring-packages] failed", error);
-      return { result: { ok: false, error: (error as Error).message } };
-    }
+    const results = await runExpiringPackageNotifications();
+    return { result: { ok: true, results } };
   },
 });

@@ -24,9 +24,9 @@ export const adminListCardBaseClass = [
 
 export const adminListCardToneClass: Record<AdminCardTone, string> = {
   neutral: `${cardBorder} ${cardSurface} ${cardSurfaceHover}`,
-  primary: `border-primary/20 bg-primary/[0.05] hover:border-primary/35 hover:bg-primary/[0.08] dark:border-primary/25 dark:bg-elevated/55 dark:hover:bg-elevated/70`,
+  primary: `border-primary/20 bg-primary/5 hover:border-primary/35 hover:bg-primary/[0.08] dark:border-primary/25 dark:bg-elevated/55 dark:hover:bg-elevated/70`,
   secondary: `border-secondary/20 bg-secondary/[0.05] hover:border-secondary/35 hover:bg-secondary/[0.08] dark:border-secondary/25 dark:bg-elevated/55 dark:hover:bg-elevated/70`,
-  info: `border-info/20 bg-info/[0.05] hover:border-info/35 hover:bg-info/[0.08] dark:border-info/25 dark:bg-elevated/55 dark:hover:bg-elevated/70`,
+  info: `border-info/20 bg-info/5 hover:border-info/35 hover:bg-info/[0.08] dark:border-info/25 dark:bg-elevated/55 dark:hover:bg-elevated/70`,
   warning: `border-warning/25 bg-warning/[0.06] hover:border-warning/40 hover:bg-warning/[0.09] dark:border-warning/25 dark:bg-elevated/55 dark:hover:bg-elevated/70`,
   success: `border-success/20 bg-success/[0.05] hover:border-success/35 hover:bg-success/[0.08] dark:border-success/25 dark:bg-elevated/55 dark:hover:bg-elevated/70`,
   error: `border-error/20 bg-error/[0.05] hover:border-error/35 hover:bg-error/[0.08] dark:border-error/25 dark:bg-elevated/55 dark:hover:bg-elevated/70`,
@@ -116,7 +116,7 @@ export const adminTableUi = {
   thead:
     "sticky top-0 z-1 [&>tr]:bg-muted dark:[&>tr]:bg-elevated/60 [&>tr]:after:content-none",
   tbody:
-    "[&>tr]:last:[&>td]:border-b-0 [&>tr>td:nth-child(even)]:bg-elevated/20 dark:[&>tr>td:nth-child(even)]:bg-elevated/25 [&>tr:hover>td]:bg-primary/[0.05] dark:[&>tr:hover>td]:bg-elevated/45",
+    "[&>tr]:last:[&>td]:border-b-0 [&>tr>td:nth-child(even)]:bg-elevated/20 dark:[&>tr>td:nth-child(even)]:bg-elevated/25 [&>tr:hover>td]:bg-primary/5 dark:[&>tr:hover>td]:bg-elevated/45",
   th: "border-b border-default bg-muted dark:bg-elevated/60 py-2.5 font-semibold text-toned text-xs uppercase tracking-wide dark:border-default/30",
   td: "border-b border-default py-2.5 transition-colors dark:border-default/25",
   separator: "h-0",

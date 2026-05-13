@@ -22,9 +22,9 @@ const emit = defineEmits<{
 }>();
 
 const defaultSelectedToneClass = {
-  primary: "border-primary/30 bg-primary/[0.05] hover:bg-primary/[0.08] dark:border-primary/25 dark:bg-elevated/65 dark:hover:bg-elevated/75",
+  primary: "border-primary/30 bg-primary/5 hover:bg-primary/[0.08] dark:border-primary/25 dark:bg-elevated/65 dark:hover:bg-elevated/75",
   warning: "border-warning/30 bg-warning/[0.06] hover:bg-warning/[0.09] dark:border-warning/25 dark:bg-elevated/65 dark:hover:bg-elevated/75",
-  info: "border-info/30 bg-info/[0.05] hover:bg-info/[0.08] dark:border-info/25 dark:bg-elevated/65 dark:hover:bg-elevated/75",
+  info: "border-info/30 bg-info/5 hover:bg-info/[0.08] dark:border-info/25 dark:bg-elevated/65 dark:hover:bg-elevated/75",
 };
 </script>
 

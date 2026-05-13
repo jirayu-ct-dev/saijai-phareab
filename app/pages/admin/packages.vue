@@ -146,7 +146,7 @@ const handleRemoveFromBulkDelete = (pkgId: string) => {
 
     <template #body>
       <div :class="adminDashboardBodyClass">
-        <div v-if="tabItems.length > 1" :class="[adminFilterBarClass, 'px-3! !py-1']">
+        <div v-if="tabItems.length > 1" :class="[adminFilterBarClass, 'px-3! py-1!']">
           <UTabs
             v-model="activeTab"
             color="neutral"
