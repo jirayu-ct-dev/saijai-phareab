@@ -144,14 +144,35 @@ const onChangeRole = async (emp: Employee, role: "ADMIN" | "EMPLOYEE") => {
   }
 };
 
-const onDelete = async (emp: Employee) => {
+const isDeleteOpen = ref(false);
+const deletingEmployee = ref<Employee | null>(null);
+const isDeleting = ref(false);
+
+const closeDelete = () => {
+  if (isDeleting.value) return;
+  isDeleteOpen.value = false;
+  deletingEmployee.value = null;
+};
+
+const openDelete = (emp: Employee) => {
   if (emp.id === actor.value?.id) return notify.error("ห้ามลบบัญชีตัวเอง");
+  deletingEmployee.value = emp;
+  isDeleteOpen.value = true;
+};
+
+const onConfirmDelete = async () => {
+  if (!deletingEmployee.value) return;
+  isDeleting.value = true;
   try {
-    await $fetch(`/api/admin/employees/${emp.id}`, { method: "DELETE" });
+    await $fetch(`/api/admin/employees/${deletingEmployee.value.id}`, { method: "DELETE" });
     notify.deleted();
+    isDeleteOpen.value = false;
+    deletingEmployee.value = null;
     await refresh();
   } catch {
     notify.serverError();
+  } finally {
+    isDeleting.value = false;
   }
 };
 
@@ -248,7 +269,7 @@ const formatDate = (s: string) => new Date(s).toLocaleDateString("th-TH", { date
               variant="ghost"
               size="sm"
               :disabled="emp.id === actor?.id"
-              @click="onDelete(emp)"
+              @click="openDelete(emp)"
             />
           </div>
         </div>
@@ -352,5 +373,26 @@ const formatDate = (s: string) => new Date(s).toLocaleDateString("th-TH", { date
         </div>
       </template>
     </UModal>
+
+    <UIConfirmModal
+      v-model:open="isDeleteOpen"
+      title="ยืนยันการลบพนักงาน"
+      icon="i-lucide-triangle-alert"
+      icon-color="error"
+      confirm-color="error"
+      confirm-label="ยืนยันลบ"
+      :loading="isDeleting"
+      @confirm="onConfirmDelete"
+      @cancel="closeDelete"
+    >
+      <template #message>
+        คุณต้องการลบพนักงาน
+        <span class="font-semibold text-highlighted">{{ deletingEmployee?.name || deletingEmployee?.email }}</span>
+        ใช่หรือไม่?
+      </template>
+      <template #subMessage>
+        ระบบจะลบบัญชีพนักงานนี้ออกจากรายการผู้ใช้งานแบบ soft delete และบัญชีนี้จะเข้าใช้งานระบบไม่ได้
+      </template>
+    </UIConfirmModal>
   </div>
 </template>
