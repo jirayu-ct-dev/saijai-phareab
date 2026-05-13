@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { parseDate, type CalendarDate } from "@internationalized/date";
-import { adminMobileListCardClass } from "~~/shared/config/adminUi";
+import { adminEmptyStateClass, adminFilterBarClass, adminMobileListCardClass } from "~~/shared/config/adminUi";
 
 definePageMeta({
   middleware: ["role-admin"],
@@ -241,6 +241,9 @@ const formatCurrency = (n: number) =>
 const formatDate = (s: string | null) =>
   s ? new Date(s).toLocaleDateString("th-TH", { dateStyle: "medium" }) : "-";
 
+const visibleAddonPackageNames = (names: string[]) => names.slice(0, 1);
+const hiddenAddonPackageCount = (names: string[]) => Math.max(0, names.length - 1);
+
 const isExpiringSoon = (s: string | null) => {
   if (!s) return false;
   const days = (new Date(s).getTime() - Date.now()) / 86400000;
@@ -249,16 +252,32 @@ const isExpiringSoon = (s: string | null) => {
 </script>
 
 <template>
-  <div class="mx-auto w-full max-w-6xl space-y-4 p-4 sm:space-y-6 sm:p-6">
-    <div>
+  <div class="mx-auto w-full max-w-6xl space-y-3 p-2 sm:space-y-4 sm:p-6">
+    <div class="rounded-md border border-default/30 bg-default px-4 py-3 shadow-[0_1px_2px_rgb(15_23_42/0.04)] dark:border-default/20 dark:bg-elevated/55">
       <h1 class="text-xl font-semibold">จัดการสมาชิก</h1>
-      <p class="text-sm text-muted mt-1">ลูกค้าที่มีบัญชีและแพ็กเกจรายเดือน</p>
+      <p class="mt-1 text-sm text-muted">ลูกค้าที่มีบัญชีและแพ็กเกจรายเดือน</p>
     </div>
 
-    <UCard>
-      <div class="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-        <UInput v-model="search" icon="i-lucide-search" placeholder="ค้นหาชื่อ/อีเมล/เบอร์" class="w-full lg:w-80" />
-        <div class="grid grid-cols-2 gap-1 sm:flex sm:flex-wrap">
+    <section class="flex flex-col gap-1">
+      <div :class="[adminFilterBarClass, '!px-3 !py-3 flex flex-col gap-1.5']">
+        <div class="flex items-center justify-between gap-1.5">
+          <UInput
+            v-model="search"
+            icon="i-lucide-search"
+            placeholder="ค้นหาชื่อ/อีเมล/เบอร์"
+            class="min-w-0 flex-1 w-full"
+          />
+          <UButton
+            icon="i-lucide-refresh-cw"
+            color="neutral"
+            variant="outline"
+            size="sm"
+            :loading="isLoading"
+            aria-label="รีเฟรชข้อมูล"
+            @click="refresh()"
+          />
+        </div>
+        <div class="grid grid-cols-2 gap-1.5 sm:grid-cols-4">
           <UButton
             v-for="f in [
               { label: 'ทั้งหมด', value: 'all' },
@@ -279,37 +298,53 @@ const isExpiringSoon = (s: string | null) => {
 
       <USkeleton v-if="isLoading" class="h-64 w-full rounded-md" />
 
-      <div v-else-if="!members?.length" class="rounded-md border border-dashed border-default p-8 text-center text-sm text-muted">
+      <div v-else-if="!members?.length" :class="adminEmptyStateClass">
         ไม่พบสมาชิกตามเงื่อนไข
       </div>
 
-      <div v-else class="space-y-3">
+      <div v-else class="space-y-1">
         <div
           v-for="m in members"
           :key="m.id"
-          :class="[adminMobileListCardClass, 'space-y-3 p-3']"
+          :class="[adminMobileListCardClass, 'space-y-1.5 p-2']"
         >
-          <!-- Row 1: Avatar + ชื่อ + actions -->
-          <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <NuxtLink :to="`/admin/users/${m.id}`" class="flex min-w-0 items-center gap-3 transition hover:opacity-80">
+          <div class="grid gap-2 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
+            <NuxtLink :to="`/admin/users/${m.id}`" class="flex min-w-0 items-center gap-2 transition hover:opacity-80">
               <UAvatar v-bind="getAvatarProps(m.image, m.name, m.email)" size="sm" class="shrink-0" />
               <div class="min-w-0">
-                <p class="font-medium text-sm truncate">{{ m.name || m.email }}</p>
-                <p class="text-xs text-muted truncate">
+                <div class="flex min-w-0 items-center gap-1.5">
+                  <p class="truncate text-sm font-medium">{{ m.name || m.email }}</p>
+                  <UBadge v-if="m.mainPackageName" color="primary" variant="subtle" size="xs" class="shrink-0">
+                    หลัก
+                  </UBadge>
+                  <UBadge v-if="m.addonPackageNames.length" color="info" variant="subtle" size="xs" class="shrink-0">
+                    เสริม
+                  </UBadge>
+                  <UBadge v-if="isExpiringSoon(m.earliestEndAt)" color="warning" variant="subtle" size="xs" class="shrink-0">
+                    ใกล้หมดอายุ
+                  </UBadge>
+                </div>
+                <p class="truncate text-xs text-muted">
                   {{ m.email }}<span v-if="m.phoneNumber"> · {{ m.phoneNumber }}</span>
                 </p>
               </div>
             </NuxtLink>
-            <div class="grid w-full min-w-0 grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-1 sm:w-auto sm:flex sm:shrink-0">
+            <div class="grid min-w-0 grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-1 lg:w-auto lg:flex lg:shrink-0">
               <UButton
-                :label="expandedId === m.id ? 'ซ่อนแพ็กเกจ' : 'จัดการแพ็กเกจ'"
-                :icon="expandedId === m.id ? 'i-lucide-chevron-up' : 'i-lucide-package'"
+                label="จัดการแพ็กเกจ"
+                trailing-icon="i-lucide-chevron-right"
                 color="primary"
                 :variant="expandedId === m.id ? 'solid' : 'subtle'"
                 size="xs"
                 aria-label="จัดการแพ็กเกจ"
                 class="min-w-0 justify-center"
-                :ui="{ label: 'truncate' }"
+                :ui="{
+                  label: 'truncate',
+                  trailingIcon: [
+                    'shrink-0 transition-transform duration-200 ease-out',
+                    expandedId === m.id ? 'rotate-90' : 'rotate-0'
+                  ]
+                }"
                 @click="toggleExpand(m.id)"
               />
               <UButton
@@ -337,48 +372,75 @@ const isExpiringSoon = (s: string | null) => {
             </div>
           </div>
 
-          <!-- Row 2: Badges + stats -->
-          <div class="space-y-3">
-            <div class="flex flex-wrap items-center gap-1">
-              <UBadge v-if="m.mainPackageName" color="primary" variant="subtle" size="xs">{{ m.mainPackageName }}</UBadge>
-              <UBadge v-for="name in m.addonPackageNames" :key="name" color="info" variant="subtle" size="xs">{{ name }}</UBadge>
-              <UBadge v-if="isExpiringSoon(m.earliestEndAt)" color="warning" variant="subtle" size="xs">ใกล้หมดอายุ</UBadge>
+          <div class="grid gap-1.5 lg:grid-cols-[minmax(0,1fr)_minmax(380px,0.9fr)] lg:items-center">
+            <div class="flex min-h-5 min-w-0 items-center gap-1 overflow-hidden">
+              <UBadge
+                v-if="m.mainPackageName"
+                color="primary"
+                variant="subtle"
+                size="xs"
+                class="max-w-[45%] shrink-0"
+                :ui="{ label: 'truncate' }"
+              >
+                {{ m.mainPackageName }}
+              </UBadge>
+              <UBadge
+                v-for="name in visibleAddonPackageNames(m.addonPackageNames)"
+                :key="name"
+                color="info"
+                variant="subtle"
+                size="xs"
+                class="max-w-[45%] shrink-0"
+                :ui="{ label: 'truncate' }"
+              >
+                {{ name }}
+              </UBadge>
+              <UBadge v-if="hiddenAddonPackageCount(m.addonPackageNames)" color="neutral" variant="subtle" size="xs" class="shrink-0">
+                +{{ hiddenAddonPackageCount(m.addonPackageNames) }}
+              </UBadge>
+              <span v-if="!m.mainPackageName && !m.addonPackageNames.length" class="truncate text-xs text-muted">
+                ยังไม่มีแพ็กเกจ
+              </span>
             </div>
-            <div class="grid grid-cols-2 gap-2 text-xs sm:grid-cols-4 sm:gap-3">
-              <div v-if="m.mainCreditInitial > 0" class="rounded-md bg-elevated/40 px-3 py-2 sm:bg-transparent sm:p-0 sm:text-right">
+
+            <div class="grid grid-cols-4 gap-1 text-xs">
+              <div class="rounded-md bg-elevated/40 px-2 py-1.5 text-right">
                 <p class="text-muted">หลัก</p>
-                <p class="font-semibold">{{ m.mainCreditRemaining }}/{{ m.mainCreditInitial }}</p>
+                <p class="truncate font-semibold">
+                  {{ m.mainCreditInitial > 0 ? `${m.mainCreditRemaining}/${m.mainCreditInitial}` : "-" }}
+                </p>
               </div>
-              <div v-if="m.addonCreditInitial > 0" class="rounded-md bg-elevated/40 px-3 py-2 sm:bg-transparent sm:p-0 sm:text-right">
+              <div class="rounded-md bg-elevated/40 px-2 py-1.5 text-right">
                 <p class="text-muted">เสริม</p>
-                <p class="font-semibold text-info">{{ m.addonCreditRemaining }}/{{ m.addonCreditInitial }}</p>
+                <p class="truncate font-semibold text-info">
+                  {{ m.addonCreditInitial > 0 ? `${m.addonCreditRemaining}/${m.addonCreditInitial}` : "-" }}
+                </p>
               </div>
-              <div class="rounded-md bg-elevated/40 px-3 py-2 sm:bg-transparent sm:p-0 sm:text-right">
+              <div class="rounded-md bg-elevated/40 px-2 py-1.5 text-right">
                 <p class="text-muted">หมดอายุ</p>
-                <p class="font-medium">{{ formatDate(m.earliestEndAt) }}</p>
+                <p class="truncate font-medium">{{ formatDate(m.earliestEndAt) }}</p>
               </div>
-              <div class="rounded-md bg-elevated/40 px-3 py-2 sm:bg-transparent sm:p-0 sm:text-right">
+              <div class="rounded-md bg-elevated/40 px-2 py-1.5 text-right">
                 <p class="text-muted">ยอดรวม</p>
-                <p class="font-medium">฿{{ formatCurrency(m.totalSpent) }}</p>
+                <p class="truncate font-medium">฿{{ formatCurrency(m.totalSpent) }}</p>
               </div>
             </div>
           </div>
 
-          <!-- Expanded: edit entitlements -->
-          <div v-if="expandedId === m.id" class="border-t border-default pt-3 space-y-2">
-            <div class="flex items-center justify-between">
-              <p class="text-xs font-semibold text-muted uppercase tracking-wide">แพ็กเกจของสมาชิก</p>
+          <div v-if="expandedId === m.id" class="space-y-1.5 border-t border-default pt-1.5">
+            <div class="flex items-center justify-between gap-2">
+              <p class="text-xs font-semibold text-muted">แพ็กเกจของสมาชิก</p>
               <span class="text-xs text-muted">{{ m.entitlements.length }} รายการ</span>
             </div>
-            <p v-if="!m.entitlements.length" class="text-xs text-muted text-center py-3 rounded-md border border-dashed border-default">
+            <p v-if="!m.entitlements.length" class="rounded-md border border-dashed border-default py-2 text-center text-xs text-muted">
               ลูกค้าคนนี้ยังไม่มีแพ็กเกจ
             </p>
             <div
               v-for="ent in m.entitlements"
               :key="ent.id"
-              class="space-y-2 rounded-md bg-elevated/40 px-3 py-2 sm:flex sm:items-center sm:gap-2 sm:space-y-0"
+              class="grid gap-1.5 rounded-md bg-elevated/40 px-2 py-1.5 sm:grid-cols-[minmax(0,1fr)_auto_auto] sm:items-center"
             >
-              <div class="flex min-w-0 flex-wrap items-center gap-2 sm:flex-1">
+              <div class="flex min-w-0 items-center gap-1.5">
                 <UBadge :color="ent.product.packageType === 'MAIN' ? 'primary' : 'info'" variant="subtle" size="xs">
                   {{ ent.product.packageType === 'MAIN' ? 'หลัก' : 'เสริม' }}
                 </UBadge>
@@ -395,13 +457,14 @@ const isExpiringSoon = (s: string | null) => {
                   {{ formatDate(ent.endAt) }}
                 </span>
               </div>
-              <div class="flex items-center gap-1">
+              <div class="flex items-center justify-end gap-1">
                 <UButton
-                  label="แก้ไข"
                   icon="i-lucide-pencil"
                   color="neutral"
                   variant="ghost"
                   size="xs"
+                  title="แก้ไขแพ็กเกจ"
+                  aria-label="แก้ไขแพ็กเกจ"
                   class="justify-center"
                   @click="openEntEdit(m.id, ent)"
                 />
@@ -418,9 +481,13 @@ const isExpiringSoon = (s: string | null) => {
           </div>
         </div>
       </div>
-    </UCard>
+    </section>
 
-    <UModal v-model:open="isEntOpen" title="แก้ไขแพ็กเกจสมาชิก">
+    <UModal
+      v-model:open="isEntOpen"
+      title="แก้ไขแพ็กเกจสมาชิก"
+      :ui="{ body: '!bg-default !p-4 dark:!bg-elevated/55' }"
+    >
       <template #body>
         <div class="space-y-3">
           <UFormField label="แพ็กเกจ" required>
@@ -479,7 +546,11 @@ const isExpiringSoon = (s: string | null) => {
       </template>
     </UModal>
 
-    <UModal v-model:open="isEntDeleteOpen" title="ลบแพ็กเกจสมาชิก">
+    <UModal
+      v-model:open="isEntDeleteOpen"
+      title="ลบแพ็กเกจสมาชิก"
+      :ui="{ body: '!bg-default !p-4 dark:!bg-elevated/55' }"
+    >
       <template #body>
         <div class="space-y-3 text-sm">
           <p>
@@ -487,8 +558,9 @@ const isExpiringSoon = (s: string | null) => {
             <span class="font-semibold">{{ deletingEnt?.entitlement.product.name }}</span>
             ของลูกค้านี้ใช่หรือไม่?
           </p>
-          <div class="rounded-md border border-warning/30 bg-warning/5 p-3 text-xs text-warning">
-            ⚠ การลบจะตั้งสถานะเป็น CANCELLED และไม่ส่งผลต่อประวัติการใช้งานเดิม
+          <div class="flex items-start gap-2 rounded-md border border-warning/30 bg-warning/5 p-3 text-xs text-warning">
+            <UIcon name="i-lucide-triangle-alert" class="mt-0.5 size-3.5 shrink-0" />
+            <span>การลบจะตั้งสถานะเป็น CANCELLED และไม่ส่งผลต่อประวัติการใช้งานเดิม</span>
           </div>
         </div>
       </template>
@@ -500,12 +572,17 @@ const isExpiringSoon = (s: string | null) => {
       </template>
     </UModal>
 
-    <UModal v-model:open="isDeleteOpen" title="ยืนยันการลบ">
+    <UModal
+      v-model:open="isDeleteOpen"
+      title="ยืนยันการลบ"
+      :ui="{ body: '!bg-default !p-4 dark:!bg-elevated/55' }"
+    >
       <template #body>
         <div class="space-y-3 text-sm">
           <p>คุณต้องการลบลูกค้า <span class="font-semibold">{{ deletingMember?.name || deletingMember?.email }}</span> ใช่หรือไม่?</p>
-          <div class="rounded-md border border-warning/30 bg-warning/5 p-3 text-xs text-warning">
-            ⚠ ลูกค้าที่มีการใช้สิทธิ์แพ็กเกจไปแล้วจะลบไม่ได้ — แพ็กเกจที่ยังไม่ถูกใช้จะถูกยกเลิกอัตโนมัติ
+          <div class="flex items-start gap-2 rounded-md border border-warning/30 bg-warning/5 p-3 text-xs text-warning">
+            <UIcon name="i-lucide-triangle-alert" class="mt-0.5 size-3.5 shrink-0" />
+            <span>ลูกค้าที่มีการใช้สิทธิ์แพ็กเกจไปแล้วจะลบไม่ได้ แพ็กเกจที่ยังไม่ถูกใช้จะถูกยกเลิกอัตโนมัติ</span>
           </div>
         </div>
       </template>

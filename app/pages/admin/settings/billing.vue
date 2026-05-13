@@ -57,20 +57,20 @@ const onSubmit = async () => {
 </script>
 
 <template>
-  <div class="w-full p-6 max-w-2xl mx-auto space-y-6">
-    <div>
+  <div class="mx-auto w-full max-w-3xl space-y-3 p-2 sm:space-y-4 sm:p-6">
+    <div class="rounded-md border border-default/30 bg-default px-4 py-3 shadow-[0_1px_2px_rgb(15_23_42/0.04)] dark:border-default/20 dark:bg-elevated/55">
       <h1 class="text-xl font-semibold">ตั้งค่าธุรกิจ</h1>
-      <p class="text-sm text-muted mt-1">ค่าบริการเสริม ภาษี และเลขเอกสาร</p>
+      <p class="mt-1 text-sm text-muted">ค่าบริการเสริม ภาษี และเลขเอกสาร</p>
     </div>
 
     <USkeleton v-if="isLoading" class="h-64 w-full rounded-md" />
 
     <template v-else>
-      <UCard>
+      <UCard class="p-2">
         <template #header>
           <div>
             <p class="font-semibold">ค่าบริการเสริม</p>
-            <p class="text-xs text-muted mt-1">ค่าใช้จ่ายเพิ่มเติมที่คิดในออเดอร์</p>
+            <p class="mt-1 text-xs text-muted">ค่าใช้จ่ายเพิ่มเติมที่คิดในออเดอร์</p>
           </div>
         </template>
 
@@ -79,15 +79,15 @@ const onSubmit = async () => {
         </UFormField>
       </UCard>
 
-      <UCard>
+      <UCard class="p-2">
         <template #header>
           <div>
             <p class="font-semibold">ซัก-พับ ชั่งกิโล</p>
-            <p class="text-xs text-muted mt-1">ใช้กับโหมด "ซัก-พับ ชั่งกิโล" บนหน้า POS</p>
+            <p class="mt-1 text-xs text-muted">ใช้กับโหมด "ซัก-พับ ชั่งกิโล" บนหน้า POS</p>
           </div>
         </template>
 
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
           <UFormField label="ราคา/กิโล (บาท)" required>
             <UInputNumber v-model="form.washFoldPricePerKg" :min="0" :step="1" class="w-full" />
           </UFormField>
@@ -100,11 +100,11 @@ const onSubmit = async () => {
         </div>
       </UCard>
 
-      <UCard>
+      <UCard class="p-2">
         <template #header>
           <div>
             <p class="font-semibold">ภาษี (VAT)</p>
-            <p class="text-xs text-muted mt-1">ตั้งเฉพาะกรณีร้านจดทะเบียน VAT</p>
+            <p class="mt-1 text-xs text-muted">ตั้งเฉพาะกรณีร้านจดทะเบียน VAT</p>
           </div>
         </template>
 
@@ -116,24 +116,24 @@ const onSubmit = async () => {
             </template>
           </UFormField>
           <div class="flex items-center justify-between gap-4">
-            <div>
+            <div class="min-w-0">
               <p class="text-sm font-medium">ราคารวม VAT แล้ว</p>
-              <p class="text-xs text-muted mt-1">ปิด = บวก VAT ตอนคิดเงิน, เปิด = ราคารวม VAT แล้ว</p>
+              <p class="mt-1 text-xs text-muted">ปิด = บวก VAT ตอนคิดเงิน, เปิด = ราคารวม VAT แล้ว</p>
             </div>
             <USwitch v-model="form.vatIncluded" />
           </div>
         </div>
       </UCard>
 
-      <UCard>
+      <UCard class="p-2">
         <template #header>
           <div>
             <p class="font-semibold">เลขเอกสาร</p>
-            <p class="text-xs text-muted mt-1">Prefix สำหรับเลขใบเสร็จและเลขรับผ้า</p>
+            <p class="mt-1 text-xs text-muted">Prefix สำหรับเลขใบเสร็จและเลขรับผ้า</p>
           </div>
         </template>
 
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
           <UFormField label="Prefix เลขใบเสร็จ" required>
             <UInput v-model="form.paymentNoPrefix" placeholder="PAY-" class="w-full" />
           </UFormField>
@@ -141,12 +141,13 @@ const onSubmit = async () => {
             <UInput v-model="form.orderNoPrefix" placeholder="ORD-" class="w-full" />
           </UFormField>
         </div>
-        <p class="text-xs text-muted mt-3">
-          ⚠ การเปลี่ยน prefix ส่งผลกับเอกสารใหม่เท่านั้น เอกสารเก่าจะใช้ prefix เดิม
-        </p>
+        <div class="mt-3 flex items-start gap-2 rounded-md border border-warning/30 bg-warning/5 p-3 text-xs text-warning">
+          <UIcon name="i-lucide-triangle-alert" class="mt-0.5 size-3.5 shrink-0" />
+          <span>การเปลี่ยน prefix ส่งผลกับเอกสารใหม่เท่านั้น เอกสารเก่าจะใช้ prefix เดิม</span>
+        </div>
       </UCard>
 
-      <UCard>
+      <UCard class="p-2">
         <template #header>
           <div>
             <p class="font-semibold">เงื่อนไขอื่น ๆ</p>

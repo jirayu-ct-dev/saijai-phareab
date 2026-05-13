@@ -352,33 +352,52 @@ const columns = computed<TableColumn<any>[]>(() => {
 
 <template>
   <section class="flex flex-col gap-1">
-    <div :class="[adminFilterBarClass, '!px-3 !py-3 flex flex-wrap items-center gap-1.5']">
-      <UInput
-        v-model="search"
-        class="min-w-0 flex-1 md:max-w-sm"
-        icon="i-lucide-search"
-        placeholder="ค้นหารายการ..."
-      />
-      <UButton
-        v-if="selectedCount"
-        label="ลบ"
-        color="error"
-        variant="subtle"
-        icon="i-lucide-trash"
-        @click="showBulkDeleteModal = true"
-      >
-        <template #trailing>
-          <UKbd>{{ selectedCount }}</UKbd>
-        </template>
-      </UButton>
-      <USelect
-        v-model="filterCategory"
-        :items="categoryOptions"
-        label-key="name"
-        value-key="id"
-        class="min-w-0 sm:min-w-36"
-      />
-      <UIButtonRefresh :loading="loading" @refresh="emit('refresh')" />
+    <div :class="[adminFilterBarClass, '!px-3 !py-3 flex flex-col gap-1.5 md:flex-row md:items-center md:justify-between md:gap-3']">
+      <div class="flex min-w-0 items-center gap-1.5 md:flex-1 md:max-w-sm">
+        <UInput
+          v-model="search"
+          class="min-w-0 flex-1"
+          icon="i-lucide-search"
+          placeholder="ค้นหารายการ..."
+        />
+        <UButton
+          v-if="selectedCount"
+          label="ลบ"
+          color="error"
+          variant="subtle"
+          icon="i-lucide-trash"
+          class="!rounded-md md:hidden"
+          @click="showBulkDeleteModal = true"
+        >
+          <template #trailing>
+            <UKbd>{{ selectedCount }}</UKbd>
+          </template>
+        </UButton>
+        <UIButtonRefresh class="md:hidden" :loading="loading" @refresh="emit('refresh')" />
+      </div>
+      <div class="flex items-center gap-1.5 md:justify-end">
+        <USelect
+          v-model="filterCategory"
+          :items="categoryOptions"
+          label-key="name"
+          value-key="id"
+          class="min-w-0 sm:min-w-36"
+        />
+        <UButton
+          v-if="selectedCount"
+          label="ลบ"
+          color="error"
+          variant="subtle"
+          icon="i-lucide-trash"
+          class="hidden !rounded-md md:inline-flex"
+          @click="showBulkDeleteModal = true"
+        >
+          <template #trailing>
+            <UKbd>{{ selectedCount }}</UKbd>
+          </template>
+        </UButton>
+        <UIButtonRefresh class="hidden md:inline-flex" :loading="loading" @refresh="emit('refresh')" />
+      </div>
     </div>
 
     <ClientOnly>

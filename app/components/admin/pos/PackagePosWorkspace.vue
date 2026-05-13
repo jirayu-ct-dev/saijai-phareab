@@ -4,7 +4,17 @@ import PosCatalogCard from "~~/app/components/admin/pos/PosCatalogCard.vue";
 import PosCheckoutPanel from "~~/app/components/admin/pos/PosCheckoutPanel.vue";
 import type { AdminSaleItemInput, AdminSaleSlipImage, CreateAdminSaleBody } from "~~/app/composables/useAdminSales";
 import type { PackageType } from "~~/shared/types/enums";
+import * as adminUi from "~~/shared/config/adminUi";
 import { formatCurrency } from "~~/shared/utils/format";
+
+const dashboardCardClass =
+  adminUi.adminDashboardCardClass
+  ?? "admin-dashboard-card rounded-md border border-default/30 bg-default p-4 shadow-[0_1px_2px_rgb(15_23_42/0.04),0_6px_18px_-10px_rgb(15_23_42/0.08)] dark:border-default/20 dark:bg-elevated/55";
+const filterBarClass =
+  adminUi.adminFilterBarClass
+  ?? "admin-dashboard-card rounded-md border border-default/30 bg-default p-2 shadow-[0_1px_2px_rgb(15_23_42/0.04)] dark:border-default/20 dark:bg-elevated/55";
+const emptyStateClass = adminUi.adminEmptyStateClass;
+const checkoutSectionClass = dashboardCardClass;
 
 type FormItemState = {
   key: string;
@@ -30,7 +40,7 @@ const packageTypeBadges: Record<PackageType, { label: string; color: "primary" |
 const notify = useNotify();
 const { createSale } = useAdminSales();
 const { customers, isLoading: isCustomersLoading } = useAdminCustomerOptions();
-const { products, refresh } = usePackageCatalog();
+const { products, isLoading: isCatalogLoading, refresh } = usePackageCatalog();
 const { uploadSlip } = useAdminPayments();
 const { vatRate, vatIncluded, computeVatPreview } = useBusinessSetting();
 
@@ -239,36 +249,42 @@ const handleSubmit = async () => {
 </script>
 
 <template>
-  <div class="grid grid-cols-1 gap-4 sm:gap-6 xl:grid-cols-[minmax(0,1.7fr)_420px]">
-    <div class="space-y-4 sm:space-y-6">
-      <section class="flex flex-col gap-4">
-        <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-          <div>
-            <p class="text-lg font-semibold text-highlighted">ขายแพ็กเกจ</p>
-            <p class="text-sm text-muted">เลือกแพ็กเกจและเพิ่มเข้าตะกร้าแบบ POS</p>
-          </div>
-
-          <div class="flex flex-wrap items-center gap-2">
-            <div class="ml-auto rounded-md border border-default/30 bg-default p-2 shadow-[0_1px_2px_rgb(15_23_42/0.04)] dark:border-default/20 dark:bg-elevated/55">
-              <div class="flex flex-col gap-2">
-                <UInput v-model="searchQuery" icon="i-lucide-search" placeholder="ค้นหาชื่อแพ็กเกจ" class="w-full md:w-72" />
-                <div class="flex ml-auto gap-1">
-                  <UButton
-                  v-for="filter in packageTypeFilters"
-                  :key="filter.value"
-                  :label="filter.label"
-                  color="neutral"
-                  :variant="packageTypeFilter === filter.value ? 'solid' : 'outline'"
-                  size="sm"
-                  @click="packageTypeFilter = filter.value"
-                />
-              </div>
-              </div>
-            </div>
+  <div class="grid min-w-0 grid-cols-1 gap-4 sm:gap-6 xl:grid-cols-[minmax(0,1fr)_420px]">
+    <div class="min-w-0 space-y-4 sm:space-y-6">
+      <section class="flex flex-col gap-3">
+        <div :class="dashboardCardClass">
+          <div class="min-w-0">
+            <p class="text-base font-semibold text-highlighted">ขายแพ็กเกจ</p>
+            <p class="mt-0.5 text-sm text-muted">เลือกแพ็กเกจและเพิ่มเข้าตะกร้าแบบ POS</p>
           </div>
         </div>
 
-        <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-3 2xl:grid-cols-4">
+        <div :class="[filterBarClass, 'flex items-center gap-1.5']">
+          <UInput
+            v-model="searchQuery"
+            icon="i-lucide-search"
+            placeholder="ค้นหาชื่อแพ็กเกจ"
+            class="min-w-0 flex-[1_1_28rem]"
+          />
+          <div class="grid shrink-0 grid-cols-3 gap-1 sm:flex sm:justify-end">
+            <UButton
+              v-for="filter in packageTypeFilters"
+              :key="filter.value"
+              :label="filter.label"
+              color="neutral"
+              :variant="packageTypeFilter === filter.value ? 'solid' : 'outline'"
+              size="sm"
+              class="justify-center"
+              @click="packageTypeFilter = filter.value"
+            />
+          </div>
+        </div>
+
+        <div v-if="isCatalogLoading" class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-3 2xl:grid-cols-4">
+          <PosCatalogCard v-for="i in 8" :key="`pkg-sk-${i}`" loading />
+        </div>
+
+        <div v-else class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-3 2xl:grid-cols-4">
           <PosCatalogCard
             v-for="pkg in filteredProducts"
             :key="pkg.id"
@@ -287,7 +303,7 @@ const handleSubmit = async () => {
             @change="setProductQuantity(pkg.id, $event)"
           />
 
-          <div v-if="filteredProducts.length === 0" class="col-span-full rounded-md border border-dashed border-default p-10 text-center text-muted">
+          <div v-if="filteredProducts.length === 0" :class="[emptyStateClass, 'col-span-full']">
             ไม่พบแพ็กเกจที่ตรงกับตัวกรอง
           </div>
         </div>
@@ -296,90 +312,92 @@ const handleSubmit = async () => {
 
     <aside
       :class="isXl
-        ? 'space-y-4 sm:space-y-6 xl:sticky xl:top-4 xl:self-start'
+        ? 'space-y-4 rounded-md sm:space-y-6 xl:sticky xl:top-4 xl:self-start'
         : [
-            'fixed inset-y-0 right-0 z-50 flex w-full max-w-lg flex-col overflow-y-auto border-l border-default bg-default shadow-2xl transition-transform duration-200',
+            'admin-workspace fixed inset-y-0 right-0 z-50 flex w-full max-w-lg flex-col overflow-y-auto border-l border-default shadow-2xl transition-transform duration-200',
             isCartOpen ? 'translate-x-0' : 'translate-x-full',
           ]"
     >
-      <div v-if="!isXl" class="sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-default bg-default px-4 py-3">
+      <div v-if="!isXl" class="sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-default bg-default px-4 py-3 dark:bg-elevated/55">
         <p class="text-base font-semibold text-highlighted">ตะกร้าแพ็กเกจ</p>
         <UButton icon="i-lucide-x" color="neutral" variant="ghost" size="sm" aria-label="ปิด" @click="isCartOpen = false" />
       </div>
-      <div :class="!isXl ? 'p-4' : ''">
-      <PosCheckoutPanel
-        title="ตะกร้าแพ็กเกจ"
-        description="เลือกลูกค้า รับชำระ และบันทึกรายการในหน้าเดียว"
-        :customer-id="form.customerId"
-        :customer-options="customerOptions"
-        :customer-loading="isCustomersLoading"
-        :note="form.note"
-        total-label="ยอดรวมสุทธิ"
-        :total-value="formatCurrency(totalAmount)"
-        :total-meta="`${cartItems.length} รายการ | ${totalQuantity} ชิ้น`"
-        submit-label="บันทึก"
-        :is-submitting="isSubmitting"
-        :slip-file="slipFile"
-        :uploaded-slip-url="uploadedSlip?.secureUrl || uploadedSlip?.url"
-        :uploaded-slip-label="uploadedSlip?.secureUrl || uploadedSlip?.url || null"
-        @update:customer-id="form.customerId = $event"
-        @update:note="form.note = $event"
-        @update:slip-file="slipFile = $event"
-        @remove-slip="resetSlip"
-        @submit="handleSubmit"
-        @reset="resetForm"
-      >
-        <template #cart>
-          <div class="rounded-md bg-elevated/35 p-4 dark:bg-elevated/25">
-            <div class="flex items-center justify-between gap-3">
-              <p class="font-medium text-highlighted">รายการที่เลือก</p>
-              <span class="text-sm text-muted">{{ totalQuantity }} ชิ้น</span>
-            </div>
+      <div :class="!isXl ? 'flex-1 p-2' : ''">
+        <PosCheckoutPanel
+          title="ตะกร้าแพ็กเกจ"
+          description="เลือกลูกค้า รับชำระ และบันทึกรายการในหน้าเดียว"
+          :flat="!isXl"
+          :section-class="checkoutSectionClass"
+          :customer-id="form.customerId"
+          :customer-options="customerOptions"
+          :customer-loading="isCustomersLoading"
+          :note="form.note"
+          total-label="ยอดรวมสุทธิ"
+          :total-value="formatCurrency(totalAmount)"
+          :total-meta="`${cartItems.length} รายการ | ${totalQuantity} ชิ้น`"
+          submit-label="บันทึก"
+          :is-submitting="isSubmitting"
+          :slip-file="slipFile"
+          :uploaded-slip-url="uploadedSlip?.secureUrl || uploadedSlip?.url"
+          :uploaded-slip-label="uploadedSlip?.secureUrl || uploadedSlip?.url || null"
+          @update:customer-id="form.customerId = $event"
+          @update:note="form.note = $event"
+          @update:slip-file="slipFile = $event"
+          @remove-slip="resetSlip"
+          @submit="handleSubmit"
+          @reset="resetForm"
+        >
+          <template #cart>
+            <div class="rounded-md border border-default/30 bg-default p-2 dark:border-default/20 dark:bg-elevated/55">
+              <div class="flex items-center justify-between gap-3">
+                <p class="font-medium text-highlighted">รายการที่เลือก</p>
+                <span class="text-sm text-muted">{{ totalQuantity }} ชิ้น</span>
+              </div>
 
-            <div v-if="cartItems.length" class="mt-3 space-y-1">
-              <div v-for="item in cartItems" :key="item.key">
-                <div class="flex items-center gap-1.5 rounded-md px-1.5 py-1 hover:bg-elevated/30">
-                  <p class="min-w-0 flex-1 truncate text-sm text-highlighted">{{ item.name }}</p>
-                  <UInputNumber
-                    :model-value="item.quantity"
-                    :min="0"
-                    :step="1"
-                    size="xs"
-                    class="w-20"
-                    @update:model-value="setItemQuantity(item.key, Number.isFinite($event) ? $event : 0)"
-                  />
-                  <span class="w-16 shrink-0 text-right text-xs font-medium text-muted">
-                    {{ formatCurrency(item.totalPrice) }}
-                  </span>
-                  <UButton icon="i-lucide-x" color="neutral" variant="ghost" size="xs" @click="removeItem(item.key)" />
+              <div v-if="cartItems.length" class="mt-2 space-y-1">
+                <div v-for="item in cartItems" :key="item.key">
+                  <div class="flex items-center gap-1.5 rounded-md px-1.5 py-1 hover:bg-elevated/30">
+                    <p class="min-w-0 flex-1 truncate text-sm text-highlighted">{{ item.name }}</p>
+                    <UInputNumber
+                      :model-value="item.quantity"
+                      :min="0"
+                      :step="1"
+                      size="xs"
+                      class="w-20"
+                      @update:model-value="setItemQuantity(item.key, Number.isFinite($event) ? $event : 0)"
+                    />
+                    <span class="w-16 shrink-0 text-right text-xs font-medium text-muted">
+                      {{ formatCurrency(item.totalPrice) }}
+                    </span>
+                    <UButton icon="i-lucide-x" color="neutral" variant="ghost" size="xs" @click="removeItem(item.key)" />
+                  </div>
                 </div>
               </div>
+
+              <div v-else class="mt-3 rounded-md border border-dashed border-default/30 p-5 text-center text-sm text-muted dark:border-default/20">
+                ยังไม่ได้เลือกแพ็กเกจ
+              </div>
             </div>
+          </template>
 
-            <div v-else class="mt-4 rounded-md border border-dashed border-default p-6 text-center text-sm text-muted">
-              ยังไม่ได้เลือกแพ็กเกจ
+          <template #discount>
+            <UFormField label="ส่วนลด">
+              <UInputNumber
+                v-model="form.discountAmount"
+                :min="0"
+                :max="subtotalAmount"
+                :step="1"
+                :format-options="{ minimumFractionDigits: 0, maximumFractionDigits: 2 }"
+                class="w-full"
+              />
+            </UFormField>
+
+            <div v-if="vatRate > 0" class="mt-2 flex items-center justify-between text-sm">
+              <span class="text-muted">{{ vatIncluded ? `รวม VAT ${vatRate}%` : `VAT ${vatRate}%` }}</span>
+              <span class="font-medium text-highlighted">{{ formatCurrency(vatPreview.vatAmount) }}</span>
             </div>
-          </div>
-        </template>
-
-        <template #discount>
-          <UFormField label="ส่วนลด">
-            <UInputNumber
-              v-model="form.discountAmount"
-              :min="0"
-              :max="subtotalAmount"
-              :step="1"
-              :format-options="{ minimumFractionDigits: 0, maximumFractionDigits: 2 }"
-              class="w-full"
-            />
-          </UFormField>
-
-          <div v-if="vatRate > 0" class="mt-2 flex items-center justify-between text-sm">
-            <span class="text-muted">{{ vatIncluded ? `รวม VAT ${vatRate}%` : `VAT ${vatRate}%` }}</span>
-            <span class="font-medium text-highlighted">{{ formatCurrency(vatPreview.vatAmount) }}</span>
-          </div>
-        </template>
-      </PosCheckoutPanel>
+          </template>
+        </PosCheckoutPanel>
       </div>
     </aside>
   </div>

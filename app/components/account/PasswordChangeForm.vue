@@ -40,17 +40,17 @@ const onSubmit = async () => {
 </script>
 
 <template>
-  <USkeleton v-if="isLoading" class="h-64 w-full rounded-lg" />
+  <USkeleton v-if="isLoading" class="h-64 w-full rounded-md" />
 
-  <UCard v-else>
+  <UCard v-else class="p-2">
     <template #header>
       <div>
         <p class="font-semibold">รหัสผ่าน</p>
-        <p class="text-xs text-muted mt-1">เปลี่ยนรหัสผ่านสำหรับเข้าสู่ระบบ</p>
+        <p class="mt-1 text-xs text-muted">เปลี่ยนรหัสผ่านสำหรับเข้าสู่ระบบ</p>
       </div>
     </template>
 
-    <div v-if="!data?.hasPasswordCredential" class="rounded-lg border border-default bg-elevated/30 p-3 text-sm text-muted">
+    <div v-if="!data?.hasPasswordCredential" class="rounded-md border border-default/30 bg-elevated/30 p-3 text-sm text-muted dark:border-default/20">
       บัญชีของคุณ login ด้วย LINE — ไม่มีรหัสผ่านให้เปลี่ยน
     </div>
 

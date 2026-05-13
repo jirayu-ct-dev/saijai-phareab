@@ -23,7 +23,36 @@ export default defineAppConfig({
     },
     button: {
       slots: {
-        base: 'cursor-pointer'
+        base: 'cursor-pointer !rounded-md'
+      }
+    },
+    badge: {
+      slots: {
+        base: '!rounded-md'
+      }
+    },
+    input: {
+      slots: {
+        base: '!rounded-md'
+      }
+    },
+    inputNumber: {
+      slots: {
+        base: '!rounded-md'
+      }
+    },
+    select: {
+      slots: {
+        base: '!rounded-md',
+        content: '!rounded-md',
+        item: 'before:!rounded-md'
+      }
+    },
+    selectMenu: {
+      slots: {
+        base: '!rounded-md',
+        content: '!rounded-md',
+        item: 'before:!rounded-md'
       }
     }
   }

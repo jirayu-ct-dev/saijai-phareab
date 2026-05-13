@@ -87,13 +87,11 @@ const goToPaymentPage = async () => {
   await navigateTo("/admin/payment");
 };
 
-const workspaceKey = ref(0);
 const isRefreshing = ref(false);
 const handleRefresh = async () => {
   isRefreshing.value = true;
   try {
     await refreshNuxtData();
-    workspaceKey.value += 1;
   } finally {
     isRefreshing.value = false;
   }
@@ -193,8 +191,8 @@ const resultDescription = computed(() =>
           </div>
         </section>
 
-        <PackagePosWorkspace v-if="activeMode === 'packages'" :key="`pkg-${workspaceKey}`" @completed="handleCompleted" />
-        <StorefrontPosWorkspace v-else :key="`sf-${workspaceKey}`" @completed="handleCompleted" />
+        <PackagePosWorkspace v-if="activeMode === 'packages'" @completed="handleCompleted" />
+        <StorefrontPosWorkspace v-else @completed="handleCompleted" />
       </div>
     </template>
   </UDashboardPanel>

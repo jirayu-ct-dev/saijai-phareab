@@ -43,14 +43,14 @@ const onSend = async () => {
 </script>
 
 <template>
-  <USkeleton v-if="isLoading" class="h-48 w-full rounded-lg" />
+  <USkeleton v-if="isLoading" class="h-48 w-full rounded-md" />
 
-  <UCard v-else>
+  <UCard v-else class="p-2">
     <template #header>
       <div class="flex items-start justify-between gap-3">
         <div>
           <p class="font-semibold">การยืนยันอีเมล</p>
-          <p class="text-xs text-muted mt-1">ยืนยันอีเมลเพื่อเพิ่มความปลอดภัยให้บัญชี</p>
+          <p class="mt-1 text-xs text-muted">ยืนยันอีเมลเพื่อเพิ่มความปลอดภัยให้บัญชี</p>
         </div>
         <UBadge
           :color="emailVerified ? 'success' : 'warning'"

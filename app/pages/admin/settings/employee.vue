@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { adminMobileListCardClass } from "~~/shared/config/adminUi";
+import { adminEmptyStateClass, adminMobileListCardClass } from "~~/shared/config/adminUi";
 
 definePageMeta({
   middleware: ["role-admin"],
@@ -162,50 +162,60 @@ const getAvatarProps = (image: string | null, name: string | null, email: string
   loading: "lazy" as const,
 });
 const roleLabel = (r: string) => (r === "ADMIN" ? "ผู้ดูแล" : "พนักงาน");
-const roleColor = (r: string) => (r === "ADMIN" ? "primary" : "neutral");
+const roleColor = (r: string): "primary" | "neutral" => (r === "ADMIN" ? "primary" : "neutral");
 
 const formatDate = (s: string) => new Date(s).toLocaleDateString("th-TH", { dateStyle: "medium" });
 </script>
 
 <template>
-  <div class="w-full p-6 max-w-5xl mx-auto space-y-6">
-    <div class="flex items-center justify-between gap-3 flex-wrap">
-      <div>
+  <div class="mx-auto w-full max-w-5xl space-y-3 p-2 sm:space-y-4 sm:p-6">
+    <div class="flex flex-col gap-3 rounded-md border border-default/30 bg-default px-4 py-3 shadow-[0_1px_2px_rgb(15_23_42/0.04)] dark:border-default/20 dark:bg-elevated/55 sm:flex-row sm:items-center sm:justify-between">
+      <div class="min-w-0">
         <h1 class="text-xl font-semibold">จัดการพนักงาน</h1>
-        <p class="text-sm text-muted mt-1">เพิ่ม/ลบ และเปลี่ยน role ของพนักงานในร้าน</p>
+        <p class="mt-1 text-sm text-muted">เพิ่ม/ลบ และเปลี่ยน role ของพนักงานในร้าน</p>
       </div>
-      <div class="flex gap-2">
-        <UButton icon="i-lucide-user-search" color="neutral" variant="outline" @click="isPromoteOpen = true">เลือกผู้ใช้ในระบบ</UButton>
-        <UButton icon="i-lucide-plus" @click="isCreateOpen = true">สร้างพนักงานใหม่</UButton>
+      <div class="grid grid-cols-2 gap-2 sm:flex-row sm:items-center">
+        <UButton
+          icon="i-lucide-user-search"
+          color="neutral"
+          variant="outline"
+          class="justify-center"
+          @click="isPromoteOpen = true"
+        >
+          เลือกผู้ใช้ในระบบ
+        </UButton>
+        <UButton icon="i-lucide-plus" class="justify-center" @click="isCreateOpen = true">
+          สร้างพนักงานใหม่
+        </UButton>
       </div>
     </div>
 
     <USkeleton v-if="isLoading" class="h-64 w-full rounded-md" />
 
-    <UCard v-else>
-      <div v-if="!employees?.length" class="rounded-md border border-dashed border-default p-8 text-center text-sm text-muted">
+    <template v-else>
+      <div v-if="!employees?.length" :class="adminEmptyStateClass">
         ยังไม่มีพนักงานในระบบ
       </div>
 
-      <div v-else class="space-y-3">
+      <div v-else class="space-y-1">
         <div
           v-for="emp in employees"
           :key="emp.id"
-          :class="[adminMobileListCardClass, 'flex flex-wrap items-center justify-between gap-3 p-3']"
+          :class="[adminMobileListCardClass, 'flex flex-col gap-2 p-2 sm:flex-row sm:items-center sm:justify-between']"
         >
-          <div class="flex items-center gap-3 min-w-0">
-            <UAvatar v-bind="getAvatarProps(emp.image, emp.name, emp.email)" size="md" />
+          <div class="flex min-w-0 items-center gap-3">
+            <UAvatar v-bind="getAvatarProps(emp.image, emp.name, emp.email)" size="md" class="shrink-0" />
 
             <div class="min-w-0">
-              <div class="flex items-center gap-2 flex-wrap">
-                <p class="font-medium truncate">{{ emp.name || emp.email }}</p>
+              <div class="flex flex-wrap items-center gap-2">
+                <p class="truncate font-medium">{{ emp.name || emp.email }}</p>
                 <UBadge :color="roleColor(emp.role)" variant="subtle" size="xs">{{ roleLabel(emp.role) }}</UBadge>
                 <UBadge v-if="emp.hasLineLinked" color="success" variant="subtle" size="xs" icon="i-simple-icons-line">LINE</UBadge>
               </div>
               <p class="text-xs text-muted">{{ emp.email }} · เริ่ม {{ formatDate(emp.createdAt) }}</p>
             </div>
           </div>
-          <div class="flex items-center gap-2">
+          <div class="flex items-center justify-end gap-2 sm:shrink-0">
             <USelect
               :model-value="emp.role"
               :items="[
@@ -229,10 +239,14 @@ const formatDate = (s: string) => new Date(s).toLocaleDateString("th-TH", { date
           </div>
         </div>
       </div>
-    </UCard>
+    </template>
 
     <!-- Create new employee modal -->
-    <UModal v-model:open="isCreateOpen" title="สร้างพนักงานใหม่">
+    <UModal
+      v-model:open="isCreateOpen"
+      title="สร้างพนักงานใหม่"
+      :ui="{ body: '!bg-default !p-4 dark:!bg-elevated/55' }"
+    >
       <template #body>
         <div class="space-y-3">
           <UFormField label="ชื่อ" required>
@@ -269,7 +283,11 @@ const formatDate = (s: string) => new Date(s).toLocaleDateString("th-TH", { date
     </UModal>
 
     <!-- Promote existing user modal -->
-    <UModal v-model:open="isPromoteOpen" title="เลือกผู้ใช้จากระบบ" :ui="{ content: 'max-w-md' }">
+    <UModal
+      v-model:open="isPromoteOpen"
+      title="เลือกผู้ใช้จากระบบ"
+      :ui="{ content: 'max-w-md', body: '!bg-default !p-4 dark:!bg-elevated/55' }"
+    >
       <template #body>
         <div class="space-y-4">
           <UFormField label="ค้นหาผู้ใช้" required>
@@ -289,13 +307,13 @@ const formatDate = (s: string) => new Date(s).toLocaleDateString("th-TH", { date
                 <div class="flex items-center gap-2">
                   <UAvatar v-bind="getAvatarProps(item.image, item.name, item.email)" size="xs" />
                   <div class="min-w-0">
-                    <p class="text-sm font-medium truncate">{{ item.label }}</p>
-                    <p class="text-xs text-muted truncate">{{ item.email }}</p>
+                    <p class="truncate text-sm font-medium">{{ item.label }}</p>
+                    <p class="truncate text-xs text-muted">{{ item.email }}</p>
                   </div>
                 </div>
               </template>
               <template #empty>
-                <p class="text-sm text-muted text-center py-2">ไม่พบผู้ใช้</p>
+                <p class="py-2 text-center text-sm text-muted">ไม่พบผู้ใช้</p>
               </template>
             </USelectMenu>
           </UFormField>

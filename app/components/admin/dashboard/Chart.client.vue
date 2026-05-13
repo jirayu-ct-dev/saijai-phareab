@@ -78,27 +78,35 @@ const template = (d: DataRecord) => `${formatLabel(d.date)}: ${formatCurrency(d.
 </script>
 
 <template>
-  <UCard ref="cardRef" :ui="{ root: 'overflow-visible', body: '!px-0 !pt-0 !pb-3' }">
+  <UCard
+    ref="cardRef"
+    :ui="{
+      root: 'overflow-visible',
+      header: '!px-4 sm:!px-5',
+      body: '!px-3 !pt-2 !pb-4 sm:!px-4 sm:!pt-3 sm:!pb-5'
+    }"
+  >
     <template #header>
-      <div>
-        <p class="text-xs text-muted mb-1.5">รายได้รวม</p>
+      <div class="py-3">
+        <p class="mb-1.5 text-xs text-muted">รายได้รวม</p>
         <p class="wrap-break-word text-2xl font-semibold text-highlighted sm:text-3xl">
           {{ isLoading ? '...' : formatCurrency(total) }}
         </p>
       </div>
     </template>
 
-    <div v-if="isLoading" class="flex h-72 items-center justify-center sm:h-96">
-      <UIcon name="i-lucide-loader-2" class="size-8 animate-spin text-primary" />
+    <div class="relative h-72 sm:h-96">
+      <div v-if="isLoading" class="pointer-events-none absolute inset-0 z-10 flex items-center justify-center">
+        <UIcon name="i-lucide-loader-2" class="size-8 animate-spin text-primary" />
+      </div>
+      <VisXYContainer v-if="data.length" :data="data" :padding="{ top: 32, right: 12, bottom: 32, left: 12 }" class="h-full" :width="width">
+        <VisLine :x="x" :y="y" color="var(--ui-primary)" />
+        <VisArea :x="x" :y="y" color="var(--ui-primary)" :opacity="0.1" />
+        <VisAxis type="x" :x="x" :tick-format="xTicks" />
+        <VisCrosshair :x="x" :y="y" color="var(--ui-primary)" :template="template" />
+        <VisTooltip />
+      </VisXYContainer>
     </div>
-
-    <VisXYContainer v-else :data="data" :padding="{ top: 32, bottom: 32 }" class="h-72 sm:h-96" :width="width">
-      <VisLine :x="x" :y="y" color="var(--ui-primary)" />
-      <VisArea :x="x" :y="y" color="var(--ui-primary)" :opacity="0.1" />
-      <VisAxis type="x" :x="x" :tick-format="xTicks" />
-      <VisCrosshair :x="x" :y="y" color="var(--ui-primary)" :template="template" />
-      <VisTooltip />
-    </VisXYContainer>
   </UCard>
 </template>
 

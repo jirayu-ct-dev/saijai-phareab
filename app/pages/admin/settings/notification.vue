@@ -81,17 +81,32 @@ watch(
   { immediate: true },
 );
 
-const isSaving = ref(false);
-const onSaveSetting = async () => {
-  isSaving.value = true;
+type SettingKey =
+  | "notifyCustomerOnReceived"
+  | "notifyCustomerOnProcessing"
+  | "notifyCustomerOnDelivering"
+  | "notifyCustomerOnCompleted"
+  | "notifyCustomerOnCancelled"
+  | "notifyCustomerReceipt"
+  | "notifyStaffOnNewOrder";
+
+const pendingKeys = reactive(new Set<SettingKey>());
+const isPending = (key: SettingKey) => pendingKeys.has(key);
+
+const onToggleSetting = async (key: SettingKey, value: boolean) => {
+  const prev = form[key];
+  form[key] = value;
+  pendingKeys.add(key);
   try {
-    await $fetch("/api/admin/settings/notification", { method: "PUT", body: form });
-    notify.updated();
-    await refresh();
+    await $fetch("/api/admin/settings/notification", {
+      method: "PUT",
+      body: { ...form, [key]: value },
+    });
   } catch {
+    form[key] = prev;
     notify.serverError();
   } finally {
-    isSaving.value = false;
+    pendingKeys.delete(key);
   }
 };
 
@@ -149,20 +164,20 @@ const roleLabel = (role: "ADMIN" | "EMPLOYEE" | "USER") =>
 </script>
 
 <template>
-  <div class="w-full p-6 max-w-4xl mx-auto space-y-6">
-    <div>
+  <div class="mx-auto w-full max-w-4xl space-y-3 p-2 sm:space-y-4 sm:p-6">
+    <div class="rounded-md border border-default/30 bg-default px-4 py-3 shadow-[0_1px_2px_rgb(15_23_42/0.04)] dark:border-default/20 dark:bg-elevated/55">
       <h1 class="text-xl font-semibold">การแจ้งเตือน</h1>
-      <p class="text-sm text-muted mt-1">ตั้งค่าการแจ้งเตือนผ่าน LINE สำหรับลูกค้าและทีมงาน</p>
+      <p class="mt-1 text-sm text-muted">ตั้งค่าการแจ้งเตือนผ่าน LINE สำหรับลูกค้าและทีมงาน</p>
     </div>
 
     <USkeleton v-if="isLoading" class="h-64 w-full rounded-md" />
 
     <template v-else>
-      <UCard>
+      <UCard class="p-2">
         <template #header>
           <div>
             <p class="font-semibold">แจ้งเตือนลูกค้าตามสถานะผ้า</p>
-            <p class="text-xs text-muted mt-1">เมื่อสถานะผ้าเปลี่ยน ระบบจะส่ง LINE ให้ลูกค้าที่ผูกบัญชี LINE</p>
+            <p class="mt-1 text-xs text-muted">เมื่อสถานะผ้าเปลี่ยน ระบบจะส่ง LINE ให้ลูกค้าที่ผูกบัญชี LINE</p>
           </div>
         </template>
 
@@ -172,31 +187,56 @@ const roleLabel = (role: "ADMIN" | "EMPLOYEE" | "USER") =>
               <p class="text-sm font-medium">รับผ้าแล้ว (RECEIVED)</p>
               <p class="text-xs text-muted">แจ้งเมื่อสร้างออเดอร์รับผ้าใหม่</p>
             </div>
-            <USwitch v-model="form.notifyCustomerOnReceived" />
+            <USwitch
+              :model-value="form.notifyCustomerOnReceived"
+              :loading="isPending('notifyCustomerOnReceived')"
+              :disabled="isPending('notifyCustomerOnReceived')"
+              @update:model-value="(v: boolean) => onToggleSetting('notifyCustomerOnReceived', v)"
+            />
           </div>
           <div class="flex items-center justify-between">
             <div>
               <p class="text-sm font-medium">กำลังดำเนินการ (PROCESSING)</p>
             </div>
-            <USwitch v-model="form.notifyCustomerOnProcessing" />
+            <USwitch
+              :model-value="form.notifyCustomerOnProcessing"
+              :loading="isPending('notifyCustomerOnProcessing')"
+              :disabled="isPending('notifyCustomerOnProcessing')"
+              @update:model-value="(v: boolean) => onToggleSetting('notifyCustomerOnProcessing', v)"
+            />
           </div>
           <div class="flex items-center justify-between">
             <div>
               <p class="text-sm font-medium">พร้อมส่ง / กำลังจัดส่ง (DELIVERING)</p>
             </div>
-            <USwitch v-model="form.notifyCustomerOnDelivering" />
+            <USwitch
+              :model-value="form.notifyCustomerOnDelivering"
+              :loading="isPending('notifyCustomerOnDelivering')"
+              :disabled="isPending('notifyCustomerOnDelivering')"
+              @update:model-value="(v: boolean) => onToggleSetting('notifyCustomerOnDelivering', v)"
+            />
           </div>
           <div class="flex items-center justify-between">
             <div>
               <p class="text-sm font-medium">เสร็จสิ้น (COMPLETED)</p>
             </div>
-            <USwitch v-model="form.notifyCustomerOnCompleted" />
+            <USwitch
+              :model-value="form.notifyCustomerOnCompleted"
+              :loading="isPending('notifyCustomerOnCompleted')"
+              :disabled="isPending('notifyCustomerOnCompleted')"
+              @update:model-value="(v: boolean) => onToggleSetting('notifyCustomerOnCompleted', v)"
+            />
           </div>
           <div class="flex items-center justify-between">
             <div>
               <p class="text-sm font-medium">ยกเลิก (CANCELLED)</p>
             </div>
-            <USwitch v-model="form.notifyCustomerOnCancelled" />
+            <USwitch
+              :model-value="form.notifyCustomerOnCancelled"
+              :loading="isPending('notifyCustomerOnCancelled')"
+              :disabled="isPending('notifyCustomerOnCancelled')"
+              @update:model-value="(v: boolean) => onToggleSetting('notifyCustomerOnCancelled', v)"
+            />
           </div>
 
           <div class="border-t border-default pt-3" />
@@ -206,7 +246,12 @@ const roleLabel = (role: "ADMIN" | "EMPLOYEE" | "USER") =>
               <p class="text-sm font-medium">ส่งใบเสร็จขายแพ็กเกจให้ลูกค้า</p>
               <p class="text-xs text-muted">เมื่อสร้างรายการขายแพ็กเกจ ระบบจะส่งใบเสร็จทาง LINE</p>
             </div>
-            <USwitch v-model="form.notifyCustomerReceipt" />
+            <USwitch
+              :model-value="form.notifyCustomerReceipt"
+              :loading="isPending('notifyCustomerReceipt')"
+              :disabled="isPending('notifyCustomerReceipt')"
+              @update:model-value="(v: boolean) => onToggleSetting('notifyCustomerReceipt', v)"
+            />
           </div>
 
           <div class="flex items-center justify-between">
@@ -214,23 +259,22 @@ const roleLabel = (role: "ADMIN" | "EMPLOYEE" | "USER") =>
               <p class="text-sm font-medium">แจ้งพนักงานเมื่อมีออเดอร์ใหม่</p>
               <p class="text-xs text-muted">ส่ง LINE ให้พนักงานทันทีที่บันทึกรายการผ้าจากหน้า POS</p>
             </div>
-            <USwitch v-model="form.notifyStaffOnNewOrder" />
+            <USwitch
+              :model-value="form.notifyStaffOnNewOrder"
+              :loading="isPending('notifyStaffOnNewOrder')"
+              :disabled="isPending('notifyStaffOnNewOrder')"
+              @update:model-value="(v: boolean) => onToggleSetting('notifyStaffOnNewOrder', v)"
+            />
           </div>
         </div>
-
-        <template #footer>
-          <div class="flex justify-end">
-            <UButton :loading="isSaving" icon="i-lucide-save" @click="onSaveSetting">บันทึกการตั้งค่า</UButton>
-          </div>
-        </template>
       </UCard>
 
-      <UCard>
+      <UCard class="p-2">
         <template #header>
           <div class="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div class="min-w-0">
               <p class="font-semibold">ผู้รับการแจ้งเตือนของร้าน</p>
-              <p class="text-xs text-muted mt-1">ผู้ที่จะได้รับ LINE สำหรับการแจ้งเตือนของร้าน (เฉพาะ ADMIN/EMPLOYEE)</p>
+              <p class="mt-1 text-xs text-muted">ผู้ที่จะได้รับ LINE สำหรับการแจ้งเตือนของร้าน (เฉพาะ ADMIN/EMPLOYEE)</p>
             </div>
             <div class="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center">
               <USelect
@@ -261,15 +305,15 @@ const roleLabel = (role: "ADMIN" | "EMPLOYEE" | "USER") =>
           <div
             v-for="sub in data.subscribers"
             :key="sub.id"
-            class="rounded-md border border-default p-4 space-y-3"
+            class="space-y-3 rounded-md border border-default p-4"
           >
-            <div class="flex items-center justify-between gap-3 flex-wrap">
+            <div class="flex flex-wrap items-center justify-between gap-3">
               <div class="flex items-center gap-3">
                 <UAvatar v-bind="getAvatarProps(sub.user.image, sub.user.name, sub.user.email)" size="md" />
                 <div>
                   <p class="font-medium">{{ sub.user.name || sub.user.email }}</p>
                   <p class="text-xs text-muted">{{ sub.user.email }} · {{ roleLabel(sub.user.role) }}</p>
-                  <p v-if="!sub.user.hasLineLinked" class="text-xs text-warning mt-1">
+                  <p v-if="!sub.user.hasLineLinked" class="mt-1 text-xs text-warning">
                     ⚠ ผู้ใช้ยังไม่ผูกบัญชี LINE จะไม่ได้รับการแจ้งเตือน
                   </p>
                 </div>
@@ -286,7 +330,7 @@ const roleLabel = (role: "ADMIN" | "EMPLOYEE" | "USER") =>
               </div>
             </div>
 
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-3 pt-2 border-t border-default">
+            <div class="grid grid-cols-1 gap-3 border-t border-default pt-2 md:grid-cols-3">
               <div class="flex items-center justify-between">
                 <span class="text-sm">ออเดอร์ใหม่</span>
                 <USwitch

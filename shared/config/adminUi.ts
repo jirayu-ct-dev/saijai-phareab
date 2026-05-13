@@ -2,7 +2,7 @@ export type AdminCardTone = "neutral" | "primary" | "secondary" | "info" | "warn
 
 /* ------------------------------------------------------------------ */
 /* Refined Shopee-style admin tokens.                                 */
-/* Restrained radius (rounded-lg / rounded-sm), softer borders,       */
+/* Restrained radius (rounded-md), softer borders,                    */
 /* lighter shadows. Keeps blue/cyan brand identity.                   */
 /* ------------------------------------------------------------------ */
 
@@ -18,7 +18,7 @@ const cardSurfaceHover = "hover:border-default/45 hover:bg-default dark:hover:bg
 
 /* List card — used in admin list rows (mobile + desktop fallback) */
 export const adminListCardBaseClass = [
-  "rounded-sm border p-2 transition-[background-color,border-color,box-shadow] duration-200",
+  "rounded-md border p-2 transition-[background-color,border-color,box-shadow] duration-200",
   cardShadow,
 ].join(" ");
 
@@ -39,7 +39,7 @@ export const getAdminListCardClass = (tone: AdminCardTone = "neutral") =>
 
 /* Mobile list card */
 export const adminMobileListCardClass = [
-  "overflow-hidden rounded-sm border transition-[background-color,border-color,box-shadow] duration-200",
+  "overflow-hidden rounded-md border transition-[background-color,border-color,box-shadow] duration-200",
   cardBorder,
   cardSurface,
   cardSurfaceHover,
@@ -70,7 +70,7 @@ export const adminSurfaceSectionClass =
 
 /* Metric card */
 export const adminMetricCardClass = [
-  "min-w-0 rounded-sm border transition-[background-color,border-color,box-shadow] duration-200",
+  "min-w-0 rounded-md border transition-[background-color,border-color,box-shadow] duration-200",
   cardBorder,
   cardSurface,
   cardSurfaceHover,
@@ -79,7 +79,7 @@ export const adminMetricCardClass = [
 
 /* Catalog (POS) card base — restrained product-card feel */
 export const adminCatalogCardBaseClass = [
-  "group relative flex cursor-pointer flex-col justify-between gap-2 rounded-sm border p-2 text-left",
+  "group relative flex cursor-pointer flex-col justify-between gap-2 rounded-md border p-2 text-left",
   "transition-[background-color,border-color,box-shadow] duration-200",
   cardShadow,
   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
@@ -90,7 +90,7 @@ export const adminInsetSurfaceClass = "flex flex-col gap-3";
 
 /* Empty state */
 export const adminEmptyStateClass = [
-  "flex flex-col items-center justify-center rounded-sm border border-dashed px-3 py-5 text-center text-muted",
+  "flex flex-col items-center justify-center rounded-md border border-dashed px-3 py-5 text-center text-muted",
   "border-default/30 bg-default/55 dark:border-default/20 dark:bg-elevated/30",
 ].join(" ");
 
@@ -114,10 +114,10 @@ export const adminTableUi = {
   root: "relative overflow-x-auto",
   base: "table-fixed border-separate border-spacing-0",
   thead:
-    "sticky top-0 z-1 [&>tr]:bg-elevated/50 dark:[&>tr]:bg-elevated/40 [&>tr]:after:content-none",
+    "sticky top-0 z-1 [&>tr]:bg-muted dark:[&>tr]:bg-elevated/60 [&>tr]:after:content-none",
   tbody:
-    "[&>tr]:last:[&>td]:border-b-0 [&>tr>td:nth-child(even)]:bg-elevated/25 dark:[&>tr>td:nth-child(even)]:bg-elevated/30 [&>tr:hover>td]:bg-primary/[0.05] dark:[&>tr:hover>td]:bg-elevated/45",
-  th: "border-b border-default py-2 font-medium text-muted text-xs uppercase tracking-wide dark:border-default/20",
+    "[&>tr]:last:[&>td]:border-b-0 [&>tr>td:nth-child(even)]:bg-elevated/20 dark:[&>tr>td:nth-child(even)]:bg-elevated/25 [&>tr:hover>td]:bg-primary/[0.05] dark:[&>tr:hover>td]:bg-elevated/45",
+  th: "border-b border-default bg-muted dark:bg-elevated/60 py-2.5 font-semibold text-toned text-xs uppercase tracking-wide dark:border-default/30",
   td: "border-b border-default py-2.5 transition-colors dark:border-default/25",
   separator: "h-0",
 } as const;

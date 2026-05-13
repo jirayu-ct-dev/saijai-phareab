@@ -39,7 +39,7 @@ const emit = defineEmits<{
 const notify = useNotify();
 const { customers, isLoading: isCustomersLoading } = useAdminCustomerOptions();
 const { hangerPricePerUnit, washFoldPricePerKg, washFoldMinKg, vatRate, vatIncluded, computeVatPreview } = useBusinessSetting();
-const { items, refresh } = useStorefrontCatalog();
+const { items, isLoading: isCatalogLoading, refresh } = useStorefrontCatalog();
 const { createServiceOrder, uploadOrderImage } = useAdminServiceOrders({
   fetchList: false,
   refreshAfterMutation: false,
@@ -438,7 +438,7 @@ const getCatalogDescription = (item: { categoryName?: string | null; serviceName
 const mounted = ref(false);
 onMounted(() => { mounted.value = true; });
 const isXlQuery = useMediaQuery("(min-width: 1280px)");
-const isCompact = computed(() => !mounted.value || !isXlQuery.value);
+const isCompact = computed(() => mounted.value && !isXlQuery.value);
 const isCartOpen = ref(false);
 watch(isCompact, (value) => { if (!value) isCartOpen.value = false; });
 
@@ -630,15 +630,15 @@ const handleSubmit = async () => {
               <p class="mt-0.5 text-sm text-muted">ค้นหาแล้วแตะบริการ ผ้าที่เลือกจะไปอยู่ในตะกร้าด้านขวา</p>
             </div>
 
-            <div class="flex flex-col gap-2 sm:flex-row sm:items-center">
-              <div class="flex items-center justify-between gap-3 rounded-md border border-default px-3 py-2 sm:w-72">
-                <div class="min-w-0">
+            <div class="min-w-0 lg:shrink-0">
+              <div class="flex min-w-0 items-center gap-3 rounded-md border border-default px-3 py-2 lg:w-[26rem]">
+                <div class="flex min-w-0 flex-1 items-center gap-2">
                   <p class="text-sm font-medium text-highlighted">ซัก-พับ ชั่งกิโล</p>
-                  <p class="truncate text-xs text-muted">
+                  <p class="min-w-0 truncate text-xs text-muted">
                     {{ formatCurrency(washFoldPricePerKg) }} / กก.<span v-if="washFoldMinKg > 0"> · ขั้นต่ำ {{ washFoldMinKg }} กก.</span>
                   </p>
                 </div>
-                <USwitch v-model="form.washFoldMode" color="warning" />
+                <USwitch v-model="form.washFoldMode" color="warning" class="shrink-0" />
               </div>
             </div>
           </div>
@@ -653,13 +653,29 @@ const handleSubmit = async () => {
           </div>
         </div>
 
-        <div :class="[filterBarClass, 'grid grid-cols-2 gap-2 md:grid-cols-[minmax(0,1fr)_180px_180px]']">
-          <UInput v-model="searchQuery" icon="i-lucide-search" placeholder="ค้นหาบริการหรือชนิดผ้า" class="col-span-2 w-full md:col-span-1" />
-          <USelect v-model="categoryFilter" :items="categoryOptions" value-key="value" class="w-full" />
-          <USelect v-model="serviceFilter" :items="serviceOptions" value-key="value" class="w-full" />
+        <div :class="[filterBarClass, 'flex flex-col gap-1.5 sm:flex-row sm:items-center']">
+          <UInput
+            v-model="searchQuery"
+            icon="i-lucide-search"
+            placeholder="ค้นหาบริการหรือชนิดผ้า"
+            class="min-w-0 sm:flex-[1_1_32rem]"
+          />
+          <div class="grid grid-cols-2 gap-1.5 sm:flex sm:shrink-0 sm:items-center">
+            <USelect v-model="categoryFilter" :items="categoryOptions" value-key="value" class="min-w-0 md:w-40 lg:w-44" />
+            <USelect v-model="serviceFilter" :items="serviceOptions" value-key="value" class="min-w-0 md:w-40 lg:w-44" />
+          </div>
         </div>
 
-        <div v-if="filteredCatalog.length">
+        <div v-if="isCatalogLoading" class="space-y-3">
+          <div class="space-y-1 md:hidden">
+            <USkeleton v-for="i in 5" :key="`mlist-${i}`" class="h-20 w-full rounded-md" />
+          </div>
+          <div class="hidden grid-cols-2 gap-3 md:grid lg:grid-cols-3 xl:grid-cols-3 2xl:grid-cols-4">
+            <PosCatalogCard v-for="i in 8" :key="`mgrid-${i}`" loading />
+          </div>
+        </div>
+
+        <div v-else-if="filteredCatalog.length">
           <div class="space-y-1 md:hidden">
             <div
               v-for="item in filteredCatalog"
@@ -996,7 +1012,7 @@ const handleSubmit = async () => {
     icon="i-lucide-shopping-cart"
     color="primary"
     size="xl"
-    class="fixed bottom-6 right-6 z-30 size-14 justify-center rounded-full shadow-lg"
+    class="fixed bottom-6 right-6 z-30 size-14 justify-center !rounded-full shadow-lg"
     aria-label="เปิดตะกร้ารับผ้า"
     @click="isCartOpen = true"
   >

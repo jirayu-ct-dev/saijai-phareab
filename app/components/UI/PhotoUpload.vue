@@ -71,6 +71,7 @@ onBeforeUnmount(() => {
 });
 
 const isFull = computed(() => props.max !== undefined && props.photos.length >= props.max);
+const helperText = computed(() => props.description ?? (props.photos.length === 0 ? "ยังไม่ได้แนบรูป" : `${props.photos.length} รูป`));
 
 const openPicker = () => {
   if (props.disabled || isFull.value) return;
@@ -118,13 +119,11 @@ const performRemove = () => {
 </script>
 
 <template>
-  <div class="rounded-xl border border-dashed border-default p-4">
-    <div class="flex items-center justify-between gap-3">
-      <div>
-        <p class="font-medium text-highlighted">{{ label }}</p>
-        <p class="text-sm text-muted">
-          {{ description ?? (photos.length === 0 ? "ยังไม่ได้แนบรูป" : `${photos.length} รูป`) }}
-        </p>
+  <div class="rounded-md border border-dashed border-default/45 bg-default/70 p-3 transition-colors dark:border-default/25 dark:bg-elevated/35">
+    <div class="flex items-start justify-between gap-3">
+      <div class="min-w-0">
+        <p class="truncate text-sm font-medium text-highlighted">{{ label }}</p>
+        <p class="mt-0.5 text-xs text-muted">{{ helperText }}</p>
       </div>
 
       <UButton
@@ -132,7 +131,9 @@ const performRemove = () => {
         label="เพิ่มรูป"
         icon="i-lucide-upload"
         color="neutral"
-        variant="solid"
+        variant="outline"
+        size="sm"
+        class="shrink-0"
         :disabled="disabled"
         @click="openPicker"
       />
@@ -148,25 +149,34 @@ const performRemove = () => {
       @change="onFileSelected"
     >
 
-    <div v-if="photos.length" class="mt-4 grid grid-cols-3 gap-3 sm:grid-cols-4">
+    <div
+      v-if="!photos.length"
+      class="mt-3 rounded-md border border-dashed border-default/45 bg-elevated/20 px-3 py-2 text-xs text-muted dark:border-default/25 dark:bg-elevated/20"
+    >
+      ยังไม่มีรูปภาพ
+    </div>
+
+    <div v-if="photos.length" class="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-4">
       <div
         v-for="photo in photos"
         :key="photo.key"
-        class="relative overflow-hidden rounded-xl border border-default bg-muted/30"
+        class="group relative overflow-hidden rounded-md border border-default/40 bg-elevated/30 dark:border-default/25 dark:bg-elevated/35"
       >
-        <img
-          :src="resolveUrl(photo)"
-          alt="รูปภาพ"
-          class="h-24 w-full cursor-pointer object-cover"
-          @click="openPreview(photo)"
-        >
+        <button type="button" class="block w-full" @click="openPreview(photo)">
+          <img
+            :src="resolveUrl(photo)"
+            alt="รูปภาพ"
+            class="aspect-square w-full object-cover transition-transform duration-200 group-hover:scale-[1.02]"
+          >
+        </button>
         <UButton
           icon="i-lucide-x"
           color="error"
           variant="solid"
           size="xs"
-          class="absolute right-1 top-1"
+          class="absolute right-1 top-1 opacity-95 shadow-sm"
           :disabled="disabled"
+          aria-label="ลบรูป"
           @click.stop="requestRemove(photo.key)"
         />
       </div>

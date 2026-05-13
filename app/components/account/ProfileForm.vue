@@ -85,13 +85,13 @@ const onSubmit = async () => {
 </script>
 
 <template>
-  <USkeleton v-if="isLoading" class="h-64 w-full rounded-lg" />
+  <USkeleton v-if="isLoading" class="h-64 w-full rounded-md" />
 
-  <UCard v-else>
+  <UCard v-else class="p-2">
     <template #header>
       <div>
         <p class="font-semibold">ข้อมูลส่วนตัว</p>
-        <p class="text-xs text-muted mt-1">ชื่อ เบอร์ และรูปโปรไฟล์ของคุณ</p>
+        <p class="mt-1 text-xs text-muted">ชื่อ เบอร์ และรูปโปรไฟล์ของคุณ</p>
       </div>
     </template>
 
@@ -106,20 +106,22 @@ const onSubmit = async () => {
         />
       </UFormField>
 
-      <UFormField label="ชื่อ" name="name" required>
-        <UInput v-model="form.name" placeholder="ชื่อ-นามสกุล" class="w-full" />
-      </UFormField>
+      <div class="grid gap-4 sm:grid-cols-2">
+        <UFormField label="ชื่อ" name="name" required>
+          <UInput v-model="form.name" placeholder="ชื่อ-นามสกุล" class="w-full" />
+        </UFormField>
 
-      <UFormField label="เบอร์โทรศัพท์" name="phoneNumber">
-        <UInput v-model="form.phoneNumber" placeholder="เช่น 081-234-5678" class="w-full" />
-      </UFormField>
+        <UFormField label="เบอร์โทรศัพท์" name="phoneNumber">
+          <UInput v-model="form.phoneNumber" placeholder="เช่น 081-234-5678" class="w-full" />
+        </UFormField>
 
-      <UFormField label="อีเมล" name="email">
-        <UInput :model-value="data?.email" disabled class="w-full" />
-        <template #help>
-          <span class="text-xs text-muted">อีเมลใช้สำหรับเข้าสู่ระบบ ไม่สามารถเปลี่ยนได้</span>
-        </template>
-      </UFormField>
+        <UFormField label="อีเมล" name="email" class="sm:col-span-2">
+          <UInput :model-value="data?.email" disabled class="w-full" />
+          <template #help>
+            <span class="text-xs text-muted">อีเมลใช้สำหรับเข้าสู่ระบบ ไม่สามารถเปลี่ยนได้</span>
+          </template>
+        </UFormField>
+      </div>
     </UForm>
 
     <template #footer>

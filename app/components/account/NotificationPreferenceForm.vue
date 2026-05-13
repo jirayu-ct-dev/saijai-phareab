@@ -39,24 +39,25 @@ const onToggle = async (value: boolean) => {
 </script>
 
 <template>
-  <USkeleton v-if="isLoading" class="h-32 w-full rounded-lg" />
+  <USkeleton v-if="isLoading" class="h-32 w-full rounded-md" />
 
-  <UCard v-else>
+  <UCard v-else class="p-2">
     <template #header>
       <div>
         <p class="font-semibold">การแจ้งเตือนทาง LINE</p>
-        <p class="text-xs text-muted mt-1">เปิด/ปิดการรับใบเสร็จและสถานะผ่าน LINE</p>
+        <p class="mt-1 text-xs text-muted">เปิด/ปิดการรับใบเสร็จและสถานะผ่าน LINE</p>
       </div>
     </template>
 
-    <div v-if="!data?.hasLineLinked" class="rounded-lg border border-warning/30 bg-warning/5 p-3 text-sm text-warning mb-3">
-      ⚠ ยังไม่ได้เชื่อมบัญชี LINE — เชื่อมก่อนเพื่อรับการแจ้งเตือน
+    <div v-if="!data?.hasLineLinked" class="mb-3 flex items-start gap-2 rounded-md border border-warning/30 bg-warning/5 p-3 text-sm text-warning">
+      <UIcon name="i-lucide-triangle-alert" class="mt-0.5 size-4 shrink-0" />
+      <span>ยังไม่ได้เชื่อมบัญชี LINE เชื่อมก่อนเพื่อรับการแจ้งเตือน</span>
     </div>
 
     <div class="flex items-center justify-between gap-4">
-      <div>
+      <div class="min-w-0">
         <p class="font-medium">รับการแจ้งเตือน</p>
-        <p class="text-xs text-muted mt-1">รับใบเสร็จ สถานะผ้า และข้อมูลสำคัญผ่าน LINE</p>
+        <p class="mt-1 text-xs text-muted">รับใบเสร็จ สถานะผ้า และข้อมูลสำคัญผ่าน LINE</p>
       </div>
       <USwitch
         :model-value="lineNotifyEnabled"

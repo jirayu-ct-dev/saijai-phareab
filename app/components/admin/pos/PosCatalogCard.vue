@@ -2,16 +2,17 @@
 import { adminCatalogCardBaseClass } from "~~/shared/config/adminUi";
 
 defineProps<{
-  title: string;
+  title?: string;
   description?: string | null;
-  badgeLabel: string;
-  badgeColor: "primary" | "warning" | "info";
-  priceLabel: string;
+  badgeLabel?: string;
+  badgeColor?: "primary" | "warning" | "info";
+  priceLabel?: string;
   metaLabel?: string;
-  quantity: number;
+  quantity?: number;
   selected?: boolean;
   isRange?: boolean;
   toneClass?: string;
+  loading?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -29,6 +30,26 @@ const defaultSelectedToneClass = {
 
 <template>
   <div
+    v-if="loading"
+    :class="[adminCatalogCardBaseClass, 'admin-pos-catalog-card rounded-md border-default/30 bg-default dark:border-default/20 dark:bg-elevated/55']"
+    aria-hidden="true"
+  >
+    <div class="min-w-0 space-y-2">
+      <USkeleton class="h-4 w-3/4 rounded" />
+      <USkeleton class="h-3 w-1/2 rounded" />
+      <USkeleton class="h-4 w-16 rounded-full" />
+    </div>
+    <div class="flex items-end justify-between gap-3 border-t border-default/15 pt-2.5 dark:border-default/10">
+      <div class="min-w-0 space-y-1.5">
+        <USkeleton class="h-4 w-16 rounded" />
+        <USkeleton class="h-3 w-24 rounded" />
+      </div>
+      <USkeleton class="h-7 w-14 rounded-md" />
+    </div>
+  </div>
+
+  <div
+    v-else
     role="button"
     tabindex="0"
     title="คลิกเพื่อเพิ่ม | คลิกขวาเพื่อลด"

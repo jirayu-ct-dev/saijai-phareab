@@ -15,11 +15,13 @@ export type PosStorefrontCatalogItem = {
 export const useStorefrontCatalog = () => {
   const { data: items, status, refresh } = useFetch<PosStorefrontCatalogItem[]>("/api/admin/storefront-catalog", {
     default: () => [],
+    server: false,
+    lazy: true,
   });
 
   return {
     items,
-    isLoading: computed(() => status.value === "pending"),
+    isLoading: computed(() => status.value === "pending" || status.value === "idle"),
     refresh,
   };
 };

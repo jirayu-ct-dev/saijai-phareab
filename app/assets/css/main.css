@@ -10,9 +10,10 @@ body {
 /* ------------------------------------------------------------------ */
 
 .admin-shell {
-    /* Base radius for Nuxt UI primitives — restrained "ecommerce" radius
-       (rounded-md) for inputs/buttons; UCards step up below. */
-    --ui-radius: 0.375rem;
+    /* Base radius for Nuxt UI primitives — Nuxt UI v4 scales radius by
+       --ui-radius (sm=×1, md=×1.5, lg=×2, xl=×3). Setting to 0.25rem
+       maps rounded-md → 0.375rem (standard Tailwind rounded-md feel). */
+    --ui-radius: 0.25rem;
 
     /* Page background — uses neutral-100 directly so there is a real
        visible step down from white cards. The default `--ui-bg-muted`
@@ -85,6 +86,19 @@ body {
 
 .admin-dashboard [data-slot="root"].ring-default.divide-default,
 .admin-dashboard-card {
+    border-radius: 0.375rem !important;
+}
+
+/* Nuxt UI primitives can carry radius on their internal `base` slot.
+   Keep admin buttons, filters, selects, inputs, and badges consistently md. */
+.admin-shell [data-slot="base"]:not(.rounded-full):not(.\!rounded-full),
+.admin-shell [data-slot="root"].relative.inline-flex,
+.admin-shell [role="combobox"][data-slot="base"] {
+    border-radius: 0.375rem !important;
+}
+
+.admin-shell [data-slot="base"]::before,
+.admin-shell [data-slot="item"]::before {
     border-radius: 0.375rem !important;
 }
 

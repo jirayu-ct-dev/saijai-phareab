@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { adminEmptyStateClass } from "~~/shared/config/adminUi";
+
 definePageMeta({
   middleware: ["role-admin"],
   layout: "admin",
@@ -76,21 +78,21 @@ const setPreset = (preset: "this-month" | "last-month" | "last-30-days" | "this-
 </script>
 
 <template>
-  <div class="w-full p-6 max-w-3xl mx-auto space-y-6">
-    <div>
+  <div class="mx-auto w-full max-w-4xl space-y-3 p-2 sm:space-y-4 sm:p-6">
+    <div class="rounded-md border border-default/30 bg-default px-4 py-3 shadow-[0_1px_2px_rgb(15_23_42/0.04)] dark:border-default/20 dark:bg-elevated/55">
       <h1 class="text-xl font-semibold">Export ข้อมูล</h1>
-      <p class="text-sm text-muted mt-1">ดาวน์โหลดรายงานเป็นไฟล์ CSV สำหรับทำบัญชี</p>
+      <p class="mt-1 text-sm text-muted">ดาวน์โหลดรายงานเป็นไฟล์ CSV สำหรับทำบัญชี</p>
     </div>
 
-    <UCard>
+    <UCard class="p-2">
       <template #header>
         <div>
           <p class="font-semibold">เลือกช่วงเวลา</p>
-          <p class="text-xs text-muted mt-1">รายงานจะรวมเฉพาะข้อมูลในช่วงเวลานี้</p>
+          <p class="mt-1 text-xs text-muted">รายงานจะรวมเฉพาะข้อมูลในช่วงเวลานี้</p>
         </div>
       </template>
 
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
+      <div class="mb-3 grid grid-cols-1 gap-3 md:grid-cols-2">
         <UFormField label="วันที่เริ่ม">
           <UInput v-model="fromDate" type="date" class="w-full" />
         </UFormField>
@@ -107,14 +109,18 @@ const setPreset = (preset: "this-month" | "last-month" | "last-30-days" | "this-
       </div>
     </UCard>
 
-    <div class="space-y-3">
-      <UCard v-for="r in reports" :key="r.key">
+    <div class="space-y-1">
+      <div
+        v-for="r in reports"
+        :key="r.key"
+        class="rounded-md border border-default/30 bg-default p-2 shadow-[0_1px_2px_rgb(15_23_42/0.04)] dark:border-default/20 dark:bg-elevated/55"
+      >
         <div class="flex items-center justify-between gap-3">
-          <div class="flex items-center gap-3 min-w-0">
-            <UIcon :name="r.icon" class="size-8 text-primary shrink-0" />
+          <div class="flex min-w-0 items-center gap-3">
+            <UIcon :name="r.icon" class="size-8 shrink-0 text-primary" />
             <div class="min-w-0">
               <p class="font-medium">{{ r.label }}</p>
-              <p class="text-xs text-muted">{{ r.description }}</p>
+              <p class="truncate text-xs text-muted">{{ r.description }}</p>
             </div>
           </div>
           <UButton
@@ -126,11 +132,12 @@ const setPreset = (preset: "this-month" | "last-month" | "last-30-days" | "this-
             CSV
           </UButton>
         </div>
-      </UCard>
+      </div>
     </div>
 
-    <div class="rounded-md border border-default bg-elevated/30 p-4 text-xs text-muted">
-      💡 ไฟล์ CSV รองรับภาษาไทย (UTF-8 with BOM) สามารถเปิดด้วย Excel หรือ Google Sheets ได้ทันที
+    <div :class="[adminEmptyStateClass, '!flex-row !items-start !justify-start gap-2 !py-3 text-left text-xs']">
+      <UIcon name="i-lucide-lightbulb" class="mt-0.5 size-4 shrink-0 text-primary" />
+      <span>ไฟล์ CSV รองรับภาษาไทย (UTF-8 with BOM) สามารถเปิดด้วย Excel หรือ Google Sheets ได้ทันที</span>
     </div>
   </div>
 </template>

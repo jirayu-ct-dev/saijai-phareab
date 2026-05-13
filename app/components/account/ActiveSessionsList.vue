@@ -93,12 +93,12 @@ const formatTime = (value: string | Date) => {
 </script>
 
 <template>
-  <UCard>
+  <UCard class="p-2">
     <template #header>
-      <div class="flex items-center justify-between gap-3 flex-wrap">
+      <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <p class="font-semibold">อุปกรณ์ที่เข้าสู่ระบบอยู่</p>
-          <p class="text-xs text-muted mt-1">รายการ session ที่ active ของบัญชีคุณ</p>
+          <p class="mt-1 text-xs text-muted">รายการ session ที่ active ของบัญชีคุณ</p>
         </div>
         <UButton
           v-if="sessions.length > 1"
@@ -107,6 +107,7 @@ const formatTime = (value: string | Date) => {
           size="sm"
           icon="i-lucide-log-out"
           :loading="isProcessing"
+          class="justify-center"
           @click="onRevokeOthers"
         >
           ออกจากระบบอุปกรณ์อื่นทั้งหมด
@@ -114,9 +115,9 @@ const formatTime = (value: string | Date) => {
       </div>
     </template>
 
-    <USkeleton v-if="isLoading" class="h-32 w-full rounded-lg" />
+    <USkeleton v-if="isLoading" class="h-32 w-full rounded-md" />
 
-    <div v-else-if="!sessions.length" class="rounded-lg border border-dashed border-default p-6 text-center text-sm text-muted">
+    <div v-else-if="!sessions.length" class="rounded-md border border-dashed border-default/30 p-6 text-center text-sm text-muted dark:border-default/20">
       ไม่มี session ที่ active
     </div>
 
@@ -124,15 +125,15 @@ const formatTime = (value: string | Date) => {
       <div
         v-for="s in sessions"
         :key="s.id"
-        class="flex items-center justify-between gap-3 rounded-lg border border-default p-3"
+        class="flex items-center justify-between gap-3 rounded-md border border-default/30 bg-default p-2 dark:border-default/20 dark:bg-elevated/55"
       >
         <div class="min-w-0">
-          <div class="flex items-center gap-2 flex-wrap">
+          <div class="flex flex-wrap items-center gap-2">
             <p class="text-sm font-medium">{{ detectDevice(s.userAgent) }}</p>
             <span v-if="detectBrowser(s.userAgent)" class="text-xs text-muted">· {{ detectBrowser(s.userAgent) }}</span>
             <UBadge v-if="isCurrentSession(s)" color="success" size="xs" variant="subtle">อุปกรณ์นี้</UBadge>
           </div>
-          <p class="text-xs text-muted mt-0.5">
+          <p class="mt-0.5 text-xs text-muted">
             IP: {{ s.ipAddress || "ไม่ทราบ" }} · เริ่ม {{ formatTime(s.createdAt) }}
           </p>
         </div>

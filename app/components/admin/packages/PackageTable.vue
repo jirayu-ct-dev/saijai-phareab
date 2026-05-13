@@ -321,32 +321,51 @@ const columns: TableColumn<Package>[] = [
 
 <template>
   <section class="flex flex-col gap-1">
-    <div :class="[adminFilterBarClass, '!px-3 !py-3 flex flex-wrap items-center gap-1.5']">
-      <UInput
-        v-model="searchQuery"
-        class="min-w-0 flex-1 md:max-w-sm"
-        icon="i-lucide-search"
-        placeholder="ค้นหาชื่อหรือรายละเอียด..."
-      />
-      <UButton
-        v-if="selectedRowsCount > 0"
-        label="ลบ"
-        color="error"
-        variant="subtle"
-        icon="i-lucide-trash"
-        @click="handleBulkDelete"
-      >
-        <template #trailing>
-          <UKbd>{{ selectedRowsCount }}</UKbd>
-        </template>
-      </UButton>
-      <USelect
-        v-model="statusFilter"
-        :items="STATUS_OPTIONS"
-        value-key="value"
-        class="min-w-0 sm:min-w-36"
-      />
-      <UIButtonRefresh :loading="loading" @refresh="emit('refresh')" />
+    <div :class="[adminFilterBarClass, '!px-3 !py-3 flex flex-col gap-1.5 md:flex-row md:items-center md:justify-between md:gap-3']">
+      <div class="flex min-w-0 items-center gap-1.5 md:flex-1 md:max-w-sm">
+        <UInput
+          v-model="searchQuery"
+          class="min-w-0 flex-1"
+          icon="i-lucide-search"
+          placeholder="ค้นหาชื่อหรือรายละเอียด..."
+        />
+        <UButton
+          v-if="selectedRowsCount > 0"
+          label="ลบ"
+          color="error"
+          variant="subtle"
+          icon="i-lucide-trash"
+          class="!rounded-md md:hidden"
+          @click="handleBulkDelete"
+        >
+          <template #trailing>
+            <UKbd>{{ selectedRowsCount }}</UKbd>
+          </template>
+        </UButton>
+        <UIButtonRefresh class="md:hidden" :loading="loading" @refresh="emit('refresh')" />
+      </div>
+      <div class="flex items-center gap-1.5 md:justify-end">
+        <USelect
+          v-model="statusFilter"
+          :items="STATUS_OPTIONS"
+          value-key="value"
+          class="min-w-0 sm:min-w-36"
+        />
+        <UButton
+          v-if="selectedRowsCount > 0"
+          label="ลบ"
+          color="error"
+          variant="subtle"
+          icon="i-lucide-trash"
+          class="hidden !rounded-md md:inline-flex"
+          @click="handleBulkDelete"
+        >
+          <template #trailing>
+            <UKbd>{{ selectedRowsCount }}</UKbd>
+          </template>
+        </UButton>
+        <UIButtonRefresh class="hidden md:inline-flex" :loading="loading" @refresh="emit('refresh')" />
+      </div>
     </div>
 
     <ClientOnly>

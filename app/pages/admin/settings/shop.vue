@@ -91,50 +91,54 @@ const onSubmit = async () => {
 </script>
 
 <template>
-  <div class="w-full p-6 max-w-2xl mx-auto space-y-6">
-    <div>
+  <div class="mx-auto w-full max-w-3xl space-y-3 p-2 sm:space-y-4 sm:p-6">
+    <div class="rounded-md border border-default/30 bg-default px-4 py-3 shadow-[0_1px_2px_rgb(15_23_42/0.04)] dark:border-default/20 dark:bg-elevated/55">
       <h1 class="text-xl font-semibold">ข้อมูลร้าน</h1>
-      <p class="text-sm text-muted mt-1">ข้อมูลพื้นฐานของร้านที่แสดงบนใบเสร็จและสลิป</p>
+      <p class="mt-1 text-sm text-muted">ข้อมูลพื้นฐานของร้านที่แสดงบนใบเสร็จและสลิป</p>
     </div>
 
     <ClientOnly>
       <USkeleton v-if="isLoading" class="h-64 w-full rounded-md" />
 
-      <UCard v-else>
+      <UCard v-else class="p-2">
         <UForm :state="form" class="space-y-4" @submit="onSubmit">
-          <UFormField label="ชื่อร้าน" name="name" required>
-            <UInput v-model="form.name" placeholder="เช่น ร้านไสใจ ซักอบรีด" class="w-full" />
-          </UFormField>
+          <div class="grid gap-4 sm:grid-cols-2">
+            <UFormField label="ชื่อร้าน" name="name" required>
+              <UInput v-model="form.name" placeholder="เช่น ร้านไสใจ ซักอบรีด" class="w-full" />
+            </UFormField>
 
-          <UFormField label="เบอร์โทรศัพท์" name="phone">
-            <UInput v-model="form.phone" placeholder="เช่น 081-234-5678" class="w-full" />
-          </UFormField>
+            <UFormField label="เบอร์โทรศัพท์" name="phone">
+              <UInput v-model="form.phone" placeholder="เช่น 081-234-5678" class="w-full" />
+            </UFormField>
 
-          <UFormField label="ที่อยู่ร้าน" name="address">
-            <UTextarea v-model="form.address" placeholder="ที่อยู่ร้านสำหรับแสดงบนใบเสร็จ" :rows="3" class="w-full" />
-          </UFormField>
+            <UFormField label="ที่อยู่ร้าน" name="address" class="sm:col-span-2">
+              <UTextarea v-model="form.address" placeholder="ที่อยู่ร้านสำหรับแสดงบนใบเสร็จ" :rows="3" class="w-full" />
+            </UFormField>
+          </div>
 
-          <UFormField label="โลโก้ร้าน" name="logoUrl">
-            <UIPhotoUpload
-              label="รูปโลโก้ร้าน"
-              description="รูปที่แสดงบนใบเสร็จและสลิป"
-              :photos="logoPhotos"
-              :max="1"
-              @update:photos="onLogoPhotosUpdate"
-            />
-          </UFormField>
+          <div class="grid gap-4 sm:grid-cols-2">
+            <UFormField label="โลโก้ร้าน" name="logoUrl">
+              <UIPhotoUpload
+                label="รูปโลโก้ร้าน"
+                description="รูปที่แสดงบนใบเสร็จและสลิป"
+                :photos="logoPhotos"
+                :max="1"
+                @update:photos="onLogoPhotosUpdate"
+              />
+            </UFormField>
 
-          <UFormField label="QR Code LINE" name="lineQrImageUrl">
-            <UIPhotoUpload
-              label="รูป QR Code LINE"
-              description="รูป QR Code สำหรับแสดงท้ายใบเสร็จ"
-              :photos="lineQrPhotos"
-              :max="1"
-              @update:photos="onLineQrPhotosUpdate"
-            />
-          </UFormField>
+            <UFormField label="QR Code LINE" name="lineQrImageUrl">
+              <UIPhotoUpload
+                label="รูป QR Code LINE"
+                description="รูป QR Code สำหรับแสดงท้ายใบเสร็จ"
+                :photos="lineQrPhotos"
+                :max="1"
+                @update:photos="onLineQrPhotosUpdate"
+              />
+            </UFormField>
+          </div>
 
-          <div class="flex justify-end pt-2">
+          <div class="flex justify-end border-t border-default pt-3">
             <UButton type="submit" :loading="isSaving" icon="i-lucide-save">
               บันทึก
             </UButton>

@@ -1,4 +1,10 @@
 <script setup lang="ts">
+import * as adminUi from "~~/shared/config/adminUi";
+
+const adminDashboardCardClass =
+  adminUi.adminDashboardCardClass
+  ?? "admin-dashboard-card rounded-md border border-default/30 bg-default p-4 shadow-[0_1px_2px_rgb(15_23_42/0.04),0_6px_18px_-10px_rgb(15_23_42/0.08)] dark:border-default/20 dark:bg-elevated/55";
+
 const notify = useNotify();
 const { user } = useUser();
 
@@ -41,36 +47,59 @@ const onToggle = async (value: boolean) => {
 </script>
 
 <template>
-  <div class="w-full p-6 max-w-xl mx-auto space-y-6">
-    <div>
-      <h1 class="text-xl font-semibold">การแจ้งเตือน</h1>
-      <p class="text-sm text-muted mt-1">จัดการการแจ้งเตือนผ่าน LINE สำหรับบัญชีของคุณ</p>
-    </div>
+  <UDashboardPanel id="settings-notification">
+    <template #header>
+      <UDashboardNavbar title="การแจ้งเตือน" icon="i-lucide-bell">
+        <template #leading>
+          <UDashboardSidebarCollapse class="hidden lg:inline-flex" />
+        </template>
+      </UDashboardNavbar>
+    </template>
 
-    <USkeleton v-if="isLoading" class="h-32 w-full rounded-lg" />
+    <template #body>
+      <div class="flex flex-col gap-3 p-2 sm:gap-4 sm:p-4 md:gap-6 md:p-6">
+        <USkeleton v-if="isLoading" class="h-32 w-full rounded-md" />
 
-    <UCard v-else>
-      <div v-if="!user" class="text-sm text-muted">กรุณาเข้าสู่ระบบ</div>
+        <template v-else>
+          <section :class="[adminDashboardCardClass, 'flex items-center gap-3 !p-3 sm:!p-4']">
+            <div class="flex size-10 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
+              <UIcon name="i-lucide-bell" class="size-5" />
+            </div>
+            <div class="min-w-0">
+              <p class="text-sm font-semibold text-highlighted">การแจ้งเตือนผ่าน LINE</p>
+              <p class="mt-0.5 text-xs text-muted">จัดการการแจ้งเตือนผ่าน LINE สำหรับบัญชีของคุณ</p>
+            </div>
+          </section>
 
-      <div v-else class="space-y-4">
-        <div v-if="!data?.hasLineLinked" class="rounded-lg border border-warning/30 bg-warning/5 p-3 text-sm text-warning">
-          ⚠ บัญชีของคุณยังไม่ได้ผูกกับ LINE — ผูกบัญชีก่อนเพื่อรับการแจ้งเตือน
-        </div>
+          <section :class="[adminDashboardCardClass, '!p-3 sm:!p-4']">
+            <div v-if="!user" class="text-sm text-muted">กรุณาเข้าสู่ระบบ</div>
 
-        <div class="flex items-center justify-between gap-4">
-          <div>
-            <p class="font-medium">รับการแจ้งเตือนทาง LINE</p>
-            <p class="text-xs text-muted mt-1">
-              เปิดเพื่อรับใบเสร็จและสถานะผ้าผ่าน LINE จากร้าน
-            </p>
-          </div>
-          <USwitch
-            :model-value="lineNotifyEnabled"
-            :loading="isSaving"
-            @update:model-value="onToggle"
-          />
-        </div>
+            <div v-else class="space-y-3 sm:space-y-4">
+              <div
+                v-if="!data?.hasLineLinked"
+                class="flex items-start gap-2 rounded-md border border-warning/30 bg-warning/5 p-3 text-sm text-warning"
+              >
+                <UIcon name="i-lucide-triangle-alert" class="mt-0.5 size-4 shrink-0" />
+                <p>บัญชีของคุณยังไม่ได้ผูกกับ LINE — ผูกบัญชีก่อนเพื่อรับการแจ้งเตือน</p>
+              </div>
+
+              <div class="flex items-center justify-between gap-4 rounded-md border border-default/30 bg-elevated/30 p-3 dark:border-default/20 dark:bg-elevated/25">
+                <div class="min-w-0">
+                  <p class="text-sm font-medium text-highlighted">รับการแจ้งเตือนทาง LINE</p>
+                  <p class="mt-1 text-xs text-muted">
+                    เปิดเพื่อรับใบเสร็จและสถานะผ้าผ่าน LINE จากร้าน
+                  </p>
+                </div>
+                <USwitch
+                  :model-value="lineNotifyEnabled"
+                  :loading="isSaving"
+                  @update:model-value="onToggle"
+                />
+              </div>
+            </div>
+          </section>
+        </template>
       </div>
-    </UCard>
-  </div>
+    </template>
+  </UDashboardPanel>
 </template>

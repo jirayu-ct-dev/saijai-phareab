@@ -12,11 +12,13 @@ export type PosPackageProduct = {
 export const usePackageCatalog = () => {
   const { data: products, status, refresh } = useFetch<PosPackageProduct[]>("/api/admin/package-catalog", {
     default: () => [],
+    server: false,
+    lazy: true,
   });
 
   return {
     products,
-    isLoading: computed(() => status.value === "pending"),
+    isLoading: computed(() => status.value === "pending" || status.value === "idle"),
     refresh,
   };
 };

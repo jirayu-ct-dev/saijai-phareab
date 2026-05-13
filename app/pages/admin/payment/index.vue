@@ -517,39 +517,43 @@ const columns: TableColumn<AdminPaymentRecord>[] = [
       <ClientOnly>
         <div :class="adminDashboardBodyClass">
           <section class="flex flex-col gap-1">
-            <div :class="[adminFilterBarClass, 'flex items-center gap-2 !px-3 !py-3']">
-              <UInput
-                v-model="searchQuery"
-                class="min-w-0 flex-1 md:max-w-sm"
-                icon="i-lucide-search"
-                placeholder="ค้นหาลูกค้า เลขชำระ เลขรับผ้า หรือชื่อรายการ"
-              />
+            <div :class="[adminFilterBarClass, 'flex items-center justify-between gap-1.5 !px-3 !py-3']">
+              <div class="flex min-w-0 flex-[1_1_32rem] md:max-w-xl">
+                <UInput
+                  v-model="searchQuery"
+                  class="min-w-0 flex-1"
+                  icon="i-lucide-search"
+                  placeholder="ค้นหาลูกค้า เลขชำระ เลขรับผ้า หรือชื่อรายการ"
+                />
+              </div>
 
-              <USelect v-model="saleTypeFilter" :items="saleTypeOptions" value-key="value" class="w-30 shrink-0 sm:w-40" />
+              <div class="flex shrink-0 items-center justify-end gap-1.5">
+                <USelect v-model="saleTypeFilter" :items="saleTypeOptions" value-key="value" class="w-28 shrink-0 sm:w-40" />
 
-              <UButton
-                v-if="isAdmin && selectedRowsCount"
-                color="error"
-                variant="subtle"
-                icon="i-lucide-trash"
-                class="shrink-0"
-                :aria-label="`ลบ ${selectedRowsCount} รายการ`"
-                @click="isBulkDeleteOpen = true"
-              >
-                <template #trailing>
-                  <UKbd class="hidden sm:inline-flex">{{ selectedRowsCount }}</UKbd>
-                </template>
-              </UButton>
+                <UButton
+                  v-if="isAdmin && selectedRowsCount"
+                  color="error"
+                  variant="subtle"
+                  icon="i-lucide-trash"
+                  class="shrink-0"
+                  :aria-label="`ลบ ${selectedRowsCount} รายการ`"
+                  @click="isBulkDeleteOpen = true"
+                >
+                  <template #trailing>
+                    <UKbd class="hidden sm:inline-flex">{{ selectedRowsCount }}</UKbd>
+                  </template>
+                </UButton>
 
-              <UButton
-                icon="i-lucide-refresh-cw"
-                color="neutral"
-                variant="outline"
-                title="รีเฟรชรายการ"
-                class="shrink-0"
-                :loading="isLoading"
-                @click="refresh"
-              />
+                <UButton
+                  icon="i-lucide-refresh-cw"
+                  color="neutral"
+                  variant="outline"
+                  title="รีเฟรชรายการ"
+                  class="shrink-0"
+                  :loading="isLoading"
+                  @click="refresh"
+                />
+              </div>
             </div>
 
             <div class="md:hidden">

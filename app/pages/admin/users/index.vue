@@ -604,11 +604,11 @@ const columns: TableColumn<AdminUser>[] = [
     <template #body>
       <div :class="adminDashboardBodyClass">
         <section class="flex flex-col gap-1">
-        <div :class="[adminFilterBarClass, '!px-3 !py-3 flex flex-col gap-1.5']">
-          <div class="flex flex-wrap items-center gap-1.5">
+        <div :class="[adminFilterBarClass, '!px-3 !py-3 flex flex-col gap-1.5 md:flex-row md:items-center md:justify-between md:gap-3']">
+          <div class="flex min-w-0 flex-wrap items-center gap-1.5 md:flex-1 md:max-w-sm md:flex-nowrap">
             <UInput
               v-model="searchQuery"
-              class="min-w-0 flex-1 md:max-w-sm"
+              class="min-w-0 flex-1"
               icon="i-lucide-search"
               placeholder="ค้นหาชื่อ อีเมล เบอร์โทร หรือแพ็กเกจ"
             />
@@ -618,6 +618,7 @@ const columns: TableColumn<AdminUser>[] = [
               color="error"
               variant="subtle"
               icon="i-lucide-trash"
+              class="md:hidden"
               @click="showDeleteModal = true"
             >
               <template #trailing>
@@ -628,29 +629,51 @@ const columns: TableColumn<AdminUser>[] = [
               icon="i-lucide-refresh-cw"
               color="neutral"
               variant="outline"
+              class="md:hidden"
               :loading="isLoading"
               @click="handleRefresh"
             />
           </div>
 
-          <div class="grid grid-cols-3 gap-1.5">
+          <div class="grid grid-cols-3 gap-1.5 md:flex md:flex-wrap md:items-center md:justify-end">
             <USelect
               v-model="roleFilter"
               :items="ROLE_FILTER_OPTIONS"
               value-key="value"
-              class="min-w-0"
+              class="min-w-0 md:w-36"
             />
             <USelect
               v-model="packageFilter"
               :items="packageFilterOptions"
               value-key="value"
-              class="min-w-0"
+              class="min-w-0 md:w-44"
             />
             <USelect
               v-model="verificationFilter"
               :items="EMAIL_VERIFICATION_OPTIONS"
               value-key="value"
-              class="min-w-0"
+              class="min-w-0 md:w-40"
+            />
+            <UButton
+              v-if="selectedRowsCount"
+              label="ลบ"
+              color="error"
+              variant="subtle"
+              icon="i-lucide-trash"
+              class="hidden md:inline-flex"
+              @click="showDeleteModal = true"
+            >
+              <template #trailing>
+                <UKbd>{{ selectedRowsCount }}</UKbd>
+              </template>
+            </UButton>
+            <UButton
+              icon="i-lucide-refresh-cw"
+              color="neutral"
+              variant="outline"
+              class="hidden md:inline-flex"
+              :loading="isLoading"
+              @click="handleRefresh"
             />
           </div>
         </div>

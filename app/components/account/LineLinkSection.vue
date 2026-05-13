@@ -71,20 +71,20 @@ const onUnlink = async () => {
 </script>
 
 <template>
-  <USkeleton v-if="isLoading" class="h-32 w-full rounded-lg" />
+  <USkeleton v-if="isLoading" class="h-32 w-full rounded-md" />
 
-  <UCard v-else>
+  <UCard v-else class="p-2">
     <template #header>
       <div>
         <p class="font-semibold">บัญชี LINE</p>
-        <p class="text-xs text-muted mt-1">ใช้สำหรับรับการแจ้งเตือนและ login ด้วย LINE</p>
+        <p class="mt-1 text-xs text-muted">ใช้สำหรับรับการแจ้งเตือนและ login ด้วย LINE</p>
       </div>
     </template>
 
-    <div class="flex items-center justify-between gap-3">
-      <div class="flex items-center gap-3">
+    <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div class="flex min-w-0 items-center gap-3">
         <UIcon name="i-simple-icons-line" class="size-8 text-[#06C755]" />
-        <div>
+        <div class="min-w-0">
           <p class="text-sm font-medium">
             {{ data?.hasLineLinked ? "เชื่อมบัญชี LINE แล้ว" : "ยังไม่ได้เชื่อมบัญชี LINE" }}
           </p>
@@ -100,11 +100,19 @@ const onUnlink = async () => {
         variant="ghost"
         :loading="isProcessing"
         icon="i-lucide-unlink"
+        class="justify-center sm:shrink-0"
         @click="onUnlink"
       >
         ยกเลิก
       </UButton>
-      <UButton v-else color="primary" :loading="isProcessing" icon="i-lucide-link" @click="onLink">
+      <UButton
+        v-else
+        color="primary"
+        :loading="isProcessing"
+        icon="i-lucide-link"
+        class="justify-center sm:shrink-0"
+        @click="onLink"
+      >
         เชื่อมบัญชี
       </UButton>
     </div>

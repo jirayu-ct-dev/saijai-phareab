@@ -96,43 +96,53 @@ const tooltipTemplate = (d: DataRecord) =>
 </script>
 
 <template>
-  <UCard ref="cardRef" :ui="{ root: 'overflow-visible', body: '!px-0 !pt-0 !pb-3' }">
+  <UCard
+    ref="cardRef"
+    :ui="{
+      root: 'overflow-visible',
+      header: '!px-4 sm:!px-5',
+      body: '!px-3 !pt-2 !pb-4 sm:!px-4 sm:!pt-3 sm:!pb-5'
+    }"
+  >
     <template #header>
-      <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div class="min-w-0">
-          <p class="text-xs text-muted mb-1">เปรียบเทียบออเดอร์แต่ละประเภท</p>
+      <div class="py-3">
+        <p class="mb-1.5 text-xs text-muted">เปรียบเทียบออเดอร์แต่ละประเภท</p>
+        <div class="flex justify-between">
           <p class="wrap-break-word text-2xl font-semibold text-highlighted sm:text-3xl">
-            {{ isLoading ? '...' : total.toLocaleString() }}
-            <span class="text-sm font-normal text-muted ml-1">ออเดอร์</span>
-          </p>
-        </div>
-        <!-- Legend -->
-        <div class="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted sm:mt-1">
+            <template v-if="isLoading">...</template>
+            <template v-else>
+              {{ total.toLocaleString() }}
+              <span class="ml-1 text-sm font-normal text-muted">ออเดอร์</span>
+            </template>
+        </p>
+        <div class="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted">
           <span v-for="(label, i) in LABELS" :key="i" class="flex items-center gap-1.5">
             <span class="size-2.5 rounded-sm shrink-0" :style="{ background: COLORS[i] }" />
             {{ label }}
           </span>
         </div>
       </div>
+      </div>
     </template>
 
-    <div v-if="isLoading" class="flex h-72 items-center justify-center sm:h-96">
-      <UIcon name="i-lucide-loader-2" class="size-8 animate-spin text-primary" />
+    <div class="relative h-72 sm:h-96">
+      <div v-if="isLoading" class="pointer-events-none absolute inset-0 z-10 flex items-center justify-center">
+        <UIcon name="i-lucide-loader-2" class="size-8 animate-spin text-primary" />
+      </div>
+      <VisXYContainer v-if="data.length" :data="data" :padding="{ top: 32, right: 12, bottom: 32, left: 12 }" :y-domain="[0, undefined]" class="h-full" :width="width">
+        <VisGroupedBar
+          :x="x"
+          :y="y"
+          :color="COLORS"
+          :rounded-corners="3"
+          :bar-padding="0.1"
+          :group-padding="0.2"
+        />
+        <VisAxis type="x" :x="x" :tick-format="xTicks" />
+        <VisCrosshair :x="x" :y="y" :color="COLORS" :template="tooltipTemplate" />
+        <VisTooltip />
+      </VisXYContainer>
     </div>
-
-    <VisXYContainer v-else :data="data" :padding="{ top: 32, bottom: 32 }" :y-domain="[0, undefined]" class="h-72 sm:h-96" :width="width">
-      <VisGroupedBar
-        :x="x"
-        :y="y"
-        :color="COLORS"
-        :rounded-corners="3"
-        :bar-padding="0.1"
-        :group-padding="0.2"
-      />
-      <VisAxis type="x" :x="x" :tick-format="xTicks" />
-      <VisCrosshair :x="x" :y="y" :color="COLORS" :template="tooltipTemplate" />
-      <VisTooltip />
-    </VisXYContainer>
   </UCard>
 </template>
 

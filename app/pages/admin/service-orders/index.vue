@@ -627,11 +627,11 @@ const columns: TableColumn<AdminServiceOrder>[] = [
       <ClientOnly>
         <div :class="adminDashboardBodyClass">
           <section class="flex flex-col gap-1">
-            <div :class="[adminFilterBarClass, 'space-y-2 !px-3 !py-3']">
-              <div class="flex items-center gap-2">
+            <div :class="[adminFilterBarClass, 'space-y-2 !px-3 !py-3 md:flex md:items-center md:justify-between md:gap-3 md:space-y-0']">
+              <div class="flex min-w-0 items-center gap-2 md:flex-1 md:max-w-sm">
                 <UInput
                   v-model="searchQuery"
-                  class="min-w-0 flex-1 md:max-w-sm"
+                  class="min-w-0 flex-1"
                   icon="i-lucide-search"
                   placeholder="ค้นหาเลขรับผ้า ลูกค้า เบอร์โทร หรือชื่อรายการ"
                 />
@@ -641,7 +641,7 @@ const columns: TableColumn<AdminServiceOrder>[] = [
                   color="error"
                   variant="subtle"
                   icon="i-lucide-trash"
-                  class="shrink-0"
+                  class="shrink-0 md:hidden"
                   :aria-label="`ลบ ${selectedRowsCount} รายการ`"
                   @click="isBulkDeleteOpen = true"
                 >
@@ -650,10 +650,10 @@ const columns: TableColumn<AdminServiceOrder>[] = [
                   </template>
                 </UButton>
 
-                <UIButtonRefresh class="shrink-0" :loading="isLoading" @refresh="refresh" />
+                <UIButtonRefresh class="shrink-0 md:hidden" :loading="isLoading" @refresh="refresh" />
               </div>
 
-              <div class="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center">
+              <div class="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center md:justify-end">
                 <USelect
                   v-model="customerTypeFilter"
                   :items="[
@@ -671,6 +671,22 @@ const columns: TableColumn<AdminServiceOrder>[] = [
                   value-key="value"
                   class="min-w-0 sm:w-40"
                 />
+
+                <UButton
+                  v-if="selectedRowsCount"
+                  color="error"
+                  variant="subtle"
+                  icon="i-lucide-trash"
+                  class="hidden shrink-0 md:inline-flex"
+                  :aria-label="`ลบ ${selectedRowsCount} รายการ`"
+                  @click="isBulkDeleteOpen = true"
+                >
+                  <template #trailing>
+                    <UKbd class="hidden sm:inline-flex">{{ selectedRowsCount }}</UKbd>
+                  </template>
+                </UButton>
+
+                <UIButtonRefresh class="hidden shrink-0 md:inline-flex" :loading="isLoading" @refresh="refresh" />
               </div>
             </div>
 
