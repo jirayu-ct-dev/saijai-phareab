@@ -127,6 +127,13 @@ const adminMenu = [
           exact: true,
           onSelect: closeSidebar,
         },
+        {
+          label: "ถังขยะ",
+          icon: "i-lucide-trash-2",
+          to: "/admin/settings/deleted-data",
+          exact: true,
+          onSelect: closeSidebar,
+        },
       ],
     },
   ],

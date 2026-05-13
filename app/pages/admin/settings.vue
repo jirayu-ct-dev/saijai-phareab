@@ -13,6 +13,7 @@ const adminLinks = [
   { label: "ความปลอดภัย", icon: "i-lucide-lock", to: "/admin/settings/security", exact: true },
   { label: "Export ข้อมูล", icon: "i-lucide-download", to: "/admin/settings/backup", exact: true },
   { label: "ตั้งค่าธุรกิจ", icon: "i-lucide-coins", to: "/admin/settings/billing", exact: true },
+  { label: "ถังขยะ", icon: "i-lucide-trash-2", to: "/admin/settings/deleted-data", exact: true },
 ] satisfies NavigationMenuItem[]
 
 const employeeLinks = [

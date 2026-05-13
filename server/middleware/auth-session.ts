@@ -12,6 +12,7 @@ type AccessPolicy = {
 
 const ACCESS_POLICIES: AccessPolicy[] = [
   { prefix: "/api/admin/users", roles: ["ADMIN"] },
+  { prefix: "/api/admin/deleted", roles: ["ADMIN"] },
   { prefix: "/api/admin/packages", roles: ["ADMIN"] },
   { prefix: "/api/admin/customer-options", roles: ["EMPLOYEE", "ADMIN"] },
   { prefix: "/api/admin/package-catalog", roles: ["EMPLOYEE", "ADMIN"] },
