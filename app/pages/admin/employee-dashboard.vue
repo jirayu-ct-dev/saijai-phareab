@@ -40,7 +40,11 @@ const { data: stats, status: statsStatus, refresh: refreshStats } = useAsyncData
   { server: false }
 );
 
-const isStatsPending = computed(() => statsStatus.value === "pending");
+const hydrated = ref(false);
+onMounted(() => { hydrated.value = true; });
+const isStatsPending = computed(() => statsStatus.value === "pending" || statsStatus.value === "idle");
+const showStatsSkeleton = computed(() => !hydrated.value || isStatsPending.value || isRefreshing.value);
+const showRecentSkeleton = computed(() => !hydrated.value || isRefreshing.value);
 
 const range = shallowRef<Range>({
   start: sub(new Date(), { days: 14 }),
@@ -48,9 +52,17 @@ const range = shallowRef<Range>({
 });
 const period = ref<Period>("daily");
 
-function refresh() {
-  refreshStats();
-  refreshNuxtData("recent-orders");
+const isRefreshing = ref(false);
+async function refresh() {
+  isRefreshing.value = true;
+  try {
+    await Promise.all([
+      refreshStats(),
+      refreshNuxtData("recent-orders"),
+    ]);
+  } finally {
+    isRefreshing.value = false;
+  }
 }
 
 const statCards = computed(() => [
@@ -96,7 +108,7 @@ const cardUi = {
           <UDashboardSidebarCollapse />
         </template>
         <template #right>
-          <UIButtonRefresh @click="refresh" />
+          <UIButtonRefresh :loading="isRefreshing" @click="refresh" />
           <UDropdownMenu :items="items">
             <UButton icon="i-lucide-plus" size="md" class="rounded-full" />
           </UDropdownMenu>
@@ -108,73 +120,46 @@ const cardUi = {
       <div :class="adminDashboardBodyClass">
 
         <!-- Stats -->
-        <ClientOnly>
-          <UPageGrid class="grid-cols-2 gap-1 sm:gap-1.5 lg:grid-cols-4">
-            <template v-if="isStatsPending">
-              <UPageCard
-                v-for="i in 4"
-                :key="`sk-${i}`"
-                variant="subtle"
-                :ui="cardUi"
-                :class="adminMetricCardClass"
-              >
-                <template #leading>
-                  <div class="p-2.5 rounded-full bg-elevated animate-pulse size-10" />
-                </template>
-                <template #title>
-                  <div class="h-3 w-16 rounded bg-elevated animate-pulse" />
-                </template>
-                <div class="h-7 w-full max-w-28 rounded bg-elevated animate-pulse mt-1" />
-              </UPageCard>
-            </template>
-            <template v-else>
-              <UPageCard
-                v-for="card in statCards"
-                :key="card.title"
-                :icon="card.icon"
-                :title="card.title"
-                :to="card.to"
-                variant="subtle"
-                :ui="cardUi"
-                :class="[adminMetricCardClass, 'hover:z-1']"
-              >
-                <span class="wrap-break-word text-lg font-semibold leading-tight text-highlighted sm:text-2xl">{{ card.value }}</span>
-              </UPageCard>
-            </template>
-          </UPageGrid>
-
-          <template #fallback>
-            <UPageGrid class="grid-cols-2 gap-1 sm:gap-1.5 lg:grid-cols-4">
-              <UPageCard
-                v-for="i in 4"
-                :key="`fb-${i}`"
-                variant="subtle"
-                :ui="cardUi"
-                :class="adminMetricCardClass"
-              >
-                <template #leading>
-                  <div class="p-2.5 rounded-full bg-elevated animate-pulse size-10" />
-                </template>
-                <template #title>
-                  <div class="h-3 w-16 rounded bg-elevated animate-pulse" />
-                </template>
-                <div class="h-7 w-full max-w-28 rounded bg-elevated animate-pulse mt-1" />
-              </UPageCard>
-            </UPageGrid>
+        <UPageGrid class="grid-cols-2 gap-1 sm:gap-1.5 lg:grid-cols-4">
+          <template v-if="showStatsSkeleton">
+            <UPageCard
+              v-for="i in 4"
+              :key="`stat-sk-${i}`"
+              variant="subtle"
+              :ui="cardUi"
+              :class="adminMetricCardClass"
+            >
+              <template #leading>
+                <USkeleton class="size-10 rounded-full" />
+              </template>
+              <template #title>
+                <USkeleton class="h-3 w-16 rounded" />
+              </template>
+              <USkeleton class="mt-1 h-7 w-20 rounded" />
+            </UPageCard>
           </template>
-        </ClientOnly>
+          <template v-else>
+            <UPageCard
+              v-for="card in statCards"
+              :key="card.title"
+              :icon="card.icon"
+              :title="card.title"
+              :to="card.to"
+              variant="subtle"
+              :ui="cardUi"
+              :class="[adminMetricCardClass, 'hover:z-1']"
+            >
+              <span class="wrap-break-word text-lg font-semibold leading-tight text-highlighted sm:text-2xl">{{ card.value }}</span>
+            </UPageCard>
+          </template>
+        </UPageGrid>
 
         <!-- Recent Orders -->
-        <ClientOnly>
-          <AdminDashboardSales :period="period" :range="range" />
-          <template #fallback>
-            <UCard>
-              <div class="space-y-3">
-                <div v-for="i in 4" :key="i" class="h-10 rounded bg-elevated animate-pulse" />
-              </div>
-            </UCard>
-          </template>
-        </ClientOnly>
+        <div v-if="showRecentSkeleton" class="rounded-md border border-default bg-default p-4 space-y-2">
+          <USkeleton class="h-5 w-40 rounded" />
+          <USkeleton v-for="i in 4" :key="`recent-sk-${i}`" class="h-12 w-full rounded-md" />
+        </div>
+        <AdminDashboardSales v-else :period="period" :range="range" />
 
       </div>
     </template>

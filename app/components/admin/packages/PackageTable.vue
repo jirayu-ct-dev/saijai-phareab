@@ -325,7 +325,7 @@ const columns: TableColumn<Package>[] = [
 
 <template>
   <section class="flex flex-col gap-1">
-    <div :class="[adminFilterBarClass, '!px-3 !py-3 flex items-center gap-1.5']">
+    <div :class="[adminFilterBarClass, 'px-3! px-y! flex items-center gap-1.5']">
       <UInput
         v-model="searchQuery"
         class="min-w-0 flex-1"
@@ -343,7 +343,7 @@ const columns: TableColumn<Package>[] = [
         color="error"
         variant="subtle"
         icon="i-lucide-trash"
-        class="shrink-0 !rounded-md"
+        class="shrink-0 rounded-md!"
         :aria-label="`ลบ ${selectedRowsCount} รายการ`"
         @click="handleBulkDelete"
       >
@@ -384,7 +384,7 @@ const columns: TableColumn<Package>[] = [
           </div>
         </div>
       </div>
-      <div :class="[adminDashboardCardClass, 'hidden !p-0 md:block']">
+      <div :class="[adminDashboardCardClass, 'hidden p-0! md:block']">
         <div class="space-y-2 p-3">
           <USkeleton v-for="i in 8" :key="`pk-dt-sk-${i}`" class="h-12 w-full rounded-md" />
         </div>
@@ -469,7 +469,7 @@ const columns: TableColumn<Package>[] = [
       </div>
     </div>
 
-    <div :class="[adminDashboardCardClass, 'hidden shrink-0 overflow-hidden !p-0 md:block']">
+    <div :class="[adminDashboardCardClass, 'hidden shrink-0 overflow-hidden p-0! md:block']">
     <UTable
       ref="table"
       v-model:column-visibility="columnVisibility"

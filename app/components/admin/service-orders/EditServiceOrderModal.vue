@@ -799,7 +799,7 @@ const handleSubmit = async () => {
             </div>
           </div>
 
-          <div :class="[adminDashboardCardClass, '!border-warning/40 !bg-warning/5']">
+          <div :class="[adminDashboardCardClass, 'border-warning/40! bg-warning/5!']">
             <div class="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <p class="font-medium text-highlighted">โหมดซัก-พับ ชั่งกิโล</p>

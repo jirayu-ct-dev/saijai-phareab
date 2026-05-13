@@ -631,7 +631,7 @@ const handleSubmit = async () => {
             </div>
 
             <div class="min-w-0 lg:shrink-0">
-              <div class="flex min-w-0 items-center gap-3 rounded-md border border-default px-3 py-2 lg:w-[26rem]">
+              <div class="flex min-w-0 items-center gap-3 rounded-md border border-default px-3 py-2 lg:w-104">
                 <div class="flex min-w-0 flex-1 items-center gap-2">
                   <p class="text-sm font-medium text-highlighted">ซัก-พับ ชั่งกิโล</p>
                   <p class="min-w-0 truncate text-xs text-muted">
@@ -1013,7 +1013,7 @@ const handleSubmit = async () => {
     icon="i-lucide-shopping-cart"
     color="primary"
     size="xl"
-    class="fixed bottom-6 right-6 z-30 size-14 justify-center !rounded-full shadow-lg"
+    class="fixed bottom-6 right-6 z-30 size-14 justify-center rounded-full! shadow-lg"
     aria-label="เปิดตะกร้ารับผ้า"
     @click="isCartOpen = true"
   >

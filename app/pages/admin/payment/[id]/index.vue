@@ -1,11 +1,10 @@
 ﻿<script setup lang="ts">
-import type { EntitlementStatus, PackageSaleStatus, PaymentMethod, PaymentStatus, Role, ServiceOrderStatus } from "~~/shared/types/enums";
+import type { EntitlementStatus, PackageSaleStatus, PaymentMethod, PaymentStatus, ServiceOrderStatus } from "~~/shared/types/enums";
 import { packageTypeColors, packageTypeLabels } from "~~/shared/config/packageConfig";
 import { paymentMethodLabels, paymentStatusColors, paymentStatusLabels } from "~~/shared/config/paymentConfig";
 import * as adminUi from "~~/shared/config/adminUi";
 import { formatCurrency, formatDateTime } from "~~/shared/utils/format";
 import { useAdminPayments } from "~~/app/composables/useAdminPayments";
-import ConfirmPaymentModal from "~~/app/components/admin/payment/ConfirmPaymentModal.vue";
 import EditPaymentStateModal from "~~/app/components/admin/payment/EditPaymentStateModal.vue";
 
 const adminDashboardBodyClass =
@@ -88,8 +87,6 @@ definePageMeta({ layout: "admin", middleware: ["role-employee"] });
 const route = useRoute();
 const paymentId = computed(() => String(route.params.id ?? ""));
 const notify = useNotify();
-const { user } = useUser();
-const isAdmin = computed(() => (user.value?.role as Role | undefined) === "ADMIN");
 const { updatePayment, uploadSlip } = useAdminPayments();
 const { data, status, refresh, error } = await useFetch<PaymentDetailResponse>(() => `/api/admin/payments/${paymentId.value}`, { key: () => `admin-payment-detail-${paymentId.value}` });
 
@@ -101,40 +98,24 @@ const paymentStatus = computed<PaymentStatus>(() => payment.value?.status ?? "UN
 const canConfirmPayment = computed(
   () => Boolean(payment.value) && paymentStatus.value !== "PAID" && paymentStatus.value !== "CANCELLED",
 );
-const confirmModalOpen = ref(false);
 const editStateModalOpen = ref(false);
-const onPaymentConfirmed = async () => {
-  await refresh();
-};
 const onPaymentStateUpdated = async () => {
   await refresh();
 };
 const handlePaymentStatusBadgeClick = () => {
   if (!payment.value) return;
-  if (isAdmin.value) {
-    editStateModalOpen.value = true;
-    return;
-  }
-  if (canConfirmPayment.value) {
-    confirmModalOpen.value = true;
-  }
+  editStateModalOpen.value = true;
 };
-const isPaymentStatusActionVisible = computed(() => isAdmin.value || canConfirmPayment.value);
-const paymentStatusActionLabel = computed(() => {
-  if (isAdmin.value) return "แก้ไขชำระเงิน";
-  if (canConfirmPayment.value) return "ยืนยันชำระเงิน";
-  return paymentStatusLabels[paymentStatus.value] ?? paymentStatus.value;
-});
-const paymentStatusActionIcon = computed(() => {
-  if (isAdmin.value) return "i-lucide-pencil";
-  if (canConfirmPayment.value) return "i-lucide-check";
-  return "i-lucide-circle";
-});
-const paymentStatusBadgeTitle = computed(() => {
-  if (isAdmin.value) return "คลิกเพื่อแก้ไขสถานะ";
-  if (canConfirmPayment.value) return "คลิกเพื่อยืนยันการชำระเงิน";
-  return undefined;
-});
+const isPaymentStatusActionVisible = computed(() => Boolean(payment.value));
+const paymentStatusActionLabel = computed(() => (
+  canConfirmPayment.value ? "ยืนยันชำระเงิน" : "แก้ไขชำระเงิน"
+));
+const paymentStatusActionIcon = computed(() => (
+  canConfirmPayment.value ? "i-lucide-check" : "i-lucide-pencil"
+));
+const paymentStatusBadgeTitle = computed(() => (
+  canConfirmPayment.value ? "คลิกเพื่อยืนยันการชำระเงิน" : "คลิกเพื่อแก้ไขสถานะ"
+));
 
 const entitlementStatusMap: Record<EntitlementStatus, { label: string; color: BadgeColor }> = {
   ACTIVE: { label: "ใช้งานอยู่", color: "success" },
@@ -484,7 +465,7 @@ const savePaymentChanges = async () => {
             </div>
           </div>
 
-          <div :class="[adminDashboardCardClass, 'overflow-hidden !p-0']">
+          <div :class="[adminDashboardCardClass, 'overflow-hidden p-0!']">
             <div class="border-b border-default/40 px-3 py-2">
               <USkeleton class="h-4 w-36 rounded" />
             </div>
@@ -608,7 +589,7 @@ const savePaymentChanges = async () => {
             </div>
           </UCard>
 
-          <section :class="[adminDashboardCardClass, 'overflow-hidden !p-0']">
+          <section :class="[adminDashboardCardClass, 'overflow-hidden p-0!']">
             <div class="flex flex-wrap items-center justify-between gap-2 border-b border-default/40 px-3 py-2">
               <div>
                 <p class="text-sm font-semibold text-highlighted">{{ itemSectionTitle }} <span class="ml-2 text-xs text-muted">{{ itemSectionDescription }}</span></p>
@@ -803,16 +784,8 @@ const savePaymentChanges = async () => {
     image-alt="รูปหลักฐาน"
   />
 
-  <ConfirmPaymentModal
-    v-if="payment && canConfirmPayment"
-    v-model:open="confirmModalOpen"
-    :payment-id="payment.id"
-    :amount="Number(payment.amount ?? 0)"
-    @confirmed="onPaymentConfirmed"
-  />
-
   <EditPaymentStateModal
-    v-if="payment && isAdmin"
+    v-if="payment"
     v-model:open="editStateModalOpen"
     :payment-id="payment.id"
     :payment-no="payment.paymentNo"

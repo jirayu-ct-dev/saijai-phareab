@@ -23,36 +23,36 @@ export default defineAppConfig({
     },
     button: {
       slots: {
-        base: 'cursor-pointer !rounded-md'
+        base: 'cursor-pointer rounded-md!'
       }
     },
     badge: {
       slots: {
-        base: '!rounded-md'
+        base: 'rounded-md!'
       }
     },
     input: {
       slots: {
-        base: '!rounded-md'
+        base: 'rounded-md!'
       }
     },
     inputNumber: {
       slots: {
-        base: '!rounded-md'
+        base: 'rounded-md!'
       }
     },
     select: {
       slots: {
-        base: '!rounded-md',
-        content: '!rounded-md',
-        item: 'before:!rounded-md'
+        base: 'rounded-md!',
+        content: 'rounded-md!',
+        item: 'before:rounded-md!'
       }
     },
     selectMenu: {
       slots: {
-        base: '!rounded-md',
-        content: '!rounded-md',
-        item: 'before:!rounded-md'
+        base: 'rounded-md!',
+        content: 'rounded-md!',
+        item: 'before:rounded-md!'
       }
     }
   }

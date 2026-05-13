@@ -56,7 +56,7 @@ const defaultSelectedToneClass = {
     :class="[
       adminCatalogCardBaseClass,
       'admin-pos-catalog-card rounded-md',
-      toneClass || (selected ? defaultSelectedToneClass[badgeColor] : 'border-default/30 bg-default hover:border-default/45 dark:border-default/20 dark:bg-elevated/55 dark:hover:bg-elevated/70')
+      toneClass || (selected ? defaultSelectedToneClass[badgeColor || 'primary'] : 'border-default/30 bg-default hover:border-default/45 dark:border-default/20 dark:bg-elevated/55 dark:hover:bg-elevated/70')
     ]"
     @click="emit('increment')"
     @contextmenu.prevent="emit('decrement')"
@@ -75,7 +75,7 @@ const defaultSelectedToneClass = {
         <p v-if="metaLabel" class="truncate text-xs text-muted">{{ metaLabel }}</p>
       </div>
 
-      <div v-if="quantity > 0 && !isRange" class="shrink-0" @click.stop @contextmenu.stop>
+      <div v-if="(quantity ?? 0) > 0 && !isRange" class="shrink-0" @click.stop @contextmenu.stop>
         <UInputNumber
           :model-value="quantity"
           :step="1"
@@ -84,7 +84,7 @@ const defaultSelectedToneClass = {
           @update:model-value="emit('change', Math.max(0, Number.isFinite($event) ? Math.floor($event) : 0))"
         />
       </div>
-      <UBadge v-else-if="quantity > 0 && isRange" color="primary" variant="subtle" size="xs" class="shrink-0">
+      <UBadge v-else-if="(quantity ?? 0) > 0 && isRange" color="primary" variant="subtle" size="xs" class="shrink-0">
         {{ quantity }}
       </UBadge>
     </div>

@@ -7,7 +7,6 @@ import { formatCurrency, formatDateTime } from "~~/shared/utils/format";
 import type { Role } from "~~/shared/types/enums";
 import * as adminUi from "~~/shared/config/adminUi";
 import { paymentMethodLabels, paymentStatusColors, paymentStatusLabels } from "~~/shared/config/paymentConfig";
-import ConfirmPaymentModal from "~~/app/components/admin/payment/ConfirmPaymentModal.vue";
 import EditPaymentStateModal from "~~/app/components/admin/payment/EditPaymentStateModal.vue";
 
 const adminDashboardBodyClass =
@@ -42,17 +41,7 @@ const { user } = useUser();
 const isAdmin = computed(() => (user.value?.role as Role | undefined) === "ADMIN");
 const { payments, isLoading, refresh, deletePayment } = useAdminPayments();
 
-const confirmModalOpen = ref(false);
-const confirmTarget = ref<AdminPaymentRecord | null>(null);
 const canConfirmPayment = (payment: AdminPaymentRecord) => payment.status !== "PAID" && payment.status !== "CANCELLED";
-const openConfirmModal = (payment: AdminPaymentRecord) => {
-  if (!canConfirmPayment(payment)) return;
-  confirmTarget.value = payment;
-  confirmModalOpen.value = true;
-};
-const onConfirmedFromList = async () => {
-  await refresh();
-};
 const editStateModalOpen = ref(false);
 const editStateTarget = ref<AdminPaymentRecord | null>(null);
 const openEditStateModal = (payment: AdminPaymentRecord) => {
@@ -62,20 +51,10 @@ const openEditStateModal = (payment: AdminPaymentRecord) => {
 const onStateUpdatedFromList = async () => {
   await refresh();
 };
-const canManagePaymentState = (payment: AdminPaymentRecord) => isAdmin.value || canConfirmPayment(payment);
-const getPaymentStateActionTitle = (payment: AdminPaymentRecord) => {
-  if (isAdmin.value) return "คลิกเพื่อแก้ไขสถานะ";
-  if (canConfirmPayment(payment)) return "คลิกเพื่อยืนยันการชำระเงิน";
-  return undefined;
-};
+const canManagePaymentState = (_payment: AdminPaymentRecord) => true;
+const getPaymentStateActionTitle = (_payment: AdminPaymentRecord) => "คลิกเพื่อแก้ไขสถานะ";
 const handlePaymentStateClick = (payment: AdminPaymentRecord) => {
-  if (isAdmin.value) {
-    openEditStateModal(payment);
-    return;
-  }
-  if (canConfirmPayment(payment)) {
-    openConfirmModal(payment);
-  }
+  openEditStateModal(payment);
 };
 
 const hydrated = ref(false);
@@ -458,7 +437,7 @@ const columns: TableColumn<AdminPaymentRecord>[] = [
             title: "ยืนยันการชำระเงิน",
             onClick: (e: MouseEvent) => {
               e.stopPropagation();
-              openConfirmModal(row.original);
+              openEditStateModal(row.original);
             },
           })
         : null;
@@ -521,7 +500,7 @@ const columns: TableColumn<AdminPaymentRecord>[] = [
     <template #body>
         <div :class="adminDashboardBodyClass">
           <section class="flex flex-col gap-1">
-            <div :class="[adminFilterBarClass, 'flex items-center justify-between gap-1.5 !px-3 !py-3']">
+            <div :class="[adminFilterBarClass, 'flex items-center justify-between gap-1.5 px-3! px-y!']">
               <div class="flex min-w-0 flex-[1_1_32rem] md:max-w-xl">
                 <UInput
                   v-model="searchQuery"
@@ -601,7 +580,7 @@ const columns: TableColumn<AdminPaymentRecord>[] = [
                   </div>
                 </div>
               </div>
-              <div :class="[adminDashboardCardClass, 'hidden !p-0 md:block']">
+              <div :class="[adminDashboardCardClass, 'hidden p-0! md:block']">
                 <div class="space-y-2 p-3">
                   <USkeleton v-for="i in 8" :key="`dt-sk-${i}`" class="h-12 w-full rounded-md" />
                 </div>
@@ -702,7 +681,7 @@ const columns: TableColumn<AdminPaymentRecord>[] = [
                         color="success"
                         variant="ghost"
                         aria-label="ยืนยันการชำระเงิน"
-                        @click="openConfirmModal(payment)"
+                        @click="openEditStateModal(payment)"
                       />
                       <UButton icon="i-lucide-eye" size="xs" color="neutral" variant="ghost" aria-label="ดูรายละเอียดการชำระเงิน" @click="openPaymentDetail(payment)" />
                       <UButton
@@ -723,7 +702,7 @@ const columns: TableColumn<AdminPaymentRecord>[] = [
             </div>
           </div>
 
-            <div :class="[adminDashboardCardClass, 'hidden overflow-hidden !p-0 md:block']">
+            <div :class="[adminDashboardCardClass, 'hidden overflow-hidden p-0! md:block']">
             <UTable
               ref="table"
               v-model:row-selection="rowSelection"
@@ -850,16 +829,8 @@ const columns: TableColumn<AdminPaymentRecord>[] = [
     </UIConfirmModal>
   </ClientOnly>
 
-  <ConfirmPaymentModal
-    v-if="confirmTarget"
-    v-model:open="confirmModalOpen"
-    :payment-id="confirmTarget.id"
-    :amount="Number(confirmTarget.amount ?? 0)"
-    @confirmed="onConfirmedFromList"
-  />
-
   <EditPaymentStateModal
-    v-if="editStateTarget && isAdmin"
+    v-if="editStateTarget"
     v-model:open="editStateModalOpen"
     :payment-id="editStateTarget.id"
     :payment-no="editStateTarget.paymentNo"

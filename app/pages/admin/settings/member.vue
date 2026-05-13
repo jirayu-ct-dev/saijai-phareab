@@ -259,7 +259,7 @@ const isExpiringSoon = (s: string | null) => {
     </div>
 
     <section class="flex flex-col gap-1">
-      <div :class="[adminFilterBarClass, '!px-3 !py-3 flex flex-col gap-1.5']">
+      <div :class="[adminFilterBarClass, 'px-3! px-y! flex flex-col gap-1.5']">
         <div class="flex items-center justify-between gap-1.5">
           <UInput
             v-model="search"

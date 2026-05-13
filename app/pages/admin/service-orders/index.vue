@@ -630,7 +630,7 @@ const columns: TableColumn<AdminServiceOrder>[] = [
     <template #body>
         <div :class="adminDashboardBodyClass">
           <section class="flex flex-col gap-1">
-            <div :class="[adminFilterBarClass, 'space-y-2 !px-3 !py-3 md:flex md:items-center md:justify-between md:gap-3 md:space-y-0']">
+            <div :class="[adminFilterBarClass, 'space-y-2 px-3! px-y! md:flex md:items-center md:justify-between md:gap-3 md:space-y-0']">
               <div class="flex min-w-0 items-center gap-2 md:flex-1 md:max-w-sm">
                 <UInput
                   v-model="searchQuery"
@@ -729,7 +729,7 @@ const columns: TableColumn<AdminServiceOrder>[] = [
                   </div>
                 </div>
               </div>
-              <div :class="[adminDashboardCardClass, 'hidden !p-0 md:block']">
+              <div :class="[adminDashboardCardClass, 'hidden p-0! md:block']">
                 <div class="space-y-2 p-3">
                   <USkeleton v-for="i in 8" :key="`so-dt-sk-${i}`" class="h-12 w-full rounded-md" />
                 </div>
@@ -827,7 +827,7 @@ const columns: TableColumn<AdminServiceOrder>[] = [
             </div>
           </div>
 
-          <div :class="[adminDashboardCardClass, 'hidden overflow-hidden !p-0 md:block']">
+          <div :class="[adminDashboardCardClass, 'hidden overflow-hidden p-0! md:block']">
             <UTable
               ref="table"
               v-model:row-selection="rowSelection"

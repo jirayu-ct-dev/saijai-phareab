@@ -568,7 +568,7 @@ const getItemPhotos = (item: ServiceOrderDetailItem) =>
 
         </section>
 
-        <section :class="[adminDashboardCardClass, 'overflow-hidden !p-0']">
+        <section :class="[adminDashboardCardClass, 'overflow-hidden p-0!']">
           <div class="flex flex-col justify-between gap-3 border-b border-default/40 px-3 py-2 sm:flex-row sm:items-center">
               <div>
                 <p class="text-sm font-semibold text-highlighted">รายการบริการ <span class="ml-2 text-xs text-muted">{{ itemCountLabel }}</span></p>

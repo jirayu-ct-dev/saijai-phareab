@@ -145,21 +145,6 @@ export const useAdminPayments = () => {
     }
   };
 
-  const confirmPayment = async (
-    id: string,
-    body: { method: PaymentMethod; slipImageId?: string | null; note?: string | null },
-  ): Promise<boolean> => {
-    try {
-      await $fetch(`/api/admin/payments/${id}/confirm`, { method: "POST", body });
-      await refresh();
-      notify.success("ยืนยันการชำระเงินแล้ว");
-      return true;
-    } catch (error: unknown) {
-      notify.error(getErrorMessage(error, "ไม่สามารถยืนยันการชำระเงินได้"));
-      return false;
-    }
-  };
-
   const cancelPayment = async (id: string, note?: string | null): Promise<boolean> => {
     try {
       await $fetch(`/api/admin/payments/${id}/cancel`, { method: "POST", body: { note: note ?? null } });
@@ -180,7 +165,6 @@ export const useAdminPayments = () => {
     updatePaymentState,
     deletePayment,
     uploadSlip,
-    confirmPayment,
     cancelPayment,
   };
 };

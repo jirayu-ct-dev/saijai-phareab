@@ -436,7 +436,7 @@ watch(isManageOpen, (open) => {
           { label: 'ประเภทสินค้า', value: 'category', slot: 'category', icon: 'i-lucide-layers' },
           { label: 'บริการ', value: 'service', slot: 'service', icon: 'i-lucide-sparkles' }
         ]"
-        :ui="{ list: [adminFilterBarClass, '!px-3'] }"
+        :ui="{ list: [adminFilterBarClass, 'px-3!'] }"
         class="w-full"
       >
         <!-- ── Category Tab ── -->

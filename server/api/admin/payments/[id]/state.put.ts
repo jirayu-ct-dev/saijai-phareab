@@ -21,7 +21,7 @@ const packageSaleStatusByPaymentStatus: Record<PaymentStatus, "PENDING" | "PAID"
 };
 
 export default defineEventHandler(async (event) => {
-  const actor = requireRole(event, ["ADMIN"]);
+  const actor = requireRole(event, ["ADMIN", "EMPLOYEE"]);
   const paymentId = getRouterParam(event, "id");
 
   if (!paymentId) {

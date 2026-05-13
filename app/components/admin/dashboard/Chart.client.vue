@@ -83,7 +83,7 @@ const template = (d: DataRecord) => `${formatLabel(d.date)}: ${formatCurrency(d.
     :ui="{
       root: 'overflow-visible',
       header: '!px-4 sm:!px-5',
-      body: '!px-3 !pt-2 !pb-4 sm:!px-4 sm:!pt-3 sm:!pb-5'
+      body: 'px-3! !pt-2 !pb-4 sm:!px-4 sm:!pt-3 sm:!pb-5'
     }"
   >
     <template #header>

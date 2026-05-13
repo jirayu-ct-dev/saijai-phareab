@@ -608,7 +608,7 @@ const columns: TableColumn<AdminUser>[] = [
     <template #body>
       <div :class="adminDashboardBodyClass">
         <section class="flex flex-col gap-1">
-        <div :class="[adminFilterBarClass, '!px-3 !py-3 flex flex-col gap-1.5 md:flex-row md:items-center md:justify-between md:gap-3']">
+        <div :class="[adminFilterBarClass, 'px-3! px-y! flex flex-col gap-1.5 md:flex-row md:items-center md:justify-between md:gap-3']">
           <div class="flex min-w-0 flex-wrap items-center gap-1.5 md:flex-1 md:max-w-sm md:flex-nowrap">
             <UInput
               v-model="searchQuery"
@@ -765,7 +765,7 @@ const columns: TableColumn<AdminUser>[] = [
               </div>
             </div>
           </div>
-          <div :class="[adminDashboardCardClass, 'hidden !p-0 md:block']">
+          <div :class="[adminDashboardCardClass, 'hidden p-0! md:block']">
             <div class="space-y-2 p-3">
               <USkeleton v-for="i in 8" :key="`u-dt-sk-${i}`" class="h-12 w-full rounded-md" />
             </div>
@@ -878,7 +878,7 @@ const columns: TableColumn<AdminUser>[] = [
             </div>
           </div>
 
-          <div :class="[adminDashboardCardClass, 'hidden overflow-hidden !p-0 md:block']">
+          <div :class="[adminDashboardCardClass, 'hidden overflow-hidden p-0! md:block']">
             <UTable
               ref="table"
               v-model:column-visibility="columnVisibility"

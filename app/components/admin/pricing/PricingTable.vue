@@ -100,9 +100,9 @@ const paginatedTableData = computed(() => {
   return tableData.value.slice(start, start + pagination.value.pageSize)
 })
 
-const getMobileRowId = (index: number) => String(pagination.value.pageIndex * pagination.value.pageSize + index)
-const isMobileRowSelected = (index: number) => Boolean(rowSelection.value[getMobileRowId(index)])
-const setMobileRowSelected = (index: number, value: boolean | 'indeterminate') => {
+const getMobileRowId = (index: number | string) => String(pagination.value.pageIndex * pagination.value.pageSize + Number(index))
+const isMobileRowSelected = (index: number | string) => Boolean(rowSelection.value[getMobileRowId(index)])
+const setMobileRowSelected = (index: number | string, value: boolean | 'indeterminate') => {
   const rowId = getMobileRowId(index)
   rowSelection.value = {
     ...rowSelection.value,
@@ -355,7 +355,7 @@ const columns = computed<TableColumn<any>[]>(() => {
 
 <template>
   <section class="flex flex-col gap-1">
-    <div :class="[adminFilterBarClass, '!px-3 !py-3 flex items-center gap-1.5']">
+    <div :class="[adminFilterBarClass, 'px-3! px-y! flex items-center gap-1.5']">
       <UInput
         v-model="search"
         class="min-w-0 flex-1"
@@ -374,7 +374,7 @@ const columns = computed<TableColumn<any>[]>(() => {
         color="error"
         variant="subtle"
         icon="i-lucide-trash"
-        class="shrink-0 !rounded-md"
+        class="shrink-0 rounded-md!"
         :aria-label="`ลบ ${selectedCount} รายการ`"
         @click="showBulkDeleteModal = true"
       >
@@ -461,7 +461,7 @@ const columns = computed<TableColumn<any>[]>(() => {
           </div>
         </div>
       </div>
-      <div :class="[adminDashboardCardClass, 'hidden !p-0 md:block']">
+      <div :class="[adminDashboardCardClass, 'hidden p-0! md:block']">
         <div class="space-y-2 p-3">
           <USkeleton v-for="i in 8" :key="`pr-dt-sk-${i}`" class="h-12 w-full rounded-md" />
         </div>
@@ -528,7 +528,7 @@ const columns = computed<TableColumn<any>[]>(() => {
       </div>
     </div>
 
-    <div :class="[adminDashboardCardClass, 'hidden shrink-0 overflow-hidden !p-0 md:block']">
+    <div :class="[adminDashboardCardClass, 'hidden shrink-0 overflow-hidden p-0! md:block']">
       <UTable
         ref="table"
         v-model:column-visibility="columnVisibility"
@@ -580,7 +580,12 @@ const columns = computed<TableColumn<any>[]>(() => {
     v-model:open="editItemModal"
     title="แก้ไขรายการ"
     :description="`แก้ไขข้อมูลและราคา: ${activeItem.name}`"
-    :ui="{ content: 'max-w-3xl', body: 'admin-workspace !p-2 sm:!p-4' }"
+    :ui="{
+      content: 'max-w-3xl bg-default dark:bg-default',
+      body: '!p-2 sm:!p-4 bg-default dark:bg-default',
+      header: 'bg-default dark:bg-default',
+      footer: 'bg-default dark:bg-default',
+    }"
   >
     <template #body>
       <div class="flex flex-col gap-3 sm:gap-4">

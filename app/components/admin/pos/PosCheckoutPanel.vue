@@ -137,7 +137,18 @@ const panelSectionClass = computed(() =>
                 :model-value="props.walkInName || ''"
                 placeholder="เช่น คุณเอ"
                 @update:model-value="emit('update:walkInName', String($event || ''))"
-              />
+              >
+                <template #trailing>
+                  <UBadge
+                    label="ไม่ระบุ"
+                    color="neutral"
+                    variant="subtle"
+                    size="xs"
+                    class="cursor-pointer"
+                    @click="emit('update:walkInName', 'ไม่ระบุ')"
+                  />
+                </template>
+              </UInput>
             </UFormField>
 
             <UFormField label="เบอร์โทร">
