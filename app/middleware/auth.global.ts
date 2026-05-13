@@ -34,6 +34,23 @@ export default defineNuxtRouteMiddleware(async (to) => {
     }
   }
 
+  // Also check isActive from session directly (catches cases where cookie hasn't been set yet)
+  if (preflight?.user && (preflight.user as any).isActive === false) {
+    if (to.path.startsWith("/admin")) {
+      if (import.meta.client) {
+        window.location.href = "/me";
+        return;
+      }
+      return navigateTo("/me");
+    }
+    // On login page, redirect inactive employee to /me instead of admin
+    if (to.path === "/auth/login" || to.path === "/auth/register") {
+      authSession.value = preflight;
+      // Don't redirect to admin — let them stay and see notification
+      return;
+    }
+  }
+
   if (publicRoutes.includes(to.path)) {
     if (to.path === "/auth/login" || to.path === "/auth/register") {
       const session = preflight;
