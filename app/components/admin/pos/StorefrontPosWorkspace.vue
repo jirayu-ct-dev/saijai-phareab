@@ -44,7 +44,7 @@ const { createServiceOrder, uploadOrderImage } = useAdminServiceOrders({
   fetchList: false,
   refreshAfterMutation: false,
 });
-const { uploadSlip } = useAdminPayments();
+const { uploadSlip } = useAdminPayments({ fetchList: false, refreshAfterMutation: false });
 
 const searchQuery = ref("");
 const categoryFilter = ref<"all" | string>("all");

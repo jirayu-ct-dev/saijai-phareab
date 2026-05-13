@@ -21,7 +21,7 @@ const emit = defineEmits<{
 
 const open = defineModel<boolean>("open", { default: false });
 const notify = useNotify();
-const { updatePaymentState, uploadSlip } = useAdminPayments();
+const { updatePaymentState, uploadSlip } = useAdminPayments({ fetchList: false, refreshAfterMutation: false });
 
 const statusOptions: Array<{ label: string; value: PaymentStatus }> = [
   { label: paymentStatusLabels.UNPAID, value: "UNPAID" },
@@ -54,7 +54,7 @@ watch(open, (value) => {
   form.method = props.method ?? "NONE";
   slipFile.value = null;
   uploadedSlip.value = props.existingSlip ?? null;
-});
+}, { immediate: true });
 
 watch(() => form.status, (status) => {
   if (status === "PAID" && form.method === "NONE") {

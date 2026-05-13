@@ -61,7 +61,7 @@ const notify = useNotify();
 const { updateServiceOrder, uploadOrderImage } = useAdminServiceOrders({ fetchList: false, refreshAfterMutation: false });
 const { customers, isLoading: isCustomersLoading } = useAdminCustomerOptions();
 const { items: catalogItems, isLoading: isCatalogLoading, refresh: refreshCatalog } = useStorefrontCatalog();
-const { uploadSlip } = useAdminPayments();
+const { uploadSlip } = useAdminPayments({ fetchList: false, refreshAfterMutation: false });
 const { hangerPricePerUnit, washFoldPricePerKg, washFoldMinKg } = useBusinessSetting();
 
 const isSubmitting = ref(false);

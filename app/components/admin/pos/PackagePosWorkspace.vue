@@ -41,7 +41,7 @@ const notify = useNotify();
 const { createSale } = useAdminSales();
 const { customers, isLoading: isCustomersLoading } = useAdminCustomerOptions();
 const { products, isLoading: isCatalogLoading, refresh } = usePackageCatalog();
-const { uploadSlip } = useAdminPayments();
+const { uploadSlip } = useAdminPayments({ fetchList: false, refreshAfterMutation: false });
 const { vatRate, vatIncluded, computeVatPreview } = useBusinessSetting();
 
 const searchQuery = ref("");

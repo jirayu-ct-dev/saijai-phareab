@@ -99,7 +99,7 @@ declare var BarcodeDetector: { new(options?: { formats: string[] }): BarcodeDete
 
 const notify = useNotify();
 const route = useRoute();
-const { uploadSlip } = useAdminPayments();
+const { uploadSlip } = useAdminPayments({ fetchList: false, refreshAfterMutation: false });
 const { serviceOrders, uploadOrderImage } = useAdminServiceOrders();
 
 const lookupOptions = computed(() =>

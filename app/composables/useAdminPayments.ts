@@ -73,8 +73,15 @@ export type UpdateAdminPaymentStateBody = {
   slipImageId?: string | null;
 };
 
-export const useAdminPayments = () => {
+type UseAdminPaymentsOptions = {
+  fetchList?: boolean;
+  refreshAfterMutation?: boolean;
+};
+
+export const useAdminPayments = (options: UseAdminPaymentsOptions = {}) => {
   const notify = useNotify();
+  const fetchList = options.fetchList ?? true;
+  const refreshAfterMutation = options.refreshAfterMutation ?? fetchList;
 
   const getErrorMessage = (error: unknown, fallback: string) => {
     if (error && typeof error === "object" && "data" in error) {
@@ -88,6 +95,7 @@ export const useAdminPayments = () => {
   const { data: payments, pending, status, refresh } = useFetch<AdminPaymentRecord[]>("/api/admin/payments", {
     key: "admin-payments",
     default: () => [],
+    immediate: fetchList,
     server: false,
     lazy: true,
   });
@@ -97,7 +105,7 @@ export const useAdminPayments = () => {
   const updatePayment = async (id: string, body: UpdateAdminPaymentBody): Promise<boolean> => {
     try {
       await $fetch(`/api/admin/payments/${id}`, { method: "PUT", body });
-      await refresh();
+      if (refreshAfterMutation) await refresh();
       notify.updated("รายการชำระเงิน");
       return true;
     } catch (error: unknown) {
@@ -109,7 +117,7 @@ export const useAdminPayments = () => {
   const updatePaymentState = async (id: string, body: UpdateAdminPaymentStateBody): Promise<boolean> => {
     try {
       await $fetch(`/api/admin/payments/${id}/state`, { method: "PUT", body });
-      await refresh();
+      if (refreshAfterMutation) await refresh();
       notify.updated("สถานะการชำระเงิน");
       return true;
     } catch (error: unknown) {
@@ -121,7 +129,7 @@ export const useAdminPayments = () => {
   const deletePayment = async (id: string): Promise<boolean> => {
     try {
       await $fetch(`/api/admin/payments/${id}`, { method: "DELETE" });
-      await refresh();
+      if (refreshAfterMutation) await refresh();
       notify.deleted("รายการชำระเงิน");
       return true;
     } catch (error: unknown) {
@@ -148,7 +156,7 @@ export const useAdminPayments = () => {
   const cancelPayment = async (id: string, note?: string | null): Promise<boolean> => {
     try {
       await $fetch(`/api/admin/payments/${id}/cancel`, { method: "POST", body: { note: note ?? null } });
-      await refresh();
+      if (refreshAfterMutation) await refresh();
       notify.success("ยกเลิกการชำระเงินแล้ว");
       return true;
     } catch (error: unknown) {

@@ -58,9 +58,16 @@ const handlePaymentStateClick = (payment: AdminPaymentRecord) => {
 };
 
 const hydrated = ref(false);
-onMounted(() => { hydrated.value = true; });
+const activatedOnce = ref(false);
+onMounted(() => {
+  hydrated.value = true;
+});
 
 onActivated(async () => {
+  if (!activatedOnce.value) {
+    activatedOnce.value = true;
+    return;
+  }
   await refresh();
 });
 
@@ -453,6 +460,18 @@ const columns: TableColumn<AdminPaymentRecord>[] = [
         },
       });
 
+      const editButton = h(UButton, {
+        icon: "i-lucide-credit-card",
+        size: "xs",
+        color: "primary",
+        variant: "ghost",
+        title: "แก้ไขการชำระเงิน",
+        onClick: (e: MouseEvent) => {
+          e.stopPropagation();
+          openEditStateModal(row.original);
+        },
+      });
+
       const menuButton = h(UButton, {
         icon: "i-lucide-ellipsis",
         size: "xs",
@@ -463,6 +482,7 @@ const columns: TableColumn<AdminPaymentRecord>[] = [
 
       return h("div", { class: "flex items-center justify-end gap-1" }, [
         confirmButton,
+        editButton,
         detailButton,
         h(
           UDropdownMenu,
@@ -681,6 +701,14 @@ const columns: TableColumn<AdminPaymentRecord>[] = [
                         color="success"
                         variant="ghost"
                         aria-label="ยืนยันการชำระเงิน"
+                        @click="openEditStateModal(payment)"
+                      />
+                      <UButton
+                        icon="i-lucide-credit-card"
+                        size="xs"
+                        color="primary"
+                        variant="ghost"
+                        aria-label="แก้ไขการชำระเงิน"
                         @click="openEditStateModal(payment)"
                       />
                       <UButton icon="i-lucide-eye" size="xs" color="neutral" variant="ghost" aria-label="ดูรายละเอียดการชำระเงิน" @click="openPaymentDetail(payment)" />

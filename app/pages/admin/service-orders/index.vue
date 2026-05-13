@@ -87,12 +87,19 @@ const {
 } = useAdminServiceOrders();
 
 const hydrated = ref(false);
-onMounted(() => { hydrated.value = true; });
+const activatedOnce = ref(false);
+onMounted(() => {
+  hydrated.value = true;
+});
 const showSkeleton = computed(() => !hydrated.value || isLoading.value);
 const notify = useNotify();
 const route = useRoute();
 
 onActivated(async () => {
+  if (!activatedOnce.value) {
+    activatedOnce.value = true;
+    return;
+  }
   await refresh();
 });
 
@@ -556,6 +563,8 @@ const columns: TableColumn<AdminServiceOrder>[] = [
     cell: ({ row }) => {
       const order = row.original;
 
+      const canEditPayment = Boolean(order.payment?.id) && order.status !== "COMPLETED";
+
       return h("div", { class: "flex items-center justify-end gap-1" }, [
         h(UButton, {
           icon: "i-lucide-eye",
@@ -573,6 +582,16 @@ const columns: TableColumn<AdminServiceOrder>[] = [
           title: "อัพเดทสถานะงาน",
           onClick: () => openStatusModal(order),
         }),
+        canEditPayment
+          ? h(UButton, {
+              icon: "i-lucide-credit-card",
+              size: "xs",
+              color: "primary",
+              variant: "ghost",
+              title: "แก้ไขการชำระเงิน",
+              onClick: () => openEditPaymentModal(order),
+            })
+          : null,
         h(
           UDropdownMenu,
           { items: getActionItems(order), content: { align: "end" } },
@@ -817,6 +836,15 @@ const columns: TableColumn<AdminServiceOrder>[] = [
                     <div class="mt-1 flex items-center justify-end gap-1">
                       <UButton icon="i-lucide-eye" size="xs" color="neutral" variant="ghost" aria-label="ดูรายละเอียดรายการรับผ้า" @click="openDetailPage(order)" />
                       <UButton icon="i-lucide-refresh-ccw" size="xs" color="primary" variant="ghost" aria-label="อัพเดทสถานะงาน" @click="openStatusModal(order)" />
+                      <UButton
+                        v-if="order.payment?.id && order.status !== 'COMPLETED'"
+                        icon="i-lucide-credit-card"
+                        size="xs"
+                        color="primary"
+                        variant="ghost"
+                        aria-label="แก้ไขการชำระเงิน"
+                        @click="openEditPaymentModal(order)"
+                      />
                       <UDropdownMenu :items="getActionItems(order)" :content="{ align: 'end' }">
                         <UButton icon="i-lucide-ellipsis" size="xs" color="neutral" variant="ghost" aria-label="เมนูเพิ่มเติม" />
                       </UDropdownMenu>
