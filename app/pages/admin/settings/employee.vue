@@ -190,7 +190,21 @@ const formatDate = (s: string) => new Date(s).toLocaleDateString("th-TH", { date
       </div>
     </div>
 
-    <USkeleton v-if="isLoading" class="h-64 w-full rounded-md" />
+    <div v-if="isLoading" class="space-y-1">
+      <div
+        v-for="i in 5"
+        :key="`emp-sk-${i}`"
+        :class="[adminMobileListCardClass, 'flex items-center gap-3 p-2']"
+      >
+        <USkeleton class="size-10 rounded-full shrink-0" />
+        <div class="min-w-0 flex-1 space-y-1.5">
+          <USkeleton class="h-3.5 w-40 rounded" />
+          <USkeleton class="h-2.5 w-56 rounded" />
+        </div>
+        <USkeleton class="h-6 w-20 rounded-full shrink-0" />
+        <USkeleton class="size-7 rounded-md shrink-0" />
+      </div>
+    </div>
 
     <template v-else>
       <div v-if="!employees?.length" :class="adminEmptyStateClass">

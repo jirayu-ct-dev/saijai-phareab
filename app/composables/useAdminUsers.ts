@@ -48,12 +48,14 @@ export const useAdminUsers = () => {
     return fallback;
   };
 
-  const { data: users, status, refresh } = useFetch<AdminUser[]>("/api/admin/users", {
+  const { data: users, pending, status, refresh } = useFetch<AdminUser[]>("/api/admin/users", {
     key: "admin-users",
     default: () => [],
+    server: false,
+    lazy: true,
   });
 
-  const isLoading = computed(() => status.value === "pending");
+  const isLoading = computed(() => pending.value || status.value === "idle");
 
   const createUser = async (body: CreateAdminUserBody): Promise<boolean> => {
     try {

@@ -682,8 +682,10 @@ const handleSubmit = async () => {
     title="แก้ไขรายการรับผ้า"
     description="อัปเดตรายการ บริการ และข้อมูลชำระเงินของงานนี้"
     :ui="{
-      content: 'sm:!max-w-none sm:!w-screen sm:!h-screen sm:!max-h-screen sm:!rounded-none',
-      body: 'admin-workspace !p-2 sm:!p-4',
+      content: 'sm:!max-w-none sm:!w-screen sm:!h-screen sm:!max-h-screen sm:!rounded-none bg-default dark:bg-default',
+      body: '!p-2 sm:!p-4 bg-default dark:bg-default',
+      header: 'bg-default dark:bg-default',
+      footer: 'bg-default dark:bg-default',
     }"
   >
     <template #body>

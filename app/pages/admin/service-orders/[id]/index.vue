@@ -110,10 +110,12 @@ definePageMeta({
 const route = useRoute();
 const notify = useNotify();
 const serviceOrderId = computed(() => String(route.params.id ?? ""));
-const { data, status, refresh, error } = await useFetch<ServiceOrderDetailResponse>(
+const { data, pending, status, refresh, error } = await useFetch<ServiceOrderDetailResponse>(
   () => `/api/admin/service-orders/${serviceOrderId.value}`,
   {
     key: () => `admin-service-order-detail-${serviceOrderId.value}`,
+    server: false,
+    lazy: true,
   },
 );
 
@@ -152,7 +154,10 @@ const orderForEdit = computed<AdminServiceOrder | null>(() => {
       : null,
   } as AdminServiceOrder;
 });
-const isLoading = computed(() => status.value === "pending");
+const hydrated = ref(false);
+onMounted(() => { hydrated.value = true; });
+const isLoading = computed(() => pending.value || status.value === "idle");
+const showSkeleton = computed(() => !hydrated.value || isLoading.value);
 const orderStatusBadgeColors = orderStatusColors as Record<ServiceOrderStatus, BadgeColor>;
 
 const orderNoText = computed(() => order.value?.orderNo || order.value?.id || "");
@@ -395,11 +400,53 @@ const getItemPhotos = (item: ServiceOrderDetailItem) =>
 
     <template #body>
       <div :class="adminDashboardBodyClass">
-      <div v-if="isLoading" class="space-y-4 sm:space-y-6">
-        <USkeleton class="h-32 w-full rounded-md" />
+      <div v-if="showSkeleton" class="space-y-4 sm:space-y-6">
+        <div class="rounded-md border border-default bg-default p-5">
+          <div class="flex items-start gap-3">
+            <USkeleton class="size-12 rounded-full" />
+            <div class="flex-1 space-y-2">
+              <USkeleton class="h-4 w-48 rounded" />
+              <USkeleton class="h-3 w-32 rounded" />
+            </div>
+            <USkeleton class="h-6 w-20 rounded-full" />
+          </div>
+        </div>
         <div class="grid gap-4 sm:gap-6 xl:grid-cols-[minmax(0,1.3fr)_360px]">
-          <USkeleton class="h-130 w-full rounded-md" />
-          <USkeleton class="h-130 w-full rounded-md" />
+          <div class="space-y-4">
+            <div class="rounded-md border border-default bg-default p-5 space-y-3">
+              <USkeleton class="h-4 w-32 rounded" />
+              <div class="grid gap-x-6 gap-y-2 lg:grid-cols-2">
+                <div v-for="i in 6" :key="`so-d-${i}`" class="flex justify-between gap-3">
+                  <USkeleton class="h-3 w-24 rounded" />
+                  <USkeleton class="h-3 w-28 rounded" />
+                </div>
+              </div>
+            </div>
+            <div class="rounded-md border border-default bg-default overflow-hidden">
+              <div class="border-b border-default/40 p-3">
+                <USkeleton class="h-4 w-32 rounded" />
+              </div>
+              <div class="space-y-2 p-3">
+                <USkeleton v-for="i in 4" :key="`so-row-${i}`" class="h-14 w-full rounded-md" />
+              </div>
+            </div>
+          </div>
+          <div class="space-y-4">
+            <div class="rounded-md border border-default bg-default p-5 space-y-3">
+              <USkeleton class="h-5 w-36 rounded" />
+              <div class="space-y-2">
+                <div v-for="i in 4" :key="`so-t-${i}`" class="flex justify-between gap-3">
+                  <USkeleton class="h-3 w-24 rounded" />
+                  <USkeleton class="h-3 w-20 rounded" />
+                </div>
+              </div>
+            </div>
+            <div class="rounded-md border border-default bg-default p-5 space-y-3">
+              <USkeleton class="h-5 w-32 rounded" />
+              <USkeleton class="h-32 w-full rounded-md" />
+              <USkeleton class="h-10 w-full rounded-md" />
+            </div>
+          </div>
         </div>
       </div>
 

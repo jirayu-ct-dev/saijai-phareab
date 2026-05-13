@@ -94,7 +94,7 @@ const { updatePayment, uploadSlip } = useAdminPayments();
 const { data, status, refresh, error } = await useFetch<PaymentDetailResponse>(() => `/api/admin/payments/${paymentId.value}`, { key: () => `admin-payment-detail-${paymentId.value}` });
 
 const payment = computed(() => data.value ?? null);
-const isLoading = computed(() => status.value === "pending");
+const isLoading = computed(() => status.value === "pending" || status.value === "idle");
 const isPackagePayment = computed(() => Boolean(payment.value?.packageSale));
 
 const paymentStatus = computed<PaymentStatus>(() => payment.value?.status ?? "UNPAID");
@@ -453,11 +453,72 @@ const savePaymentChanges = async () => {
       <div :class="adminDashboardBodyClass">
       <div v-if="isLoading" class="grid min-w-0 gap-4 sm:gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
         <div class="min-w-0 space-y-4 sm:space-y-6">
-          <USkeleton class="h-96 rounded-md" />
-          <USkeleton class="h-128 rounded-md" />
+          <div class="rounded-md border border-default bg-default p-5">
+            <div class="flex items-start gap-3">
+              <USkeleton class="size-12 rounded-full" />
+              <div class="flex-1 space-y-2">
+                <USkeleton class="h-4 w-48 rounded" />
+                <USkeleton class="h-3 w-32 rounded" />
+              </div>
+            </div>
+            <div class="mt-5 space-y-4">
+              <div>
+                <USkeleton class="h-4 w-24 rounded" />
+                <div class="mt-3 grid gap-x-6 gap-y-2 lg:grid-cols-2">
+                  <div v-for="i in 4" :key="`c-${i}`" class="flex items-center justify-between gap-3">
+                    <USkeleton class="h-3 w-20 rounded" />
+                    <USkeleton class="h-3 w-32 rounded" />
+                  </div>
+                </div>
+              </div>
+              <div class="border-t border-default" />
+              <div>
+                <USkeleton class="h-4 w-32 rounded" />
+                <div class="mt-3 grid gap-x-6 gap-y-2 lg:grid-cols-2">
+                  <div v-for="i in 6" :key="`p-${i}`" class="flex items-center justify-between gap-3">
+                    <USkeleton class="h-3 w-24 rounded" />
+                    <USkeleton class="h-3 w-28 rounded" />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div :class="[adminDashboardCardClass, 'overflow-hidden !p-0']">
+            <div class="border-b border-default/40 px-3 py-2">
+              <USkeleton class="h-4 w-36 rounded" />
+            </div>
+            <div class="space-y-2 p-3">
+              <USkeleton v-for="i in 4" :key="`row-${i}`" class="h-14 w-full rounded-md" />
+            </div>
+          </div>
         </div>
-        <div class="min-w-0 space-y-4 sm:space-y-6">
-          <USkeleton class="h-168 rounded-md" />
+
+        <div class="min-w-0 space-y-4 sm:space-y-6 xl:sticky xl:top-4 xl:self-start">
+          <div class="rounded-md border border-default bg-default p-5 space-y-3">
+            <USkeleton class="h-5 w-36 rounded" />
+            <USkeleton class="h-3 w-48 rounded" />
+            <div class="mt-3 space-y-2">
+              <div v-for="i in 4" :key="`t-${i}`" class="flex justify-between gap-3">
+                <USkeleton class="h-3 w-24 rounded" />
+                <USkeleton class="h-3 w-20 rounded" />
+              </div>
+            </div>
+          </div>
+          <div class="rounded-md border border-default bg-default p-5 space-y-3">
+            <USkeleton class="h-5 w-32 rounded" />
+            <div class="space-y-2">
+              <div v-for="i in 6" :key="`pi-${i}`" class="flex justify-between gap-3">
+                <USkeleton class="h-3 w-24 rounded" />
+                <USkeleton class="h-3 w-28 rounded" />
+              </div>
+            </div>
+            <div class="border-t border-default pt-3 space-y-3">
+              <USkeleton class="h-20 w-full rounded-md" />
+              <USkeleton class="h-32 w-full rounded-md" />
+              <USkeleton class="h-10 w-full rounded-md" />
+            </div>
+          </div>
         </div>
       </div>
 

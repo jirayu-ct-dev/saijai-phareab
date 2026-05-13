@@ -112,7 +112,11 @@ const submit = async () => {
 </script>
 
 <template>
-  <UModal v-model:open="open" title="แก้ไขการชำระเงิน">
+  <UModal
+    v-model:open="open"
+    title="แก้ไขการชำระเงิน"
+    :ui="{ content: 'bg-default dark:bg-default', body: 'bg-default dark:bg-default', header: 'bg-default dark:bg-default', footer: 'bg-default dark:bg-default' }"
+  >
     <template #body>
       <div class="space-y-4">
         <div class="flex items-start justify-between gap-3 rounded-md bg-elevated px-3 py-2 text-sm">

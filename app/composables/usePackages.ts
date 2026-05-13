@@ -31,13 +31,16 @@ export const usePackages = () => {
     // ดึงข้อมูลแพ็กเกจทั้งหมดครั้งเดียว แล้ว filter ฝั่ง client ตาม Tab
     const {
         data: packages,
+        pending,
         status,
         refresh,
     } = useFetch<Package[]>('/api/admin/packages', {
         default: () => [],
+        server: false,
+        lazy: true,
     })
 
-    const loading = computed(() => status.value === 'pending')
+    const loading = computed(() => pending.value || status.value === 'idle')
 
     // ============================================================
     // Filter ข้อมูลตาม Tab

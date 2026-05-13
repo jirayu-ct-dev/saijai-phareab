@@ -296,7 +296,23 @@ const isExpiringSoon = (s: string | null) => {
         </div>
       </div>
 
-      <USkeleton v-if="isLoading" class="h-64 w-full rounded-md" />
+      <div v-if="isLoading" class="space-y-1">
+        <div
+          v-for="i in 5"
+          :key="`mem-sk-${i}`"
+          :class="[adminMobileListCardClass, 'p-2']"
+        >
+          <div class="flex items-center gap-3">
+            <USkeleton class="size-8 rounded-full shrink-0" />
+            <div class="min-w-0 flex-1 space-y-1.5">
+              <USkeleton class="h-3.5 w-40 rounded" />
+              <USkeleton class="h-2.5 w-56 rounded" />
+            </div>
+            <USkeleton class="h-5 w-16 rounded-full shrink-0" />
+            <USkeleton class="size-7 rounded-md shrink-0" />
+          </div>
+        </div>
+      </div>
 
       <div v-else-if="!members?.length" :class="adminEmptyStateClass">
         ไม่พบสมาชิกตามเงื่อนไข

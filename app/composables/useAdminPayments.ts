@@ -85,12 +85,14 @@ export const useAdminPayments = () => {
     return fallback;
   };
 
-  const { data: payments, status, refresh } = useFetch<AdminPaymentRecord[]>("/api/admin/payments", {
+  const { data: payments, pending, status, refresh } = useFetch<AdminPaymentRecord[]>("/api/admin/payments", {
     key: "admin-payments",
     default: () => [],
+    server: false,
+    lazy: true,
   });
 
-  const isLoading = computed(() => status.value === "pending");
+  const isLoading = computed(() => pending.value || status.value === "idle");
 
   const updatePayment = async (id: string, body: UpdateAdminPaymentBody): Promise<boolean> => {
     try {

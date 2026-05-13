@@ -18,7 +18,10 @@ const adminTableUi = adminUi.adminTableUi
 const props = defineProps<{
   data: any
   loading: boolean
+  showSkeleton?: boolean
 }>()
+
+const isSkeleton = computed(() => Boolean(props.showSkeleton))
 
 const emit = defineEmits(['refresh', 'delete-item', 'update-item', 'update-price'])
 
@@ -352,55 +355,36 @@ const columns = computed<TableColumn<any>[]>(() => {
 
 <template>
   <section class="flex flex-col gap-1">
-    <div :class="[adminFilterBarClass, '!px-3 !py-3 flex flex-col gap-1.5 md:flex-row md:items-center md:justify-between md:gap-3']">
-      <div class="flex min-w-0 items-center gap-1.5 md:flex-1 md:max-w-sm">
-        <UInput
-          v-model="search"
-          class="min-w-0 flex-1"
-          icon="i-lucide-search"
-          placeholder="ค้นหารายการ..."
-        />
-        <UButton
-          v-if="selectedCount"
-          label="ลบ"
-          color="error"
-          variant="subtle"
-          icon="i-lucide-trash"
-          class="!rounded-md md:hidden"
-          @click="showBulkDeleteModal = true"
-        >
-          <template #trailing>
-            <UKbd>{{ selectedCount }}</UKbd>
-          </template>
-        </UButton>
-        <UIButtonRefresh class="md:hidden" :loading="loading" @refresh="emit('refresh')" />
-      </div>
-      <div class="flex items-center gap-1.5 md:justify-end">
-        <USelect
-          v-model="filterCategory"
-          :items="categoryOptions"
-          label-key="name"
-          value-key="id"
-          class="min-w-0 sm:min-w-36"
-        />
-        <UButton
-          v-if="selectedCount"
-          label="ลบ"
-          color="error"
-          variant="subtle"
-          icon="i-lucide-trash"
-          class="hidden !rounded-md md:inline-flex"
-          @click="showBulkDeleteModal = true"
-        >
-          <template #trailing>
-            <UKbd>{{ selectedCount }}</UKbd>
-          </template>
-        </UButton>
-        <UIButtonRefresh class="hidden md:inline-flex" :loading="loading" @refresh="emit('refresh')" />
-      </div>
+    <div :class="[adminFilterBarClass, '!px-3 !py-3 flex items-center gap-1.5']">
+      <UInput
+        v-model="search"
+        class="min-w-0 flex-1"
+        icon="i-lucide-search"
+        placeholder="ค้นหารายการ..."
+      />
+      <USelect
+        v-model="filterCategory"
+        :items="categoryOptions"
+        label-key="name"
+        value-key="id"
+        class="w-28 shrink-0 sm:w-40"
+      />
+      <UButton
+        v-if="selectedCount"
+        color="error"
+        variant="subtle"
+        icon="i-lucide-trash"
+        class="shrink-0 !rounded-md"
+        :aria-label="`ลบ ${selectedCount} รายการ`"
+        @click="showBulkDeleteModal = true"
+      >
+        <template #trailing>
+          <UKbd class="hidden sm:inline-flex">{{ selectedCount }}</UKbd>
+        </template>
+      </UButton>
+      <UIButtonRefresh class="shrink-0" :loading="loading" @refresh="emit('refresh')" />
     </div>
 
-    <ClientOnly>
     <!-- Bulk delete modal -->
     <UModal
       v-model:open="showBulkDeleteModal"
@@ -446,6 +430,45 @@ const columns = computed<TableColumn<any>[]>(() => {
       </template>
     </UModal>
 
+    <template v-if="isSkeleton">
+      <div class="space-y-1 md:hidden">
+        <div
+          v-for="i in 5"
+          :key="`pr-mob-sk-${i}`"
+          :class="[adminMobileListCardClass, 'admin-dashboard-card rounded-md']"
+        >
+          <div class="flex items-center gap-2 p-2">
+            <USkeleton class="size-4 rounded shrink-0" />
+            <USkeleton class="size-4 rounded shrink-0" />
+            <div class="min-w-0 flex-1 space-y-1.5">
+              <div class="flex items-start justify-between gap-2">
+                <div class="min-w-0 flex-1 space-y-1">
+                  <USkeleton class="h-3.5 w-36 rounded" />
+                  <USkeleton class="h-2.5 w-28 rounded" />
+                </div>
+                <USkeleton class="h-4 w-16 rounded-full" />
+              </div>
+              <div class="flex flex-wrap gap-2">
+                <USkeleton class="h-2.5 w-20 rounded" />
+                <USkeleton class="h-2.5 w-20 rounded" />
+                <USkeleton class="h-2.5 w-20 rounded" />
+              </div>
+              <div class="flex items-center justify-end gap-1">
+                <USkeleton class="size-5 rounded" />
+                <USkeleton class="size-5 rounded" />
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div :class="[adminDashboardCardClass, 'hidden !p-0 md:block']">
+        <div class="space-y-2 p-3">
+          <USkeleton v-for="i in 8" :key="`pr-dt-sk-${i}`" class="h-12 w-full rounded-md" />
+        </div>
+      </div>
+    </template>
+
+    <template v-else>
     <div class="md:hidden">
       <div v-if="loading" class="space-y-1">
         <USkeleton v-for="i in 5" :key="i" class="h-24 w-full rounded-md" />
@@ -518,20 +541,31 @@ const columns = computed<TableColumn<any>[]>(() => {
         :ui="adminTableUi"
       >
         <template #empty>
-          <div :class="adminEmptyStateClass">
+          <div v-if="loading" class="space-y-2 p-3">
+            <USkeleton v-for="i in 6" :key="`pr-tbl-${i}`" class="h-12 w-full rounded-md" />
+          </div>
+          <div v-else :class="adminEmptyStateClass">
             <UIcon name="i-lucide-list-x" class="mb-3 size-10 opacity-60" />
             <p>{{ search ? 'ไม่พบรายการที่ค้นหา' : 'ยังไม่มีรายการ' }}</p>
           </div>
         </template>
       </UTable>
     </div>
+    </template>
 
     <div class="mt-auto flex flex-wrap items-center justify-between gap-3 border-t border-default/30 pt-4 dark:border-default/20">
       <div class="text-sm text-muted">
-        เลือก {{ selectedCount }} จาก {{ filteredRowCount }} แถวทั้งหมด
+        <template v-if="isSkeleton">
+          <span class="inline-flex items-center gap-2">
+            <UIcon name="i-lucide-loader-2" class="size-4 animate-spin" />
+            กำลังโหลด...
+          </span>
+        </template>
+        <template v-else>เลือก {{ selectedCount }} จาก {{ filteredRowCount }} แถวทั้งหมด</template>
       </div>
       <div class="flex items-center gap-1.5">
         <UPagination
+          v-if="!isSkeleton"
           :page="pagination.pageIndex + 1"
           :items-per-page="pagination.pageSize"
           :total="filteredRowCount"
@@ -539,7 +573,6 @@ const columns = computed<TableColumn<any>[]>(() => {
         />
       </div>
     </div>
-    </ClientOnly>
   </section>
 
   <!-- Edit Modal -->

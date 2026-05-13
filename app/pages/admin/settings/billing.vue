@@ -63,7 +63,21 @@ const onSubmit = async () => {
       <p class="mt-1 text-sm text-muted">ค่าบริการเสริม ภาษี และเลขเอกสาร</p>
     </div>
 
-    <USkeleton v-if="isLoading" class="h-64 w-full rounded-md" />
+    <template v-if="isLoading">
+      <div v-for="i in 3" :key="`bill-sk-${i}`" class="rounded-md border border-default bg-default p-4 space-y-3">
+        <div class="space-y-1.5 border-b border-default/40 pb-3">
+          <USkeleton class="h-4 w-40 rounded" />
+          <USkeleton class="h-3 w-56 rounded" />
+        </div>
+        <div class="grid gap-3 md:grid-cols-2">
+          <div v-for="j in 2" :key="`bill-f-${i}-${j}`" class="space-y-1.5">
+            <USkeleton class="h-3 w-24 rounded" />
+            <USkeleton class="h-9 w-full rounded-md" />
+          </div>
+        </div>
+      </div>
+      <USkeleton class="h-10 w-28 rounded-md self-end" />
+    </template>
 
     <template v-else>
       <UCard class="p-2">

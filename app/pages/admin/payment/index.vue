@@ -78,9 +78,14 @@ const handlePaymentStateClick = (payment: AdminPaymentRecord) => {
   }
 };
 
+const hydrated = ref(false);
+onMounted(() => { hydrated.value = true; });
+
 onActivated(async () => {
   await refresh();
 });
+
+const showSkeleton = computed(() => !hydrated.value || isLoading.value);
 
 const saleTypeOptions: Array<{ label: string; value: "all" | "PACKAGE" | "SERVICE" | "SERVICE_MEMBER" }> = [
   { label: "ทุกประเภท", value: "all" },
@@ -514,7 +519,6 @@ const columns: TableColumn<AdminPaymentRecord>[] = [
     </template>
 
     <template #body>
-      <ClientOnly>
         <div :class="adminDashboardBodyClass">
           <section class="flex flex-col gap-1">
             <div :class="[adminFilterBarClass, 'flex items-center justify-between gap-1.5 !px-3 !py-3']">
@@ -530,19 +534,21 @@ const columns: TableColumn<AdminPaymentRecord>[] = [
               <div class="flex shrink-0 items-center justify-end gap-1.5">
                 <USelect v-model="saleTypeFilter" :items="saleTypeOptions" value-key="value" class="w-28 shrink-0 sm:w-40" />
 
-                <UButton
-                  v-if="isAdmin && selectedRowsCount"
-                  color="error"
-                  variant="subtle"
-                  icon="i-lucide-trash"
-                  class="shrink-0"
-                  :aria-label="`ลบ ${selectedRowsCount} รายการ`"
-                  @click="isBulkDeleteOpen = true"
-                >
-                  <template #trailing>
-                    <UKbd class="hidden sm:inline-flex">{{ selectedRowsCount }}</UKbd>
-                  </template>
-                </UButton>
+                <ClientOnly>
+                  <UButton
+                    v-if="isAdmin && selectedRowsCount"
+                    color="error"
+                    variant="subtle"
+                    icon="i-lucide-trash"
+                    class="shrink-0"
+                    :aria-label="`ลบ ${selectedRowsCount} รายการ`"
+                    @click="isBulkDeleteOpen = true"
+                  >
+                    <template #trailing>
+                      <UKbd class="hidden sm:inline-flex">{{ selectedRowsCount }}</UKbd>
+                    </template>
+                  </UButton>
+                </ClientOnly>
 
                 <UButton
                   icon="i-lucide-refresh-cw"
@@ -556,6 +562,53 @@ const columns: TableColumn<AdminPaymentRecord>[] = [
               </div>
             </div>
 
+            <template v-if="showSkeleton">
+              <div class="space-y-1 md:hidden">
+                <div
+                  v-for="i in 5"
+                  :key="`mob-sk-${i}`"
+                  :class="[adminMobileListCardClass, 'admin-dashboard-card rounded-md']"
+                >
+                  <div class="flex items-center gap-2 p-2">
+                    <USkeleton class="size-4 rounded shrink-0" />
+                    <USkeleton class="size-8 rounded-full shrink-0" />
+                    <div class="min-w-0 flex-1 space-y-1.5">
+                      <div class="flex items-start justify-between gap-2">
+                        <div class="min-w-0 flex-1 space-y-1">
+                          <USkeleton class="h-3.5 w-32 rounded" />
+                          <USkeleton class="h-2.5 w-24 rounded" />
+                        </div>
+                        <div class="flex shrink-0 flex-col items-end gap-1">
+                          <USkeleton class="h-4 w-16 rounded-full" />
+                          <USkeleton class="h-3 w-14 rounded" />
+                        </div>
+                      </div>
+                      <div class="flex flex-wrap items-center gap-2">
+                        <USkeleton class="h-3.5 w-14 rounded-full" />
+                        <USkeleton class="h-2.5 w-16 rounded" />
+                        <USkeleton class="h-2.5 w-20 rounded" />
+                      </div>
+                      <div class="space-y-1">
+                        <USkeleton class="h-3 w-3/4 rounded" />
+                        <USkeleton class="h-3 w-1/2 rounded" />
+                      </div>
+                      <div class="flex items-center justify-end gap-1">
+                        <USkeleton class="size-5 rounded" />
+                        <USkeleton class="size-5 rounded" />
+                        <USkeleton class="size-5 rounded" />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div :class="[adminDashboardCardClass, 'hidden !p-0 md:block']">
+                <div class="space-y-2 p-3">
+                  <USkeleton v-for="i in 8" :key="`dt-sk-${i}`" class="h-12 w-full rounded-md" />
+                </div>
+              </div>
+            </template>
+
+            <template v-else>
             <div class="md:hidden">
             <div v-if="isLoading" class="space-y-3">
               <USkeleton v-for="i in 5" :key="i" class="h-40 w-full rounded-md" />
@@ -682,21 +735,32 @@ const columns: TableColumn<AdminPaymentRecord>[] = [
               :ui="adminTableUi"
             >
               <template #empty>
-                <div :class="adminEmptyStateClass">
+                <div v-if="isLoading" class="space-y-2 p-3">
+                  <USkeleton v-for="i in 6" :key="`tbl-${i}`" class="h-12 w-full rounded-md" />
+                </div>
+                <div v-else :class="adminEmptyStateClass">
                   <UIcon name="i-lucide-receipt" class="mb-3 size-10 opacity-60" />
                   <p>ไม่พบรายการชำระเงิน</p>
                 </div>
               </template>
             </UTable>
             </div>
+            </template>
           </section>
 
           <div class="mt-auto flex flex-wrap items-center justify-between gap-3 border-t border-default pt-4">
             <div class="text-sm text-muted">
-              {{ paginationSummary }}
+              <template v-if="showSkeleton">
+                <span class="inline-flex items-center gap-2">
+                  <UIcon name="i-lucide-loader-2" class="size-4 animate-spin" />
+                  กำลังโหลด...
+                </span>
+              </template>
+              <template v-else>{{ paginationSummary }}</template>
             </div>
 
             <UPagination
+              v-if="!showSkeleton"
               :page="pagination.pageIndex + 1"
               :items-per-page="pagination.pageSize"
               :total="filteredRowCount"
@@ -705,20 +769,6 @@ const columns: TableColumn<AdminPaymentRecord>[] = [
           </div>
         </div>
 
-        <template #fallback>
-          <div class="space-y-4">
-            <div class="flex flex-wrap items-center justify-between gap-2">
-              <USkeleton class="h-10 w-full md:max-w-sm" />
-              <div class="flex gap-2">
-                <USkeleton class="h-10 w-28" />
-                <USkeleton class="h-10 w-28" />
-                <USkeleton class="h-10 w-28" />
-              </div>
-            </div>
-            <USkeleton class="h-105 w-full rounded-md" />
-          </div>
-        </template>
-      </ClientOnly>
     </template>
   </UDashboardPanel>
 

@@ -19,7 +19,15 @@ const adminMobileListCardClass = adminUi.adminMobileListCardClass
 
 const notify = useNotify()
 
-const { data, pending, refresh } = useFetch<any>('/api/admin/pricing')
+const { data, pending, status, refresh } = useFetch<any>('/api/admin/pricing', {
+  server: false,
+  lazy: true,
+})
+
+const hydrated = ref(false)
+onMounted(() => { hydrated.value = true })
+const isLoading = computed(() => pending.value || status.value === 'idle')
+const showSkeleton = computed(() => !hydrated.value || isLoading.value)
 
 const mockServices = ref<any[]>([])
 const mockItems = ref<any[]>([])
@@ -314,7 +322,8 @@ watch(isManageOpen, (open) => {
       <div :class="adminDashboardBodyClass">
         <AdminPricingTable
           :data="pageData"
-          :loading="pending"
+          :loading="isLoading"
+          :show-skeleton="showSkeleton"
           @update-price="handleUpdatePrice"
           @update-item="handleUpdateItem"
           @delete-item="handleDeleteItem"
@@ -329,7 +338,12 @@ watch(isManageOpen, (open) => {
     v-model:open="isAddItemModalOpen"
     title="เพิ่มรายการซักใหม่"
     description="กำหนดชื่อ ประเภท และราคาตามบริการ"
-    :ui="{ content: 'max-w-3xl', body: 'admin-workspace !p-2 sm:!p-4' }"
+    :ui="{
+      content: 'max-w-3xl bg-default dark:bg-default',
+      body: '!p-2 sm:!p-4 bg-default dark:bg-default',
+      header: 'bg-default dark:bg-default',
+      footer: 'bg-default dark:bg-default',
+    }"
   >
     <template #body>
       <div class="flex flex-col gap-3 sm:gap-4">
@@ -406,7 +420,12 @@ watch(isManageOpen, (open) => {
     v-model:open="isManageOpen"
     title="จัดการประเภทและบริการ"
     description="เพิ่ม แก้ไข หรือลบประเภทสินค้าและประเภทบริการ"
-    :ui="{ content: 'max-w-3xl', body: 'admin-workspace !p-2 sm:!p-4' }"
+    :ui="{
+      content: 'max-w-3xl bg-default dark:bg-default',
+      body: '!p-2 sm:!p-4 bg-default dark:bg-default',
+      header: 'bg-default dark:bg-default',
+      footer: 'bg-default dark:bg-default',
+    }"
   >
     <template #body>
       <UTabs

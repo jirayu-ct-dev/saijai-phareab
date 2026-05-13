@@ -97,10 +97,30 @@ const onSubmit = async () => {
       <p class="mt-1 text-sm text-muted">ข้อมูลพื้นฐานของร้านที่แสดงบนใบเสร็จและสลิป</p>
     </div>
 
-    <ClientOnly>
-      <USkeleton v-if="isLoading" class="h-64 w-full rounded-md" />
+    <div v-if="isLoading" class="rounded-md border border-default bg-default p-4 space-y-4">
+      <div class="grid gap-4 sm:grid-cols-2">
+        <div v-for="i in 2" :key="`shop-f1-${i}`" class="space-y-1.5">
+          <USkeleton class="h-3 w-24 rounded" />
+          <USkeleton class="h-9 w-full rounded-md" />
+        </div>
+        <div class="space-y-1.5 sm:col-span-2">
+          <USkeleton class="h-3 w-24 rounded" />
+          <USkeleton class="h-20 w-full rounded-md" />
+        </div>
+      </div>
+      <div class="grid gap-4 sm:grid-cols-2">
+        <div v-for="i in 2" :key="`shop-i-${i}`" class="space-y-1.5">
+          <USkeleton class="h-3 w-24 rounded" />
+          <USkeleton class="h-32 w-full rounded-md" />
+        </div>
+      </div>
+      <div class="flex justify-end border-t border-default pt-3">
+        <USkeleton class="h-9 w-24 rounded-md" />
+      </div>
+    </div>
 
-      <UCard v-else class="p-2">
+    <ClientOnly v-else>
+      <UCard class="p-2">
         <UForm :state="form" class="space-y-4" @submit="onSubmit">
           <div class="grid gap-4 sm:grid-cols-2">
             <UFormField label="ชื่อร้าน" name="name" required>
@@ -146,9 +166,6 @@ const onSubmit = async () => {
         </UForm>
       </UCard>
 
-      <template #fallback>
-        <USkeleton class="h-64 w-full rounded-md" />
-      </template>
     </ClientOnly>
   </div>
 </template>

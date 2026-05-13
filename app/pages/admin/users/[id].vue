@@ -140,14 +140,19 @@ type UserDetailResponse = {
 const route = useRoute()
 const userId = computed(() => String(route.params.id))
 
-const { data, status, refresh, error } = await useFetch<UserDetailResponse>(
+const { data, pending, status, refresh, error } = await useFetch<UserDetailResponse>(
   () => `/api/admin/users/${userId.value}`,
   {
-    key: () => `admin-user-detail-${userId.value}`
+    key: () => `admin-user-detail-${userId.value}`,
+    server: false,
+    lazy: true,
   }
 )
 
-const isLoading = computed(() => status.value === 'pending')
+const hydrated = ref(false)
+onMounted(() => { hydrated.value = true })
+const isLoading = computed(() => pending.value || status.value === 'idle')
+const showSkeleton = computed(() => !hydrated.value || isLoading.value)
 const user = computed(() => data.value?.user ?? null)
 const stats = computed(() => data.value?.stats ?? null)
 const entitlements = computed(() => data.value?.memberEntitlements ?? [])
@@ -308,17 +313,48 @@ const orderItemCount = (order: UserDetailResponse['recentServiceOrders'][number]
     </template>
 
     <template #body>
+      <!-- Loading Skeleton -->
+      <div v-if="showSkeleton" :class="adminDashboardBodyClass">
+        <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div class="flex items-center gap-3">
+            <USkeleton class="size-16 rounded-full" />
+            <div class="space-y-2">
+              <USkeleton class="h-5 w-48 rounded" />
+              <USkeleton class="h-3 w-40 rounded" />
+            </div>
+          </div>
+          <div class="flex gap-2">
+            <USkeleton class="h-9 w-24 rounded-md" />
+            <USkeleton class="h-9 w-24 rounded-md" />
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <USkeleton v-for="i in 4" :key="`u-stat-${i}`" class="h-20 w-full rounded-md" />
+        </div>
+
+        <div class="grid gap-4 sm:gap-6 lg:grid-cols-2">
+          <div v-for="i in 4" :key="`u-card-${i}`" class="rounded-md border border-default bg-default p-5 space-y-3">
+            <USkeleton class="h-5 w-40 rounded" />
+            <div class="space-y-2">
+              <USkeleton v-for="j in 3" :key="`u-card-${i}-${j}`" class="h-10 w-full rounded-md" />
+            </div>
+          </div>
+        </div>
+      </div>
+
       <!-- Error State -->
-      <div v-if="error" :class="adminDashboardBodyClass">
+      <div v-else-if="error" :class="adminDashboardBodyClass">
         <div class="rounded-md border border-error/40 bg-error/5 p-6 text-error">
           {{ error.statusMessage || 'ไม่สามารถโหลดรายละเอียดลูกค้าได้' }}
         </div>
       </div>
 
-      <!-- Loading State -->
+      <!-- Not Found -->
       <div v-else-if="!user || !stats" :class="adminDashboardBodyClass">
-        <div class="flex items-center justify-center py-20 text-muted">
-          กำลังโหลดข้อมูล...
+        <div class="rounded-md border border-default bg-default p-6">
+          <p class="text-base font-semibold text-highlighted">ไม่พบข้อมูลลูกค้า</p>
+          <p class="mt-2 text-sm text-muted">ลูกค้านี้อาจถูกลบหรือคุณไม่มีสิทธิ์เข้าถึง</p>
         </div>
       </div>
 

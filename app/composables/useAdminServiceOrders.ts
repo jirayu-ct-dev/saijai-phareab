@@ -159,13 +159,15 @@ export const useAdminServiceOrders = (options: UseAdminServiceOrdersOptions = {}
     return fallback;
   };
 
-  const { data: serviceOrders, status, refresh } = useFetch<AdminServiceOrder[]>("/api/admin/service-orders", {
+  const { data: serviceOrders, pending, status, refresh } = useFetch<AdminServiceOrder[]>("/api/admin/service-orders", {
     key: "admin-service-orders",
     default: () => [],
     immediate: fetchList,
+    server: false,
+    lazy: true,
   });
 
-  const isLoading = computed(() => status.value === "pending");
+  const isLoading = computed(() => pending.value || status.value === "idle");
 
   const createServiceOrder = async (body: CreateAdminServiceOrderBody): Promise<CreateAdminServiceOrderResult | null> => {
     try {

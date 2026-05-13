@@ -41,6 +41,10 @@ const emit = defineEmits<{
   refresh: [];
 }>();
 
+const hydrated = ref(false);
+onMounted(() => { hydrated.value = true; });
+const showSkeleton = computed(() => !hydrated.value || Boolean(props.loading));
+
 const UBadge = resolveComponent("UBadge");
 const UButton = resolveComponent("UButton");
 const UCheckbox = resolveComponent("UCheckbox");
@@ -321,54 +325,73 @@ const columns: TableColumn<Package>[] = [
 
 <template>
   <section class="flex flex-col gap-1">
-    <div :class="[adminFilterBarClass, '!px-3 !py-3 flex flex-col gap-1.5 md:flex-row md:items-center md:justify-between md:gap-3']">
-      <div class="flex min-w-0 items-center gap-1.5 md:flex-1 md:max-w-sm">
-        <UInput
-          v-model="searchQuery"
-          class="min-w-0 flex-1"
-          icon="i-lucide-search"
-          placeholder="ค้นหาชื่อหรือรายละเอียด..."
-        />
-        <UButton
-          v-if="selectedRowsCount > 0"
-          label="ลบ"
-          color="error"
-          variant="subtle"
-          icon="i-lucide-trash"
-          class="!rounded-md md:hidden"
-          @click="handleBulkDelete"
-        >
-          <template #trailing>
-            <UKbd>{{ selectedRowsCount }}</UKbd>
-          </template>
-        </UButton>
-        <UIButtonRefresh class="md:hidden" :loading="loading" @refresh="emit('refresh')" />
-      </div>
-      <div class="flex items-center gap-1.5 md:justify-end">
-        <USelect
-          v-model="statusFilter"
-          :items="STATUS_OPTIONS"
-          value-key="value"
-          class="min-w-0 sm:min-w-36"
-        />
-        <UButton
-          v-if="selectedRowsCount > 0"
-          label="ลบ"
-          color="error"
-          variant="subtle"
-          icon="i-lucide-trash"
-          class="hidden !rounded-md md:inline-flex"
-          @click="handleBulkDelete"
-        >
-          <template #trailing>
-            <UKbd>{{ selectedRowsCount }}</UKbd>
-          </template>
-        </UButton>
-        <UIButtonRefresh class="hidden md:inline-flex" :loading="loading" @refresh="emit('refresh')" />
-      </div>
+    <div :class="[adminFilterBarClass, '!px-3 !py-3 flex items-center gap-1.5']">
+      <UInput
+        v-model="searchQuery"
+        class="min-w-0 flex-1"
+        icon="i-lucide-search"
+        placeholder="ค้นหาชื่อหรือรายละเอียด..."
+      />
+      <USelect
+        v-model="statusFilter"
+        :items="STATUS_OPTIONS"
+        value-key="value"
+        class="w-28 shrink-0 sm:w-40"
+      />
+      <UButton
+        v-if="selectedRowsCount > 0"
+        color="error"
+        variant="subtle"
+        icon="i-lucide-trash"
+        class="shrink-0 !rounded-md"
+        :aria-label="`ลบ ${selectedRowsCount} รายการ`"
+        @click="handleBulkDelete"
+      >
+        <template #trailing>
+          <UKbd class="hidden sm:inline-flex">{{ selectedRowsCount }}</UKbd>
+        </template>
+      </UButton>
+      <UIButtonRefresh class="shrink-0" :loading="loading" @refresh="emit('refresh')" />
     </div>
 
-    <ClientOnly>
+    <template v-if="showSkeleton">
+      <div class="space-y-1 md:hidden">
+        <div
+          v-for="i in 5"
+          :key="`pk-mob-sk-${i}`"
+          :class="[adminMobileListCardClass, 'admin-dashboard-card rounded-md']"
+        >
+          <div class="flex items-center gap-2 p-2">
+            <USkeleton class="size-4 rounded shrink-0" />
+            <USkeleton class="size-9 rounded-md shrink-0" />
+            <div class="min-w-0 flex-1 space-y-1.5">
+              <div class="flex items-start justify-between gap-2">
+                <div class="min-w-0 flex-1 space-y-1">
+                  <USkeleton class="h-3.5 w-40 rounded" />
+                  <USkeleton class="h-2.5 w-32 rounded" />
+                </div>
+                <USkeleton class="h-4 w-14 rounded-full" />
+              </div>
+              <div class="flex flex-wrap gap-2">
+                <USkeleton class="h-2.5 w-20 rounded" />
+                <USkeleton class="h-2.5 w-16 rounded" />
+              </div>
+              <div class="flex items-center justify-end gap-1">
+                <USkeleton class="size-5 rounded" />
+                <USkeleton class="size-5 rounded" />
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div :class="[adminDashboardCardClass, 'hidden !p-0 md:block']">
+        <div class="space-y-2 p-3">
+          <USkeleton v-for="i in 8" :key="`pk-dt-sk-${i}`" class="h-12 w-full rounded-md" />
+        </div>
+      </div>
+    </template>
+
+    <template v-else>
     <div class="md:hidden">
       <div v-if="loading" class="space-y-1">
         <USkeleton v-for="i in 5" :key="i" class="h-24 w-full rounded-md" />
@@ -460,7 +483,10 @@ const columns: TableColumn<Package>[] = [
       :ui="adminTableUi"
     >
       <template #empty>
-        <div :class="adminEmptyStateClass">
+        <div v-if="loading" class="space-y-2 p-3">
+          <USkeleton v-for="i in 6" :key="`pk-tbl-${i}`" class="h-12 w-full rounded-md" />
+        </div>
+        <div v-else :class="adminEmptyStateClass">
           <UIcon name="i-lucide-package-x" class="size-10 mb-3 opacity-60" />
           <p class="font-medium">ไม่พบแพ็กเกจ</p>
           <p class="text-sm mt-1">
@@ -537,13 +563,22 @@ const columns: TableColumn<Package>[] = [
     </UTable>
     </div>
 
+    </template>
+
     <div class="flex items-center justify-between gap-3 border-t border-default pt-4 mt-auto flex-wrap">
       <div class="text-sm text-muted">
-        เลือก {{ selectedRowsCount }} จาก {{ filteredRowCount }} แถวทั้งหมด
+        <template v-if="showSkeleton">
+          <span class="inline-flex items-center gap-2">
+            <UIcon name="i-lucide-loader-2" class="size-4 animate-spin" />
+            กำลังโหลด...
+          </span>
+        </template>
+        <template v-else>เลือก {{ selectedRowsCount }} จาก {{ filteredRowCount }} แถวทั้งหมด</template>
       </div>
 
       <div class="flex items-center gap-1.5">
         <UPagination
+          v-if="!showSkeleton"
           :page="pagination.pageIndex + 1"
           :items-per-page="pagination.pageSize"
           :total="filteredRowCount"
@@ -551,6 +586,5 @@ const columns: TableColumn<Package>[] = [
         />
       </div>
     </div>
-    </ClientOnly>
   </section>
 </template>

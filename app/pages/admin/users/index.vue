@@ -38,6 +38,10 @@ const UPopover = resolveComponent('UPopover')
 const notify = useNotify()
 const { users, isLoading, refresh, createUser, updateUser, deleteUser } = useAdminUsers()
 
+const hydrated = ref(false)
+onMounted(() => { hydrated.value = true })
+const showSkeleton = computed(() => !hydrated.value || isLoading.value)
+
 type RoleFilter = Role | 'all'
 type VerificationFilter = 'all' | 'verified' | 'pending'
 type PackageFilterValue = 'all' | 'none' | string
@@ -731,7 +735,44 @@ const columns: TableColumn<AdminUser>[] = [
           </template>
         </UModal>
 
-        <ClientOnly>
+        <template v-if="showSkeleton">
+          <div class="space-y-1 md:hidden">
+            <div
+              v-for="i in 5"
+              :key="`u-mob-sk-${i}`"
+              :class="[adminMobileListCardClass, 'admin-dashboard-card rounded-md']"
+            >
+              <div class="flex items-center gap-2 p-2">
+                <USkeleton class="size-4 rounded shrink-0" />
+                <USkeleton class="size-8 rounded-full shrink-0" />
+                <div class="min-w-0 flex-1 space-y-1.5">
+                  <div class="flex items-start justify-between gap-2">
+                    <div class="min-w-0 flex-1 space-y-1">
+                      <USkeleton class="h-3.5 w-32 rounded" />
+                      <USkeleton class="h-2.5 w-40 rounded" />
+                    </div>
+                    <div class="flex shrink-0 flex-col items-end gap-1">
+                      <USkeleton class="h-4 w-14 rounded-full" />
+                      <USkeleton class="h-4 w-16 rounded-full" />
+                    </div>
+                  </div>
+                  <USkeleton class="h-2.5 w-3/4 rounded" />
+                  <div class="flex items-center justify-end gap-1">
+                    <USkeleton class="size-5 rounded" />
+                    <USkeleton class="size-5 rounded" />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div :class="[adminDashboardCardClass, 'hidden !p-0 md:block']">
+            <div class="space-y-2 p-3">
+              <USkeleton v-for="i in 8" :key="`u-dt-sk-${i}`" class="h-12 w-full rounded-md" />
+            </div>
+          </div>
+        </template>
+
+        <template v-else>
           <div class="md:hidden">
             <div v-if="isLoading" class="space-y-1">
               <USkeleton v-for="i in 5" :key="i" class="h-24 w-full rounded-md" />
@@ -850,23 +891,33 @@ const columns: TableColumn<AdminUser>[] = [
               :ui="adminTableUi"
             >
               <template #empty>
-                <div :class="adminEmptyStateClass">
+                <div v-if="isLoading" class="space-y-2 p-3">
+                  <USkeleton v-for="i in 6" :key="`u-tbl-${i}`" class="h-12 w-full rounded-md" />
+                </div>
+                <div v-else :class="adminEmptyStateClass">
                   <UIcon name="i-lucide-users" class="mb-3 size-10 opacity-60" />
                   <p>ไม่พบผู้ใช้งาน</p>
                 </div>
               </template>
             </UTable>
           </div>
-        </ClientOnly>
+        </template>
         </section>
 
         <div class="mt-auto flex flex-wrap items-center justify-between gap-3 border-t border-default pt-4">
           <div class="text-sm text-muted">
-            เลือก {{ selectedRowsCount }} จาก {{ filteredRowCount }} แถวทั้งหมด
+            <template v-if="showSkeleton">
+              <span class="inline-flex items-center gap-2">
+                <UIcon name="i-lucide-loader-2" class="size-4 animate-spin" />
+                กำลังโหลด...
+              </span>
+            </template>
+            <template v-else>เลือก {{ selectedRowsCount }} จาก {{ filteredRowCount }} แถวทั้งหมด</template>
           </div>
 
           <div class="flex items-center gap-1.5">
             <UPagination
+              v-if="!showSkeleton"
               :page="pagination.pageIndex + 1"
               :items-per-page="pagination.pageSize"
               :total="filteredRowCount"

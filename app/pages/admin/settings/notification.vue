@@ -170,7 +170,43 @@ const roleLabel = (role: "ADMIN" | "EMPLOYEE" | "USER") =>
       <p class="mt-1 text-sm text-muted">ตั้งค่าการแจ้งเตือนผ่าน LINE สำหรับลูกค้าและทีมงาน</p>
     </div>
 
-    <USkeleton v-if="isLoading" class="h-64 w-full rounded-md" />
+    <template v-if="isLoading">
+      <div class="rounded-md border border-default bg-default p-4 space-y-3">
+        <div class="space-y-1.5 border-b border-default/40 pb-3">
+          <USkeleton class="h-4 w-48 rounded" />
+          <USkeleton class="h-3 w-64 rounded" />
+        </div>
+        <div v-for="i in 7" :key="`nt-row-${i}`" class="flex items-center justify-between gap-3">
+          <div class="space-y-1">
+            <USkeleton class="h-3.5 w-40 rounded" />
+            <USkeleton class="h-2.5 w-56 rounded" />
+          </div>
+          <USkeleton class="h-5 w-9 rounded-full shrink-0" />
+        </div>
+      </div>
+      <div class="rounded-md border border-default bg-default p-4 space-y-3">
+        <div class="flex items-center justify-between gap-3 border-b border-default/40 pb-3">
+          <div class="space-y-1">
+            <USkeleton class="h-4 w-44 rounded" />
+            <USkeleton class="h-3 w-60 rounded" />
+          </div>
+          <USkeleton class="h-9 w-28 rounded-md" />
+        </div>
+        <div v-for="i in 3" :key="`nt-sub-${i}`" class="rounded-md border border-default p-3 space-y-2">
+          <div class="flex items-center gap-3">
+            <USkeleton class="size-10 rounded-full" />
+            <div class="flex-1 space-y-1">
+              <USkeleton class="h-3.5 w-32 rounded" />
+              <USkeleton class="h-2.5 w-48 rounded" />
+            </div>
+            <USkeleton class="h-5 w-9 rounded-full" />
+          </div>
+          <div class="grid grid-cols-3 gap-3 border-t border-default pt-2">
+            <USkeleton v-for="j in 3" :key="`nt-sub-${i}-${j}`" class="h-8 w-full rounded-md" />
+          </div>
+        </div>
+      </div>
+    </template>
 
     <template v-else>
       <UCard class="p-2">
