@@ -1,4 +1,3 @@
-import { authClient } from "~~/app/utils/auth-client";
 import type { Role } from "~~/shared/types/enums";
 
 type MemberState = {
@@ -10,6 +9,7 @@ type MemberState = {
 type SessionUserWithRole = {
   id?: string;
   role?: Role;
+  isActive?: boolean;
 };
 
 const MEMBER_STATUS_TTL_MS = 60_000;
@@ -18,21 +18,26 @@ const PRIVILEGED_ROLES: Role[] = ["EMPLOYEE", "ADMIN"];
 
 export default defineNuxtRouteMiddleware(async () => {
   const authSession = useState<unknown | null>("auth:session", () => null);
-  const { data: session } = await authClient.useSession(useFetch);
+  const headers = import.meta.server ? useRequestHeaders(["cookie"]) : undefined;
+  const session = await $fetch<any>("/api/auth/session-status", { headers });
 
-  if (!session.value?.user) {
+  if (!session?.user) {
     authSession.value = null;
     return navigateTo("/auth/login");
   }
 
-  authSession.value = session.value;
-  const user = session.value.user as SessionUserWithRole;
+  authSession.value = session;
+  const user = session.user as SessionUserWithRole;
   if (!user.id || !user.role) {
     return navigateTo("/auth/login");
   }
 
   if (!ALLOWED_ROLES.includes(user.role)) {
     return navigateTo("/");
+  }
+
+  if (user.isActive === false && PRIVILEGED_ROLES.includes(user.role)) {
+    return navigateTo("/me");
   }
 
   // EMPLOYEE / ADMIN can access member pages without package check.

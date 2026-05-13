@@ -27,6 +27,7 @@ export default defineEventHandler(async (event) => {
     phoneNumber?: string | null;
     role?: Role;
     emailVerified?: boolean;
+    isActive?: boolean;
   } = {};
 
   if (body.email !== undefined) {
@@ -57,7 +58,7 @@ export default defineEventHandler(async (event) => {
   }
 
   if (body.isActive !== undefined) {
-    (payload as any).isActive = body.isActive;
+    payload.isActive = body.isActive;
   }
 
   try {
@@ -83,6 +84,7 @@ export default defineEventHandler(async (event) => {
           role: true,
           phoneNumber: true,
           emailVerified: true,
+          isActive: true,
           createdAt: true,
           updatedAt: true,
         },

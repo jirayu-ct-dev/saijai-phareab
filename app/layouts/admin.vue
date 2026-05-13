@@ -3,7 +3,7 @@ import type { NavigationMenuItem } from "@nuxt/ui";
 import type { Role } from "~~/shared/types/enums";
 
 const open = ref(false);
-const { user } = useUser();
+const { user, session } = useUser();
 
 const closeSidebar = () => {
   open.value = false;
@@ -226,6 +226,39 @@ const groups = computed(() => [
     items: menu.value.flat(),
   },
 ]);
+
+const checkAdminSession = async () => {
+  if (import.meta.server) return;
+  try {
+    const currentSession = await $fetch<any>("/api/auth/session-status");
+    if (!currentSession?.user) {
+      session.value = null;
+      await navigateTo("/auth/login");
+      return;
+    }
+
+    session.value = currentSession;
+    if (currentSession.user.isActive === false) {
+      await navigateTo("/me");
+    }
+  } catch {
+    session.value = null;
+    await navigateTo("/auth/login");
+  }
+};
+
+let sessionCheckTimer: ReturnType<typeof setInterval> | null = null;
+onMounted(() => {
+  void checkAdminSession();
+  sessionCheckTimer = setInterval(() => {
+    void checkAdminSession();
+  }, 5000);
+  window.addEventListener("focus", checkAdminSession);
+});
+onBeforeUnmount(() => {
+  if (sessionCheckTimer) clearInterval(sessionCheckTimer);
+  window.removeEventListener("focus", checkAdminSession);
+});
 </script>
 
 <template>

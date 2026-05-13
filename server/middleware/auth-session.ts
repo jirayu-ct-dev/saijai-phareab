@@ -53,7 +53,22 @@ export default defineEventHandler(async (event) => {
     });
 
     if (session?.user) {
-      const u = session.user as User & { deletedAt?: Date | string | null; isActive?: boolean };
+      const sessionUser = session.user as User & { deletedAt?: Date | string | null; isActive?: boolean };
+      const freshUser = await prisma.user.findUnique({
+        where: { id: sessionUser.id },
+        select: {
+          id: true,
+          role: true,
+          isActive: true,
+          deletedAt: true,
+        },
+      });
+      const u = {
+        ...sessionUser,
+        role: freshUser?.role ?? sessionUser.role,
+        isActive: freshUser?.isActive ?? sessionUser.isActive,
+        deletedAt: freshUser?.deletedAt ?? sessionUser.deletedAt,
+      };
       if (u.deletedAt) {
         await prisma.session.deleteMany({ where: { userId: u.id } });
         deleteCookie(event, "better-auth.session_token");
@@ -67,12 +82,19 @@ export default defineEventHandler(async (event) => {
         // Inactive users can still access /me, /auth, and public routes
         // but are blocked from admin/* and /api/admin/* paths
         const pathname = getRequestURL(event).pathname;
-        if (pathname.startsWith("/admin") || pathname.startsWith("/api/admin")) {
+        if (pathname.startsWith("/api/admin")) {
+          throw createError({
+            statusCode: 403,
+            statusMessage: "บัญชีนี้ถูกพักการใช้งาน",
+          });
+        }
+        if (pathname.startsWith("/admin")) {
           setCookie(event, "auth_signout_reason", "inactive", {
             path: "/",
             maxAge: 60,
             sameSite: "lax",
           });
+          return sendRedirect(event, "/me", 302);
           // Don't set user in context — they're still logged in
           // but admin middleware will reject them
         } else {
@@ -83,6 +105,9 @@ export default defineEventHandler(async (event) => {
       }
     }
   } catch (error) {
+    if (error && typeof error === "object" && "statusCode" in error) {
+      throw error;
+    }
     console.error("[auth-session middleware] Failed to load session", error);
   }
 

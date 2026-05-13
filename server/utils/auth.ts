@@ -20,6 +20,13 @@ export const requireUser = (event: H3Event): User => {
     });
   }
 
+  if (user.deletedAt || user.isActive === false) {
+    throw createError({
+      statusCode: 403,
+      statusMessage: user.deletedAt ? "Account deleted" : "บัญชีนี้ถูกพักการใช้งาน",
+    });
+  }
+
   return user;
 }
 

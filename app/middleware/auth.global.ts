@@ -3,7 +3,7 @@ import { authClient } from "~~/app/utils/auth-client";
 const fetchFreshSession = async () => {
   try {
     const headers = import.meta.server ? useRequestHeaders(["cookie"]) : undefined;
-    return await $fetch<any>("/api/auth/get-session", { headers });
+    return await $fetch<any>("/api/auth/session-status", { headers });
   } catch {
     return null;
   }

@@ -12,6 +12,7 @@ export interface User extends Timestamps, SoftDeletable {
     image: string | null;
     role: Role;
     phoneNumber: string | null;
+    isActive: boolean;
 
     // Relations (optional - populated when included)
     uploadedImages?: Image[];
