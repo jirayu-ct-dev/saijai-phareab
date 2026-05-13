@@ -17,6 +17,7 @@ export default defineEventHandler(async (event) => {
       image: true,
       role: true,
       phoneNumber: true,
+      isActive: true,
       createdAt: true,
       accounts: {
         where: { providerId: "line" },
@@ -33,6 +34,7 @@ export default defineEventHandler(async (event) => {
     image: u.image,
     role: u.role,
     phoneNumber: u.phoneNumber,
+    isActive: u.isActive,
     createdAt: u.createdAt,
     hasLineLinked: u.accounts.length > 0,
   }));

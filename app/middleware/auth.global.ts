@@ -23,6 +23,16 @@ export default defineNuxtRouteMiddleware(async (to) => {
     }
     return navigateTo("/auth/login");
   }
+  if (signoutReason === "inactive") {
+    // Inactive employee — redirect to /me with notification
+    if (to.path.startsWith("/admin")) {
+      if (import.meta.client) {
+        window.location.href = "/me";
+        return;
+      }
+      return navigateTo("/me");
+    }
+  }
 
   if (publicRoutes.includes(to.path)) {
     if (to.path === "/auth/login" || to.path === "/auth/register") {

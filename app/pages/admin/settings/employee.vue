@@ -13,6 +13,7 @@ type Employee = {
   image: string | null;
   role: "ADMIN" | "EMPLOYEE";
   phoneNumber: string | null;
+  isActive: boolean;
   createdAt: string;
   hasLineLinked: boolean;
 };
@@ -186,6 +187,18 @@ const roleLabel = (r: string) => (r === "ADMIN" ? "ผู้ดูแล" : "พ
 const roleColor = (r: string): "primary" | "neutral" => (r === "ADMIN" ? "primary" : "neutral");
 
 const formatDate = (s: string) => new Date(s).toLocaleDateString("th-TH", { dateStyle: "medium" });
+
+// --- Toggle active status ---
+const onToggleActive = async (emp: Employee) => {
+  if (emp.id === actor.value?.id) return notify.error("ห้ามปิดการใช้งานบัญชีตัวเอง");
+  try {
+    await $fetch(`/api/admin/users/${emp.id}`, { method: "PUT", body: { isActive: !emp.isActive } });
+    notify.success(`${emp.name || emp.email} ${!emp.isActive ? "กลับมาใช้งานแล้ว" : "ถูกพักการใช้งานแล้ว"}`);
+    await refresh();
+  } catch {
+    notify.serverError();
+  }
+};
 </script>
 
 <template>
@@ -245,12 +258,18 @@ const formatDate = (s: string) => new Date(s).toLocaleDateString("th-TH", { date
               <div class="flex flex-wrap items-center gap-2">
                 <p class="truncate font-medium">{{ emp.name || emp.email }}</p>
                 <UBadge :color="roleColor(emp.role)" variant="subtle" size="xs">{{ roleLabel(emp.role) }}</UBadge>
+                <UBadge v-if="!emp.isActive" color="warning" variant="subtle" size="xs">พักการใช้งาน</UBadge>
                 <UBadge v-if="emp.hasLineLinked" color="success" variant="subtle" size="xs" icon="i-simple-icons-line">LINE</UBadge>
               </div>
               <p class="text-xs text-muted">{{ emp.email }} · เริ่ม {{ formatDate(emp.createdAt) }}</p>
             </div>
           </div>
           <div class="flex items-center justify-end gap-2 sm:shrink-0">
+            <USwitch
+              :model-value="emp.isActive"
+              :disabled="emp.id === actor?.id"
+              @update:model-value="onToggleActive(emp)"
+            />
             <USelect
               :model-value="emp.role"
               :items="[

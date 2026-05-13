@@ -53,7 +53,7 @@ export default defineEventHandler(async (event) => {
     });
 
     if (session?.user) {
-      const u = session.user as User & { deletedAt?: Date | string | null };
+      const u = session.user as User & { deletedAt?: Date | string | null; isActive?: boolean };
       if (u.deletedAt) {
         await prisma.session.deleteMany({ where: { userId: u.id } });
         deleteCookie(event, "better-auth.session_token");
@@ -63,6 +63,21 @@ export default defineEventHandler(async (event) => {
           maxAge: 60,
           sameSite: "lax",
         });
+      } else if (u.isActive === false) {
+        // Inactive users can still access /me, /auth, and public routes
+        // but are blocked from admin/* paths
+        const pathname = getRequestURL(event).pathname;
+        if (pathname.startsWith("/admin")) {
+          setCookie(event, "auth_signout_reason", "inactive", {
+            path: "/",
+            maxAge: 60,
+            sameSite: "lax",
+          });
+          // Don't set user in context — they're still logged in
+          // but admin middleware will reject them
+        } else {
+          context.user = u;
+        }
       } else {
         context.user = u;
       }

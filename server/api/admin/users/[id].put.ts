@@ -8,6 +8,7 @@ type UpdateUserBody = {
   phoneNumber?: string | null;
   role?: Role;
   emailVerified?: boolean;
+  isActive?: boolean;
 };
 
 const ALLOWED_ROLES: Role[] = ["USER", "EMPLOYEE", "ADMIN"];
@@ -55,6 +56,10 @@ export default defineEventHandler(async (event) => {
     payload.emailVerified = body.emailVerified;
   }
 
+  if (body.isActive !== undefined) {
+    (payload as any).isActive = body.isActive;
+  }
+
   try {
     const existing = await prisma.user.findFirst({
       where: { id, deletedAt: null },
@@ -65,6 +70,7 @@ export default defineEventHandler(async (event) => {
     }
 
     const isRoleChanged = payload.role !== undefined && payload.role !== existing.role;
+    const isDeactivated = body.isActive === false;
 
     const result = await prisma.$transaction(async (tx) => {
       const user = await tx.user.update({
@@ -83,7 +89,7 @@ export default defineEventHandler(async (event) => {
       });
 
       let sessionsRevoked = 0;
-      if (isRoleChanged) {
+      if (isRoleChanged || isDeactivated) {
         const revokeResult = await tx.session.deleteMany({
           where: { userId: id },
         });

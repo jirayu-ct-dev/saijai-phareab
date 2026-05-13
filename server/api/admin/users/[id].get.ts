@@ -19,6 +19,7 @@ export default defineEventHandler(async (event) => {
         image: true,
         role: true,
         phoneNumber: true,
+        isActive: true,
         emailVerified: true,
         createdAt: true,
         updatedAt: true,

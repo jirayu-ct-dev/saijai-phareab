@@ -53,6 +53,10 @@ export const auth = betterAuth({
         type: "string",
         required: false,
       },
+      isActive: {
+        type: "boolean",
+        required: false,
+      },
       deletedAt: {
         type: "date",
         required: false,
