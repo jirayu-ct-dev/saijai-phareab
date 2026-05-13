@@ -595,10 +595,6 @@ const buildBody = async (): Promise<CreateAdminServiceOrderBody | null> => {
     notify.validationError("กรุณาเลือกลูกค้า");
     return null;
   }
-  if (form.isWalkIn && !form.walkInName.trim()) {
-    notify.validationError("กรุณากรอกชื่อลูกค้าหน้าร้าน");
-    return null;
-  }
   if (form.washFoldMode) {
     const w = Number(form.washFoldWeightKg || 0);
     if (w <= 0) {
@@ -756,8 +752,19 @@ const handleSubmit = async () => {
               </div>
 
               <template v-if="form.isWalkIn">
-                <UFormField label="ชื่อลูกค้าหน้าร้าน" required>
-                  <UInput v-model="form.walkInName" class="w-full" placeholder="เช่น คุณสมชาย" />
+                <UFormField label="ชื่อลูกค้าหน้าร้าน">
+                  <UInput v-model="form.walkInName" class="w-full" placeholder="เช่น คุณสมชาย">
+                    <template #trailing>
+                      <UBadge
+                        label="ไม่ระบุ"
+                        color="neutral"
+                        variant="subtle"
+                        size="xs"
+                        class="cursor-pointer"
+                        @click="form.walkInName = 'ไม่ระบุ'"
+                      />
+                    </template>
+                  </UInput>
                 </UFormField>
                 <UFormField label="เบอร์โทร">
                   <UInput v-model="form.walkInPhone" class="w-full" placeholder="08x-xxx-xxxx" />
