@@ -65,9 +65,9 @@ export default defineEventHandler(async (event) => {
         });
       } else if (u.isActive === false) {
         // Inactive users can still access /me, /auth, and public routes
-        // but are blocked from admin/* paths
+        // but are blocked from admin/* and /api/admin/* paths
         const pathname = getRequestURL(event).pathname;
-        if (pathname.startsWith("/admin")) {
+        if (pathname.startsWith("/admin") || pathname.startsWith("/api/admin")) {
           setCookie(event, "auth_signout_reason", "inactive", {
             path: "/",
             maxAge: 60,
