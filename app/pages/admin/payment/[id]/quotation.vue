@@ -1,11 +1,22 @@
 <script setup lang="ts">
 import ThermalSlip from "~~/app/components/admin/thermal/ThermalSlip.vue";
 import QuotationDocument from "~~/app/components/print/QuotationDocument.vue";
+import EditPaymentStateModal from "~~/app/components/admin/payment/EditPaymentStateModal.vue";
 import type { ReceiptPayload } from "~~/shared/types/receipt";
+import type { PaymentMethod, PaymentStatus } from "~~/shared/types/enums";
 
 definePageMeta({ layout: "admin", middleware: ["role-employee"] });
 
 type QuotationPayload = ReceiptPayload & { receiptNo: string | null; quotationNo: string | null };
+
+type PaymentTarget = {
+  id: string;
+  paymentNo: string | null;
+  amount: number;
+  status: PaymentStatus;
+  method: PaymentMethod | null;
+  slipImage: { id: string; url: string | null; secureUrl: string | null } | null;
+};
 
 const route = useRoute();
 const paymentId = computed(() => String(route.params.id ?? ""));
@@ -73,6 +84,44 @@ async function handleDownloadPng() {
   }
 }
 
+const editPaymentOpen = ref(false);
+const editPaymentTarget = ref<PaymentTarget | null>(null);
+const isLoadingPayment = ref(false);
+
+async function openEditPaymentModal() {
+  if (!paymentId.value) return;
+  isLoadingPayment.value = true;
+  try {
+    const payment = await $fetch<PaymentTarget>(`/api/admin/payments/${paymentId.value}`);
+    editPaymentTarget.value = {
+      id: payment.id,
+      paymentNo: payment.paymentNo,
+      amount: Number(payment.amount ?? 0),
+      status: payment.status,
+      method: payment.method,
+      slipImage: payment.slipImage ?? null,
+    };
+    editPaymentOpen.value = true;
+  } catch (e) {
+    notify.error(e instanceof Error ? e.message : "โหลดข้อมูลการชำระเงินไม่สำเร็จ");
+  } finally {
+    isLoadingPayment.value = false;
+  }
+}
+
+async function onPaymentUpdated() {
+  try {
+    const payment = await $fetch<PaymentTarget>(`/api/admin/payments/${paymentId.value}`);
+    if (payment.status === "PAID") {
+      await navigateTo(`/admin/payment/${paymentId.value}/receipt`);
+      return;
+    }
+  } catch (e) {
+    console.error("Failed to refresh payment", e);
+  }
+  await refresh();
+}
+
 async function handlePrint() {
   if (!data.value) return;
   if (!printerState.value.isConnected) {
@@ -112,6 +161,32 @@ async function handlePrint() {
     @download-pdf="handleDownloadPdf"
     @download-png="handleDownloadPng"
   >
+    <template #navbar-actions>
+      <UButton
+        label="แก้ไขการชำระเงิน"
+        icon="i-lucide-wallet"
+        color="primary"
+        variant="outline"
+        class="shrink-0"
+        aria-label="แก้ไขการชำระเงิน"
+        :ui="{ label: 'hidden md:inline' }"
+        :loading="isLoadingPayment"
+        @click="openEditPaymentModal"
+      />
+    </template>
+
     <QuotationDocument v-if="data" :data="data" :shop="shopSettings ?? null" />
   </ThermalSlip>
+
+  <EditPaymentStateModal
+    v-if="editPaymentTarget?.id"
+    v-model:open="editPaymentOpen"
+    :payment-id="editPaymentTarget.id"
+    :payment-no="editPaymentTarget.paymentNo"
+    :amount="editPaymentTarget.amount"
+    :status="editPaymentTarget.status"
+    :method="editPaymentTarget.method"
+    :existing-slip="editPaymentTarget.slipImage"
+    @updated="onPaymentUpdated"
+  />
 </template>

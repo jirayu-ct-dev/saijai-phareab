@@ -7,7 +7,7 @@ import { createQuotationNo } from "~~/server/utils/quotationNo";
 import { prisma } from "~~/server/utils/prisma";
 import { createServiceOrderNo } from "~~/server/utils/serviceOrderNo";
 import { ensureWalkInCustomer } from "~~/server/utils/walkInCustomer";
-import { notifyQuotationCreated, notifyServiceOrderCreated, notifyServiceOrderStatusChanged } from "~~/server/utils/notify";
+import { notifyServiceOrderCreated, notifyServiceOrderStatusChanged } from "~~/server/utils/notify";
 
 type CreateServiceOrderBody = {
   customerId?: string | null;
@@ -444,8 +444,6 @@ export default defineEventHandler(async (event) => {
         paymentId: payment.id,
       };
     });
-
-    void notifyQuotationCreated({ serviceOrderId: created.id });
 
     if (serviceOrderStatus === "RECEIVED") {
       // Send RECEIVED notification first, then transition to PROCESSING

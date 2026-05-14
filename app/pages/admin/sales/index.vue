@@ -1,7 +1,18 @@
 <script setup lang="ts">
 import PackagePosWorkspace from "~~/app/components/admin/pos/PackagePosWorkspace.vue";
 import StorefrontPosWorkspace from "~~/app/components/admin/pos/StorefrontPosWorkspace.vue";
+import EditPaymentStateModal from "~~/app/components/admin/payment/EditPaymentStateModal.vue";
 import { adminDashboardBodyClass, adminMobileListCardClass } from "~~/shared/config/adminUi";
+import type { PaymentMethod, PaymentStatus } from "~~/shared/types/enums";
+
+type PaymentTarget = {
+  id: string;
+  paymentNo: string | null;
+  amount: number;
+  status: PaymentStatus;
+  method: PaymentMethod | null;
+  slipImage: { id: string; url: string | null; secureUrl: string | null } | null;
+};
 
 type CompletedSalePayload = {
   paymentId: string;
@@ -70,15 +81,55 @@ const closeSaleResultModal = () => {
   saleResultModalOpen.value = false;
 };
 
-const openReceipt = () => {
+const openQuotation = () => {
   if (!latestSaleResult.paymentId) return;
 
-  const target = `/admin/payment/${latestSaleResult.paymentId}/receipt`;
+  const target = `/admin/payment/${latestSaleResult.paymentId}/quotation`;
   if (import.meta.client) {
     window.open(target, "_blank", "noopener,noreferrer");
   }
 
   closeSaleResultModal();
+};
+
+const editPaymentOpen = ref(false);
+const editPaymentTarget = ref<PaymentTarget | null>(null);
+const isLoadingPayment = ref(false);
+
+const openEditPaymentModal = async () => {
+  if (!latestSaleResult.paymentId) return;
+  isLoadingPayment.value = true;
+  try {
+    const data = await $fetch<PaymentTarget>(`/api/admin/payments/${latestSaleResult.paymentId}`);
+    editPaymentTarget.value = {
+      id: data.id,
+      paymentNo: data.paymentNo,
+      amount: Number(data.amount ?? 0),
+      status: data.status,
+      method: data.method,
+      slipImage: data.slipImage ?? null,
+    };
+    editPaymentOpen.value = true;
+  } catch (error) {
+    console.error("Failed to load payment", error);
+  } finally {
+    isLoadingPayment.value = false;
+  }
+};
+
+const onPaymentUpdated = async () => {
+  const paymentId = editPaymentTarget.value?.id ?? latestSaleResult.paymentId;
+  if (!paymentId) return;
+  try {
+    const data = await $fetch<PaymentTarget>(`/api/admin/payments/${paymentId}`);
+    if (data.status === "PAID") {
+      await navigateTo(`/admin/payment/${paymentId}/receipt`);
+      return;
+    }
+  } catch (error) {
+    console.error("Failed to refresh payment", error);
+  }
+  await refreshNuxtData();
 };
 
 const goToPaymentPage = async () => {
@@ -99,8 +150,8 @@ const handleRefresh = async () => {
 
 const resultDescription = computed(() =>
   latestSaleResult.saleType === "PACKAGE"
-    ? "บันทึกรายการขายแล้ว คุณสามารถเปิดใบเสร็จหรือไปหน้าการชำระเงินต่อได้"
-    : "บันทึกรับงานแล้ว คุณสามารถเปิดใบเสร็จหรือไปหน้าการชำระเงินต่อได้",
+    ? "บันทึกรายการขายแล้ว คุณสามารถเปิดใบแจ้งราคาหรือไปหน้าการชำระเงินต่อได้"
+    : "บันทึกรับงานแล้ว คุณสามารถเปิดใบแจ้งราคาหรือไปหน้าการชำระเงินต่อได้",
 );
 </script>
 
@@ -114,6 +165,19 @@ const resultDescription = computed(() =>
 
         <template #right>
           <div class="flex min-w-0 items-center gap-1.5 sm:gap-2">
+            <UButton
+              v-if="latestSaleResult.paymentId"
+              label="แก้ไขการชำระเงิน"
+              icon="i-lucide-wallet"
+              color="primary"
+              variant="outline"
+              class="shrink-0"
+              aria-label="แก้ไขการชำระเงินของรายการล่าสุด"
+              :ui="{ label: 'hidden md:inline' }"
+              :loading="isLoadingPayment"
+              @click="openEditPaymentModal"
+            />
+
             <UButton
               icon="i-lucide-refresh-cw"
               color="neutral"
@@ -225,8 +289,20 @@ const resultDescription = computed(() =>
           icon="i-lucide-eye"
           @click="navigateTo(`/admin/service-orders/${latestSaleResult.serviceOrderId}`)"
         />
-        <UButton label="เปิดใบเสร็จ" color="neutral" icon="i-lucide-printer" @click="openReceipt" />
+        <UButton label="เปิดใบแจ้งราคา" color="neutral" icon="i-lucide-file-text" @click="openQuotation" />
       </div>
     </template>
   </UModal>
+
+  <EditPaymentStateModal
+    v-if="editPaymentTarget?.id"
+    v-model:open="editPaymentOpen"
+    :payment-id="editPaymentTarget.id"
+    :payment-no="editPaymentTarget.paymentNo"
+    :amount="editPaymentTarget.amount"
+    :status="editPaymentTarget.status"
+    :method="editPaymentTarget.method"
+    :existing-slip="editPaymentTarget.slipImage"
+    @updated="onPaymentUpdated"
+  />
 </template>

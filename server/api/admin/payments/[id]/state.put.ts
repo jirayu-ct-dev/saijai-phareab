@@ -1,7 +1,6 @@
 import { requireRole } from "~~/server/utils/auth";
 import { prisma } from "~~/server/utils/prisma";
 import { createReceiptNo } from "~~/server/utils/receiptNo";
-import { notifyReceipt } from "~~/server/utils/notify";
 import type { PaymentMethod, PaymentStatus } from "~~/shared/types/enums";
 
 type UpdatePaymentStateBody = {
@@ -78,7 +77,6 @@ export default defineEventHandler(async (event) => {
   }
 
   const now = new Date();
-  const willBecomePaid = existing.status !== "PAID" && nextStatus === "PAID";
   const receiptNo = nextStatus === "PAID" ? existing.receiptNo ?? (await createReceiptNo(now)) : existing.receiptNo;
 
   await prisma.$transaction(async (tx) => {
@@ -128,12 +126,6 @@ export default defineEventHandler(async (event) => {
       },
     });
   });
-
-  if (willBecomePaid) {
-    void notifyReceipt({ paymentId }).catch((error) => {
-      console.error("[notifyReceipt]", error);
-    });
-  }
 
   return { id: paymentId, status: nextStatus, method: nextMethod ?? null };
 });

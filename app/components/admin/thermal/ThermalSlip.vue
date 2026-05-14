@@ -73,6 +73,7 @@ function goBack() {
 
         <template #right>
           <div class="flex items-center gap-2">
+            <slot name="navbar-actions" />
             <UButton
               label="กลับ"
               color="neutral"

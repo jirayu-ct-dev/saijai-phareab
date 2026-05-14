@@ -3,7 +3,6 @@ import { requireRole } from "~~/server/utils/auth";
 import { createPaymentNo } from "~~/server/utils/paymentNo";
 import { createReceiptNo } from "~~/server/utils/receiptNo";
 import { prisma } from "~~/server/utils/prisma";
-import { notifyReceipt } from "~~/server/utils/notify";
 import { getBusinessSetting } from "~~/server/utils/businessSetting";
 import { computeVat } from "~~/server/utils/vat";
 
@@ -173,7 +172,6 @@ export default defineEventHandler(async (event) => {
       return { id: packageSale.id, paymentId: payment.id };
     });
 
-    void notifyReceipt({ paymentId: created.paymentId });
     return created;
   } catch (error) {
     if (error && typeof error === "object" && "statusCode" in error) throw error;
