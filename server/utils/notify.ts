@@ -72,7 +72,7 @@ const customerHeadlineFor = (status: ServiceOrderStatus, hasDelivery: boolean): 
   }
   switch (status) {
     case "RECEIVED": return "รับผ้าจากคุณเรียบร้อยแล้ว";
-    case "PROCESSING": return "เริ่มซักผ้าให้คุณแล้ว";
+    case "PROCESSING": return "กำลังดำเนินการ";
     case "COMPLETED": return "ส่งผ้าเรียบร้อย ขอบคุณที่ใช้บริการ";
     case "CANCELLED": return "ออเดอร์นี้ถูกยกเลิกแล้ว";
   }
@@ -85,7 +85,7 @@ const staffHeadlineFor = (status: ServiceOrderStatus, customerLabel: string, has
     case "RECEIVED":
       return `รับผ้าจาก${c} เรียบร้อยแล้ว`;
     case "PROCESSING":
-      return `เริ่มซักผ้าให้${c} แล้ว`;
+      return `กำลังดำเนินการให้${c}`;
     case "DELIVERING":
       return hasDelivery ? `กำลังจัดส่งผ้าให้${c} ที่บ้าน` : `ผ้าของ${c} พร้อมให้รับที่ร้าน`;
     case "COMPLETED":
