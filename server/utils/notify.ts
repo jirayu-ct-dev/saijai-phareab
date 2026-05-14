@@ -56,7 +56,9 @@ const customerHasDeliveryAddon = async (customerId: string): Promise<boolean> =>
   return count > 0;
 };
 
-export const serviceOrderStatusLabels: Record<ServiceOrderStatus, string> = {
+type ServiceOrderStatusLabels = Record<ServiceOrderStatus, string>;
+
+export const serviceOrderStatusLabels: ServiceOrderStatusLabels = {
   RECEIVED: "รับผ้าแล้ว",
   PROCESSING: "กำลังดำเนินการ",
   DELIVERING: "พร้อมส่ง / กำลังจัดส่ง",

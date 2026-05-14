@@ -32,7 +32,9 @@ type PrismaLike = Tx;
 export const HARD_DELETE_CONFIRM_TEXT = "ยืนยันการลบข้อมูล";
 export const WALK_IN_EMAIL = "walkin@saijai.local";
 
-export const deletedDataTypeLabels: Record<DeletedDataType | "all", string> = {
+type DeletedDataTypeLabels = Record<DeletedDataType | "all", string>;
+
+export const deletedDataTypeLabels: DeletedDataTypeLabels = {
   all: "ทั้งหมด",
   user: "ผู้ใช้งาน",
   service_order: "รายการรับผ้า",
