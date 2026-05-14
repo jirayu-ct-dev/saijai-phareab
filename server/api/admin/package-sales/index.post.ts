@@ -5,6 +5,7 @@ import { createReceiptNo } from "~~/server/utils/receiptNo";
 import { prisma } from "~~/server/utils/prisma";
 import { getBusinessSetting } from "~~/server/utils/businessSetting";
 import { computeVat } from "~~/server/utils/vat";
+import { notifyReceipt } from "~~/server/utils/notify";
 
 type CreatePackageSaleBody = {
   customerId: string;
@@ -15,7 +16,16 @@ type CreatePackageSaleBody = {
   discountAmount?: number;
   note?: string | null;
   slipImageId?: string | null;
+  method?: "CASH" | "TRANSFER" | null;
+  status?: "UNPAID" | "PENDING_VERIFICATION" | "PAID" | "CANCELLED" | null;
 };
+
+const packageSaleStatusByPaymentStatus = {
+  UNPAID: "PENDING",
+  PENDING_VERIFICATION: "PENDING",
+  PAID: "PAID",
+  CANCELLED: "CANCELLED",
+} as const;
 
 const buildEntitlementState = (validityDays: number | null | undefined, credits: number | null | undefined) => {
   const startAt = new Date();
@@ -94,12 +104,18 @@ export default defineEventHandler(async (event) => {
     const totalAmount = vat.totalAmount;
     const now = new Date();
 
+    const allowedStatuses = ["UNPAID", "PENDING_VERIFICATION", "PAID", "CANCELLED"] as const;
+    const paymentStatus = allowedStatuses.includes(body.status as typeof allowedStatuses[number])
+      ? (body.status as typeof allowedStatuses[number])
+      : "PAID";
+    const isPaid = paymentStatus === "PAID";
+
     const created = await prisma.$transaction(async (tx) => {
       const packageSale = await tx.packageSale.create({
         data: {
           customerId: body.customerId,
           soldById: actor.id,
-          status: "PAID",
+          status: packageSaleStatusByPaymentStatus[paymentStatus],
           subtotalAmount,
           discountAmount,
           totalAmount,
@@ -135,21 +151,25 @@ export default defineEventHandler(async (event) => {
         }
       }
 
-      const method = body.slipImageId ? ("TRANSFER" as const) : ("CASH" as const);
+      const method: "CASH" | "TRANSFER" = body.method === "TRANSFER" || body.method === "CASH"
+        ? body.method
+        : body.slipImageId
+          ? "TRANSFER"
+          : "CASH";
       const payment = await tx.paymentRecord.create({
         data: {
           paymentNo: await createPaymentNo(),
-          receiptNo: await createReceiptNo(now),
+          receiptNo: isPaid ? await createReceiptNo(now) : null,
           userId: body.customerId,
           packageSaleId: packageSale.id,
           amount: totalAmount,
-          status: "PAID",
+          status: paymentStatus,
           method,
           slipImageId: body.slipImageId ?? null,
           note: body.note?.trim() || null,
-          paidAt: now,
-          confirmedAt: now,
-          confirmedById: actor.id,
+          paidAt: isPaid ? now : null,
+          confirmedAt: isPaid ? now : null,
+          confirmedById: isPaid ? actor.id : null,
           metadata: {
             createdByAdminId: actor.id,
             source: "admin-package-sales",
@@ -163,14 +183,20 @@ export default defineEventHandler(async (event) => {
       await tx.paymentAuditLog.create({
         data: {
           paymentId: payment.id,
-          action: "CONFIRMED",
+          action: isPaid ? "CONFIRMED" : "CREATED",
           actorId: actor.id,
-          afterJson: { status: "PAID", method, source: "admin-package-sales" },
+          afterJson: { status: paymentStatus, method, source: "admin-package-sales" },
         },
       });
 
       return { id: packageSale.id, paymentId: payment.id };
     });
+
+    if (isPaid) {
+      void notifyReceipt({ paymentId: created.paymentId }).catch((err) => {
+        console.error("[package-sales] notifyReceipt failed", err);
+      });
+    }
 
     return created;
   } catch (error) {

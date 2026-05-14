@@ -1,6 +1,7 @@
 import { requireRole } from "~~/server/utils/auth";
 import { prisma } from "~~/server/utils/prisma";
 import { createReceiptNo } from "~~/server/utils/receiptNo";
+import { notifyReceipt } from "~~/server/utils/notify";
 import type { PaymentMethod, PaymentStatus } from "~~/shared/types/enums";
 
 type UpdatePaymentStateBody = {
@@ -126,6 +127,12 @@ export default defineEventHandler(async (event) => {
       },
     });
   });
+
+  if (nextStatus === "PAID") {
+    void notifyReceipt({ paymentId }).catch((err) => {
+      console.error("[state.put] notifyReceipt failed", err);
+    });
+  }
 
   return { id: paymentId, status: nextStatus, method: nextMethod ?? null };
 });

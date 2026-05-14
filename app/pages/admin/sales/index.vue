@@ -81,10 +81,11 @@ const closeSaleResultModal = () => {
   saleResultModalOpen.value = false;
 };
 
-const openQuotation = () => {
+const openDocument = () => {
   if (!latestSaleResult.paymentId) return;
 
-  const target = `/admin/payment/${latestSaleResult.paymentId}/quotation`;
+  const documentType = latestSaleResult.saleType === "PACKAGE" ? "receipt" : "quotation";
+  const target = `/admin/payment/${latestSaleResult.paymentId}/${documentType}`;
   if (import.meta.client) {
     window.open(target, "_blank", "noopener,noreferrer");
   }
@@ -150,8 +151,15 @@ const handleRefresh = async () => {
 
 const resultDescription = computed(() =>
   latestSaleResult.saleType === "PACKAGE"
-    ? "บันทึกรายการขายแล้ว คุณสามารถเปิดใบแจ้งราคาหรือไปหน้าการชำระเงินต่อได้"
+    ? "บันทึกการขายและรับชำระเงินเรียบร้อยแล้ว คุณสามารถเปิดใบเสร็จได้เลย"
     : "บันทึกรับงานแล้ว คุณสามารถเปิดใบแจ้งราคาหรือไปหน้าการชำระเงินต่อได้",
+);
+
+const primaryActionLabel = computed(() =>
+  latestSaleResult.saleType === "PACKAGE" ? "เปิดใบเสร็จ" : "เปิดใบแจ้งราคา",
+);
+const primaryActionIcon = computed(() =>
+  latestSaleResult.saleType === "PACKAGE" ? "i-lucide-receipt" : "i-lucide-file-text",
 );
 </script>
 
@@ -289,7 +297,7 @@ const resultDescription = computed(() =>
           icon="i-lucide-eye"
           @click="navigateTo(`/admin/service-orders/${latestSaleResult.serviceOrderId}`)"
         />
-        <UButton label="เปิดใบแจ้งราคา" color="neutral" icon="i-lucide-file-text" @click="openQuotation" />
+        <UButton :label="primaryActionLabel" color="neutral" :icon="primaryActionIcon" @click="openDocument" />
       </div>
     </template>
   </UModal>

@@ -3,7 +3,8 @@ import { useMediaQuery } from "@vueuse/core";
 import PosCatalogCard from "~~/app/components/admin/pos/PosCatalogCard.vue";
 import PosCheckoutPanel from "~~/app/components/admin/pos/PosCheckoutPanel.vue";
 import type { AdminSaleItemInput, AdminSaleSlipImage, CreateAdminSaleBody } from "~~/app/composables/useAdminSales";
-import type { PackageType } from "~~/shared/types/enums";
+import type { PackageType, PaymentMethod, PaymentStatus } from "~~/shared/types/enums";
+import { paymentStatusLabels } from "~~/shared/config/paymentConfig";
 import * as adminUi from "~~/shared/config/adminUi";
 import { formatCurrency } from "~~/shared/utils/format";
 
@@ -79,7 +80,21 @@ const createEmptyForm = () => ({
   discountAmount: 0,
   note: "",
   slipImageId: null as string | null,
+  method: "CASH" as PaymentMethod,
+  status: "PAID" as PaymentStatus,
 });
+
+const paymentMethodOptions: Array<{ label: string; value: PaymentMethod; icon: string }> = [
+  { label: "เงินสด", value: "CASH", icon: "i-lucide-banknote" },
+  { label: "โอนเงิน", value: "TRANSFER", icon: "i-lucide-credit-card" },
+];
+
+const paymentStatusOptions: Array<{ label: string; value: PaymentStatus }> = [
+  { label: paymentStatusLabels.PAID, value: "PAID" },
+  { label: paymentStatusLabels.PENDING_VERIFICATION, value: "PENDING_VERIFICATION" },
+  { label: paymentStatusLabels.UNPAID, value: "UNPAID" },
+  { label: paymentStatusLabels.CANCELLED, value: "CANCELLED" },
+];
 
 const form = reactive(createEmptyForm());
 const isSubmitting = ref(false);
@@ -228,6 +243,8 @@ const handleSubmit = async () => {
       discountAmount: sanitizedDiscountAmount.value,
       note: form.note.trim() || null,
       slipImageId: form.slipImageId,
+      method: form.method,
+      status: form.status,
     };
 
     const result = await createSale(payload);
@@ -381,6 +398,30 @@ const handleSubmit = async () => {
           </template>
 
           <template #discount>
+            <UFormField label="ช่องทางการชำระเงิน">
+              <div class="grid grid-cols-2 gap-2">
+                <UButton
+                  v-for="option in paymentMethodOptions"
+                  :key="option.value"
+                  :label="option.label"
+                  :icon="option.icon"
+                  :color="form.method === option.value ? 'primary' : 'neutral'"
+                  :variant="form.method === option.value ? 'solid' : 'outline'"
+                  block
+                  @click="form.method = option.value"
+                />
+              </div>
+            </UFormField>
+
+            <UFormField label="สถานะการชำระเงิน">
+              <USelect
+                v-model="form.status"
+                :items="paymentStatusOptions"
+                value-key="value"
+                class="w-full"
+              />
+            </UFormField>
+
             <UFormField label="ส่วนลด">
               <UInputNumber
                 v-model="form.discountAmount"

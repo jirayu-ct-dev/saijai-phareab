@@ -824,11 +824,38 @@ export const notifyReceipt = async (params: { paymentId: string }): Promise<void
         amount: true,
         method: true,
         userId: true,
+        paidAt: true,
+        updatedAt: true,
+        confirmedBy: { select: { id: true, name: true } },
         user: { select: { name: true, email: true, phoneNumber: true } },
         metadata: true,
         memberEntitlementId: true,
         slipImage: { select: { secureUrl: true, url: true } },
-        serviceOrder: { select: { id: true, orderNo: true, isWalkIn: true, walkInName: true, walkInPhone: true } },
+        serviceOrder: {
+          select: {
+            id: true,
+            orderNo: true,
+            isWalkIn: true,
+            walkInName: true,
+            walkInPhone: true,
+            subtotalAmount: true,
+            discountAmount: true,
+            totalAmount: true,
+            hangerCharge: true,
+            serviceOrderItems: {
+              where: { deletedAt: null },
+              select: {
+                id: true,
+                quantity: true,
+                unitPrice: true,
+                totalPrice: true,
+                storefrontPrice: {
+                  select: { storefrontItem: { select: { name: true } } },
+                },
+              },
+            },
+          },
+        },
         packageSale: {
           select: {
             id: true,
@@ -858,9 +885,8 @@ export const notifyReceipt = async (params: { paymentId: string }): Promise<void
     if (!payment) return;
 
     const setting = await getNotificationSetting();
-    if (!setting.notifyCustomerReceipt) return;
-
     const shopName = await getShopName();
+
     const resolved = resolveOrderCustomer({
       isWalkIn: payment.serviceOrder?.isWalkIn ?? false,
       walkInName: payment.serviceOrder?.walkInName ?? null,
@@ -870,91 +896,157 @@ export const notifyReceipt = async (params: { paymentId: string }): Promise<void
     const customerName = resolved.name;
     const receiptCode = payment.receiptNo || payment.paymentNo || `RC-${payment.id.slice(-8).toUpperCase()}`;
     const totalAmount = Number(payment.amount);
-    const receiptUrl = `${getBaseUrl()}/admin/payment/${payment.id}/receipt`;
     const methodLabel = payment.method === "TRANSFER" ? "โอนเงิน" : payment.method === "CASH" ? "เงินสด" : null;
+    const isServiceOrder = Boolean(payment.serviceOrder);
+    const isPackageSale = Boolean(payment.packageSale && payment.packageSale.items.length);
+    const saleKind: "PACKAGE" | "STOREFRONT" | "OTHER" = isPackageSale
+      ? "PACKAGE"
+      : isServiceOrder
+        ? "STOREFRONT"
+        : "OTHER";
+    const saleKindLabel =
+      saleKind === "PACKAGE" ? "แพ็กเกจ" : saleKind === "STOREFRONT" ? "รายการซักรีด" : "ทั่วไป";
+    const saleKindEmoji = saleKind === "PACKAGE" ? "🎁" : saleKind === "STOREFRONT" ? "🧺" : "🎉";
+    const saleKindBadge =
+      saleKind === "PACKAGE" ? "🎁 แพ็กเกจ" : saleKind === "STOREFRONT" ? "🧺 รายการซักรีด" : "🎉 ทั่วไป";
 
-    const body: FlexBox[] = [
-      kvRow("เลขที่ใบเสร็จ", receiptCode),
-      kvRow("ลูกค้า", customerName),
-    ];
-    body.push(kvRow("เบอร์โทร", resolved.phone || "ไม่ระบุ"));
-    if (methodLabel) body.push(kvRow("วิธีชำระเงิน", methodLabel));
+    const serviceOrderItems = (payment.serviceOrder?.serviceOrderItems ?? []).map((item) => ({
+      name: item.storefrontPrice?.storefrontItem?.name ?? "รายการ",
+      qty: item.quantity,
+      unitPrice: Number(item.unitPrice),
+    }));
 
-    const paymentMeta = (payment.metadata ?? null) as { vat?: { rate?: number; amount?: number; included?: boolean; baseAmount?: number } } | null;
-    const vatInfo = paymentMeta?.vat;
-    if (vatInfo && Number(vatInfo.rate ?? 0) > 0) {
-      body.push(kvRow(vatInfo.included ? `รวม VAT ${vatInfo.rate}%` : `VAT ${vatInfo.rate}%`, `฿${formatCurrency(Number(vatInfo.amount ?? 0))}`));
-    }
-    body.push(kvRow("ยอดรวม", `฿${formatCurrency(totalAmount)}`));
+    const packageItems = (payment.packageSale?.items ?? []).map((item) => ({
+      name: item.product.name,
+      qty: item.qty,
+    }));
 
-    if (payment.packageSale && payment.packageSale.items.length) {
-      body.push(divider());
-      body.push(sectionHeading("แพ็กเกจที่คุณได้รับ"));
-
-      let earliestStart: Date | null = null;
-      let latestEnd: Date | null = null;
-      let totalCreditInitial = 0;
-      let totalCreditRemaining = 0;
-
-      for (const item of payment.packageSale.items) {
-        const typeLabel = item.product.packageType === "MAIN" ? "แพ็กเกจหลัก" : "แพ็กเกจเสริม";
-        body.push(kvRow(typeLabel, `${item.product.name} x${item.qty}`));
-
-        for (const ent of item.memberEntitlements) {
-          totalCreditInitial += ent.creditInitial ?? 0;
-          totalCreditRemaining += ent.creditRemaining ?? 0;
-          if (ent.startAt && (!earliestStart || ent.startAt < earliestStart)) earliestStart = ent.startAt;
-          if (ent.endAt && (!latestEnd || ent.endAt > latestEnd)) latestEnd = ent.endAt;
-        }
-      }
-
-      if (totalCreditInitial > 0) {
-        body.push(kvRow("เครดิตรวม", `${totalCreditRemaining}/${totalCreditInitial} เครดิต`));
-      }
-      if (earliestStart) {
-        body.push(kvRow("เริ่มใช้ได้", formatDate(earliestStart.toISOString())));
-      }
-      if (latestEnd) {
-        body.push(kvRow("หมดอายุ", formatDate(latestEnd.toISOString())));
-      } else if (earliestStart) {
-        body.push(kvRow("อายุการใช้งาน", "ไม่กำหนด"));
+    let totalCreditInitial = 0;
+    let totalCreditRemaining = 0;
+    for (const item of (payment.packageSale?.items ?? [])) {
+      for (const ent of item.memberEntitlements) {
+        totalCreditInitial += ent.creditInitial ?? 0;
+        totalCreditRemaining += ent.creditRemaining ?? 0;
       }
     }
 
-    const isPackageReceipt = Boolean(payment.packageSale && payment.packageSale.items.length);
-    const isServiceOrderReceipt = Boolean(payment.serviceOrder);
-    const headline = isPackageReceipt
-      ? "ขอบคุณที่ซื้อแพ็กเกจกับเรา"
-      : isServiceOrderReceipt
-        ? "ชำระค่าบริการเรียบร้อย ขอบคุณที่ใช้บริการ"
-        : "ชำระเงินเรียบร้อย ขอบคุณที่ใช้บริการ";
-    const subline = isPackageReceipt
-      ? "ใบเสร็จและรายละเอียดแพ็กเกจอยู่ด้านล่างนี้"
-      : "ใบเสร็จอยู่ด้านล่างนี้";
+    const serviceOrder = payment.serviceOrder;
+    const subtotal = serviceOrder?.subtotalAmount != null ? Number(serviceOrder.subtotalAmount) : 0;
+    const discountAmount = serviceOrder?.discountAmount != null ? Number(serviceOrder.discountAmount) : 0;
 
-    const flex = buildFlexBubble({
-      shopName,
-      emoji: "🎉",
-      headline,
-      subline,
-      bodyContents: body,
-      buttonLabel: "ดูใบเสร็จ",
-      buttonUrl: receiptUrl,
-      color: "#16A34A",
-      altText: `[${shopName}] ใบเสร็จ ${receiptCode}`,
-    });
-
-    const messages: LineMessage[] = [flex];
     const slipUrl = payment.method === "TRANSFER"
       ? payment.slipImage?.secureUrl || payment.slipImage?.url || null
       : null;
-    if (slipUrl) {
-      messages.push(buildTextMessage("📎 หลักฐานการโอนเงิน"));
-      messages.push(buildImageMessage(slipUrl));
+
+    const buildStaffFlex = (): LineMessage => {
+      const body: FlexBox[] = [
+        kvRow("ประเภทรายการ", saleKindBadge),
+        kvRow("เลขที่ใบเสร็จ", receiptCode),
+        kvRow("ชื่อลูกค้า", customerName),
+        kvRow("เบอร์โทร", resolved.phone || "ไม่ระบุ"),
+        kvRow("วันที่", formatDateTime((payment.paidAt ?? payment.updatedAt).toISOString())),
+        kvRow("พนักงาน", payment.confirmedBy?.name || "-"),
+      ];
+      if (methodLabel) body.push(kvRow("วิธีชำระเงิน", methodLabel));
+
+      if (isServiceOrder && serviceOrderItems.length) {
+        body.push(divider());
+        body.push(sectionHeading("รายการบริการ"));
+        for (const item of serviceOrderItems) {
+          body.push(kvRow(item.name, `×${item.qty} — ฿${formatCurrency(item.unitPrice)}`));
+        }
+        body.push(kvRow("ราคารวม", `฿${formatCurrency(subtotal)}`));
+        const hanger = (serviceOrder?.hangerCharge ?? null) as { count?: number; total?: number } | null;
+        if (hanger && Number(hanger.total) > 0) {
+          body.push(kvRow("ค่าไม้แขวน", `฿${formatCurrency(Number(hanger.total))}`));
+        }
+        if (discountAmount > 0) body.push(kvRow("ส่วนลด", `-฿${formatCurrency(discountAmount)}`));
+        body.push(kvRow("ยอดสุทธิ", `฿${formatCurrency(totalAmount)}`));
+      }
+
+      if (isPackageSale && packageItems.length) {
+        body.push(divider());
+        body.push(sectionHeading("แพ็กเกจ"));
+        for (const pkg of packageItems) {
+          body.push(kvRow(pkg.name, `×${pkg.qty}`));
+        }
+        body.push(kvRow("เครดิต", `${totalCreditRemaining}/${totalCreditInitial} ครั้ง`));
+      }
+
+      const staffHeadline =
+        saleKind === "PACKAGE"
+          ? `ชำระค่าแพ็กเกจ — ${customerName}`
+          : saleKind === "STOREFRONT"
+            ? `ชำระค่าซักรีด — ${customerName}`
+            : `ชำระเงินเรียบร้อย — ${customerName}`;
+
+      return buildFlexBubble({
+        shopName,
+        emoji: saleKindEmoji,
+        headline: staffHeadline,
+        subline: `${saleKindBadge} · ${receiptCode}`,
+        bodyContents: body,
+        buttonLabel: "ดูใบเสร็จ",
+        buttonUrl: `${getBaseUrl()}/admin/payment/${payment.id}/receipt`,
+        color: "#16A34A",
+        altText: `[${shopName}] ใบเสร็จ${saleKindLabel} ${receiptCode} — ${customerName}`,
+      });
+    };
+
+    const buildCustomerFlex = (): LineMessage => {
+      const body: FlexBox[] = [
+        kvRow("ประเภทรายการ", saleKindBadge),
+        kvRow("เลขที่ใบเสร็จ", receiptCode),
+        kvRow("ยอดชำระ", `฿${formatCurrency(totalAmount)}`),
+        kvRow("วันที่", formatDateTime((payment.paidAt ?? payment.updatedAt).toISOString())),
+      ];
+      if (methodLabel) body.push(kvRow("วิธีชำระเงิน", methodLabel));
+
+      if (isServiceOrder) {
+        body.push(kvRow("เลขรับผ้า", payment.serviceOrder?.orderNo || "-"));
+        body.push(kvRow("รายการ", `${serviceOrderItems.length} รายการ`));
+      }
+      if (isPackageSale && packageItems.length) {
+        body.push(kvRow("แพ็กเกจ", packageItems.map((i) => i.name).join(", ")));
+        body.push(kvRow("เครดิต", `${totalCreditRemaining}/${totalCreditInitial} ครั้ง`));
+      }
+
+      const customerHeadline =
+        saleKind === "PACKAGE"
+          ? "ชำระค่าแพ็กเกจเรียบร้อย ขอบคุณที่ซื้อแพ็กเกจกับเรา"
+          : saleKind === "STOREFRONT"
+            ? "ชำระค่าบริการซักรีดเรียบร้อย ขอบคุณที่ใช้บริการ"
+            : "ชำระเงินเรียบร้อย ขอบคุณที่ใช้บริการ";
+      const customerSubline =
+        saleKind === "PACKAGE"
+          ? "ใบเสร็จและรายละเอียดแพ็กเกจอยู่ด้านล่างนี้"
+          : "ใบเสร็จอยู่ด้านล่างนี้";
+
+      return buildFlexBubble({
+        shopName,
+        emoji: saleKindEmoji,
+        headline: customerHeadline,
+        subline: customerSubline,
+        bodyContents: body,
+        buttonLabel: "ดูใบเสร็จ",
+        buttonUrl: `${getBaseUrl()}/me/receipts/${payment.id}`,
+        color: "#16A34A",
+        altText: `[${shopName}] ใบเสร็จ${saleKindLabel} ${receiptCode}`,
+      });
+    };
+
+    if (setting.notifyCustomerReceipt) {
+      await pushToCustomer(payment.userId, [buildCustomerFlex()]);
     }
 
-    await pushToCustomer(payment.userId, messages);
-    await pushToSubscribers("receiveReceipt", messages);
+    await pushToSubscribers("receiveReceipt", [buildStaffFlex()]);
+
+    if (slipUrl) {
+      await pushToSubscribers("receiveReceipt", [
+        buildTextMessage("📎 หลักฐานการโอนเงิน"),
+        buildImageMessage(slipUrl),
+      ]);
+    }
   } catch (error) {
     console.error("[notify] notifyReceipt", error);
   }

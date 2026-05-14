@@ -53,6 +53,8 @@ export type CreateAdminSaleBody = {
   discountAmount?: number;
   note?: string | null;
   slipImageId?: string | null;
+  method?: "CASH" | "TRANSFER" | null;
+  status?: "UNPAID" | "PENDING_VERIFICATION" | "PAID" | "CANCELLED" | null;
 };
 
 export type UpdateAdminSaleBody = CreateAdminSaleBody;
