@@ -216,24 +216,25 @@ onUnmounted(() => {
                 </div>
               </div>
 
-              <!-- Message 2: Progress -->
+              <!-- Message 2: Ready -->
               <div class="bg-gray-50 dark:bg-gray-800/60 border border-gray-100 dark:border-gray-700 rounded-2xl rounded-tl-sm p-3.5 max-w-[92%] opacity-0 animate-[fade-in_0.4s_ease-out_1s_forwards]">
                 <div class="font-semibold flex items-center gap-2 mb-2.5 text-gray-900 dark:text-white text-[13px]">
-                  <span class="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
-                  กำลังซัก…
+                  <span class="w-2 h-2 rounded-full bg-emerald-500" />
+                  ผ้าพร้อมส่งคืนแล้ว
                 </div>
-                <div class="space-y-1.5 text-[12.5px] text-gray-600 dark:text-gray-400 mb-3">
+                <div class="space-y-1.5 text-[12.5px] text-gray-600 dark:text-gray-400">
                   <div class="flex justify-between gap-4">
-                    <span>เครื่อง</span>
-                    <span class="font-semibold text-gray-900 dark:text-gray-200">W-03</span>
+                    <span>ออเดอร์</span>
+                    <span class="font-mono text-gray-900 dark:text-gray-200">#SJ-2604-018</span>
                   </div>
                   <div class="flex justify-between gap-4">
-                    <span>เหลืออีก</span>
-                    <span class="font-semibold text-gray-900 dark:text-gray-200">~ 28 นาที</span>
+                    <span>นัดส่ง</span>
+                    <span class="font-semibold text-gray-900 dark:text-gray-200">วันนี้ 14:00–18:00</span>
                   </div>
-                </div>
-                <div class="h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
-                  <div class="h-full bg-gradient-to-r from-primary-500 to-blue-400 w-0 animate-[progress_3s_ease-out_1.5s_forwards] rounded-full" />
+                  <div class="flex justify-between gap-4 pt-1.5 border-t border-gray-200 dark:border-gray-700">
+                    <span class="font-semibold text-gray-700 dark:text-gray-300">สถานะ</span>
+                    <span class="font-bold text-emerald-600 dark:text-emerald-400">กำลังจัดส่ง</span>
+                  </div>
                 </div>
               </div>
             </div>

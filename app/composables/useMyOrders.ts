@@ -10,6 +10,7 @@ export const useMyOrders = () => {
   });
 
   const { data, status: requestStatus, refresh, error } = useFetch("/api/me/orders", {
+    key: "me-orders",
     query,
     watch: [query],
   });

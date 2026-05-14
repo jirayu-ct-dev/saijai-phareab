@@ -21,7 +21,7 @@
           class="group flex flex-col items-center text-center bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 hover:border-[#06C755]/50 dark:hover:border-[#06C755]/50 rounded-2xl p-8 shadow-sm hover:shadow-md transition-all duration-300"
         >
           <div class="w-14 h-14 rounded-2xl bg-[#06C755]/10 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-            <UIcon name="i-ph-chat-circle-fill" class="w-7 h-7 text-[#06C755]" />
+            <UIcon name="i-simple-icons-line" class="w-7 h-7 text-[#06C755]" />
           </div>
           <p class="text-[11px] font-bold tracking-widest uppercase text-gray-500 dark:text-gray-400 mb-1">LINE Official</p>
           <p class="text-[18px] font-bold text-gray-900 dark:text-white mb-1">@saijai-laundry</p>
@@ -81,7 +81,7 @@
               <h3 class="text-xl font-bold text-gray-900 dark:text-white mb-3">แวะมาหาเราได้ที่ร้าน</h3>
               <p class="text-gray-500 dark:text-gray-400 text-sm leading-relaxed mb-6">
                 ใส่ใจ ผ้าเรียบ - บริการ ซัก อบ รีด คุ้มค่า สะดวกสบาย <br/>
-                อำเภอประโคนชัย จังหวัดบุรีรัมย์
+                อำเภอเมือง จังหวัดบุรีรัมย์
               </p>
               
               <div class="space-y-4">
@@ -105,7 +105,7 @@
                 to="https://line.me/R/ti/p/@883vmdct"
                 target="_blank"
               >
-                <UIcon name="i-ph-chat-circle-fill" class="w-5 h-5 mr-2" />
+                <UIcon name="i-simple-icons-line" class="w-5 h-5 mr-2" />
                 ติดต่อผ่าน LINE
               </UButton>
             </div>

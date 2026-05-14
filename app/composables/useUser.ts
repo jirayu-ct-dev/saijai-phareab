@@ -122,7 +122,7 @@ export const useUser = () => {
     }
   };
 
-  const loginWithLineIdToken = async (accessToken: string, idToken: string) => {
+  const loginWithLineIdToken = async (accessToken: string, idToken: string, displayName?: string) => {
     start();
     try {
       const { data, error } = await authClient.signIn.social({
@@ -146,6 +146,19 @@ export const useUser = () => {
       }
 
       await refreshSession();
+
+      // Sync name if it's the placeholder "liff-auto login" or empty
+      if (user.value && (user.value.name === "liff-auto login" || !user.value.name) && displayName) {
+        try {
+          await $fetch("/api/me/profile", {
+            method: "PUT",
+            body: { name: displayName },
+          });
+          await refreshSession();
+        } catch (e) {
+          console.error("[useUser] Failed to sync LIFF name:", e);
+        }
+      }
     } catch (error: any) {
       console.error(error);
       throw new Error(error.message || "เกิดข้อผิดพลาดในการเข้าสู่ระบบด้วย LINE");

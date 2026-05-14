@@ -24,7 +24,7 @@
           <div class="flex-shrink-0 w-10 h-10 rounded-xl bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white flex items-center justify-center font-semibold text-sm font-mono">02</div>
           <div>
             <h4 class="text-[15px] font-semibold text-gray-900 dark:text-white mb-1">พนักงานรับผ้า</h4>
-            <p class="text-[13.5px] text-gray-500 dark:text-gray-400 leading-relaxed">พนักงานรับผ้า พร้อมออกใบรับสินค้า</p>
+            <p class="text-[13.5px] text-gray-500 dark:text-gray-400 leading-relaxed">พนักงานรับผ้าเข้ามาซัก</p>
           </div>
         </div>
 
@@ -32,7 +32,7 @@
           <div class="flex-shrink-0 w-10 h-10 rounded-xl bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white flex items-center justify-center font-semibold text-sm font-mono">03</div>
           <div>
             <h4 class="text-[15px] font-semibold text-gray-900 dark:text-white mb-1">ซัก-อบ-รีด</h4>
-            <p class="text-[13.5px] text-gray-500 dark:text-gray-400 leading-relaxed">ดำเนินการตามบริการที่เลือก พร้อมถ่ายรูปอัปเดต</p>
+            <p class="text-[13.5px] text-gray-500 dark:text-gray-400 leading-relaxed">ดำเนินการตามบริการที่เลือก พร้อมอัปเดตสถานะ</p>
           </div>
         </div>
 

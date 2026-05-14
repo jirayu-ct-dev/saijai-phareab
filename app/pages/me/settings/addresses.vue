@@ -12,6 +12,7 @@ const notify = useNotify();
 
 const isModalOpen = ref(false);
 const isDeleting = ref(false);
+const showDeleteModal = ref(false);
 const deleteConfirmId = ref<string | null>(null);
 const editingAddress = ref<any>(null);
 
@@ -75,6 +76,7 @@ const onSubmit = async (event: FormSubmitEvent<Schema>) => {
 
 const confirmDelete = (id: string) => {
   deleteConfirmId.value = id;
+  showDeleteModal.value = true;
 };
 
 const handleDelete = async () => {
@@ -84,6 +86,7 @@ const handleDelete = async () => {
     await deleteAddress(deleteConfirmId.value);
     notify.success("ลบที่อยู่สำเร็จ");
     deleteConfirmId.value = null;
+    showDeleteModal.value = false;
     refresh();
   } catch (err: any) {
     notify.error(err.message || "เกิดข้อผิดพลาด");
@@ -113,13 +116,13 @@ const handleDelete = async () => {
 
       <div class="p-6 max-w-3xl mx-auto space-y-6 w-full">
         <div v-if="pending" class="space-y-4">
-          <USkeleton v-for="i in 2" :key="i" class="h-32 w-full" />
+          <USkeleton v-for="i in 2" :key="i" class="h-32 w-full rounded-md" />
         </div>
 
-        <div v-else-if="addresses.length === 0" class="flex flex-col items-center justify-center py-20 text-center bg-white dark:bg-gray-800 rounded-xl border border-dashed border-gray-300 dark:border-gray-700">
-          <UIcon name="i-lucide-map-pin" class="h-16 w-16 text-gray-400 mb-4" />
-          <h3 class="text-lg font-semibold text-gray-900 dark:text-white">ยังไม่มีข้อมูลที่อยู่จัดส่ง</h3>
-          <p class="text-gray-500 max-w-xs mx-auto mb-6">เพิ่มที่อยู่ของคุณเพื่อความสะดวกในการเรียกใช้บริการรับ-ส่งผ้า</p>
+        <div v-else-if="addresses.length === 0" class="flex flex-col items-center justify-center py-20 text-center bg-elevated rounded-md border border-dashed border-default">
+          <UIcon name="i-lucide-map-pin" class="h-16 w-16 text-dimmed mb-4" />
+          <h3 class="text-lg font-semibold text-highlighted">ยังไม่มีข้อมูลที่อยู่จัดส่ง</h3>
+          <p class="text-muted max-w-xs mx-auto mb-6">เพิ่มที่อยู่ของคุณเพื่อความสะดวกในการเรียกใช้บริการรับ-ส่งผ้า</p>
           <UButton color="primary" icon="i-lucide-plus" size="lg" @click="openAdd">เพิ่มที่อยู่ใหม่</UButton>
         </div>
 
@@ -127,17 +130,17 @@ const handleDelete = async () => {
           <UCard 
             v-for="addr in addresses" 
             :key="addr.id"
-            class="group hover:border-primary-500 transition-colors"
+            class="group hover:border-primary transition-colors"
           >
             <div class="flex justify-between items-start">
               <div class="space-y-2">
                 <div class="flex items-center gap-2">
                   <UBadge v-if="addr.isDefault" color="primary" variant="subtle">ที่อยู่หลัก</UBadge>
                 </div>
-                <p class="text-gray-900 dark:text-white font-medium leading-relaxed">
+                <p class="text-highlighted font-medium leading-relaxed">
                   {{ addr.address }}
                 </p>
-                <p class="text-sm text-gray-500">
+                <p class="text-sm text-muted">
                   {{ addr.subdistrict }}, {{ addr.district }}, {{ addr.province }} {{ addr.postalCode }}
                 </p>
               </div>
@@ -162,18 +165,9 @@ const handleDelete = async () => {
       </div>
 
       <!-- Add/Edit Modal -->
-      <UModal v-model="isModalOpen">
-        <UCard>
-          <template #header>
-            <div class="flex items-center justify-between">
-              <h3 class="text-base font-semibold leading-6 text-gray-900 dark:text-white">
-                {{ editingAddress ? 'แก้ไขที่อยู่' : 'เพิ่มที่อยู่ใหม่' }}
-              </h3>
-              <UButton color="neutral" variant="ghost" icon="i-lucide-x" @click="isModalOpen = false" />
-            </div>
-          </template>
-
-          <UForm :schema="schema" :state="state" class="space-y-4 p-4" @submit="onSubmit">
+      <UModal v-model:open="isModalOpen" :title="editingAddress ? 'แก้ไขที่อยู่' : 'เพิ่มที่อยู่ใหม่'">
+        <template #body>
+          <UForm :schema="schema" :state="state" class="space-y-4" @submit="onSubmit">
             <UFormField label="ที่อยู่ (บ้านเลขที่, หมู่บ้าน, ซอย, ถนน)" name="address">
               <UTextarea v-model="state.address" placeholder="เช่น 123/45 หมู่บ้านไทยเจริญ ซอย 5 ถนนสุขุมวิท" />
             </UFormField>
@@ -205,23 +199,20 @@ const handleDelete = async () => {
               <UButton type="submit" color="primary">บันทึก</UButton>
             </div>
           </UForm>
-        </UCard>
+        </template>
       </UModal>
 
       <!-- Delete Confirmation -->
-      <UModal :model-value="!!deleteConfirmId" @update:model-value="deleteConfirmId = null">
-        <UCard>
-          <template #header>
-            <h3 class="text-lg font-bold text-error">ยืนยันการลบ</h3>
-          </template>
+      <UModal v-model:open="showDeleteModal" title="ยืนยันการลบ">
+        <template #body>
           <p class="py-4">คุณต้องการลบที่อยู่นี้ใช่หรือไม่? การกระทำนี้ไม่สามารถย้อนกลับได้</p>
-          <template #footer>
-            <div class="flex justify-end gap-3">
-              <UButton color="neutral" variant="ghost" @click="deleteConfirmId = null">ยกเลิก</UButton>
-              <UButton color="error" :loading="isDeleting" @click="handleDelete">ลบทิ้ง</UButton>
-            </div>
-          </template>
-        </UCard>
+        </template>
+        <template #footer>
+          <div class="flex justify-end gap-3">
+            <UButton color="neutral" variant="ghost" @click="showDeleteModal = false">ยกเลิก</UButton>
+            <UButton color="error" :loading="isDeleting" @click="handleDelete">ลบทิ้ง</UButton>
+          </div>
+        </template>
       </UModal>
     </UDashboardPanel>
   </UDashboardPage>

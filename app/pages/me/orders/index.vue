@@ -1,6 +1,11 @@
 <script setup lang="ts">
 import { orderStatusColors, orderStatusLabels } from "~~/shared/config/orderConfig";
 import { formatCurrency, formatDateTime } from "~~/shared/utils/format";
+import * as adminUi from "~~/shared/config/adminUi";
+
+const adminTableUi = adminUi.adminTableUi;
+const adminMobileListCardClass = adminUi.adminMobileListCardClass;
+const adminFilterBarClass = adminUi.adminFilterBarClass;
 
 definePageMeta({
   layout: "user",
@@ -8,7 +13,7 @@ definePageMeta({
 });
 
 import type { TableColumn } from "@nuxt/ui";
-const { orders, meta, page, pageSize, status, pending } = useMyOrders();
+const { orders, meta, page, pageSize, status, pending, refresh } = useMyOrders();
 
 const statusOptions = [
   { label: "สถานะทั้งหมด", value: "" },
@@ -36,9 +41,12 @@ const columns: TableColumn<any>[] = [
         <template #leading>
           <UDashboardSidebarCollapse />
         </template>
+        <template #right>
+          <UButton icon="i-lucide-refresh-cw" :loading="pending" variant="ghost" color="neutral" @click="() => refresh()" />
+        </template>
       </UDashboardNavbar>
 
-      <UDashboardToolbar>
+      <UDashboardToolbar :class="adminFilterBarClass">
         <template #left>
           <USelect
             v-model="status"
@@ -48,11 +56,43 @@ const columns: TableColumn<any>[] = [
         </template>
       </UDashboardToolbar>
 
+      <!-- Mobile View -->
+      <div class="md:hidden space-y-2 p-2">
+        <div v-for="order in orders" :key="order.id" :class="adminMobileListCardClass" class="p-3">
+          <div class="flex justify-between items-start mb-2">
+            <span class="font-medium text-highlighted">{{ order.orderNo || '-' }}</span>
+            <UBadge :color="orderStatusColors[order.status as keyof typeof orderStatusColors] as any" variant="subtle">
+              {{ orderStatusLabels[order.status as keyof typeof orderStatusLabels] }}
+            </UBadge>
+          </div>
+          <div class="text-sm text-muted mb-2">
+            <p>{{ formatDateTime(order.receivedAt) }}</p>
+            <p>{{ order.itemCount }} ชิ้น</p>
+          </div>
+          <div class="flex justify-between items-center">
+            <span class="font-bold text-highlighted">{{ formatCurrency(order.totalAmount) }}</span>
+            <UButton
+              color="neutral"
+              variant="ghost"
+              icon="i-lucide-chevron-right"
+              :to="`/me/orders/${order.id}`"
+              size="sm"
+            />
+          </div>
+        </div>
+        <div v-if="!orders.length && !pending" class="flex flex-col items-center justify-center py-12 text-center text-muted">
+          <UIcon name="i-lucide-inbox" class="h-12 w-12 opacity-50 mb-4" />
+          <p>ยังไม่มีรายการออเดอร์</p>
+          <UButton to="/me/packages" color="primary" variant="link">ดูแพ็กเกจของเรา</UButton>
+        </div>
+      </div>
+
       <UTable
         :data="orders"
         :columns="columns"
         :loading="pending"
-        class="w-full"
+        :ui="adminTableUi"
+        class="hidden md:table w-full"
       >
         <template #orderNo-cell="{ row }">
           <span class="font-medium">{{ row.original.orderNo || '-' }}</span>
@@ -87,18 +127,19 @@ const columns: TableColumn<any>[] = [
 
         <template #empty>
           <div class="flex flex-col items-center justify-center py-12 text-center">
-            <UIcon name="i-lucide-inbox" class="h-12 w-12 text-gray-400 mb-4" />
-            <p class="text-gray-500 mb-4">ยังไม่มีรายการออเดอร์</p>
+            <UIcon name="i-lucide-inbox" class="h-12 w-12 text-dimmed mb-4" />
+            <p class="text-muted mb-4">ยังไม่มีรายการออเดอร์</p>
             <UButton to="/me/packages" color="primary">ดูแพ็กเกจของเรา</UButton>
           </div>
         </template>
       </UTable>
 
-      <div v-if="meta.total > pageSize" class="flex justify-end p-4 border-t border-gray-200 dark:border-gray-800">
+      <div v-if="meta.total > pageSize" class="flex justify-end p-4 border-t border-default">
         <UPagination
-          v-model="page"
-          :page-count="pageSize"
+          v-model:page="page"
           :total="meta.total"
+          :items-per-page="pageSize"
+          show-edges
         />
       </div>
     </UDashboardPanel>

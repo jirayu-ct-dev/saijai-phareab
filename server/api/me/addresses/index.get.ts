@@ -1,13 +1,7 @@
 import { prisma } from "~~/server/utils/prisma";
 
 export default defineEventHandler(async (event) => {
-  const user = event.context.user;
-  if (!user) {
-    throw createError({
-      statusCode: 401,
-      message: "Unauthorized",
-    });
-  }
+  const user = requireUser(event);
 
   const addresses = await prisma.userAddress.findMany({
     where: {

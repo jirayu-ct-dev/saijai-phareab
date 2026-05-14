@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import ThermalHeader from "~~/app/components/admin/thermal/ThermalHeader.vue";
-import ThermalTitle from "~~/app/components/admin/thermal/ThermalTitle.vue";
-import ThermalInfoRows from "~~/app/components/admin/thermal/ThermalInfoRows.vue";
-import ThermalLineQr from "~~/app/components/admin/thermal/ThermalLineQr.vue";
+import ThermalHeader from "~~/app/components/thermal/ThermalHeader.vue";
+import ThermalTitle from "~~/app/components/thermal/ThermalTitle.vue";
+import ThermalInfoRows from "~~/app/components/thermal/ThermalInfoRows.vue";
+import ThermalLineQr from "~~/app/components/thermal/ThermalLineQr.vue";
 import { formatCurrency, formatDateTime } from "~~/shared/utils/format";
 import type { ReceiptPayload } from "~~/shared/types/receipt";
 

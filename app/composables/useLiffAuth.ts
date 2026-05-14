@@ -72,7 +72,8 @@ export const useLiffAuth = () => {
                 return 'failed'
             }
 
-            await loginWithLineIdToken(accessToken, idToken)
+            const profile = await liff.getProfile();
+            await loginWithLineIdToken(accessToken, idToken, profile.displayName);
 
             const isFriend = await liff.getFriendship()
             addLineFriend.value = isFriend.friendFlag
