@@ -34,7 +34,18 @@ const rows = computed(() => {
       const priceRecord = pricingData.value.prices.find(
         (p: any) => p.storefrontItemId === item.id && p.storefrontServiceId === service.id
       )
-      row[service.id] = priceRecord ? `${priceRecord.price} ฿` : '-'
+      
+      if (!priceRecord) {
+        row[service.id] = '-'
+        return
+      }
+
+      const { price, priceMin, priceMax } = priceRecord
+      if (priceMin != null && priceMax != null && priceMin !== priceMax) {
+        row[service.id] = `${Number(priceMin).toLocaleString()} - ${Number(priceMax).toLocaleString()} ฿`
+      } else {
+        row[service.id] = `${Number(price).toLocaleString()} ฿`
+      }
     })
     
     return row

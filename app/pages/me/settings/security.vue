@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import PasswordChangeForm from "~~/app/components/account/PasswordChangeForm.vue";
 import ActiveSessionsList from "~~/app/components/account/ActiveSessionsList.vue";
-import LineLinkSection from "~~/app/components/account/LineLinkSection.vue";
 
 definePageMeta({
   layout: "user",
@@ -12,10 +11,13 @@ definePageMeta({
 <template>
   <UDashboardPage>
     <UDashboardPanel grow>
-      <UDashboardNavbar title="ความปลอดภัย" />
+      <UDashboardNavbar title="ความปลอดภัย">
+        <template #leading>
+          <UDashboardSidebarCollapse />
+        </template>
+      </UDashboardNavbar>
 
       <div class="p-6 max-w-2xl mx-auto space-y-6 w-full">
-        <LineLinkSection />
         <PasswordChangeForm />
         <ActiveSessionsList />
       </div>

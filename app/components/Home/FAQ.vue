@@ -53,18 +53,13 @@ const items = [
               variant="ghost"
               size="xl"
               class="w-full"
-              :ui="{
-                item: { base: 'pb-6 px-4 text-[15px] text-gray-600 dark:text-gray-400 leading-relaxed' },
-                default: { class: 'mb-0 w-full' }
-              }"
             >
               <template #default="{ item, index, open }">
                 <UButton
-                  color="gray"
+                  color="neutral"
                   variant="ghost"
-                  class="w-full justify-between py-5 px-4 text-left border-b border-gray-100 dark:border-gray-800 last:border-0 transition-colors"
+                  class="w-full justify-between py-5 px-4 text-left border-b border-gray-100 dark:border-gray-800 last:border-0 transition-colors rounded-none"
                   :class="[open ? 'text-primary-600 dark:text-primary-400' : 'text-gray-900 dark:text-white hover:bg-gray-50 dark:hover:bg-gray-800/50']"
-                  :ui="{ rounded: 'rounded-none' }"
                 >
                   <span class="text-base font-semibold">{{ item.label }}</span>
                   <template #trailing>

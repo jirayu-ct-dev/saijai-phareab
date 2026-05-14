@@ -1,3 +1,8 @@
+<script setup lang="ts">
+const { data: shopSettings } = await useFetch('/api/public/shop-settings')
+const washFoldPrice = computed(() => shopSettings.value?.washFoldPricePerKg ?? 60)
+</script>
+
 <template>
   <section id="per-item-pricing" class="py-16 md:py-24">
     <UContainer>
@@ -16,7 +21,7 @@
         <div>
           <div class="text-xs tracking-widest uppercase text-gray-500 dark:text-gray-400 mb-1.5 font-semibold">บริการชั่งกิโล</div>
           <div class="flex items-baseline gap-2 text-3xl md:text-4xl font-bold tracking-tight text-gray-900 dark:text-white leading-none">
-            ฿60 <span class="text-[15px] font-medium text-gray-500 dark:text-gray-400">/ กิโลกรัม</span>
+            ฿{{ washFoldPrice }} <span class="text-[15px] font-medium text-gray-500 dark:text-gray-400">/ กิโลกรัม</span>
           </div>
           <p class="mt-2 text-sm text-gray-500 dark:text-gray-400 max-w-md leading-relaxed">
             เหมาะสำหรับเสื้อผ้าใส่ทุกวัน รวมซักและอบแห้ง พร้อมพับเรียบร้อย

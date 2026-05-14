@@ -89,7 +89,7 @@ onUnmounted(() => {
             </span>
             <span class="inline-flex items-center gap-1.5 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-full px-3 py-1.5 text-[13px] font-medium">
               <UIcon name="i-lucide-check" class="w-3.5 h-3.5 text-primary-600 dark:text-primary-400" />
-              ส่งคืนใน 24 ชม.
+              ส่งคืนใน 48 ชม.
             </span>
           </div>
 
@@ -140,7 +140,7 @@ onUnmounted(() => {
             </div>
             <div class="w-px h-10 bg-gray-200 dark:bg-gray-800" />
             <div>
-              <p class="text-2xl font-bold text-gray-900 dark:text-white">24<span class="text-sm font-medium text-gray-500"> ชม.</span></p>
+              <p class="text-2xl font-bold text-gray-900 dark:text-white">48<span class="text-sm font-medium text-gray-500"> ชม.</span></p>
               <p class="text-xs text-gray-500 mt-0.5">ส่งคืนไว</p>
             </div>
             <div class="w-px h-10 bg-gray-200 dark:bg-gray-800" />
@@ -171,6 +171,7 @@ onUnmounted(() => {
                 line.me/R/ti/p/@saijai-laundry
               </div>
             </div>
+
 
             <!-- Chat window -->
             <div class="p-4">
@@ -219,7 +220,7 @@ onUnmounted(() => {
               <div class="bg-gray-50 dark:bg-gray-800/60 border border-gray-100 dark:border-gray-700 rounded-2xl rounded-tl-sm p-3.5 max-w-[92%] opacity-0 animate-[fade-in_0.4s_ease-out_1s_forwards]">
                 <div class="font-semibold flex items-center gap-2 mb-2.5 text-gray-900 dark:text-white text-[13px]">
                   <span class="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
-                  กำลังดำเนินการ…
+                  กำลังซัก…
                 </div>
                 <div class="space-y-1.5 text-[12.5px] text-gray-600 dark:text-gray-400 mb-3">
                   <div class="flex justify-between gap-4">
@@ -239,11 +240,11 @@ onUnmounted(() => {
           </div>
 
         </div>
-
       </div>
     </UContainer>
   </section>
 </template>
+
 
 <style scoped>
 @keyframes fade-in {

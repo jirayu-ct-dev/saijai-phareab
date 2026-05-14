@@ -23,12 +23,12 @@ const currentStepIndex = computed(() => {
   return orderSteps.findIndex((s) => s.value === order.value?.status);
 });
 
-const getStepColor = (index: number) => {
-  if (!order.value) return "gray";
-  if (order.value.status === "CANCELLED") return "red";
-  if (index < currentStepIndex.value) return "green";
-  if (index === currentStepIndex.value) return orderStatusColors[order.value.status as keyof typeof orderStatusColors] || "primary";
-  return "gray";
+const getStepClass = (index: number) => {
+  if (!order.value) return "bg-gray-200 dark:bg-gray-700 text-gray-400";
+  if (order.value.status === "CANCELLED") return "bg-red-500 text-white";
+  if (index < currentStepIndex.value) return "bg-green-500 text-white";
+  if (index === currentStepIndex.value) return "bg-primary-500 text-white ring-4 ring-primary-500/20 scale-110";
+  return "bg-gray-200 dark:bg-gray-700 text-gray-400";
 };
 </script>
 
@@ -36,6 +36,9 @@ const getStepColor = (index: number) => {
   <UDashboardPage>
     <UDashboardPanel grow>
       <UDashboardNavbar :title="order?.orderNo ? `ออเดอร์ ${order.orderNo}` : 'รายละเอียดออเดอร์'">
+        <template #leading>
+          <UDashboardSidebarCollapse />
+        </template>
         <template #right>
           <UButton color="neutral" variant="ghost" to="/me/orders" icon="i-lucide-arrow-left">กลับ</UButton>
         </template>
@@ -73,9 +76,10 @@ const getStepColor = (index: number) => {
             
             <div v-for="(step, index) in orderSteps" :key="step.value" class="relative z-10 flex flex-col items-center gap-2">
               <div 
-                class="flex h-10 w-10 items-center justify-center rounded-full border-4 border-white dark:border-gray-900 transition-colors"
+                class="flex h-10 w-10 items-center justify-center rounded-full border-4 border-white dark:border-gray-900 transition-all duration-300"
                 :class="[
-                  index <= currentStepIndex ? `bg-${getStepColor(index)}-500 text-white` : 'bg-gray-200 dark:bg-gray-700 text-gray-400'
+                  getStepClass(index),
+                  index === currentStepIndex ? 'animate-pulse' : ''
                 ]"
               >
                 <UIcon :name="step.icon" class="h-5 w-5" />

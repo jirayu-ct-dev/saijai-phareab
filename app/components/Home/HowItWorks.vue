@@ -15,16 +15,16 @@
         <div class="flex flex-col gap-3 bg-white dark:bg-gray-900 p-5 md:p-6 rounded-2xl border border-gray-200 dark:border-gray-800 hover:border-gray-300 dark:hover:border-gray-700 transition-colors">
           <div class="flex-shrink-0 w-10 h-10 rounded-xl bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white flex items-center justify-center font-semibold text-sm font-mono">01</div>
           <div>
-            <h4 class="text-[15px] font-semibold text-gray-900 dark:text-white mb-1">ทักไลน์ จองคิว</h4>
-            <p class="text-[13.5px] text-gray-500 dark:text-gray-400 leading-relaxed">แอดไลน์ @saijai-laundry แจ้งวัน-เวลาที่สะดวก</p>
+            <h4 class="text-[15px] font-semibold text-gray-900 dark:text-white mb-1">สอบถามค่าบริการ ซื้อแพ็คเกจ</h4>
+            <p class="text-[13.5px] text-gray-500 dark:text-gray-400 leading-relaxed">สอบถามรายละเอียดโปรโมชั่น หรือซื้อแพ็คเกจ</p>
           </div>
         </div>
 
         <div class="flex flex-col gap-3 bg-white dark:bg-gray-900 p-5 md:p-6 rounded-2xl border border-gray-200 dark:border-gray-800 hover:border-gray-300 dark:hover:border-gray-700 transition-colors">
           <div class="flex-shrink-0 w-10 h-10 rounded-xl bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white flex items-center justify-center font-semibold text-sm font-mono">02</div>
           <div>
-            <h4 class="text-[15px] font-semibold text-gray-900 dark:text-white mb-1">รับผ้าถึงบ้าน</h4>
-            <p class="text-[13.5px] text-gray-500 dark:text-gray-400 leading-relaxed">พนักงานเข้ารับผ้าตามนัด ชั่งและออกใบรับสินค้า</p>
+            <h4 class="text-[15px] font-semibold text-gray-900 dark:text-white mb-1">พนักงานรับผ้า</h4>
+            <p class="text-[13.5px] text-gray-500 dark:text-gray-400 leading-relaxed">พนักงานรับผ้า พร้อมออกใบรับสินค้า</p>
           </div>
         </div>
 
@@ -40,7 +40,7 @@
           <div class="flex-shrink-0 w-10 h-10 rounded-xl bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white flex items-center justify-center font-semibold text-sm font-mono">04</div>
           <div>
             <h4 class="text-[15px] font-semibold text-gray-900 dark:text-white mb-1">ส่งคืนถึงมือ</h4>
-            <p class="text-[13.5px] text-gray-500 dark:text-gray-400 leading-relaxed">พับเรียบร้อย ส่งคืนภายใน 24 ชม. ตรวจรับก่อนชำระ</p>
+            <p class="text-[13.5px] text-gray-500 dark:text-gray-400 leading-relaxed">พับเรียบร้อย ส่งคืนภายใน 48 ชม. ตรวจรับก่อนชำระ</p>
           </div>
         </div>
       </div>

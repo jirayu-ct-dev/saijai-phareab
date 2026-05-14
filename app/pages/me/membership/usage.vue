@@ -38,6 +38,9 @@ const mappedUsages = computed(() => usages.value.map((u, i) => ({ ...u, index: u
   <UDashboardPage>
     <UDashboardPanel grow>
       <UDashboardNavbar title="ประวัติการใช้เครดิต">
+        <template #leading>
+          <UDashboardSidebarCollapse />
+        </template>
         <template #right>
           <UButton color="neutral" variant="ghost" to="/me/membership" icon="i-lucide-arrow-left">กลับ</UButton>
         </template>

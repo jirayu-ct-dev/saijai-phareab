@@ -68,27 +68,64 @@
         </a>
       </div>
 
-      <!-- Hours Banner -->
-      <div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-6 md:p-8 flex flex-col md:flex-row items-center justify-between gap-6 shadow-sm">
-        <div class="flex items-center gap-4">
-          <div class="w-12 h-12 rounded-xl bg-primary-50 dark:bg-primary-900/30 flex items-center justify-center shrink-0">
-            <UIcon name="i-lucide-clock" class="w-6 h-6 text-primary-600 dark:text-primary-400" />
+      <!-- Maps & Location Section -->
+      <div class="mt-12 overflow-hidden border border-gray-200 dark:border-gray-800 rounded-3xl shadow-sm bg-white dark:bg-gray-900">
+        <div class="p-6 md:p-8 flex flex-col lg:flex-row gap-8">
+          <!-- Info Side -->
+          <div class="lg:w-1/3 flex flex-col justify-between">
+            <div>
+              <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary-50 dark:bg-primary-900/30 text-primary-600 dark:text-primary-400 border border-primary-100 dark:border-primary-800/50 mb-4">
+                <UIcon name="i-lucide-map-pin" class="w-4 h-4" />
+                <span class="text-[11px] font-bold tracking-widest uppercase">สถานที่ตั้ง</span>
+              </div>
+              <h3 class="text-xl font-bold text-gray-900 dark:text-white mb-3">แวะมาหาเราได้ที่ร้าน</h3>
+              <p class="text-gray-500 dark:text-gray-400 text-sm leading-relaxed mb-6">
+                ใส่ใจ ผ้าเรียบ - บริการ ซัก อบ รีด คุ้มค่า สะดวกสบาย <br/>
+                อำเภอประโคนชัย จังหวัดบุรีรัมย์
+              </p>
+              
+              <div class="space-y-4">
+                <div class="flex items-start gap-3">
+                  <div class="w-8 h-8 rounded-lg bg-gray-50 dark:bg-gray-800 flex items-center justify-center shrink-0 border border-gray-100 dark:border-gray-700">
+                    <UIcon name="i-lucide-clock" class="w-4 h-4 text-gray-500 dark:text-gray-400" />
+                  </div>
+                  <div>
+                    <p class="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">เวลาทำการ</p>
+                    <p class="text-sm font-semibold text-gray-900 dark:text-white">14:00 – 19:30 น.</p>
+                    <p class="text-[12px] text-gray-500 dark:text-gray-400">จันทร์ – เสาร์ (หยุดวันอาทิตย์)</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="mt-8">
+              <UButton
+                size="xl"
+                class="bg-[#06C755] hover:bg-[#05B04C] text-white font-bold rounded-xl px-8 w-full justify-center"
+                to="https://line.me/R/ti/p/@883vmdct"
+                target="_blank"
+              >
+                <UIcon name="i-ph-chat-circle-fill" class="w-5 h-5 mr-2" />
+                ติดต่อผ่าน LINE
+              </UButton>
+            </div>
           </div>
-          <div>
-            <p class="text-[11px] font-bold tracking-widest uppercase text-gray-500 dark:text-gray-400 mb-0.5">เวลาทำการ</p>
-            <p class="font-semibold text-gray-900 dark:text-white text-[17px]">14:00 – 19:30 น.</p>
-            <p class="text-sm text-gray-500 dark:text-gray-400">วันจันทร์ – เสาร์ (หยุดวันอาทิตย์)</p>
+
+          <!-- Map Side -->
+          <div class="lg:w-2/3 h-[300px] lg:h-[400px] rounded-2xl overflow-hidden border border-gray-100 dark:border-gray-800 relative group">
+            <iframe
+              src="https://www.google.com/maps/embed?pb=!1m14!1m8!1m3!1d3854.0986966515134!2d103.0807595!3d14.9872255!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x31199506b4a82a99%3A0xf5206a7506c788e3!2z4LmD4Liq4LmI4LmD4LiI4Lic4LmJ4Liy4LmA4Lij4Li14Lii4LiaIC0g4LiL4Lix4LiBIOC4reC4miDguKPguLXguJQg4Lia4Li44Lij4Li14Lij4Lix4Lih4Lii4LmM!5e0!3m2!1sth!2sth!4v1778601481868!5m2!1sth!2sth"
+              width="100%"
+              height="100%"
+              style="border:0;"
+              allowfullscreen=""
+              loading="lazy"
+              referrerpolicy="no-referrer-when-downgrade"
+              class="filter grayscale-[0.2] contrast-[1.1] hover:grayscale-0 transition-all duration-500"
+            ></iframe>
+            <div class="absolute inset-0 pointer-events-none border border-black/5 dark:border-white/5 rounded-2xl"></div>
           </div>
         </div>
-        <UButton
-          size="xl"
-          class="bg-[#06C755] hover:bg-[#05B04C] text-white font-bold rounded-xl px-8 whitespace-nowrap flex-shrink-0 w-full md:w-auto"
-          to="https://line.me/R/ti/p/@883vmdct"
-          target="_blank"
-        >
-          <UIcon name="i-ph-chat-circle-fill" class="w-5 h-5 mr-2" />
-          ติดต่อผ่าน LINE
-        </UButton>
       </div>
     </UContainer>
   </section>

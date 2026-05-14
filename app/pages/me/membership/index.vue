@@ -26,7 +26,11 @@ const items = [
 <template>
   <UDashboardPage>
     <UDashboardPanel grow>
-      <UDashboardNavbar title="แพ็กเกจของฉัน" />
+      <UDashboardNavbar title="แพ็กเกจของฉัน">
+        <template #leading>
+          <UDashboardSidebarCollapse />
+        </template>
+      </UDashboardNavbar>
 
       <div v-if="pending" class="p-6">
         <USkeleton class="h-64 w-full" />
@@ -47,6 +51,16 @@ const items = [
                   <h3 class="text-lg font-bold text-amber-600 dark:text-amber-400">{{ ent.productName }}</h3>
                   <UBadge color="success" variant="subtle">ACTIVE</UBadge>
                 </div>
+                
+                <UAlert
+                  v-if="formatDaysLeft(ent.endAt) !== null && formatDaysLeft(ent.endAt)! <= 7"
+                  color="warning"
+                  variant="subtle"
+                  icon="i-lucide-alert-triangle"
+                  title="ใกล้หมดอายุ!"
+                  :description="`แพ็กเกจนี้จะหมดอายุในอีก ${formatDaysLeft(ent.endAt)} วัน`"
+                  class="mb-4"
+                />
                 
                 <div class="space-y-2">
                   <div class="flex justify-between text-sm">

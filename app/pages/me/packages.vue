@@ -24,7 +24,11 @@ const handleBuy = (pkg: any) => {
 <template>
   <UDashboardPage>
     <UDashboardPanel grow>
-      <UDashboardNavbar title="เลือกซื้อแพ็กเกจ" />
+      <UDashboardNavbar title="เลือกซื้อแพ็กเกจ">
+        <template #leading>
+          <UDashboardSidebarCollapse />
+        </template>
+      </UDashboardNavbar>
 
       <div class="p-6 max-w-6xl mx-auto space-y-12 w-full pb-20">
         <!-- Header -->
@@ -125,7 +129,6 @@ const handleBuy = (pkg: any) => {
                 v-for="pkg in addonPackages" 
                 :key="pkg.id"
                 class="hover:shadow-lg transition-all group"
-                :ui="{ body: { padding: 'p-6' } }"
               >
                 <div class="text-center space-y-3 flex flex-col h-full">
                   <div class="flex-grow space-y-3">
@@ -139,7 +142,7 @@ const handleBuy = (pkg: any) => {
                   
                   <UButton
                     block
-                    color="blue"
+                    color="info"
                     variant="soft"
                     @click="handleBuy(pkg)"
                     class="mt-4 transition-transform group-hover:scale-105"

@@ -1,5 +1,7 @@
 <script setup lang="ts">
 definePageMeta({
-  redirect: "/me/settings/profile",
+  middleware: [
+    () => navigateTo("/me/settings/profile"),
+  ],
 });
 </script>

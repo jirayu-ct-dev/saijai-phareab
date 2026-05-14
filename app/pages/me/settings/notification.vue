@@ -10,7 +10,11 @@ definePageMeta({
 <template>
   <UDashboardPage>
     <UDashboardPanel grow>
-      <UDashboardNavbar title="การแจ้งเตือน" />
+      <UDashboardNavbar title="การแจ้งเตือน">
+        <template #leading>
+          <UDashboardSidebarCollapse />
+        </template>
+      </UDashboardNavbar>
 
       <div class="p-6 max-w-2xl mx-auto space-y-6 w-full">
         <NotificationPreferenceForm />

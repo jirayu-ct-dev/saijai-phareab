@@ -7,7 +7,7 @@ definePageMeta({
   middleware: ["role-user"],
 });
 
-const { receipts, pending } = useMyReceipts();
+const { receipts, pending, total, page, pageSize } = useMyReceipts(10);
 
 const columns: TableColumn<any>[] = [
   { accessorKey: "paymentNo", header: "เลขที่บิล" },
@@ -22,7 +22,11 @@ const columns: TableColumn<any>[] = [
 <template>
   <UDashboardPage>
     <UDashboardPanel grow>
-      <UDashboardNavbar title="รายการใบเสร็จ" />
+      <UDashboardNavbar title="รายการใบเสร็จ">
+        <template #leading>
+          <UDashboardSidebarCollapse />
+        </template>
+      </UDashboardNavbar>
 
       <UTable
         :data="receipts"
@@ -68,6 +72,16 @@ const columns: TableColumn<any>[] = [
           </div>
         </template>
       </UTable>
+
+      <div v-if="total > pageSize" class="flex justify-end px-4 py-3 border-t border-gray-200 dark:border-gray-800">
+        <UPagination
+          v-model:page="page"
+          :total="total"
+          :items-per-page="pageSize"
+          show-edges
+        />
+      </div>
     </UDashboardPanel>
   </UDashboardPage>
 </template>
+
