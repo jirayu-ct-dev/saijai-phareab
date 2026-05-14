@@ -1,7 +1,48 @@
 import { prisma } from "~~/server/utils/prisma";
 import { pushMessage, type LineMessage } from "~~/server/utils/line-messaging";
+import { isWalkInCustomerEmail } from "~~/server/utils/walkInCustomer";
 import type { ServiceOrderStatus } from "~~/shared/types/enums";
 import { formatDate, formatDateTime } from "~~/shared/utils/format";
+
+type CustomerLike = { name?: string | null; email?: string | null; phoneNumber?: string | null } | null | undefined;
+
+type OrderWalkInInfo = {
+  isWalkIn?: boolean | null;
+  walkInName?: string | null;
+  walkInPhone?: string | null;
+  customer?: CustomerLike;
+};
+
+const isWalkInCustomer = (customer: CustomerLike): boolean =>
+  Boolean(customer && isWalkInCustomerEmail(customer.email));
+
+const isWalkInOrder = (order: OrderWalkInInfo | null | undefined): boolean =>
+  Boolean(order?.isWalkIn) || isWalkInCustomer(order?.customer);
+
+type ResolvedCustomer = {
+  name: string;
+  label: string;
+  phone: string | null;
+  walkIn: boolean;
+};
+
+const resolveOrderCustomer = (order: OrderWalkInInfo | null | undefined): ResolvedCustomer => {
+  if (isWalkInOrder(order)) {
+    const rawName = order?.walkInName?.trim() || "";
+    const rawPhone = order?.walkInPhone?.trim() || "";
+    const name = rawName || "ไม่ระบุ";
+    return {
+      name: `${name} (ลูกค้าหน้าร้าน)`,
+      label: rawName ? `คุณ ${rawName}` : "ไม่ระบุ (ลูกค้าหน้าร้าน)",
+      phone: rawPhone || null,
+      walkIn: true,
+    };
+  }
+  const c = order?.customer;
+  const name = c?.name?.trim() || c?.email || "ลูกค้า";
+  const phone = c?.phoneNumber?.trim() || null;
+  return { name, label: `คุณ ${name}`, phone, walkIn: false };
+};
 
 const customerHasDeliveryAddon = async (customerId: string): Promise<boolean> => {
   const count = await prisma.memberEntitlement.count({
@@ -36,19 +77,19 @@ const customerHeadlineFor = (status: ServiceOrderStatus, hasDelivery: boolean): 
   return "";
 };
 
-const staffHeadlineFor = (status: ServiceOrderStatus, customerName: string, hasDelivery: boolean): string => {
-  const c = customerName || "ลูกค้า";
+const staffHeadlineFor = (status: ServiceOrderStatus, customerLabel: string, hasDelivery: boolean): string => {
+  const c = customerLabel || "ลูกค้า";
   switch (status) {
     case "RECEIVED":
-      return `รับผ้าจากคุณ ${c} เรียบร้อยแล้ว`;
+      return `รับผ้าจาก${c} เรียบร้อยแล้ว`;
     case "PROCESSING":
-      return `เริ่มซักผ้าให้คุณ ${c} แล้ว`;
+      return `เริ่มซักผ้าให้${c} แล้ว`;
     case "DELIVERING":
-      return hasDelivery ? `กำลังจัดส่งผ้าให้คุณ ${c} ที่บ้าน` : `ผ้าของคุณ ${c} พร้อมให้รับที่ร้าน`;
+      return hasDelivery ? `กำลังจัดส่งผ้าให้${c} ที่บ้าน` : `ผ้าของ${c} พร้อมให้รับที่ร้าน`;
     case "COMPLETED":
-      return `ส่งผ้าให้คุณ ${c} เรียบร้อยแล้ว`;
+      return `ส่งผ้าให้${c} เรียบร้อยแล้ว`;
     case "CANCELLED":
-      return `ออเดอร์ของคุณ ${c} ถูกยกเลิก`;
+      return `ออเดอร์ของ${c} ถูกยกเลิก`;
   }
 };
 
@@ -325,6 +366,9 @@ const loadServiceOrderForNotify = async (id: string) =>
       updatedAt: true,
       creditUsed: true,
       customerId: true,
+      isWalkIn: true,
+      walkInName: true,
+      walkInPhone: true,
       subtotalAmount: true,
       discountAmount: true,
       totalAmount: true,
@@ -332,7 +376,7 @@ const loadServiceOrderForNotify = async (id: string) =>
       weightKg: true,
       washFoldPricePerKgSnapshot: true,
       note: true,
-      customer: { select: { name: true, email: true } },
+      customer: { select: { name: true, email: true, phoneNumber: true } },
       image: { select: { secureUrl: true, url: true } },
       deliveryImage: { select: { secureUrl: true, url: true } },
       memberEntitlement: {
@@ -414,15 +458,21 @@ const buildOrderBody = async (params: {
   order: LoadedServiceOrder;
   status: ServiceOrderStatus;
   customerName: string;
+  customerPhone?: string | null;
+  isWalkIn?: boolean;
   totalQty: number;
   detailed: boolean;
 }): Promise<FlexBox[]> => {
-  const { order, status, customerName, totalQty, detailed } = params;
+  const { order, status, customerName, customerPhone, isWalkIn, totalQty, detailed } = params;
   const orderNo = order.orderNo || `ORDER-${order.id.slice(-8).toUpperCase()}`;
   const isPackage = Boolean(order.memberEntitlement);
   const rows: FlexBox[] = [
     kvRow("เลขรับผ้า", orderNo),
     kvRow("ชื่อลูกค้า", customerName),
+    kvRow("เบอร์โทร", customerPhone || "ไม่ระบุ"),
+  ];
+  void isWalkIn;
+  rows.push(
     kvRow(
       "รูปแบบบริการ",
       order.weightKg != null
@@ -430,7 +480,7 @@ const buildOrderBody = async (params: {
         : isPackage ? "แพ็กเกจรายเดือน" : "ราคาหน้าร้าน",
     ),
     kvRow("วันที่รับผ้า", formatDateTime(order.receivedAt.toISOString())),
-  ];
+  );
 
   if (status === "RECEIVED" || status === "PROCESSING" || status === "DELIVERING") {
     rows.push(kvRow("นัดรับ", order.dueAt ? formatDateTime(order.dueAt.toISOString()) : "ไม่ระบุ"));
@@ -615,7 +665,9 @@ export const notifyServiceOrderCreated = async (params: { serviceOrderId: string
     const setting = await getNotificationSetting();
     const shopName = await getShopName();
     const totalQty = order.serviceOrderItems.reduce((sum, item) => sum + item.quantity, 0);
-    const customerName = order.customer.name || order.customer.email || "ลูกค้า";
+    const resolved = resolveOrderCustomer(order);
+    const customerName = resolved.name;
+    const customerLabel = resolved.label;
     const orderUrl = `${getBaseUrl()}/admin/service-orders/${order.id}`;
     const dueSubline = order.dueAt ? `รับผ้าได้: ${formatDateTime(order.dueAt.toISOString())}` : null;
     const hasDelivery = await customerHasDeliveryAddon(order.customerId);
@@ -624,6 +676,8 @@ export const notifyServiceOrderCreated = async (params: { serviceOrderId: string
       order,
       status: "RECEIVED",
       customerName,
+      customerPhone: resolved.phone,
+      isWalkIn: resolved.walkIn,
       totalQty,
       detailed: true,
     });
@@ -632,7 +686,7 @@ export const notifyServiceOrderCreated = async (params: { serviceOrderId: string
       buildFlexBubble({
         shopName,
         emoji: statusEmoji.RECEIVED,
-        headline: audience === "customer" ? customerHeadlineFor("RECEIVED", hasDelivery) : staffHeadlineFor("RECEIVED", customerName, hasDelivery),
+        headline: audience === "customer" ? customerHeadlineFor("RECEIVED", hasDelivery) : staffHeadlineFor("RECEIVED", customerLabel, hasDelivery),
         subline: audience === "customer" ? dueSubline : staffSublineFor("RECEIVED", hasDelivery),
         bodyContents,
         buttonLabel: "ดูรายละเอียดออเดอร์",
@@ -652,7 +706,7 @@ export const notifyServiceOrderCreated = async (params: { serviceOrderId: string
           buildTextMessage(
             audience === "customer"
               ? `📸 รับผ้ามาแล้ว ${totalQty} ชิ้น — รูปด้านล่างคือผ้าที่รับตอนเข้าร้านนะคะ/ครับ`
-              : `📸 รูปผ้าที่รับเข้าระบบจากคุณ${customerName} (${totalQty} ชิ้น)`,
+              : `📸 รูปผ้าที่รับเข้าระบบจาก${customerLabel} (${totalQty} ชิ้น)`,
           ),
         );
         extras.push(buildImageMessage(orderImageUrl));
@@ -662,7 +716,7 @@ export const notifyServiceOrderCreated = async (params: { serviceOrderId: string
           buildTextMessage(
             audience === "customer"
               ? `⚠️ พบผ้าชำรุด ${totalDamaged} จุด ทางร้านได้ถ่ายรูปไว้เป็นหลักฐาน หากมีข้อสงสัยติดต่อร้านได้เลยนะคะ/ครับ`
-              : `⚠️ พบผ้าชำรุด ${totalDamaged} จุดในออเดอร์ของคุณ${customerName} — รูปหลักฐานด้านล่าง`,
+              : `⚠️ พบผ้าชำรุด ${totalDamaged} จุดในออเดอร์ของ${customerLabel} — รูปหลักฐานด้านล่าง`,
           ),
         );
         for (const url of allDamagedUrls) {
@@ -696,7 +750,9 @@ export const notifyServiceOrderStatusChanged = async (params: {
     const setting = await getNotificationSetting();
     const shopName = await getShopName();
     const totalQty = order.serviceOrderItems.reduce((sum, item) => sum + item.quantity, 0);
-    const customerName = order.customer.name || order.customer.email || "ลูกค้า";
+    const resolved = resolveOrderCustomer(order);
+    const customerName = resolved.name;
+    const customerLabel = resolved.label;
     const orderUrl = `${getBaseUrl()}/admin/service-orders/${order.id}`;
     const hasDelivery = await customerHasDeliveryAddon(order.customerId);
 
@@ -704,6 +760,8 @@ export const notifyServiceOrderStatusChanged = async (params: {
       order,
       status: params.toStatus,
       customerName,
+      customerPhone: resolved.phone,
+      isWalkIn: resolved.walkIn,
       totalQty,
       detailed: params.toStatus === "COMPLETED",
     });
@@ -715,7 +773,7 @@ export const notifyServiceOrderStatusChanged = async (params: {
         headline:
           audience === "customer"
             ? customerHeadlineFor(params.toStatus, hasDelivery)
-            : staffHeadlineFor(params.toStatus, customerName, hasDelivery),
+            : staffHeadlineFor(params.toStatus, customerLabel, hasDelivery),
         subline: audience === "customer" ? customerSublineFor(params.toStatus, hasDelivery) : staffSublineFor(params.toStatus, hasDelivery),
         bodyContents,
         buttonLabel: "ดูรายละเอียดออเดอร์",
@@ -736,7 +794,7 @@ export const notifyServiceOrderStatusChanged = async (params: {
           buildTextMessage(
             audience === "customer"
               ? "📦 ส่งผ้าเรียบร้อยแล้ว ขอบคุณที่ใช้บริการ — รูปด้านล่างคือหลักฐานการส่งผ้านะคะ/ครับ"
-              : `📦 ส่งผ้าให้คุณ${customerName}เรียบร้อย — รูปหลักฐานการส่งด้านล่าง`,
+              : `📦 ส่งผ้าให้${customerLabel} เรียบร้อย — รูปหลักฐานการส่งด้านล่าง`,
           ),
         );
         extras.push(buildImageMessage(deliveryUrl));
@@ -764,10 +822,11 @@ export const notifyReceipt = async (params: { paymentId: string }): Promise<void
         amount: true,
         method: true,
         userId: true,
-        user: { select: { name: true, email: true } },
+        user: { select: { name: true, email: true, phoneNumber: true } },
         metadata: true,
         memberEntitlementId: true,
         slipImage: { select: { secureUrl: true, url: true } },
+        serviceOrder: { select: { id: true, orderNo: true, isWalkIn: true, walkInName: true, walkInPhone: true } },
         packageSale: {
           select: {
             id: true,
@@ -800,7 +859,13 @@ export const notifyReceipt = async (params: { paymentId: string }): Promise<void
     if (!setting.notifyCustomerReceipt) return;
 
     const shopName = await getShopName();
-    const customerName = payment.user.name || payment.user.email || "ลูกค้า";
+    const resolved = resolveOrderCustomer({
+      isWalkIn: payment.serviceOrder?.isWalkIn ?? false,
+      walkInName: payment.serviceOrder?.walkInName ?? null,
+      walkInPhone: payment.serviceOrder?.walkInPhone ?? null,
+      customer: payment.user,
+    });
+    const customerName = resolved.name;
     const receiptCode = payment.receiptNo || payment.paymentNo || `RC-${payment.id.slice(-8).toUpperCase()}`;
     const totalAmount = Number(payment.amount);
     const receiptUrl = `${getBaseUrl()}/admin/payment/${payment.id}/receipt`;
@@ -810,6 +875,7 @@ export const notifyReceipt = async (params: { paymentId: string }): Promise<void
       kvRow("เลขที่ใบเสร็จ", receiptCode),
       kvRow("ลูกค้า", customerName),
     ];
+    body.push(kvRow("เบอร์โทร", resolved.phone || "ไม่ระบุ"));
     if (methodLabel) body.push(kvRow("วิธีชำระเงิน", methodLabel));
 
     const paymentMeta = (payment.metadata ?? null) as { vat?: { rate?: number; amount?: number; included?: boolean; baseAmount?: number } } | null;
@@ -853,11 +919,22 @@ export const notifyReceipt = async (params: { paymentId: string }): Promise<void
       }
     }
 
+    const isPackageReceipt = Boolean(payment.packageSale && payment.packageSale.items.length);
+    const isServiceOrderReceipt = Boolean(payment.serviceOrder);
+    const headline = isPackageReceipt
+      ? "ขอบคุณที่ซื้อแพ็กเกจกับเรา"
+      : isServiceOrderReceipt
+        ? "ชำระค่าบริการเรียบร้อย ขอบคุณที่ใช้บริการ"
+        : "ชำระเงินเรียบร้อย ขอบคุณที่ใช้บริการ";
+    const subline = isPackageReceipt
+      ? "ใบเสร็จและรายละเอียดแพ็กเกจอยู่ด้านล่างนี้"
+      : "ใบเสร็จอยู่ด้านล่างนี้";
+
     const flex = buildFlexBubble({
       shopName,
       emoji: "🎉",
-      headline: "ขอบคุณที่ซื้อแพ็กเกจกับเรา",
-      subline: "ใบเสร็จและรายละเอียดแพ็กเกจอยู่ด้านล่างนี้",
+      headline,
+      subline,
       bodyContents: body,
       buttonLabel: "ดูใบเสร็จ",
       buttonUrl: receiptUrl,
@@ -893,7 +970,10 @@ export const notifyQuotationCreated = async (params: { serviceOrderId: string })
         totalAmount: true,
         dueAt: true,
         receivedAt: true,
-        customer: { select: { name: true, email: true } },
+        isWalkIn: true,
+        walkInName: true,
+        walkInPhone: true,
+        customer: { select: { name: true, email: true, phoneNumber: true } },
         payments: {
           where: { deletedAt: null },
           orderBy: { createdAt: "desc" },
@@ -912,7 +992,8 @@ export const notifyQuotationCreated = async (params: { serviceOrderId: string })
     if (!payment || payment.status !== "UNPAID") return;
 
     const shopName = await getShopName();
-    const customerName = order.customer.name || order.customer.email || "ลูกค้า";
+    const resolved = resolveOrderCustomer(order);
+    const customerName = resolved.name;
     const code = order.quotationNo || order.orderNo || `QT-${order.id.slice(-8).toUpperCase()}`;
     const amount = Number(payment.amount ?? order.totalAmount ?? 0);
     const url = `${getBaseUrl()}/admin/payment/${payment.id}/quotation`;
@@ -922,6 +1003,7 @@ export const notifyQuotationCreated = async (params: { serviceOrderId: string })
       kvRow("ลูกค้า", customerName),
       kvRow("ยอดที่ต้องชำระ", `฿${formatCurrency(amount)}`),
     ];
+    body.push(kvRow("เบอร์โทร", resolved.phone || "ไม่ระบุ"));
     if (order.dueAt) body.push(kvRow("วันนัดรับ", formatDateTime(order.dueAt.toISOString())));
 
     const flex = buildFlexBubble({
