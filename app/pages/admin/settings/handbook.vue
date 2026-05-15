@@ -112,7 +112,7 @@ const sections: Section[] = [
     title: "การอัปเดตสถานะออเดอร์",
     icon: "i-lucide-refresh-cw",
     paragraphs: [
-      "เปิดหน้ารายละเอียดออเดอร์หรือใช้ /admin/service-orders/scan เพื่อสแกน QR",
+      "เปิดหน้ารายละเอียดออเดอร์เพื่อจัดการสถานะ",
       {
         type: "list",
         items: [

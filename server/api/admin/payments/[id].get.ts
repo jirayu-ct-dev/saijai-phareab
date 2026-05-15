@@ -112,13 +112,6 @@ export default defineEventHandler(async (event) => {
               },
             },
           },
-          basket: {
-            select: {
-              id: true,
-              label: true,
-              qrCode: true,
-            },
-          },
           serviceOrderItems: {
             include: {
               storefrontPrice: {
@@ -336,13 +329,6 @@ export default defineEventHandler(async (event) => {
                   credits: payment.serviceOrder.memberEntitlement.product.credits,
                   validityDays: payment.serviceOrder.memberEntitlement.product.validityDays,
                 },
-              }
-            : null,
-          basket: payment.serviceOrder.basket
-            ? {
-                id: payment.serviceOrder.basket.id,
-                label: payment.serviceOrder.basket.label,
-                qrCode: payment.serviceOrder.basket.qrCode,
               }
             : null,
           hangerCharge: hangerChargeSource

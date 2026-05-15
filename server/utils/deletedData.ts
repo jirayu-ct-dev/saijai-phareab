@@ -526,7 +526,6 @@ const clearUserReferences = async (tx: Tx, userId: string) => {
   await tx.storefrontItem.updateMany({ where: { deletedById: userId }, data: { deletedById: null } });
   await tx.storefrontCategory.updateMany({ where: { deletedById: userId }, data: { deletedById: null } });
   await tx.storefrontPrice.updateMany({ where: { deletedById: userId }, data: { deletedById: null } });
-  await tx.basket.updateMany({ where: { deletedById: userId }, data: { deletedById: null } });
   await tx.image.updateMany({ where: { deletedById: userId }, data: { deletedById: null } });
   await tx.serviceOrder.updateMany({ where: { employeeId: userId }, data: { employeeId: null } });
   await tx.serviceOrder.updateMany({ where: { deletedById: userId }, data: { deletedById: null } });

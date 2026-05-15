@@ -81,9 +81,7 @@ const {
   serviceOrders,
   isLoading,
   refresh,
-  updateServiceOrderStatus,
   deleteServiceOrder,
-  uploadOrderImage,
 } = useAdminServiceOrders();
 
 const hydrated = ref(false);
@@ -92,7 +90,6 @@ onMounted(() => {
   hydrated.value = true;
 });
 const showSkeleton = computed(() => !hydrated.value || isLoading.value);
-const notify = useNotify();
 const route = useRoute();
 
 onActivated(async () => {
@@ -224,123 +221,6 @@ const openDocument = (order: AdminServiceOrder) => {
   if (!paymentId) return navigateTo(`/admin/service-orders/${order.id}/intake`);
   const path = order.payment?.status === "PAID" ? "receipt" : "quotation";
   return navigateTo(`/admin/payment/${paymentId}/${path}`);
-};
-
-const isStatusOpen = ref(false);
-const isUpdatingStatus = ref(false);
-const statusTarget = ref<AdminServiceOrder | null>(null);
-const statusDraft = ref<ServiceOrderStatus>("RECEIVED");
-const deliveryImageFile = ref<File | null>(null);
-const uploadedDeliveryImage = ref<AdminServiceOrder["image"] | null>(null);
-
-type AddonPickerEntry = {
-  entitlementId: string;
-  productName: string;
-  creditRemaining: number;
-  selected: boolean;
-  credits: number;
-};
-const addonPickerEntries = ref<AddonPickerEntry[]>([]);
-const isLoadingAddons = ref(false);
-
-const loadAddonEntitlements = async (order: AdminServiceOrder) => {
-  addonPickerEntries.value = [];
-  if (order.isWalkIn) return;
-  isLoadingAddons.value = true;
-  try {
-    const result = await $fetch<{
-      addonEntitlements?: Array<{
-        id: string;
-        creditRemaining: number | null;
-        product: { name: string };
-      }>;
-    }>("/api/admin/service-orders/lookup", { query: { q: order.id } });
-    addonPickerEntries.value = (result.addonEntitlements ?? [])
-      .filter((e) => (e.creditRemaining ?? 0) > 0)
-      .map((e) => ({
-        entitlementId: e.id,
-        productName: e.product.name,
-        creditRemaining: e.creditRemaining ?? 0,
-        selected: false,
-        credits: 1,
-      }));
-  } catch {
-    addonPickerEntries.value = [];
-  } finally {
-    isLoadingAddons.value = false;
-  }
-};
-
-const openStatusModal = (order: AdminServiceOrder) => {
-  statusTarget.value = order;
-  statusDraft.value = order.status;
-  deliveryImageFile.value = null;
-  uploadedDeliveryImage.value = order.deliveryImage ?? null;
-  addonPickerEntries.value = [];
-  isStatusOpen.value = true;
-  void loadAddonEntitlements(order);
-};
-const handleRemoveDeliveryImage = () => {
-  deliveryImageFile.value = null;
-  uploadedDeliveryImage.value = null;
-};
-const deliveryPhotos = computed<import("~~/app/components/UI/PhotoUpload.vue").Photo[]>(() => {
-  if (deliveryImageFile.value) return [{ key: "delivery", file: deliveryImageFile.value, url: null }];
-  const url = uploadedDeliveryImage.value?.secureUrl ?? uploadedDeliveryImage.value?.url ?? null;
-  return url ? [{ key: "delivery", file: null, url }] : [];
-});
-const onDeliveryPhotosUpdate = (photos: import("~~/app/components/UI/PhotoUpload.vue").Photo[]) => {
-  const photo = photos[0] ?? null;
-  deliveryImageFile.value = photo?.file ?? null;
-  if (!photo) uploadedDeliveryImage.value = null;
-};
-const confirmStatusUpdate = async () => {
-  if (!statusTarget.value) return;
-
-  const addonUsages: Array<{ entitlementId: string; credits: number }> = [];
-  const isTransitionToCompleted = statusDraft.value === "COMPLETED" && statusTarget.value.status !== "COMPLETED";
-  if (isTransitionToCompleted) {
-    for (const entry of addonPickerEntries.value) {
-      if (!entry.selected) continue;
-      const credits = Math.max(0, Math.floor(entry.credits || 0));
-      if (credits <= 0) {
-        notify.validationError(`กรุณากรอกจำนวนเครดิตของ "${entry.productName}"`);
-        return;
-      }
-      if (credits > entry.creditRemaining) {
-        notify.validationError(`"${entry.productName}" คงเหลือ ${entry.creditRemaining} เครดิตเท่านั้น`);
-        return;
-      }
-      addonUsages.push({ entitlementId: entry.entitlementId, credits });
-    }
-  }
-
-  isUpdatingStatus.value = true;
-  let deliveryImageId: string | null | undefined = undefined;
-  if (statusDraft.value === "COMPLETED") {
-    if (deliveryImageFile.value) {
-      const uploaded = await uploadOrderImage(deliveryImageFile.value);
-      if (!uploaded) {
-        isUpdatingStatus.value = false;
-        return;
-      }
-      uploadedDeliveryImage.value = uploaded;
-      deliveryImageId = uploaded.id;
-    } else {
-      deliveryImageId = uploadedDeliveryImage.value?.id ?? null;
-    }
-  } else {
-    deliveryImageId = null;
-  }
-  const ok = await updateServiceOrderStatus(statusTarget.value.id, statusDraft.value, { deliveryImageId, addonUsages });
-  isUpdatingStatus.value = false;
-  if (ok) {
-    isStatusOpen.value = false;
-    statusTarget.value = null;
-    deliveryImageFile.value = null;
-    uploadedDeliveryImage.value = null;
-    addonPickerEntries.value = [];
-  }
 };
 
 const isDeleteOpen = ref(false);
@@ -539,7 +419,7 @@ const columns: TableColumn<AdminServiceOrder>[] = [
     header: "สถานะ",
     cell: ({ row }) => {
       const order = row.original;
-      return h(UBadge, { color: orderStatusColors[order.status], variant: "subtle", icon: "i-lucide-pencil", class: "cursor-pointer", onClick: (e: MouseEvent) => { e.stopPropagation(); openStatusModal(order); } }, () => orderStatusLabels[order.status]);
+      return h(UBadge, { color: orderStatusColors[order.status], variant: "subtle" }, () => orderStatusLabels[order.status]);
     },
   },
   {
@@ -573,14 +453,6 @@ const columns: TableColumn<AdminServiceOrder>[] = [
           variant: "ghost",
           title: "ดูรายละเอียดรายการรับผ้า",
           onClick: () => openDetailPage(order),
-        }),
-        h(UButton, {
-          icon: "i-lucide-refresh-ccw",
-          size: "xs",
-          color: "primary",
-          variant: "ghost",
-          title: "อัพเดทสถานะงาน",
-          onClick: () => openStatusModal(order),
         }),
         canEditPayment
           ? h(UButton, {
@@ -622,16 +494,6 @@ const columns: TableColumn<AdminServiceOrder>[] = [
 
         <template #right>
           <div class="flex flex-wrap items-center gap-2">
-            <!-- <UButton
-              label="สแกนสถานะผ้า"
-              icon="i-lucide-scan-line"
-              color="neutral"
-              variant="outline"
-              class="shrink-0"
-              aria-label="สแกนสถานะผ้า"
-              :ui="{ label: 'hidden sm:inline' }"
-              to="/admin/service-orders/scan"
-            /> -->
             <UButton
               label="เพิ่มรายการรับผ้า"
               icon="i-lucide-plus"
@@ -802,17 +664,9 @@ const columns: TableColumn<AdminServiceOrder>[] = [
                       </div>
 
                       <div class="flex shrink-0 flex-col items-end gap-1">
-                        <button
-                          type="button"
-                          class="inline-flex items-center rounded-md transition hover:bg-elevated/60"
-                          title="คลิกเพื่ออัพเดทสถานะงาน"
-                          aria-label="อัพเดทสถานะงาน"
-                          @click="openStatusModal(order)"
-                        >
-                          <UBadge :color="orderStatusColors[order.status]" variant="subtle" size="xs" icon="i-lucide-pencil">
-                            {{ orderStatusLabels[order.status] }}
-                          </UBadge>
-                        </button>
+                        <UBadge :color="orderStatusColors[order.status]" variant="subtle" size="xs">
+                          {{ orderStatusLabels[order.status] }}
+                        </UBadge>
                         <template v-if="order.memberEntitlement && Number(order.totalAmount ?? 0) === 0">
                           <span class="text-sm font-semibold leading-none text-success">ใช้เครดิต</span>
                           <span class="text-[10px] text-muted">{{ order.creditUsed ?? 0 }} เครดิต</span>
@@ -835,7 +689,6 @@ const columns: TableColumn<AdminServiceOrder>[] = [
 
                     <div class="mt-1 flex items-center justify-end gap-1">
                       <UButton icon="i-lucide-eye" size="xs" color="neutral" variant="ghost" aria-label="ดูรายละเอียดรายการรับผ้า" @click="openDetailPage(order)" />
-                      <UButton icon="i-lucide-refresh-ccw" size="xs" color="primary" variant="ghost" aria-label="อัพเดทสถานะงาน" @click="openStatusModal(order)" />
                       <UButton
                         v-if="order.payment?.id && order.status !== 'COMPLETED'"
                         icon="i-lucide-credit-card"
@@ -951,81 +804,6 @@ const columns: TableColumn<AdminServiceOrder>[] = [
           <UButton label="ลบ" color="error" :disabled="!selectedRowsCount" :loading="isDeleting" @click="confirmBulkDelete" />
         </div>
       </template>
-      </UModal>
-
-      <UModal
-        v-model:open="isStatusOpen"
-        title="อัพเดทสถานะงาน"
-        :description="statusTarget?.orderNo ? `เลขรับผ้า ${statusTarget.orderNo}` : 'เลือกสถานะใหม่สำหรับงานนี้'"
-      >
-        <template #body>
-          <div class="space-y-3">
-            <div v-if="statusTarget" class="flex items-center justify-between gap-3 rounded-md border border-default px-3 py-2 text-sm">
-              <span class="text-muted">สถานะปัจจุบัน</span>
-              <UBadge :color="orderStatusColors[statusTarget.status]" variant="subtle">{{ orderStatusLabels[statusTarget.status] }}</UBadge>
-            </div>
-            <UFormField label="สถานะใหม่">
-              <USelect
-                v-model="statusDraft"
-                :items="serviceOrderStatusOptions"
-                value-key="value"
-                class="w-full"
-              />
-            </UFormField>
-            <UIPhotoUpload
-              v-if="statusDraft === 'COMPLETED'"
-              label="รูปหลักฐานการส่งผ้า"
-              description="ถ่ายรูปตอนส่งคืนผ้าให้ลูกค้า (ไม่บังคับ)"
-              :photos="deliveryPhotos"
-              :max="1"
-              @update:photos="onDeliveryPhotosUpdate"
-            />
-
-            <div
-              v-if="statusDraft === 'COMPLETED' && statusTarget && statusTarget.status !== 'COMPLETED' && (addonPickerEntries.length || isLoadingAddons)"
-              class="space-y-2"
-            >
-              <div>
-                <p class="text-sm font-medium text-highlighted">ใช้สิทธิ์แพ็กเกจรอง</p>
-                <p class="text-xs text-muted">เลือกแพ็กเกจและจำนวนเครดิตที่จะหักเมื่อปิดงาน (ค่าเริ่มต้น 1)</p>
-              </div>
-              <p v-if="isLoadingAddons" class="text-sm text-muted">กำลังโหลดสิทธิ์แพ็กเกจรอง...</p>
-              <div v-else class="space-y-2">
-                <div
-                  v-for="entry in addonPickerEntries"
-                  :key="entry.entitlementId"
-                  class="flex flex-wrap items-center gap-3 rounded-md border border-default p-3"
-                >
-                  <UCheckbox v-model="entry.selected" />
-                  <div class="min-w-0 flex-1">
-                    <p class="truncate font-medium text-highlighted">{{ entry.productName }}</p>
-                    <p class="text-xs text-muted">คงเหลือ {{ entry.creditRemaining }} เครดิต</p>
-                  </div>
-                  <UInputNumber
-                    v-model="entry.credits"
-                    :min="1"
-                    :max="entry.creditRemaining"
-                    :disabled="!entry.selected"
-                    class="w-28"
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
-        </template>
-        <template #footer>
-          <div class="flex w-full justify-end gap-3">
-            <UButton label="ยกเลิก" color="neutral" variant="outline" @click="isStatusOpen = false" />
-            <UButton
-              label="บันทึกสถานะ"
-              icon="i-lucide-check"
-              color="primary"
-              :loading="isUpdatingStatus"
-              :disabled="!statusTarget || statusDraft === statusTarget?.status"
-              @click="confirmStatusUpdate"
-            />
-          </div>
-        </template>
       </UModal>
 
       <UIConfirmModal

@@ -193,32 +193,6 @@ export const useAdminServiceOrders = (options: UseAdminServiceOrdersOptions = {}
     }
   };
 
-  const updateServiceOrderStatus = async (
-    id: string,
-    status: ServiceOrderStatus,
-    options?: {
-      deliveryImageId?: string | null;
-      addonUsages?: Array<{ entitlementId: string; credits: number }>;
-    },
-  ): Promise<boolean> => {
-    try {
-      const body: {
-        status: ServiceOrderStatus;
-        deliveryImageId?: string | null;
-        addonUsages?: Array<{ entitlementId: string; credits: number }>;
-      } = { status };
-      if (options && "deliveryImageId" in options) body.deliveryImageId = options.deliveryImageId ?? null;
-      if (options?.addonUsages?.length) body.addonUsages = options.addonUsages;
-      await $fetch(`/api/admin/service-orders/${id}/status`, { method: "PATCH", body });
-      if (refreshAfterMutation) await refresh();
-      notify.updated("สถานะงาน");
-      return true;
-    } catch (error: unknown) {
-      notify.error(getErrorMessage(error, "ไม่สามารถอัปเดตสถานะงานได้"));
-      return false;
-    }
-  };
-
   const deleteServiceOrder = async (id: string): Promise<boolean> => {
     try {
       await $fetch(`/api/admin/service-orders/${id}`, { method: "DELETE" });
@@ -252,7 +226,6 @@ export const useAdminServiceOrders = (options: UseAdminServiceOrdersOptions = {}
     refresh,
     createServiceOrder,
     updateServiceOrder,
-    updateServiceOrderStatus,
     deleteServiceOrder,
     uploadOrderImage,
   };

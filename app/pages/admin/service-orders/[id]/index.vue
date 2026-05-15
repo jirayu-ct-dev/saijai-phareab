@@ -47,7 +47,6 @@ type ServiceOrderDetailResponse = {
   hangerCharge: { count: number; pricePerUnit: number; total: number } | null;
   customer: { id: string; name: string | null; email: string; phoneNumber: string | null; image: string | null };
   employee: { id: string; name: string | null; email: string } | null;
-  basket: { id: string; label: string | null; qrCode: string | null; status: string } | null;
   memberEntitlement: {
     id: string;
     status: string;
@@ -229,10 +228,6 @@ const orderRows = computed<InfoRow[]>(() => {
       ? { label: "วันที่ส่งผ้า", value: deliveredAt ? formatDateTime(deliveredAt) : "-" }
       : { label: "วันนัดรับ", value: order.value.dueAt ? formatDateTime(order.value.dueAt) : "-" },
   ];
-
-  if (order.value.basket) {
-    rows.push({ label: "ตะกร้า", value: order.value.basket.label || order.value.basket.qrCode || "-" });
-  }
 
   const active = order.value.activeEntitlements ?? [];
   if (active.length) {

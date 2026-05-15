@@ -46,14 +46,6 @@ export default defineEventHandler(async (event) => {
           },
         },
       },
-      basket: {
-        select: {
-          id: true,
-          label: true,
-          qrCode: true,
-          status: true,
-        },
-      },
       payments: {
         where: {
           deletedAt: null,
@@ -215,7 +207,6 @@ export default defineEventHandler(async (event) => {
       image: serviceOrder.isWalkIn ? null : serviceOrder.customer.image,
     },
     employee: serviceOrder.employee,
-    basket: serviceOrder.basket,
     memberEntitlement: serviceOrder.memberEntitlement
       ? {
           id: serviceOrder.memberEntitlement.id,
