@@ -104,17 +104,26 @@ const openBulkDeleteModal = (packages: Package[]) => {
   isBulkDeleteOpen.value = true;
 };
 
+const notify = useNotify();
 const handleConfirmBulkDelete = async () => {
   if (!bulkDeletePackages.value.length) return;
   isBulkDeleting.value = true;
 
-  for (const pkg of bulkDeletePackages.value) {
-    await deletePackage(pkg.id, pkg.name);
+  const targets = [...bulkDeletePackages.value];
+  try {
+    await Promise.all(targets.map((pkg) =>
+      $fetch(`/api/admin/packages/${pkg.id}`, { method: "DELETE" }),
+    ));
+    await refresh();
+    notify.deleted(`${targets.length} แพ็กเกจ`);
+  } catch (error: any) {
+    notify.error(error?.data?.statusMessage || "ไม่สามารถลบบางรายการได้");
+    await refresh();
+  } finally {
+    isBulkDeleting.value = false;
+    isBulkDeleteOpen.value = false;
+    bulkDeletePackages.value = [];
   }
-
-  isBulkDeleting.value = false;
-  isBulkDeleteOpen.value = false;
-  bulkDeletePackages.value = [];
 };
 
 const handleRemoveFromBulkDelete = (pkgId: string) => {

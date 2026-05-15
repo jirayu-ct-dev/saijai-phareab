@@ -265,17 +265,29 @@ const handlePaymentDeselected = (payment: AdminPaymentRecord) => {
   if (rowIndex >= 0) rows[rowIndex]?.toggleSelected(false);
 };
 
+const notify = useNotify();
 const confirmBulkDelete = async () => {
   if (!selectedPayments.value.length) return;
 
   isDeleting.value = true;
-  for (const payment of selectedPayments.value) {
-    await deletePayment(payment.id);
+  const targets = [...selectedPayments.value];
+  try {
+    await Promise.all(targets.map((payment) =>
+      $fetch(`/api/admin/payments/${payment.id}`, { method: "DELETE" }),
+    ));
+    await refresh();
+    notify.deleted(`${targets.length} รายการชำระเงิน`);
+    table.value?.tableApi?.resetRowSelection();
+    isBulkDeleteOpen.value = false;
+  } catch (error: unknown) {
+    const message = error && typeof error === "object" && "data" in error
+      ? ((error as { data?: { statusMessage?: string } }).data?.statusMessage || "ไม่สามารถลบบางรายการได้")
+      : "ไม่สามารถลบบางรายการได้";
+    notify.error(message);
+    await refresh();
+  } finally {
+    isDeleting.value = false;
   }
-  isDeleting.value = false;
-
-  table.value?.tableApi?.resetRowSelection();
-  isBulkDeleteOpen.value = false;
 };
 
 const getActionItems = (payment: AdminPaymentRecord) => {

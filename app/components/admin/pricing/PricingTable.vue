@@ -230,17 +230,18 @@ const confirmDeleteItem = async () => {
 const isBulkDeleting = ref(false)
 const handleBulkDelete = async () => {
   isBulkDeleting.value = true
+  const targets = [...selectedItems.value]
   try {
-    for (const item of selectedItems.value) {
-      await $fetch('/api/admin/pricing/item', { method: 'DELETE', body: { id: item.id } })
-      emit('delete-item', item.id)
-    }
+    await Promise.all(targets.map((item) =>
+      $fetch('/api/admin/pricing/item', { method: 'DELETE', body: { id: item.id } }),
+    ))
     emit('refresh')
     table.value?.tableApi?.resetRowSelection()
     showBulkDeleteModal.value = false
-    notify.success('ลบรายการที่เลือกเรียบร้อยแล้ว')
+    notify.success(`ลบ ${targets.length} รายการเรียบร้อยแล้ว`)
   } catch {
     notify.error('เกิดข้อผิดพลาด กรุณาลองใหม่')
+    emit('refresh')
   } finally {
     isBulkDeleting.value = false
   }

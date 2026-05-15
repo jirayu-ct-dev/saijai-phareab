@@ -251,17 +251,29 @@ const handleOrderDeselected = (order: AdminServiceOrder) => {
   if (rowIndex >= 0) rows[rowIndex]?.toggleSelected(false);
 };
 
+const notify = useNotify();
 const confirmBulkDelete = async () => {
   if (!selectedOrders.value.length) return;
 
   isDeleting.value = true;
-  for (const order of selectedOrders.value) {
-    await deleteServiceOrder(order.id);
+  const targets = [...selectedOrders.value];
+  try {
+    await Promise.all(targets.map((order) =>
+      $fetch(`/api/admin/service-orders/${order.id}`, { method: "DELETE" }),
+    ));
+    await refresh();
+    notify.deleted(`${targets.length} รายการรับผ้า`);
+    table.value?.tableApi?.resetRowSelection();
+    isBulkDeleteOpen.value = false;
+  } catch (error: unknown) {
+    const message = error && typeof error === "object" && "data" in error
+      ? ((error as { data?: { statusMessage?: string } }).data?.statusMessage || "ไม่สามารถลบบางรายการได้")
+      : "ไม่สามารถลบบางรายการได้";
+    notify.error(message);
+    await refresh();
+  } finally {
+    isDeleting.value = false;
   }
-  isDeleting.value = false;
-
-  table.value?.tableApi?.resetRowSelection();
-  isBulkDeleteOpen.value = false;
 };
 
 const isFormOpen = ref(false);

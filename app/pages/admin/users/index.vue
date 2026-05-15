@@ -223,8 +223,22 @@ const handleUsersRemoved = async (removedUsers: AdminUser[]) => {
     return
   }
 
-  for (const user of usersToDelete) {
-    await deleteUser(user.id)
+  if (usersToDelete.length === 1) {
+    await deleteUser(usersToDelete[0]!.id)
+    table.value?.tableApi?.resetRowSelection()
+    showDeleteModal.value = false
+    return
+  }
+
+  try {
+    await Promise.all(usersToDelete.map((u) =>
+      $fetch(`/api/admin/users/${u.id}`, { method: 'DELETE' }),
+    ))
+    await refresh()
+    notify.deleted(`${usersToDelete.length} ผู้ใช้งาน`)
+  } catch (error: any) {
+    notify.error(error?.data?.statusMessage || 'ไม่สามารถลบบางรายการได้')
+    await refresh()
   }
 
   table.value?.tableApi?.resetRowSelection()
