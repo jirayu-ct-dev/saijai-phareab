@@ -263,14 +263,26 @@ export default defineEventHandler(async (event) => {
 
     await prisma.$transaction(async (tx) => {
       if (existing.memberEntitlementId && existing.creditUsed) {
-        await tx.memberEntitlement.update({
-          where: { id: existing.memberEntitlementId },
+        // Only refund credits if the entitlement is still ACTIVE.
+        // If it was suspended/expired/cancelled after this order was created,
+        // restoring credits would bypass the suspension.
+        const { count } = await tx.memberEntitlement.updateMany({
+          where: {
+            id: existing.memberEntitlementId,
+            status: "ACTIVE",
+            creditRemaining: { gte: 0 },
+          },
           data: {
-            creditRemaining: {
-              increment: existing.creditUsed,
-            },
+            creditRemaining: { increment: existing.creditUsed },
           },
         });
+        if (count === 0) {
+          throw createError({
+            statusCode: 409,
+            statusMessage:
+              "ไม่สามารถแก้ไขรายการนี้ได้ เนื่องจากสิทธิ์แพ็กเกจที่ใช้ไปถูกระงับหรือหมดอายุแล้ว กรุณาติดต่อผู้ดูแลระบบ",
+          });
+        }
       }
 
       let nextEntitlementId: string | null = null;

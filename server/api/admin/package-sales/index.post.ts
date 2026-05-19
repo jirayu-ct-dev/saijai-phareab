@@ -159,7 +159,7 @@ export default defineEventHandler(async (event) => {
       const payment = await tx.paymentRecord.create({
         data: {
           paymentNo: await createPaymentNo(),
-          receiptNo: isPaid ? await createReceiptNo(now) : null,
+          receiptNo: isPaid ? await createReceiptNo(now, tx) : null,
           userId: body.customerId,
           packageSaleId: packageSale.id,
           amount: totalAmount,

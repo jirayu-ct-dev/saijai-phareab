@@ -78,9 +78,10 @@ export default defineEventHandler(async (event) => {
   }
 
   const now = new Date();
-  const receiptNo = nextStatus === "PAID" ? existing.receiptNo ?? (await createReceiptNo(now)) : existing.receiptNo;
 
   await prisma.$transaction(async (tx) => {
+    const receiptNo = nextStatus === "PAID" ? existing.receiptNo ?? (await createReceiptNo(now, tx)) : existing.receiptNo;
+
     await tx.paymentRecord.update({
       where: { id: paymentId },
       data: {

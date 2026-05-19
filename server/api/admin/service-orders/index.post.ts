@@ -322,7 +322,7 @@ export default defineEventHandler(async (event) => {
       const serviceOrder = await tx.serviceOrder.create({
         data: {
           orderNo: await createServiceOrderNo(receivedAt),
-          quotationNo: await createQuotationNo(receivedAt),
+          quotationNo: await createQuotationNo(receivedAt, tx),
           customerId: paymentUserId!,
           employeeId: actor.id,
           status: serviceOrderStatus,

@@ -224,8 +224,17 @@ export const runExpiringPackageNotifications = async (
         continue;
       }
 
+      const endAtDay = new Date(
+        Date.UTC(ent.endAt.getUTCFullYear(), ent.endAt.getUTCMonth(), ent.endAt.getUTCDate()),
+      );
       const existing = await prisma.packageExpiryNotification.findUnique({
-        where: { entitlementId_daysBefore: { entitlementId: ent.id, daysBefore: days } },
+        where: {
+          entitlementId_daysBefore_endAtSnapshot: {
+            entitlementId: ent.id,
+            daysBefore: days,
+            endAtSnapshot: endAtDay,
+          },
+        },
         select: { id: true },
       });
       if (existing) {
@@ -262,7 +271,7 @@ export const runExpiringPackageNotifications = async (
           data: {
             entitlementId: ent.id,
             daysBefore: days,
-            endAtSnapshot: ent.endAt,
+            endAtSnapshot: endAtDay,
           },
         });
         result.sent++;

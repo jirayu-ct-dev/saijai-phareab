@@ -1,4 +1,7 @@
 import { prisma } from "./prisma";
+import type { Prisma } from "~~/app/generated/prisma";
+
+type TxClient = Omit<typeof prisma, "$connect" | "$disconnect" | "$on" | "$transaction" | "$use" | "$extends">;
 
 const BANGKOK_TIMEZONE = "Asia/Bangkok";
 
@@ -10,14 +13,15 @@ const getBangkokYear = (date = new Date()) =>
 
 const padSeq = (n: number) => n.toString().padStart(4, "0");
 
-export const createReceiptNo = async (date = new Date()) => {
+export const createReceiptNo = async (date = new Date(), tx?: TxClient) => {
+  const db = tx ?? prisma;
   const { getBusinessSetting } = await import("./businessSetting");
   const setting = (await getBusinessSetting()) as { receiptNoPrefix?: string };
   const prefix = setting.receiptNoPrefix || "RC-";
   const year = getBangkokYear(date);
   const yearPrefix = `${prefix}${year}-`;
 
-  const last = await prisma.paymentRecord.findFirst({
+  const last = await db.paymentRecord.findFirst({
     where: { receiptNo: { startsWith: yearPrefix } },
     orderBy: { receiptNo: "desc" },
     select: { receiptNo: true },

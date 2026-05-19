@@ -287,6 +287,7 @@ model MemberEntitlement {
   expiryNotifications PackageExpiryNotification[]
 
   @@index([customerId])
+  @@index([customerId, status])
   @@index([productId])
   @@index([sourceSaleItemId])
   @@index([status, endAt])
@@ -409,7 +410,9 @@ model ServiceOrder {
   @@index([employeeId])
   @@index([memberEntitlementId])
   @@index([orderNo])
+  @@index([quotationNo])
   @@index([status, createdAt])
+  @@index([status, deletedAt, createdAt])
   @@map("service_order")
 }
 
@@ -595,7 +598,7 @@ model PackageExpiryNotification {
   endAtSnapshot DateTime
   sentAt        DateTime          @default(now())
 
-  @@unique([entitlementId, daysBefore])
+  @@unique([entitlementId, daysBefore, endAtSnapshot])
   @@index([sentAt])
   @@map("package_expiry_notification")
 }
