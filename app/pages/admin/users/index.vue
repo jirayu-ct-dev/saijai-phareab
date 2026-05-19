@@ -36,7 +36,7 @@ const UIButtonChatLine = resolveComponent('UIButtonChatLine')
 const UPopover = resolveComponent('UPopover')
 
 const notify = useNotify()
-const { users, isLoading, refresh, createUser, updateUser, deleteUser } = useAdminUsers()
+const { users, isLoading, refresh, createUser, updateUser, deleteUser, toggleActive } = useAdminUsers()
 
 const hydrated = ref(false)
 onMounted(() => { hydrated.value = true })
@@ -395,11 +395,24 @@ const saveUser = async () => {
   }
 }
 
-const getUserActionItems = (user: AdminUser): Array<Array<Record<string, unknown>>> => [
-  [
-    { label: 'แก้ไขผู้ใช้งาน', icon: 'i-lucide-pencil', onSelect: () => openEditModal(user) }
-  ],
-  [
+const getUserActionItems = (user: AdminUser): Array<Array<Record<string, unknown>>> => {
+  const items: Array<Array<Record<string, unknown>>> = [
+    [
+      { label: 'แก้ไขผู้ใช้งาน', icon: 'i-lucide-pencil', onSelect: () => openEditModal(user) }
+    ],
+  ]
+
+  if (!isSystemUser(user) && (user.role === 'EMPLOYEE' || user.role === 'ADMIN')) {
+    items.push([
+      {
+        label: user.isActive ? 'พักงาน' : 'เปิดใช้งาน',
+        icon: user.isActive ? 'i-lucide-user-x' : 'i-lucide-user-check',
+        onSelect: () => toggleActive(user)
+      }
+    ])
+  }
+
+  items.push([
     {
       label: 'ลบผู้ใช้งาน',
       icon: 'i-lucide-trash-2',
@@ -412,8 +425,10 @@ const getUserActionItems = (user: AdminUser): Array<Array<Record<string, unknown
         openSingleDeleteModal(user)
       }
     }
-  ]
-]
+  ])
+
+  return items
+}
 
 const columns: TableColumn<AdminUser>[] = [
   {
@@ -496,6 +511,23 @@ const columns: TableColumn<AdminUser>[] = [
           )
         }
       )
+    }
+  },
+  {
+    accessorKey: 'isActive',
+    header: 'สถานะ',
+    cell: ({ row }) => {
+      const user = row.original
+      if (user.role === 'USER') return null
+      if (isSystemUser(user)) return null
+
+      return h('div', { class: 'flex items-center gap-1.5' }, [
+        h(UBadge, {
+          color: user.isActive ? 'success' : 'warning',
+          variant: 'subtle',
+          size: 'xs',
+        }, () => user.isActive ? 'ใช้งาน' : 'พักงาน'),
+      ])
     }
   },
   {
@@ -862,6 +894,14 @@ const columns: TableColumn<AdminUser>[] = [
                           :color="EMAIL_STATUS_BADGE_MAP[user.emailVerified ? 'verified' : 'pending'].color"
                         >
                           {{ EMAIL_STATUS_BADGE_MAP[user.emailVerified ? 'verified' : 'pending'].label }}
+                        </UBadge>
+                        <UBadge
+                          v-if="!isSystemUser(user) && (user.role === 'EMPLOYEE' || user.role === 'ADMIN')"
+                          variant="subtle"
+                          size="xs"
+                          :color="user.isActive ? 'success' : 'warning'"
+                        >
+                          {{ user.isActive ? 'ใช้งาน' : 'พักงาน' }}
                         </UBadge>
                       </div>
                     </div>

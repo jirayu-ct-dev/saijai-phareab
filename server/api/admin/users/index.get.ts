@@ -13,6 +13,7 @@ export default defineEventHandler(async () => {
         role: true,
         phoneNumber: true,
         emailVerified: true,
+        isActive: true,
         createdAt: true,
         updatedAt: true,
         memberEntitlements: {

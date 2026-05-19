@@ -87,6 +87,17 @@ const itemsDropdown = computed<DropdownMenuItem[][]>(() => {
 <template>
     <UHeader v-model:open="open" mode="slideover">
 
+        <template #toggle>
+            <UButton
+                color="neutral"
+                variant="ghost"
+                :icon="open ? 'i-lucide-x' : 'i-lucide-menu'"
+                :aria-label="open ? 'ปิดเมนู' : 'เปิดเมนู'"
+                class="lg:hidden -me-1.5 touch-manipulation cursor-pointer"
+                @pointerup.prevent="open = !open"
+            />
+        </template>
+
         <UNavigationMenu :items="menu" />
 
         <!-- Logo & Brand -->
