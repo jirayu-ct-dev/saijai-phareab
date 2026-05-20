@@ -31,6 +31,10 @@ export type CreateAdminServiceOrderBody = {
 
 export type UpdateAdminServiceOrderBody = CreateAdminServiceOrderBody;
 
+export type UpdateAdminServiceOrderStatusBody = {
+  status: ServiceOrderStatus;
+};
+
 export type CreateAdminServiceOrderResult = {
   id: string;
   orderNo: string | null;
@@ -193,6 +197,18 @@ export const useAdminServiceOrders = (options: UseAdminServiceOrdersOptions = {}
     }
   };
 
+  const updateServiceOrderStatus = async (id: string, body: UpdateAdminServiceOrderStatusBody): Promise<boolean> => {
+    try {
+      await $fetch(`/api/admin/service-orders/${id}/status`, { method: "PATCH", body });
+      if (refreshAfterMutation) await refresh();
+      notify.updated("สถานะรายการรับผ้า");
+      return true;
+    } catch (error: unknown) {
+      notify.error(getErrorMessage(error, "ไม่สามารถอัปเดตสถานะรายการรับผ้าได้"));
+      return false;
+    }
+  };
+
   const deleteServiceOrder = async (id: string): Promise<boolean> => {
     try {
       await $fetch(`/api/admin/service-orders/${id}`, { method: "DELETE" });
@@ -226,6 +242,7 @@ export const useAdminServiceOrders = (options: UseAdminServiceOrdersOptions = {}
     refresh,
     createServiceOrder,
     updateServiceOrder,
+    updateServiceOrderStatus,
     deleteServiceOrder,
     uploadOrderImage,
   };

@@ -4,6 +4,7 @@ import type { TableColumn } from "@nuxt/ui";
 import { h, resolveComponent } from "vue";
 import EditPaymentStateModal from "~~/app/components/admin/payment/EditPaymentStateModal.vue";
 import EditServiceOrderModal from "~~/app/components/admin/service-orders/EditServiceOrderModal.vue";
+import EditServiceOrderStatusModal from "~~/app/components/admin/service-orders/EditServiceOrderStatusModal.vue";
 import type { AdminServiceOrder } from "~~/app/composables/useAdminServiceOrders";
 import { orderStatusColors, orderStatusLabels } from "~~/shared/config/orderConfig";
 import { formatCurrency, formatDate, formatDateTime } from "~~/shared/utils/format";
@@ -288,6 +289,18 @@ const onServiceOrderUpdated = async () => {
   await refresh();
 };
 
+const editStatusOpen = ref(false);
+const editStatusTarget = ref<AdminServiceOrder | null>(null);
+const openEditStatusModal = (order: AdminServiceOrder, e?: MouseEvent) => {
+  e?.stopPropagation();
+  editStatusTarget.value = order;
+  editStatusOpen.value = true;
+};
+
+const onServiceOrderStatusUpdated = async () => {
+  await refresh();
+};
+
 const stripEditQuery = () => {
   if (!route.query.edit) return;
   const { edit: _omit, ...rest } = route.query;
@@ -431,7 +444,18 @@ const columns: TableColumn<AdminServiceOrder>[] = [
     header: "สถานะ",
     cell: ({ row }) => {
       const order = row.original;
-      return h(UBadge, { color: orderStatusColors[order.status], variant: "subtle" }, () => orderStatusLabels[order.status]);
+      return h(
+        "button",
+        {
+          type: "button",
+          class: "inline-flex rounded-full text-left transition hover:opacity-80 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary cursor-pointer",
+          title: "อัปเดตสถานะผ้า",
+          onClick: (e: MouseEvent) => openEditStatusModal(order, e),
+        },
+        [
+          h(UBadge, { color: orderStatusColors[order.status], variant: "subtle", icon: "i-lucide-pencil" }, () => orderStatusLabels[order.status]),
+        ],
+      );
     },
   },
   {
@@ -676,9 +700,16 @@ const columns: TableColumn<AdminServiceOrder>[] = [
                       </div>
 
                       <div class="flex shrink-0 flex-col items-end gap-1">
-                        <UBadge :color="orderStatusColors[order.status]" variant="subtle" size="xs">
-                          {{ orderStatusLabels[order.status] }}
-                        </UBadge>
+                        <button
+                          type="button"
+                          class="inline-flex rounded-full transition hover:opacity-80 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                          title="อัปเดตสถานะผ้า"
+                          @click="openEditStatusModal(order, $event)"
+                        >
+                          <UBadge :color="orderStatusColors[order.status]" variant="subtle" size="xs" icon="i-lucide-pencil">
+                            {{ orderStatusLabels[order.status] }}
+                          </UBadge>
+                        </button>
                         <template v-if="order.memberEntitlement && Number(order.totalAmount ?? 0) === 0">
                           <span class="text-sm font-semibold leading-none text-success">ใช้เครดิต</span>
                           <span class="text-[10px] text-muted">{{ order.creditUsed ?? 0 }} เครดิต</span>
@@ -773,6 +804,12 @@ const columns: TableColumn<AdminServiceOrder>[] = [
         v-model:open="isFormOpen"
         :order="editingOrder"
         @updated="onServiceOrderUpdated"
+      />
+
+      <EditServiceOrderStatusModal
+        v-model:open="editStatusOpen"
+        :order="editStatusTarget"
+        @updated="onServiceOrderStatusUpdated"
       />
 
       <UModal
