@@ -2,22 +2,18 @@ import { requireRole } from "~~/server/utils/auth";
 import { prisma } from "~~/server/utils/prisma";
 import { createReceiptNo } from "~~/server/utils/receiptNo";
 import { notifyReceipt } from "~~/server/utils/notify";
+import {
+  applyPaymentStateTransition,
+  canTransitionPaymentStatus,
+  paymentMethods,
+  paymentStatuses,
+} from "~~/server/utils/paymentStateTransition";
 import type { PaymentMethod, PaymentStatus } from "~~/shared/types/enums";
 
 type UpdatePaymentStateBody = {
   status?: PaymentStatus;
   method?: PaymentMethod | null;
   slipImageId?: string | null;
-};
-
-const paymentStatuses = new Set<PaymentStatus>(["UNPAID", "PENDING_VERIFICATION", "PAID", "CANCELLED"]);
-const paymentMethods = new Set<PaymentMethod>(["CASH", "TRANSFER"]);
-
-const packageSaleStatusByPaymentStatus: Record<PaymentStatus, "PENDING" | "PAID" | "CANCELLED"> = {
-  UNPAID: "PENDING",
-  PENDING_VERIFICATION: "PENDING",
-  PAID: "PAID",
-  CANCELLED: "CANCELLED",
 };
 
 export default defineEventHandler(async (event) => {
@@ -64,6 +60,10 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, statusMessage: "กรุณาเลือกวิธีชำระเงินเมื่อสถานะเป็นชำระแล้ว" });
   }
 
+  if (!canTransitionPaymentStatus(existing.status, nextStatus)) {
+    throw createError({ statusCode: 409, statusMessage: "ไม่สามารถเปลี่ยนสถานะการชำระเงินนี้ได้" });
+  }
+
   const slipProvided = Object.prototype.hasOwnProperty.call(body, "slipImageId");
   const nextSlipImageId = slipProvided ? body.slipImageId ?? null : existing.slipImageId;
 
@@ -80,52 +80,16 @@ export default defineEventHandler(async (event) => {
   const now = new Date();
 
   await prisma.$transaction(async (tx) => {
-    const receiptNo = nextStatus === "PAID" ? existing.receiptNo ?? (await createReceiptNo(now, tx)) : existing.receiptNo;
-
-    await tx.paymentRecord.update({
-      where: { id: paymentId },
-      data: {
-        status: nextStatus,
-        method: nextMethod ?? null,
-        receiptNo,
-        slipImageId: nextSlipImageId,
-        paidAt: nextStatus === "PAID" ? existing.paidAt ?? now : null,
-        confirmedAt: nextStatus === "PAID" ? existing.confirmedAt ?? now : null,
-        confirmedById: nextStatus === "PAID" ? existing.confirmedById ?? actor.id : null,
-      },
-    });
-
-    if (existing.packageSaleId) {
-      await tx.packageSale.update({
-        where: { id: existing.packageSaleId },
-        data: { status: packageSaleStatusByPaymentStatus[nextStatus] },
-      });
-    }
-
-    await tx.paymentAuditLog.create({
-      data: {
-        paymentId,
-        action: "UPDATED",
-        actorId: actor.id,
-        beforeJson: {
-          status: existing.status,
-          method: existing.method,
-          paidAt: existing.paidAt?.toISOString() ?? null,
-          confirmedAt: existing.confirmedAt?.toISOString() ?? null,
-          confirmedById: existing.confirmedById,
-          receiptNo: existing.receiptNo,
-          slipImageId: existing.slipImageId,
-        },
-        afterJson: {
-          status: nextStatus,
-          method: nextMethod,
-          paidAt: nextStatus === "PAID" ? (existing.paidAt ?? now).toISOString() : null,
-          confirmedAt: nextStatus === "PAID" ? (existing.confirmedAt ?? now).toISOString() : null,
-          confirmedById: nextStatus === "PAID" ? existing.confirmedById ?? actor.id : null,
-          receiptNo,
-          slipImageId: nextSlipImageId,
-        },
-      },
+    await applyPaymentStateTransition({
+      tx,
+      paymentId,
+      existing,
+      nextStatus,
+      nextMethod: nextMethod ?? null,
+      nextSlipImageId,
+      actorId: actor.id,
+      now,
+      createReceiptNo: (date, receiptTx) => createReceiptNo(date, receiptTx as never),
     });
   });
 

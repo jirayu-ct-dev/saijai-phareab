@@ -1,5 +1,6 @@
 import { Prisma } from "~~/app/generated/prisma/client";
 import { prisma } from "~~/server/utils/prisma";
+import { requireRole } from "~~/server/utils/auth";
 import type { Role } from "~~/shared/types/enums";
 
 type CreateUserBody = {
@@ -15,6 +16,8 @@ const ALLOWED_ROLES: Role[] = ["USER", "EMPLOYEE", "ADMIN"];
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export default defineEventHandler(async (event) => {
+  await requireRole(event, ["ADMIN"]);
+
   const body = await readBody<CreateUserBody>(event);
   const email = body.email?.trim().toLowerCase();
 

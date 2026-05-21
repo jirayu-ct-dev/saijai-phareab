@@ -853,34 +853,30 @@ const savePaymentChanges = async () => {
               <UBadge color="neutral" variant="subtle">{{ auditLogs.length }} รายการ</UBadge>
             </div>
 
-            <div v-if="auditLogs.length" class="mt-5 space-y-4">
-              <div v-for="(log, index) in auditLogs" :key="log.id" class="relative pl-8">
-                <div v-if="index < auditLogs.length - 1" class="absolute left-2 top-7 bottom-[-1rem] w-px bg-default" />
-                <div class="absolute left-0 top-0 flex size-5 items-center justify-center rounded-full border border-default bg-default">
+            <div v-if="auditLogs.length" class="mt-5 space-y-5">
+              <div v-for="(log, index) in auditLogs" :key="log.id" class="relative pl-9">
+                <div v-if="index < auditLogs.length - 1" class="absolute left-3 top-9 -bottom-5 w-px bg-default/70" />
+                <div class="absolute left-0 top-0 flex size-6 items-center justify-center rounded-full border border-default bg-default shadow-sm">
                   <UIcon :name="auditActionMap[log.action]?.icon || 'i-lucide-history'" class="size-3.5 text-muted" />
                 </div>
 
-                <div class="min-w-0 rounded-md border border-default/60 p-3">
-                  <div class="flex flex-wrap items-start justify-between gap-2">
-                    <div class="min-w-0">
-                      <div class="flex min-w-0 flex-wrap items-center gap-2">
-                        <p class="text-sm font-medium text-highlighted">{{ getAuditActionLabel(log) }}</p>
-                        <UBadge :color="auditActionMap[log.action]?.color || 'neutral'" variant="subtle" size="xs">
-                          {{ log.action }}
-                        </UBadge>
-                      </div>
-                      <p class="mt-0.5 text-xs text-muted">{{ getAuditActorLabel(log) }} • {{ formatDateTime(log.createdAt) }}</p>
+                <div class="min-w-0 rounded-md border border-default/60 bg-default/45 p-3">
+                  <div class="min-w-0">
+                    <div class="flex min-w-0 flex-wrap items-center gap-2">
+                      <p class="min-w-0 wrap-break-word text-sm font-medium text-highlighted">{{ getAuditActionLabel(log) }}</p>
+                      <UBadge :color="auditActionMap[log.action]?.color || 'neutral'" variant="subtle" size="xs">
+                        {{ auditActionMap[log.action]?.label || log.action }}
+                      </UBadge>
                     </div>
+                    <p class="mt-1 wrap-break-word text-xs text-muted">
+                      {{ getAuditActorLabel(log) }} • {{ formatDateTime(log.createdAt) }}
+                    </p>
                   </div>
 
-                  <div v-if="getAuditChanges(log).length" class="mt-3 space-y-1.5 text-xs">
-                    <div v-for="change in getAuditChanges(log)" :key="`${log.id}-${change.label}`" class="grid grid-cols-[5.5rem_minmax(0,1fr)] gap-2">
-                      <span class="text-muted">{{ change.label }}</span>
-                      <span class="min-w-0 wrap-break-word text-highlighted">
-                        <span class="text-muted">ก่อน: {{ change.before }}</span>
-                        <UIcon name="i-lucide-arrow-right" class="mx-1 inline size-3 text-muted" />
-                        <span>หลัง: {{ change.after }}</span>
-                      </span>
+                  <div v-if="getAuditChanges(log).length" class="mt-3 divide-y divide-default/50 rounded-md bg-elevated/20 text-xs">
+                    <div v-for="change in getAuditChanges(log)" :key="`${log.id}-${change.label}`" class="flex min-w-0 items-start justify-between gap-3 px-3 py-2">
+                      <p class="shrink-0 font-medium text-muted">{{ change.label }}</p>
+                      <p class="min-w-0 wrap-break-word text-right font-medium text-highlighted">{{ change.after }}</p>
                     </div>
                   </div>
 

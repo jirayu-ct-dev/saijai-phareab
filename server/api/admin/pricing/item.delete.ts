@@ -1,4 +1,5 @@
 import { prisma } from '~~/server/utils/prisma'
+import { requireRole } from '~~/server/utils/auth'
 import { z } from 'zod'
 
 const schema = z.object({
@@ -6,6 +7,8 @@ const schema = z.object({
 })
 
 export default defineEventHandler(async (event) => {
+    await requireRole(event, ['EMPLOYEE', 'ADMIN'])
+
     try {
         const body = await readValidatedBody(event, schema.parse)
 

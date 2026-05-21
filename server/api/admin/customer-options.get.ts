@@ -1,7 +1,10 @@
 import { prisma } from "~~/server/utils/prisma";
+import { requireRole } from "~~/server/utils/auth";
 import { getWalkInCustomerEmail } from "~~/server/utils/walkInCustomer";
 
-export default defineEventHandler(async () => {
+export default defineEventHandler(async (event) => {
+  await requireRole(event, ["EMPLOYEE", "ADMIN"]);
+
   try {
     const users = await prisma.user.findMany({
       where: {

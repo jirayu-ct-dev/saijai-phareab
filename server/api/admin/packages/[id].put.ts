@@ -1,4 +1,5 @@
 import { prisma } from '~~/server/utils/prisma'
+import { requireRole } from '~~/server/utils/auth'
 
 interface UpdatePackageBody {
     name?: string
@@ -17,6 +18,8 @@ interface UpdatePackageBody {
  * อัปเดตข้อมูลแพ็กเกจเดี่ยว
  */
 export default defineEventHandler(async (event) => {
+    await requireRole(event, ['ADMIN'])
+
     const id = getRouterParam(event, 'id')
     if (!id) throw createError({ statusCode: 400, statusMessage: 'ไม่พบรหัสแพ็กเกจ' })
 

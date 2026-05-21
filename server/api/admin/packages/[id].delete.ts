@@ -1,4 +1,5 @@
 import { prisma } from '~~/server/utils/prisma'
+import { requireRole } from '~~/server/utils/auth'
 
 /**
  * DELETE /api/admin/packages/:id
@@ -6,6 +7,8 @@ import { prisma } from '~~/server/utils/prisma'
  * ข้อมูลจะยังคงอยู่ใน database แต่จะไม่แสดงในระบบ
  */
 export default defineEventHandler(async (event) => {
+    await requireRole(event, ['ADMIN'])
+
     const id = getRouterParam(event, 'id')
     if (!id) throw createError({ statusCode: 400, statusMessage: 'ไม่พบรหัสแพ็กเกจ' })
 

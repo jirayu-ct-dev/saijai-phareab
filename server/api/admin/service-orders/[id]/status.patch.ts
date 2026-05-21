@@ -3,14 +3,7 @@ import { requireRole } from "~~/server/utils/auth";
 import { notifyServiceOrderStatusChanged } from "~~/server/utils/notify";
 import { prisma } from "~~/server/utils/prisma";
 import { deductAddonUsageRecords, parseAddonUsages, refundAddonUsages, refundPrimaryCredit } from "~~/server/utils/serviceOrderCredits";
-
-const serviceOrderStatuses: ServiceOrderStatus[] = [
-  "RECEIVED",
-  "PROCESSING",
-  "DELIVERING",
-  "COMPLETED",
-  "CANCELLED",
-];
+import { canTransitionServiceOrderStatus, isServiceOrderStatus } from "~~/server/utils/serviceOrderStatusTransition";
 
 type UpdateServiceOrderStatusBody = {
   status?: ServiceOrderStatus;
@@ -27,7 +20,7 @@ export default defineEventHandler(async (event) => {
   const body = await readBody<UpdateServiceOrderStatusBody>(event);
   const nextStatus = body.status;
 
-  if (!nextStatus || !serviceOrderStatuses.includes(nextStatus)) {
+  if (!isServiceOrderStatus(nextStatus)) {
     throw createError({ statusCode: 400, statusMessage: "สถานะรายการรับผ้าไม่ถูกต้อง" });
   }
 
@@ -52,6 +45,13 @@ export default defineEventHandler(async (event) => {
 
     if (existing.status === nextStatus) {
       return { success: true };
+    }
+
+    if (!canTransitionServiceOrderStatus(existing.status, nextStatus)) {
+      throw createError({
+        statusCode: 400,
+        statusMessage: "ไม่สามารถข้ามสถานะรายการรับผ้าได้",
+      });
     }
 
     await prisma.$transaction(async (tx) => {
