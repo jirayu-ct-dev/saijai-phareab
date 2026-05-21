@@ -88,6 +88,7 @@ const getPackageLabel = (index: number) => {
             <UButton
               block
               size="xl"
+              to="/me/packages"
               :variant="index === 1 ? 'solid' : 'outline'"
               :class="[
                 'rounded-[16px] py-4 text-[16px] font-bold transition-all group/btn',
@@ -140,6 +141,7 @@ const getPackageLabel = (index: number) => {
               </div>
               <UButton
                 variant="link"
+                to="/me/packages"
                 class="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-bold p-0 group"
               >
                 เพิ่มบริการนี้

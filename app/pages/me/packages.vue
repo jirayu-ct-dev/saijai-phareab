@@ -161,5 +161,46 @@ const handleBuy = (pkg: any) => {
         </div>
       </div>
     </UDashboardPanel>
+
+    <UModal v-model="isOpen">
+      <UCard :ui="{ ring: '', divide: 'divide-y divide-gray-100 dark:divide-gray-800' }">
+        <template #header>
+          <div class="flex items-center justify-between">
+            <h3 class="text-base font-semibold leading-6 text-gray-900 dark:text-white">สนใจแพ็กเกจนี้</h3>
+            <UButton color="gray" variant="ghost" icon="i-lucide-x" class="-my-1" @click="isOpen = false" />
+          </div>
+        </template>
+        
+        <div class="space-y-4" v-if="selectedPackage">
+          <div class="text-center">
+            <UIcon name="i-lucide-shopping-cart" class="w-12 h-12 text-primary mx-auto mb-2" />
+            <h4 class="text-xl font-bold text-gray-900 dark:text-white">{{ selectedPackage.name }}</h4>
+            <p class="text-3xl font-extrabold text-primary my-2">{{ formatCurrency(selectedPackage.price) }}</p>
+            <p class="text-sm text-gray-500">แคปหน้าจอนี้เพื่อไปสั่งซื้อและชำระเงินผ่านแอดมิน LINE ได้เลยครับ</p>
+          </div>
+          
+          <div class="bg-elevated p-4 rounded-lg space-y-2 text-sm">
+            <div class="flex justify-between">
+              <span class="text-muted">ประเภท:</span>
+              <span class="font-medium text-highlighted">{{ selectedPackage.packageType === 'MAIN' ? 'แพ็กเกจหลัก' : 'แพ็กเกจเสริม' }}</span>
+            </div>
+            <div class="flex justify-between" v-if="selectedPackage.validityDays">
+              <span class="text-muted">อายุการใช้งาน:</span>
+              <span class="font-medium text-highlighted">{{ selectedPackage.validityDays }} วัน</span>
+            </div>
+          </div>
+        </div>
+        
+        <template #footer>
+          <div class="flex gap-3 mt-2">
+            <UButton color="neutral" variant="outline" block class="flex-1" @click="isOpen = false">ยกเลิก</UButton>
+            <UButton color="primary" block class="flex-1" to="https://line.me/R/ti/p/@883vmdct" target="_blank">
+              <UIcon name="i-simple-icons-line" class="w-5 h-5 mr-1" />
+              ติดต่อแอดมิน (LINE)
+            </UButton>
+          </div>
+        </template>
+      </UCard>
+    </UModal>
   </UDashboardPage>
 </template>
