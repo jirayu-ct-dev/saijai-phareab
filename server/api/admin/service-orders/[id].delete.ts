@@ -35,7 +35,7 @@ export default defineEventHandler(async (event) => {
         memberEntitlementId: existing.memberEntitlementId,
         creditUsed: existing.creditUsed,
       });
-      await refundAddonUsages(tx, existing.addonUsages);
+      await refundAddonUsages(tx, existing.id, existing.addonUsages);
 
       await tx.serviceOrder.update({
         where: { id },

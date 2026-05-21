@@ -2,7 +2,7 @@ import type { ServiceOrderStatus } from "~~/shared/types/enums";
 import { requireRole } from "~~/server/utils/auth";
 import { notifyServiceOrderStatusChanged } from "~~/server/utils/notify";
 import { prisma } from "~~/server/utils/prisma";
-import { refundAddonUsages, refundPrimaryCredit } from "~~/server/utils/serviceOrderCredits";
+import { deductAddonUsageRecords, parseAddonUsages, refundAddonUsages, refundPrimaryCredit } from "~~/server/utils/serviceOrderCredits";
 
 const serviceOrderStatuses: ServiceOrderStatus[] = [
   "RECEIVED",
@@ -56,19 +56,29 @@ export default defineEventHandler(async (event) => {
 
     await prisma.$transaction(async (tx) => {
       const shouldRefundCredits = existing.status !== "CANCELLED" && nextStatus === "CANCELLED";
+      const shouldDeductCompletedAddons = existing.status !== "CANCELLED" && nextStatus === "COMPLETED";
+      let nextAddonUsages: unknown | undefined;
 
       if (shouldRefundCredits) {
         await refundPrimaryCredit(tx, {
           memberEntitlementId: existing.memberEntitlementId,
           creditUsed: existing.creditUsed,
         });
-        await refundAddonUsages(tx, existing.addonUsages);
+        await refundAddonUsages(tx, existing.id, existing.addonUsages);
+      }
+
+      if (shouldDeductCompletedAddons) {
+        const deducted = await deductAddonUsageRecords(tx, existing.id, "COMPLETED");
+        if (deducted.length > 0) {
+          nextAddonUsages = [...parseAddonUsages(existing.addonUsages), ...deducted];
+        }
       }
 
       await tx.serviceOrder.update({
         where: { id },
         data: {
           status: nextStatus,
+          ...(nextAddonUsages !== undefined ? { addonUsages: nextAddonUsages } : {}),
           ...(shouldRefundCredits
             ? {
                 creditUsed: null,

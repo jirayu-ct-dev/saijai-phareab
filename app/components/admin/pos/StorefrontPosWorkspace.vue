@@ -138,11 +138,14 @@ const customerOptions = computed(() =>
     email: customer.email,
     phoneNumber: customer.phoneNumber,
     activeMemberEntitlement: customer.activeMemberEntitlement ?? null,
+    addonEntitlements: customer.addonEntitlements ?? [],
   })),
 );
 const selectedCustomer = computed(() => customerOptions.value.find((customer) => customer.value === form.customerId) ?? null);
 const activeMemberEntitlement = computed(() => selectedCustomer.value?.activeMemberEntitlement ?? null);
+const activeAddonEntitlements = computed(() => selectedCustomer.value?.addonEntitlements ?? []);
 const canUseMemberPackage = computed(() => !form.isWalkIn && Boolean(activeMemberEntitlement.value));
+const canUseAddonPackages = computed(() => !form.isWalkIn && activeAddonEntitlements.value.length > 0);
 
 const filteredCatalog = computed(() => {
   const keyword = searchQuery.value.trim().toLowerCase();
@@ -163,6 +166,7 @@ const createEmptyForm = () => ({
   walkInName: "",
   walkInPhone: "",
   memberEntitlementId: null as string | null,
+  addonEntitlements: [] as Array<{ entitlementId: string; credits: number }>,
   items: [] as FormItemState[],
   washFoldMode: false,
   washFoldWeightKg: 0,
@@ -187,6 +191,7 @@ const uploadedPhotoIds = ref(new Map<string, string>()); // photoKey → imageId
 
 
 const selectedItemMap = computed(() => new Map(form.items.map((item) => [item.storefrontPriceId, item])));
+const selectedAddonCreditMap = computed(() => new Map(form.addonEntitlements.map((item) => [item.entitlementId, item.credits])));
 
 const cartItems = computed(() =>
   form.items
@@ -322,6 +327,7 @@ const vatPreview = computed(() => computeVatPreview(beforeVatAmount.value));
 const totalAmount = computed(() => vatPreview.value.totalAmount);
 
 const isMemberWithZeroTotal = computed(() => Boolean(form.memberEntitlementId) && totalAmount.value === 0);
+const selectedAddonEntitlements = computed(() => form.addonEntitlements.filter((item) => item.credits > 0));
 
 const normalizedItems = computed(() =>
   cartItems.value.map((item) => {
@@ -498,6 +504,15 @@ const resetSlip = () => {
   form.slipImageId = null;
 };
 
+const setAddonCredits = (entitlementId: string, value: number | string | null | undefined) => {
+  const entitlement = activeAddonEntitlements.value.find((item) => item.id === entitlementId);
+  if (!entitlement) return;
+  const max = Math.max(0, Number(entitlement.creditRemaining ?? 0));
+  const credits = Math.min(max, Math.max(0, Math.floor(Number(value) || 0)));
+  form.addonEntitlements = form.addonEntitlements.filter((item) => item.entitlementId !== entitlementId);
+  if (credits > 0) form.addonEntitlements.push({ entitlementId, credits });
+};
+
 const resetForm = () => {
   Object.assign(form, createEmptyForm());
   dueDate.value = null;
@@ -559,6 +574,14 @@ watch(
   },
   { immediate: true },
 );
+watch([() => form.isWalkIn, activeAddonEntitlements], ([isWalkIn, addons]) => {
+  if (isWalkIn || addons.length === 0) {
+    form.addonEntitlements = [];
+    return;
+  }
+  const availableIds = new Set(addons.map((item) => item.id));
+  form.addonEntitlements = form.addonEntitlements.filter((item) => availableIds.has(item.entitlementId));
+});
 
 watch(() => form.hangerCount, (raw) => { const v = Number.isFinite(raw) ? raw : 0; form.hangerCount = v; if (v !== form.missingHangerCount) form.missingHangerCount = v; });
 watch(() => form.missingHangerCount, (raw) => { const v = Number.isFinite(raw) ? raw : 0; form.missingHangerCount = v; if (v !== form.hangerCount) form.hangerCount = v; });
@@ -586,6 +609,7 @@ const handleSubmit = async () => {
       walkInName: form.isWalkIn ? form.walkInName.trim() || null : null,
       walkInPhone: form.isWalkIn ? form.walkInPhone.trim() || null : null,
       memberEntitlementId: form.washFoldMode ? null : form.memberEntitlementId,
+      addonEntitlements: form.isWalkIn ? [] : selectedAddonEntitlements.value,
       orderImageId: form.orderImageId,
       items: normalizedItems.value,
       washFold: form.washFoldMode
@@ -945,6 +969,31 @@ const handleSubmit = async () => {
             <div v-if="!form.washFoldMode" class="flex items-center justify-between gap-3">
               <span class="text-muted">ค่าไม้แขวน</span>
               <span class="font-medium text-highlighted">{{ formatCurrency(hangerCharge.total) }}</span>
+            </div>
+
+            <div v-if="canUseAddonPackages" class="space-y-2 border-t border-default pt-3">
+              <div class="flex items-center justify-between gap-3">
+                <p class="text-sm font-medium text-highlighted">แพ็กเกจเสริม</p>
+                <span class="text-xs text-muted">เลือกจำนวนเครดิต</span>
+              </div>
+              <div v-for="addon in activeAddonEntitlements" :key="addon.id" class="flex items-center justify-between gap-3">
+                <div class="min-w-0">
+                  <p class="truncate text-sm text-highlighted">{{ addon.productName }}</p>
+                  <p class="text-xs text-muted">
+                    คงเหลือ {{ addon.creditRemaining ?? 0 }} | หักเมื่อ {{ addon.deductOn === 'CREATED' ? 'รับผ้า' : 'เสร็จสิ้น' }}
+                  </p>
+                </div>
+                <UInputNumber
+                  :model-value="selectedAddonCreditMap.get(addon.id) ?? 0"
+                  :min="0"
+                  :max="Math.max(0, Number(addon.creditRemaining ?? 0))"
+                  :step="1"
+                  orientation="horizontal"
+                  size="xs"
+                  class="w-24 shrink-0"
+                  @update:model-value="setAddonCredits(addon.id, $event)"
+                />
+              </div>
             </div>
 
             <div v-if="vatRate > 0" class="flex items-center justify-between gap-3">

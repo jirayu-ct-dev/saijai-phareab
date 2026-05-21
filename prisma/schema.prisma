@@ -282,9 +282,10 @@ model MemberEntitlement {
   deletedById      String?
   deletedBy        User?             @relation("MemberEntitlementDeletedBy", fields: [deletedById], references: [id])
 
-  serviceOrders       ServiceOrder[]
-  payments            PaymentRecord[]
-  expiryNotifications PackageExpiryNotification[]
+  serviceOrders           ServiceOrder[]
+  payments                PaymentRecord[]
+  serviceOrderAddonUsages ServiceOrderAddonUsage[]
+  expiryNotifications     PackageExpiryNotification[]
 
   @@index([customerId])
   @@index([customerId, status])
@@ -404,6 +405,7 @@ model ServiceOrder {
   deletedBy                  User?              @relation("ServiceOrderDeletedBy", fields: [deletedById], references: [id])
 
   serviceOrderItems ServiceOrderItem[]
+  addonUsageRecords ServiceOrderAddonUsage[]
   payments          PaymentRecord[]
 
   @@index([customerId])
@@ -461,6 +463,28 @@ model ServiceOrderItemImage {
   @@index([serviceOrderItemId])
   @@index([imageId])
   @@map("service_order_item_image")
+}
+
+model ServiceOrderAddonUsage {
+  id                  String             @id @default(cuid())
+  serviceOrderId      String
+  serviceOrder        ServiceOrder       @relation(fields: [serviceOrderId], references: [id], onDelete: Cascade)
+  memberEntitlementId String?
+  memberEntitlement   MemberEntitlement? @relation(fields: [memberEntitlementId], references: [id], onDelete: SetNull)
+  productId           String?
+  productName         String?
+  credits             Int
+  deductOn            DeductOn           @default(CREATED)
+  deductedAt          DateTime?
+  refundedAt          DateTime?
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+
+  @@index([serviceOrderId])
+  @@index([memberEntitlementId])
+  @@index([deductOn, deductedAt])
+  @@index([refundedAt])
+  @@map("service_order_addon_usage")
 }
 
 model PaymentRecord {

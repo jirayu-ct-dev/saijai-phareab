@@ -6,6 +6,7 @@ export type CreateAdminServiceOrderBody = {
   walkInName?: string | null;
   walkInPhone?: string | null;
   memberEntitlementId?: string | null;
+  addonEntitlements?: Array<{ entitlementId: string; credits: number }>;
   orderImageId?: string | null;
   deliveryImageId?: string | null;
   items?: Array<{
@@ -49,6 +50,16 @@ export type AdminServiceOrder = {
   walkInName: string | null;
   walkInPhone: string | null;
   creditUsed: number | null;
+  addonUsages?: Array<{
+    id?: string;
+    entitlementId: string | null;
+    productId: string | null;
+    productName: string | null;
+    credits: number;
+    deductOn: "CREATED" | "COMPLETED";
+    deductedAt: string | null;
+    refundedAt: string | null;
+  }>;
   note: string | null;
   receivedAt: string;
   dueAt: string | null;
@@ -81,6 +92,22 @@ export type AdminServiceOrder = {
       validityDays: number | null;
     };
   } | null;
+  activeEntitlements?: Array<{
+    id: string;
+    status: string;
+    creditInitial: number | null;
+    creditRemaining: number | null;
+    endAt: string | null;
+    product: {
+      id: string;
+      name: string;
+      packageType: string;
+      credits: number | null;
+      validityDays: number | null;
+      deductOn?: "CREATED" | "COMPLETED";
+      isDelivery?: boolean;
+    };
+  }>;
   hangerCharge: {
     count: number;
     pricePerUnit: number;

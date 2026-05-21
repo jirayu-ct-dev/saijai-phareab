@@ -60,6 +60,9 @@ export default defineEventHandler(async (event) => {
             url: true,
           },
         },
+        addonUsageRecords: {
+          orderBy: { createdAt: "asc" },
+        },
         serviceOrderItems: {
           where: {
             deletedAt: null,
@@ -166,6 +169,16 @@ export default defineEventHandler(async (event) => {
               url: row.deliveryImage.url,
             }
           : null,
+        addonUsages: row.addonUsageRecords.map((usage) => ({
+          id: usage.id,
+          entitlementId: usage.memberEntitlementId,
+          productId: usage.productId,
+          productName: usage.productName,
+          credits: usage.credits,
+          deductOn: usage.deductOn,
+          deductedAt: usage.deductedAt?.toISOString() ?? null,
+          refundedAt: usage.refundedAt?.toISOString() ?? null,
+        })),
         memberEntitlement: row.memberEntitlement
           ? {
               id: row.memberEntitlement.id,

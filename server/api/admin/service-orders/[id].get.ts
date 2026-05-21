@@ -42,6 +42,8 @@ export default defineEventHandler(async (event) => {
               packageType: true,
               credits: true,
               validityDays: true,
+              deductOn: true,
+              isDelivery: true,
             },
           },
         },
@@ -62,6 +64,9 @@ export default defineEventHandler(async (event) => {
             },
           },
         },
+      },
+      addonUsageRecords: {
+        orderBy: { createdAt: "asc" },
       },
       serviceOrderItems: {
         where: {
@@ -150,6 +155,8 @@ export default defineEventHandler(async (event) => {
               packageType: true,
               credits: true,
               validityDays: true,
+              deductOn: true,
+              isDelivery: true,
             },
           },
         },
@@ -207,6 +214,16 @@ export default defineEventHandler(async (event) => {
       image: serviceOrder.isWalkIn ? null : serviceOrder.customer.image,
     },
     employee: serviceOrder.employee,
+    addonUsages: serviceOrder.addonUsageRecords.map((usage) => ({
+      id: usage.id,
+      entitlementId: usage.memberEntitlementId,
+      productId: usage.productId,
+      productName: usage.productName,
+      credits: usage.credits,
+      deductOn: usage.deductOn,
+      deductedAt: usage.deductedAt?.toISOString() ?? null,
+      refundedAt: usage.refundedAt?.toISOString() ?? null,
+    })),
     memberEntitlement: serviceOrder.memberEntitlement
       ? {
           id: serviceOrder.memberEntitlement.id,

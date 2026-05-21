@@ -23,10 +23,10 @@ export default defineEventHandler(async () => {
             status: "ACTIVE",
           },
           orderBy: [
+            { product: { packageType: "asc" } },
             { endAt: "asc" },
             { createdAt: "desc" },
           ],
-          take: 1,
           select: {
             id: true,
             creditInitial: true,
@@ -34,7 +34,11 @@ export default defineEventHandler(async () => {
             endAt: true,
             product: {
               select: {
+                id: true,
                 name: true,
+                packageType: true,
+                deductOn: true,
+                isDelivery: true,
               },
             },
           },
@@ -47,7 +51,8 @@ export default defineEventHandler(async () => {
     });
 
     return users.map((user) => {
-      const activeMemberEntitlement = user.memberEntitlements[0] ?? null;
+      const activeMemberEntitlement = user.memberEntitlements.find((entitlement) => entitlement.product.packageType === "MAIN") ?? null;
+      const activeAddonEntitlements = user.memberEntitlements.filter((entitlement) => entitlement.product.packageType === "ADDON");
 
       return {
         id: user.id,
@@ -59,12 +64,23 @@ export default defineEventHandler(async () => {
         activeMemberEntitlement: activeMemberEntitlement
           ? {
               id: activeMemberEntitlement.id,
+              productId: activeMemberEntitlement.product.id,
               productName: activeMemberEntitlement.product.name,
               creditInitial: activeMemberEntitlement.creditInitial,
               creditRemaining: activeMemberEntitlement.creditRemaining,
               endAt: activeMemberEntitlement.endAt?.toISOString() ?? null,
             }
           : null,
+        addonEntitlements: activeAddonEntitlements.map((entitlement) => ({
+          id: entitlement.id,
+          productId: entitlement.product.id,
+          productName: entitlement.product.name,
+          creditInitial: entitlement.creditInitial,
+          creditRemaining: entitlement.creditRemaining,
+          endAt: entitlement.endAt?.toISOString() ?? null,
+          deductOn: entitlement.product.deductOn,
+          isDelivery: entitlement.product.isDelivery,
+        })),
       };
     });
   } catch (error) {

@@ -6,6 +6,7 @@ import { requireRole } from "~~/server/utils/auth";
 import { createPaymentNo } from "~~/server/utils/paymentNo";
 import { prisma } from "~~/server/utils/prisma";
 import { ensureWalkInCustomer } from "~~/server/utils/walkInCustomer";
+import { createAddonUsageRecords, refundAddonUsages } from "~~/server/utils/serviceOrderCredits";
 
 type UpdateServiceOrderBody = {
   customerId?: string | null;
@@ -13,6 +14,7 @@ type UpdateServiceOrderBody = {
   walkInName?: string | null;
   walkInPhone?: string | null;
   memberEntitlementId?: string | null;
+  addonEntitlements?: Array<{ entitlementId: string; credits: number }>;
   orderImageId?: string | null;
   deliveryImageId?: string | null;
   items: Array<{
@@ -49,6 +51,7 @@ export default defineEventHandler(async (event) => {
   const requestedEntitlementId = body.memberEntitlementId?.trim() || null;
   const orderImageId = body.orderImageId?.trim() || null;
   const deliveryImageId = body.deliveryImageId === null ? null : body.deliveryImageId?.trim() || undefined;
+  const shouldReplaceAddonUsages = Array.isArray(body.addonEntitlements);
 
   if (!isWalkIn && !customerId) {
     throw createError({ statusCode: 400, statusMessage: "กรุณาเลือกลูกค้า" });
@@ -56,6 +59,10 @@ export default defineEventHandler(async (event) => {
 
   if (isWalkIn && requestedEntitlementId) {
     throw createError({ statusCode: 400, statusMessage: "ลูกค้าหน้าร้านไม่สามารถใช้เครดิตแพ็กเกจได้" });
+  }
+
+  if (isWalkIn && Array.isArray(body.addonEntitlements) && body.addonEntitlements.length > 0) {
+    throw createError({ statusCode: 400, statusMessage: "ลูกค้าหน้าร้านไม่สามารถใช้แพ็กเกจเสริมได้" });
   }
 
   const washFoldInput = body.washFold && Number.isFinite(Number(body.washFold.weightKg))
@@ -285,6 +292,10 @@ export default defineEventHandler(async (event) => {
         }
       }
 
+      if (shouldReplaceAddonUsages) {
+        await refundAddonUsages(tx, existing.id, existing.addonUsages);
+      }
+
       let nextEntitlementId: string | null = null;
 
       if (requestedEntitlementId) {
@@ -340,6 +351,64 @@ export default defineEventHandler(async (event) => {
         nextEntitlementId = entitlement.id;
       }
 
+      type PendingAddonUsage = {
+        entitlementId: string;
+        productId: string;
+        productName: string;
+        credits: number;
+        deductOn: "CREATED" | "COMPLETED";
+        appliedAt?: string;
+        deductedAt?: string | null;
+      };
+      const pendingAddonUsages: PendingAddonUsage[] = [];
+      const storedAddonUsages: PendingAddonUsage[] = [];
+      const rawAddonEntitlements = shouldReplaceAddonUsages ? body.addonEntitlements ?? [] : [];
+      for (const entry of rawAddonEntitlements) {
+        const credits = Math.floor(Number(entry.credits ?? 0));
+        if (!entry.entitlementId || credits <= 0) continue;
+        const addonEnt = await tx.memberEntitlement.findFirst({
+          where: {
+            id: entry.entitlementId,
+            customerId: customerId!,
+            status: "ACTIVE",
+            deletedAt: null,
+            product: { packageType: "ADDON" },
+          },
+          include: { product: { select: { id: true, name: true, deductOn: true } } },
+        });
+        if (!addonEnt) {
+          throw createError({ statusCode: 400, statusMessage: `ไม่พบสิทธิ์แพ็กเกจเสริม (${entry.entitlementId})` });
+        }
+        const shouldDeductNow = addonEnt.product.deductOn === "CREATED" || serviceOrderStatus === "COMPLETED";
+        const usage: PendingAddonUsage = {
+          entitlementId: addonEnt.id,
+          productId: addonEnt.product.id,
+          productName: addonEnt.product.name,
+          credits,
+          deductOn: addonEnt.product.deductOn,
+          deductedAt: null,
+        };
+        if (shouldDeductNow) {
+          const { count } = await tx.memberEntitlement.updateMany({
+            where: {
+              id: addonEnt.id,
+              creditRemaining: { gte: credits },
+              status: "ACTIVE",
+              deletedAt: null,
+            },
+            data: { creditRemaining: { decrement: credits } },
+          });
+          if (count === 0) {
+            throw createError({ statusCode: 400, statusMessage: `เครดิตของ "${addonEnt.product.name}" ไม่พอ` });
+          }
+          const deductedAt = new Date().toISOString();
+          usage.appliedAt = deductedAt;
+          usage.deductedAt = deductedAt;
+          storedAddonUsages.push(usage);
+        }
+        pendingAddonUsages.push(usage);
+      }
+
       const existingPayment = existing.payments[0];
 
       const deletedAt = new Date();
@@ -364,9 +433,14 @@ export default defineEventHandler(async (event) => {
           washFoldPricePerKgSnapshot: washFoldInput ? business.washFoldPricePerKg : null,
           note: body.note?.trim() || null,
           imageId: orderImageId,
+          ...(shouldReplaceAddonUsages ? { addonUsages: storedAddonUsages } : {}),
           ...(deliveryImageId !== undefined ? { deliveryImageId } : {}),
         },
       });
+
+      if (shouldReplaceAddonUsages) {
+        await createAddonUsageRecords(tx, id, pendingAddonUsages);
+      }
 
       const existingItems = await tx.serviceOrderItem.findMany({
         where: {
