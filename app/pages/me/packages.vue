@@ -238,19 +238,16 @@ const handleBuy = async (pkg: any) => {
 
     <!-- Success / LINE Message Sent Modal -->
     <UModal v-model:open="isSuccessModalOpen" :ui="{ content: 'sm:max-w-md' }">
-      <UCard :ui="{ ring: '', divide: 'divide-y divide-slate-100 dark:divide-slate-800' }" class="p-2">
-        <template #header>
-          <div class="flex items-center justify-between">
-            <div class="flex items-center gap-2">
-              <span class="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-500">
-                <UIcon name="i-lucide-badge-check" class="w-5 h-5" />
-              </span>
-              <h3 class="text-base font-bold text-slate-800 dark:text-white">แจ้งความสนใจสำเร็จ!</h3>
-            </div>
-            <UButton color="neutral" variant="ghost" icon="i-lucide-x" class="-my-1" @click="isSuccessModalOpen = false" />
-          </div>
-        </template>
-        
+      <template #title>
+        <div class="flex items-center gap-2">
+          <span class="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-500">
+            <UIcon name="i-lucide-badge-check" class="w-5 h-5" />
+          </span>
+          <span class="text-base font-bold text-slate-800 dark:text-white">แจ้งความสนใจสำเร็จ!</span>
+        </div>
+      </template>
+      
+      <template #body>
         <div class="p-6 text-center space-y-4" v-if="selectedPackage">
           <div class="w-20 h-20 bg-emerald-500/10 dark:bg-emerald-500/20 text-emerald-500 rounded-full flex items-center justify-center mx-auto scale-110 shadow-lg shadow-emerald-500/10">
             <UIcon name="i-lucide-check-circle" class="w-10 h-10 animate-bounce" />
@@ -280,33 +277,32 @@ const handleBuy = async (pkg: any) => {
           </div>
         </div>
         
-        <template #footer>
-          <div class="flex flex-col sm:flex-row gap-3 w-full">
-            <UButton color="neutral" variant="outline" class="flex-1 font-bold py-2.5 rounded-xl" @click="isSuccessModalOpen = false">ปิดหน้าต่าง</UButton>
-            <UButton color="primary" class="flex-1 font-bold py-2.5 rounded-xl" to="https://line.me/R/ti/p/@883vmdct" target="_blank">
-              <UIcon name="i-simple-icons-line" class="w-4 h-4 mr-1.5" />
-              เปิดดูแชท LINE
-            </UButton>
-          </div>
-        </template>
-      </UCard>
+        </div>
+      </template>
+        
+      <template #footer>
+        <div class="flex flex-col sm:flex-row gap-3 w-full">
+          <UButton color="neutral" variant="outline" class="flex-1 font-bold py-2.5 rounded-xl" @click="isSuccessModalOpen = false">ปิดหน้าต่าง</UButton>
+          <UButton color="primary" class="flex-1 font-bold py-2.5 rounded-xl" to="https://line.me/R/ti/p/@883vmdct" target="_blank">
+            <UIcon name="i-simple-icons-line" class="w-4 h-4 mr-1.5" />
+            เปิดดูแชท LINE
+          </UButton>
+        </div>
+      </template>
     </UModal>
 
     <!-- Connect / Link LINE Required Modal -->
     <UModal v-model:open="isLinkModalOpen" :ui="{ content: 'sm:max-w-md' }">
-      <UCard :ui="{ ring: '', divide: 'divide-y divide-slate-100 dark:divide-slate-800' }" class="p-2">
-        <template #header>
-          <div class="flex items-center justify-between">
-            <div class="flex items-center gap-2">
-              <span class="p-1.5 rounded-lg bg-amber-500/10 text-amber-500">
-                <UIcon name="i-lucide-alert-triangle" class="w-5 h-5" />
-              </span>
-              <h3 class="text-base font-bold text-slate-800 dark:text-white">จำเป็นต้องเชื่อมต่อ LINE</h3>
-            </div>
-            <UButton color="neutral" variant="ghost" icon="i-lucide-x" class="-my-1" @click="isLinkModalOpen = false" />
-          </div>
-        </template>
-        
+      <template #title>
+        <div class="flex items-center gap-2">
+          <span class="p-1.5 rounded-lg bg-amber-500/10 text-amber-500">
+            <UIcon name="i-lucide-alert-triangle" class="w-5 h-5" />
+          </span>
+          <span class="text-base font-bold text-slate-800 dark:text-white">จำเป็นต้องเชื่อมต่อ LINE</span>
+        </div>
+      </template>
+      
+      <template #body>
         <div class="p-6 text-center space-y-4">
           <div class="w-20 h-20 bg-amber-500/10 dark:bg-amber-500/20 text-amber-500 rounded-full flex items-center justify-center mx-auto scale-110 shadow-lg shadow-amber-500/10">
             <UIcon name="i-simple-icons-line" class="w-10 h-10 text-[#06C755]" />
@@ -320,16 +316,18 @@ const handleBuy = async (pkg: any) => {
           </div>
         </div>
         
-        <template #footer>
-          <div class="flex flex-col sm:flex-row gap-3 w-full">
-            <UButton color="neutral" variant="outline" class="flex-1 font-bold py-2.5 rounded-xl" @click="isLinkModalOpen = false">ยกเลิก</UButton>
-            <UButton color="primary" class="flex-1 font-bold py-2.5 rounded-xl" to="/me/settings/profile?highlight=line#line-link-section" @click="isLinkModalOpen = false">
-              <UIcon name="i-lucide-link" class="w-4 h-4 mr-1.5" />
-              เชื่อมบัญชี LINE ที่นี่
-            </UButton>
-          </div>
-        </template>
-      </UCard>
+        </div>
+      </template>
+        
+      <template #footer>
+        <div class="flex flex-col sm:flex-row gap-3 w-full">
+          <UButton color="neutral" variant="outline" class="flex-1 font-bold py-2.5 rounded-xl" @click="isLinkModalOpen = false">ยกเลิก</UButton>
+          <UButton color="primary" class="flex-1 font-bold py-2.5 rounded-xl" to="/me/settings/profile?highlight=line#line-link-section" @click="isLinkModalOpen = false">
+            <UIcon name="i-lucide-link" class="w-4 h-4 mr-1.5" />
+            เชื่อมบัญชี LINE ที่นี่
+          </UButton>
+        </div>
+      </template>
     </UModal>
   </UDashboardPage>
 </template>
