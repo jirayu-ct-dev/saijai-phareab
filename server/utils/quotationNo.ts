@@ -1,5 +1,4 @@
 import { prisma } from "./prisma";
-import type { Prisma } from "~~/app/generated/prisma";
 
 type TxClient = Omit<typeof prisma, "$connect" | "$disconnect" | "$on" | "$transaction" | "$use" | "$extends">;
 
@@ -13,8 +12,8 @@ const getBangkokYear = (date = new Date()) =>
 
 const padSeq = (n: number) => n.toString().padStart(4, "0");
 
-export const createQuotationNo = async (date = new Date(), tx?: TxClient) => {
-  const db = tx ?? prisma;
+export const createQuotationNo = async (date = new Date(), quotationTxClient?: TxClient) => {
+  const db = quotationTxClient ?? prisma;
   const { getBusinessSetting } = await import("./businessSetting");
   const setting = (await getBusinessSetting()) as { quotationNoPrefix?: string };
   const prefix = setting.quotationNoPrefix || "QT-";
