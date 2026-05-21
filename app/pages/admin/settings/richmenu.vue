@@ -9,10 +9,13 @@ definePageMeta({
 const notify = useNotify();
 
 // Fetch Rich Menus
-const { data: richMenus, refresh: refreshMenus, status } = useFetch<any[]>("/api/admin/settings/richmenu", {
+const { data: richMenuResponse, refresh: refreshMenus, status } = useFetch<any>("/api/admin/settings/richmenu", {
   key: "admin-richmenus",
-  default: () => [],
+  default: () => ({ richMenus: [], syncedUsersCount: 0 }),
 });
+
+const richMenus = computed(() => richMenuResponse.value?.richMenus ?? []);
+const syncedUsersCount = computed(() => richMenuResponse.value?.syncedUsersCount ?? 0);
 
 const isLoading = computed(() => status.value === "pending");
 
@@ -53,11 +56,11 @@ const filteredRichMenus = computed(() => {
 });
 
 const quickStats = computed(() => {
-  if (!richMenus.value) return { total: 0, active: 0, draft: 0, users: 142 };
+  if (!richMenus.value) return { total: 0, active: 0, draft: 0, users: 0 };
   const total = richMenus.value.length;
   const active = richMenus.value.filter((m: any) => m.isDefault || m.targetRole).length;
   const draft = richMenus.value.filter((m: any) => !m.isDefault && !m.targetRole).length;
-  return { total, active, draft, users: 142 };
+  return { total, active, draft, users: syncedUsersCount.value };
 });
 
 const openManageDetails = (menu: any) => {
@@ -67,6 +70,57 @@ const openManageDetails = (menu: any) => {
   aliasForm.aliasId = menu.aliasId || "";
   activeManageTab.value = "preview";
   isManageModalOpen.value = true;
+};
+
+const uploadedImageWidth = ref<number | null>(null);
+const uploadedImageHeight = ref<number | null>(null);
+const jsonFileInput = ref<HTMLInputElement | null>(null);
+
+const formatActionParams = (action: any) => {
+  if (!action) return "";
+  const parts: string[] = [];
+  if (action.type === "uri") {
+    parts.push(`URI: ${action.uri}`);
+  } else if (action.type === "message") {
+    parts.push(`Text: "${action.text}"`);
+  } else if (action.type === "postback") {
+    parts.push(`Data: "${action.data}"`);
+    if (action.text) parts.push(`Text: "${action.text}"`);
+    if (action.displayText) parts.push(`Display: "${action.displayText}"`);
+  } else if (action.type === "richmenuswitch") {
+    parts.push(`Alias: "${action.richMenuAliasId}"`);
+    if (action.data) parts.push(`Data: "${action.data}"`);
+  } else if (action.type === "datetimepicker") {
+    parts.push(`Data: "${action.data}"`);
+    parts.push(`Mode: ${action.mode}`);
+    if (action.initial) parts.push(`Init: ${action.initial}`);
+    if (action.min) parts.push(`Min: ${action.min}`);
+    if (action.max) parts.push(`Max: ${action.max}`);
+  } else {
+    const p = action.uri || action.text || action.richMenuAliasId || action.data || "";
+    if (p) parts.push(p);
+  }
+  return parts.join(" | ");
+};
+
+const onJsonFileChange = (e: Event) => {
+  const target = e.target as HTMLInputElement;
+  const file = target.files?.[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = (event) => {
+    try {
+      const text = event.target?.result as string;
+      const parsed = JSON.parse(text);
+      form.jsonContent = JSON.stringify(parsed, null, 2);
+      notify.success("นำเข้าไฟล์ JSON สำเร็จ!");
+    } catch (err: any) {
+      notify.error(`ไฟล์ JSON ไม่ถูกต้อง: ${err.message}`);
+    }
+  };
+  reader.readAsText(file);
+  target.value = "";
 };
 
 const onDuplicateMenu = async (menu: any) => {
@@ -82,6 +136,18 @@ const onDuplicateMenu = async (menu: any) => {
     photoFile.value = file;
     form.logoUrl = menu.imageUrl;
     imagePreviewUrl.value = menu.imageUrl;
+
+    const img = new Image();
+    img.onload = () => {
+      uploadedImageWidth.value = img.naturalWidth;
+      uploadedImageHeight.value = img.naturalHeight;
+    };
+    img.onerror = () => {
+      uploadedImageWidth.value = null;
+      uploadedImageHeight.value = null;
+    };
+    img.src = menu.imageUrl;
+
     isCreateModalOpen.value = true;
     notify.success("คัดลอกโครงสร้าง Rich Menu สำเร็จ!");
   } catch (err) {
@@ -89,6 +155,8 @@ const onDuplicateMenu = async (menu: any) => {
     photoFile.value = null;
     form.logoUrl = undefined;
     imagePreviewUrl.value = "";
+    uploadedImageWidth.value = null;
+    uploadedImageHeight.value = null;
     isCreateModalOpen.value = true;
     notify.warning("คัดลอกโครงสร้างสำเร็จ! กรุณาอัปโหลดไฟล์ภาพ Rich Menu ใหม่อีกครั้ง");
   }
@@ -149,13 +217,31 @@ const onPhotosUpdate = (photos: Photo[]) => {
   if (!photo) {
     form.logoUrl = undefined;
     imagePreviewUrl.value = "";
+    uploadedImageWidth.value = null;
+    uploadedImageHeight.value = null;
   } else if (photo.file) {
     imagePreviewUrl.value = URL.createObjectURL(photo.file);
+    const img = new Image();
+    img.onload = () => {
+      uploadedImageWidth.value = img.naturalWidth;
+      uploadedImageHeight.value = img.naturalHeight;
+    };
+    img.onerror = () => {
+      uploadedImageWidth.value = null;
+      uploadedImageHeight.value = null;
+    };
+    img.src = imagePreviewUrl.value;
   }
 };
 
 const imagePreviewUrl = ref("");
 const hoveredHotspot = ref<any>(null);
+
+const clearHoveredHotspot = (hs: any) => {
+  if (hoveredHotspot.value?.index === hs?.index) {
+    hoveredHotspot.value = null;
+  }
+};
 
 // Parsed and Calculated JSON Data
 const parsedConfig = computed(() => {
@@ -195,6 +281,28 @@ const jsonValidationError = computed(() => {
   } catch (e: any) {
     return `รูปแบบ JSON ไม่ถูกต้อง: ${e.message}`;
   }
+});
+
+const imageDimensionValidationError = computed(() => {
+  if (!photoFile.value) return null;
+  if (uploadedImageWidth.value === null || uploadedImageHeight.value === null) return null;
+
+  try {
+    const config = JSON.parse(form.jsonContent);
+    const configWidth = config.size?.width;
+    const configHeight = config.size?.height;
+
+    if (typeof configWidth !== "number" || typeof configHeight !== "number") {
+      return null;
+    }
+
+    if (uploadedImageWidth.value !== configWidth || uploadedImageHeight.value !== configHeight) {
+      return `ขนาดของไฟล์รูปภาพจริง (${uploadedImageWidth.value}x${uploadedImageHeight.value}px) ไม่ตรงกับขนาดที่ระบุใน JSON Configuration (${configWidth}x${configHeight}px)`;
+    }
+  } catch {
+    // Handled by jsonValidationError
+  }
+  return null;
 });
 
 const hotspots = computed(() => {
@@ -254,6 +362,14 @@ const onSubmit = async () => {
   }
   if (!photoFile.value) {
     notify.error("กรุณาอัปโหลดรูปภาพ PNG สำหรับ Rich Menu");
+    return;
+  }
+  if (photoFile.value.type !== "image/png" && !photoFile.value.name.endsWith(".png")) {
+    notify.error("รูปภาพต้องเป็นไฟล์ PNG เท่านั้น");
+    return;
+  }
+  if (imageDimensionValidationError.value) {
+    notify.error(imageDimensionValidationError.value);
     return;
   }
 
@@ -383,6 +499,8 @@ const resetForm = () => {
   form.logoUrl = undefined;
   photoFile.value = null;
   imagePreviewUrl.value = "";
+  uploadedImageWidth.value = null;
+  uploadedImageHeight.value = null;
 };
 
 const getHotspotsCount = (jsonStr: string) => {
@@ -650,19 +768,16 @@ const formatDate = (dateStr: string) => {
 
     <!-- Create / Upload Modal Dialog (Spacious & Clean Layout) -->
     <UModal v-model:open="isCreateModalOpen" :ui="{ content: 'sm:max-w-5xl' }">
-      <UCard :ui="{ ring: '', divide: 'divide-y divide-slate-100 dark:divide-slate-800' }" class="p-2">
-        <template #header>
-          <div class="flex items-center justify-between">
-            <div class="flex items-center gap-2">
-              <span class="p-1.5 rounded-lg bg-primary/10 text-primary dark:bg-primary/20">
-                <UIcon name="i-lucide-plus-circle" class="w-5 h-5" />
-              </span>
-              <h3 class="text-base font-bold text-slate-800 dark:text-white">ติดตั้ง LINE Rich Menu ใหม่</h3>
-            </div>
-            <UButton color="neutral" variant="ghost" icon="i-lucide-x" class="-my-1" @click="isCreateModalOpen = false" />
-          </div>
-        </template>
+      <template #title>
+        <div class="flex items-center gap-2">
+          <span class="p-1.5 rounded-lg bg-primary/10 text-primary dark:bg-primary/20">
+            <UIcon name="i-lucide-plus-circle" class="w-5 h-5" />
+          </span>
+          <span class="text-base font-bold text-slate-800 dark:text-white">ติดตั้ง LINE Rich Menu ใหม่</span>
+        </div>
+      </template>
 
+      <template #body>
         <UForm :state="form" class="space-y-6 pr-1 max-h-[70vh] overflow-y-auto" @submit="onSubmit">
           <div class="grid gap-6 sm:grid-cols-2">
             
@@ -710,8 +825,36 @@ const formatDate = (dateStr: string) => {
             </div>
 
             <!-- Right live schema inspector and visualizer block -->
+            <!-- Right live schema inspector and visualizer block -->
             <div class="space-y-4">
-              <UFormField label="JSON Configuration (LINE Messaging API Schema)" name="jsonContent" required description="พิกัดปุ่มสัมผัส (areas) และความกว้าง/ความสูง">
+              <input
+                type="file"
+                ref="jsonFileInput"
+                accept=".json"
+                class="hidden"
+                @change="onJsonFileChange"
+              />
+
+              <UFormField name="jsonContent" required>
+                <template #label>
+                  <div class="flex items-center justify-between w-full">
+                    <span class="text-sm font-bold text-slate-800 dark:text-white">JSON Configuration (LINE Schema)</span>
+                    <UButton
+                      type="button"
+                      size="xs"
+                      color="neutral"
+                      variant="soft"
+                      icon="i-lucide-upload"
+                      class="font-semibold text-[11px] py-1 px-2.5 rounded-lg"
+                      @click="jsonFileInput?.click()"
+                    >
+                      นำเข้าไฟล์ .json
+                    </UButton>
+                  </div>
+                </template>
+                <template #description>
+                  <span class="text-xs text-slate-400">พิกัดปุ่มสัมผัส (areas) และความกว้าง/ความสูง</span>
+                </template>
                 <UTextarea
                   v-model="form.jsonContent"
                   placeholder="กรอก JSON Configuration..."
@@ -728,11 +871,17 @@ const formatDate = (dateStr: string) => {
                 ⚠️ {{ jsonValidationError }}
               </div>
               <div
+                v-else-if="imageDimensionValidationError"
+                class="p-3 border border-amber-500/20 bg-amber-500/10 text-amber-600 rounded-xl text-xs font-semibold animate-pulse"
+              >
+                ⚠️ {{ imageDimensionValidationError }}
+              </div>
+              <div
                 v-else
                 class="p-3 border border-green-500/20 bg-green-500/10 text-green-600 rounded-xl text-xs flex items-center gap-2 font-semibold"
               >
                 <UIcon name="i-lucide-check-circle" class="w-4 h-4 text-green-500" />
-                โครงสร้าง JSON และพิกัด Hotspots ได้รับการตรวจสอบว่าถูกต้อง!
+                โครงสร้าง JSON และรูปภาพได้รับการตรวจสอบว่าถูกต้อง!
               </div>
             </div>
           </div>
@@ -806,7 +955,7 @@ const formatDate = (dateStr: string) => {
               type="submit"
               color="primary"
               :loading="isSaving"
-              :disabled="!!jsonValidationError"
+              :disabled="!!jsonValidationError || !!imageDimensionValidationError"
               class="font-bold rounded-xl px-5"
               icon="i-lucide-upload-cloud"
             >
@@ -814,54 +963,54 @@ const formatDate = (dateStr: string) => {
             </UButton>
           </div>
         </UForm>
-      </UCard>
+      </template>
     </UModal>
 
     <!-- Immersive Integrated Configuration Detail Drawer Modal (Spacious UModal) -->
     <UModal v-model:open="isManageModalOpen" :ui="{ content: 'sm:max-w-6xl' }">
-      <UCard :ui="{ ring: '', divide: 'divide-y divide-slate-100 dark:divide-slate-800' }" class="p-2">
-        <template #header>
-          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div class="flex items-center gap-2">
-              <span class="p-1.5 rounded-lg bg-primary/10 text-primary dark:bg-primary/20">
-                <UIcon name="i-lucide-settings-2" class="w-5 h-5" />
-              </span>
-              <h3 class="text-base font-bold text-slate-800 dark:text-white">จัดการและพรีวิว: {{ selectedMenu?.name }}</h3>
-            </div>
-            
-            <div class="flex items-center gap-3 flex-shrink-0 self-end sm:self-auto">
-              <!-- Duplicate / Clone Action -->
-              <UButton
-                size="sm"
-                color="neutral"
-                variant="soft"
-                icon="i-lucide-copy-plus"
-                class="font-bold py-1.5 px-3 rounded-xl text-xs text-slate-600 dark:text-slate-300 hover:text-primary dark:hover:text-primary transition-colors flex items-center gap-1.5 whitespace-nowrap"
-                @click.stop="onDuplicateMenu(selectedMenu); isManageModalOpen = false;"
-                title="คัดลอกเพื่อสร้างใหม่ (Duplicate)"
-              >
-                คัดลอกเมนู
-              </UButton>
+      <template #title>
+        <div class="flex items-center gap-2">
+          <span class="p-1.5 rounded-lg bg-primary/10 text-primary dark:bg-primary/20">
+            <UIcon name="i-lucide-settings-2" class="w-5 h-5" />
+          </span>
+          <span class="text-base font-bold text-slate-800 dark:text-white">จัดการและพรีวิว: {{ selectedMenu?.name }}</span>
+        </div>
+      </template>
 
-              <!-- Delete Menu -->
-              <UButton
-                size="sm"
-                color="error"
-                variant="soft"
-                icon="i-lucide-trash-2"
-                class="font-bold py-1.5 px-3 rounded-xl text-xs flex items-center gap-1.5 whitespace-nowrap"
-                @click.stop="deleteMenu(selectedMenu.id)"
-                title="ลบ Rich Menu นี้"
-              >
-                ลบเมนู
-              </UButton>
-
-              <div class="hidden sm:block w-[1px] h-5 bg-slate-200 dark:bg-slate-800 mx-1"></div>
-
-              <UButton color="neutral" variant="ghost" icon="i-lucide-x" class="-my-1" @click="isManageModalOpen = false" />
-            </div>
+      <template #body>
+        <!-- Premium Action Control Bar inside Body -->
+        <div v-if="selectedMenu" class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-800 pb-4 mb-5">
+          <div class="text-xs text-slate-500 dark:text-slate-400 font-medium">
+            จัดการพารามิเตอร์ของ Rich Menu, กำหนดบทบาท, LINE Alias หรือลบการเชื่อมต่อออนไลน์
           </div>
-        </template>
+          <div class="flex items-center gap-3">
+            <!-- Duplicate / Clone Action -->
+            <UButton
+              size="sm"
+              color="neutral"
+              variant="soft"
+              icon="i-lucide-copy-plus"
+              class="font-bold py-1.5 px-3 rounded-xl text-xs text-slate-600 dark:text-slate-300 hover:text-primary dark:hover:text-primary transition-colors flex items-center gap-1.5 whitespace-nowrap"
+              @click.stop="onDuplicateMenu(selectedMenu); isManageModalOpen = false;"
+              title="คัดลอกเพื่อสร้างใหม่ (Duplicate)"
+            >
+              คัดลอกเมนู
+            </UButton>
+
+            <!-- Delete Menu -->
+            <UButton
+              size="sm"
+              color="error"
+              variant="soft"
+              icon="i-lucide-trash-2"
+              class="font-bold py-1.5 px-3 rounded-xl text-xs flex items-center gap-1.5 whitespace-nowrap"
+              @click.stop="deleteMenu(selectedMenu.id)"
+              title="ลบ Rich Menu นี้"
+            >
+              ลบเมนู
+            </UButton>
+          </div>
+        </div>
 
         <div v-if="selectedMenu" class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start max-h-[70vh] overflow-y-auto pr-1 py-1">
           
@@ -941,8 +1090,6 @@ const formatDate = (dateStr: string) => {
                     v-for="hs in viewModeHotspots"
                     :key="`vh-${hs.index}`"
                     class="cursor-pointer group/hotspot"
-                    @mouseenter="hoveredHotspot = hs"
-                    @mouseleave="hoveredHotspot = null"
                   >
                     <!-- Clickable Area Highlight Rect -->
                     <rect
@@ -953,8 +1100,10 @@ const formatDate = (dateStr: string) => {
                       :fill="hoveredHotspot?.index === hs.index ? 'rgba(99, 102, 241, 0.28)' : 'rgba(59, 130, 246, 0.12)'"
                       :stroke="hoveredHotspot?.index === hs.index ? '#6366f1' : 'rgba(59, 130, 246, 0.7)'"
                       :stroke-width="hoveredHotspot?.index === hs.index ? 2.5 : 1.5"
-                      class="transition-all duration-150"
+                      class="transition-[fill,stroke,stroke-width] duration-150"
                       :stroke-dasharray="hs.action.type === 'richmenuswitch' ? '4 2' : 'none'"
+                      @mouseenter="hoveredHotspot = hs"
+                      @mouseleave="clearHoveredHotspot(hs)"
                     />
                     
                     <!-- Tiny numeric key indicator -->
@@ -1047,28 +1196,32 @@ const formatDate = (dateStr: string) => {
                 </h3>
               </div>
 
-              <!-- Interactive hover banner -->
-              <div v-if="hoveredHotspot" class="p-3 bg-primary-50/20 dark:bg-primary-950/20 border border-primary-500/20 rounded-xl space-y-2 animate-pulse">
-                <div class="flex justify-between items-center">
-                  <span class="text-xs font-bold text-primary">กำลังตรวจสอบปุ่มสัมผัสที่ {{ hoveredHotspot.index + 1 }}</span>
-                  <span class="text-[10px] font-mono text-slate-400 font-medium">LINE Bounds coordinates</span>
+              <!-- Interactive hover banner with a stable height to prevent layout shift and infinite flickering loops -->
+              <div class="h-[135px] flex-shrink-0">
+                <div v-if="hoveredHotspot" class="h-full p-3 bg-primary-50/20 dark:bg-primary-950/20 border border-primary-500/20 rounded-xl space-y-1.5 animate-pulse flex flex-col justify-between">
+                  <div class="flex justify-between items-center">
+                    <span class="text-xs font-bold text-primary">กำลังตรวจสอบปุ่มสัมผัสที่ {{ hoveredHotspot.index + 1 }}</span>
+                    <span class="text-[10px] font-mono text-slate-400 font-medium">LINE Bounds coordinates</span>
+                  </div>
+                  <div class="grid grid-cols-4 text-[10px] gap-2 font-mono text-slate-600 dark:text-slate-300">
+                    <div class="bg-slate-100 dark:bg-slate-800/80 px-1.5 py-0.5 rounded text-center">X: {{ hoveredHotspot.rawBounds.x }}px</div>
+                    <div class="bg-slate-100 dark:bg-slate-800/80 px-1.5 py-0.5 rounded text-center">Y: {{ hoveredHotspot.rawBounds.y }}px</div>
+                    <div class="bg-slate-100 dark:bg-slate-800/80 px-1.5 py-0.5 rounded text-center">W: {{ hoveredHotspot.rawBounds.width }}px</div>
+                    <div class="bg-slate-100 dark:bg-slate-800/80 px-1.5 py-0.5 rounded text-center">H: {{ hoveredHotspot.rawBounds.height }}px</div>
+                  </div>
+                  <div class="border-t border-slate-200/40 dark:border-slate-800/40 pt-1.5 text-xs flex-1 flex flex-col justify-center">
+                    <div>
+                      <span class="font-bold text-slate-700 dark:text-slate-200">แอ็กชัน:</span>
+                      <span class="font-mono bg-primary/10 px-2 py-0.5 rounded ml-1 text-primary text-[10px] font-bold">{{ hoveredHotspot.action.type }}</span>
+                    </div>
+                    <p class="text-slate-500 dark:text-slate-400 text-[11px] mt-1 break-all leading-normal font-mono line-clamp-2" :title="formatActionParams(hoveredHotspot.action)">
+                      พารามิเตอร์: {{ formatActionParams(hoveredHotspot.action) || 'ไม่มีข้อมูล' }}
+                    </p>
+                  </div>
                 </div>
-                <div class="grid grid-cols-4 text-[10px] gap-2 font-mono text-slate-600 dark:text-slate-300">
-                  <div class="bg-slate-100 dark:bg-slate-800/80 px-1.5 py-0.5 rounded text-center">X: {{ hoveredHotspot.rawBounds.x }}px</div>
-                  <div class="bg-slate-100 dark:bg-slate-800/80 px-1.5 py-0.5 rounded text-center">Y: {{ hoveredHotspot.rawBounds.y }}px</div>
-                  <div class="bg-slate-100 dark:bg-slate-800/80 px-1.5 py-0.5 rounded text-center">W: {{ hoveredHotspot.rawBounds.width }}px</div>
-                  <div class="bg-slate-100 dark:bg-slate-800/80 px-1.5 py-0.5 rounded text-center">H: {{ hoveredHotspot.rawBounds.height }}px</div>
+                <div v-else class="h-full p-4 bg-slate-50 dark:bg-slate-900/40 border border-slate-200/40 dark:border-slate-800/40 rounded-xl text-xs text-slate-400 italic flex items-center justify-center text-center leading-relaxed">
+                  💡 นำเมาส์วางบนแถบปุ่มสัมผัสด้านล่าง หรือนำเมาส์วางบนตำแหน่งในรูปภาพ เพื่อดูการตอบสนองแบบเรียลไทม์
                 </div>
-                <div class="border-t border-slate-200/40 dark:border-slate-800/40 pt-2 text-xs">
-                  <span class="font-bold text-slate-700 dark:text-slate-200">แอ็กชัน:</span>
-                  <span class="font-mono bg-primary/10 px-2 py-0.5 rounded ml-1 text-primary text-[10px] font-bold">{{ hoveredHotspot.action.type }}</span>
-                  <p class="text-slate-500 dark:text-slate-400 text-xs mt-1.5 break-all leading-relaxed font-mono">
-                    พารามิเตอร์: {{ hoveredHotspot.action.uri || hoveredHotspot.action.text || hoveredHotspot.action.richMenuAliasId || hoveredHotspot.action.data || 'ไม่มีข้อมูล' }}
-                  </p>
-                </div>
-              </div>
-              <div v-else class="p-3 bg-slate-50 dark:bg-slate-900/40 border border-slate-200/40 dark:border-slate-800/40 rounded-xl text-xs text-slate-400 italic flex items-center justify-center py-4">
-                💡 นำเมาส์วางบนแถบปุ่มสัมผัสด้านล่าง หรือนำเมาส์วางบนตำแหน่งในรูปภาพ เพื่อดูการตอบสนองแบบเรียลไทม์
               </div>
 
               <!-- Hotspot Table List -->
@@ -1076,10 +1229,10 @@ const formatDate = (dateStr: string) => {
                 <div
                   v-for="hs in viewModeHotspots"
                   :key="`vlist-${hs.index}`"
-                  class="p-3 rounded-xl border text-xs flex flex-col gap-2 transition-all duration-150 cursor-pointer"
+                  class="p-3 rounded-xl border text-xs flex flex-col gap-2 transition-colors duration-150 cursor-pointer"
                   :class="hoveredHotspot?.index === hs.index ? 'border-primary bg-primary-50/15 shadow-sm' : 'border-default bg-default/40 hover:border-slate-300 dark:hover:border-slate-700'"
                   @mouseenter="hoveredHotspot = hs"
-                  @mouseleave="hoveredHotspot = null"
+                  @mouseleave="clearHoveredHotspot(hs)"
                 >
                   <div class="flex items-center justify-between font-bold">
                     <span class="text-slate-700 dark:text-slate-200 flex items-center gap-1.5">
@@ -1090,7 +1243,7 @@ const formatDate = (dateStr: string) => {
                       ปุ่มสัมผัสที่ {{ hs.index + 1 }}
                     </span>
                     <UBadge
-                      :color="hs.action.type === 'uri' ? 'primary' : hs.action.type === 'message' ? 'indigo' : hs.action.type === 'richmenuswitch' ? 'amber' : 'neutral'"
+                      :color="hs.action.type === 'uri' ? 'primary' : hs.action.type === 'message' ? 'indigo' : hs.action.type === 'richmenuswitch' ? 'amber' : hs.action.type === 'postback' ? 'rose' : hs.action.type === 'datetimepicker' ? 'purple' : 'neutral'"
                       variant="subtle"
                       size="sm"
                       class="font-mono text-[10px]"
@@ -1100,8 +1253,8 @@ const formatDate = (dateStr: string) => {
                   </div>
                   <div class="text-[11px] text-slate-500 dark:text-slate-400 truncate flex items-center gap-1">
                     <span class="font-semibold text-slate-700 dark:text-slate-300">พารามิเตอร์:</span>
-                    <span class="font-mono bg-slate-50 dark:bg-slate-900/60 px-1.5 py-0.5 rounded text-xs truncate" :title="hs.action.uri || hs.action.text || hs.action.richMenuAliasId || hs.action.data">
-                      {{ hs.action.uri || hs.action.text || hs.action.richMenuAliasId || hs.action.data || '-' }}
+                    <span class="font-mono bg-slate-50 dark:bg-slate-900/60 px-1.5 py-0.5 rounded text-xs truncate" :title="formatActionParams(hs.action)">
+                      {{ formatActionParams(hs.action) || '-' }}
                     </span>
                   </div>
                 </div>
@@ -1240,7 +1393,7 @@ const formatDate = (dateStr: string) => {
             </div>
           </div>
         </div>
-      </UCard>
+      </template>
     </UModal>
   </div>
 </template>

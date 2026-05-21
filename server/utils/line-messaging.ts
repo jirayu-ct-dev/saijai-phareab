@@ -1,4 +1,6 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
+import { prisma } from "./prisma";
+import { hasActiveMemberPackage } from "./auth";
 
 type LineMessagingTokenResponse = {
   access_token: string;
