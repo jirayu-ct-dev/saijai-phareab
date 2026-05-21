@@ -16,7 +16,7 @@ const isStaff = computed(() => {
 
 const profileRoute = computed(() => (isStaff.value ? "/admin/settings/profile" : "/me/settings/profile"));
 const settingsRoute = computed(() => (isStaff.value ? "/admin/settings/billing" : "/me/settings/notification"));
-const homeRoute = computed(() => (isStaff.value ? "/admin" : "/"));
+const homeRoute = computed(() => "/");
 
 const handleLogout = async (e: Event) => {
   e.preventDefault();

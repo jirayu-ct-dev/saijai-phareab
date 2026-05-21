@@ -52,16 +52,14 @@ export default defineNuxtRouteMiddleware(async (to) => {
   }
 
   if (publicRoutes.includes(to.path)) {
+    authSession.value = preflight ?? null;
     if (to.path === "/auth/login" || to.path === "/auth/register") {
       const session = preflight;
       if (session?.user) {
-        authSession.value = session;
         const role = (session.user as any).role;
         if (role === "ADMIN") return navigateTo("/admin");
         if (role === "EMPLOYEE") return navigateTo("/admin/employee-dashboard");
         if (role === "USER") return navigateTo("/me");
-      } else {
-        authSession.value = null;
       }
     }
     return;

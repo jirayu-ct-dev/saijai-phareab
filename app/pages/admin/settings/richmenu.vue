@@ -309,10 +309,34 @@ const deleteAlias = async (menu: any) => {
   }
 };
 
+const copyToClipboard = (text: string) => {
+  if (typeof window !== "undefined" && navigator?.clipboard) {
+    navigator.clipboard.writeText(text);
+    notify.success("คัดลอก Rich Menu ID เรียบร้อยแล้ว 📋");
+  } else {
+    notify.error("ไม่สามารถคัดลอกได้ในขณะนี้");
+  }
+};
+
+const simulatorRef = ref<HTMLElement | null>(null);
+
 const selectMenuForPreview = (menu: any) => {
   selectedMenu.value = menu;
   activeTab.value = "preview";
+  
+  if (typeof window !== "undefined" && window.innerWidth < 1024) {
+    nextTick(() => {
+      simulatorRef.value?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  }
 };
+
+// Auto-select first rich menu if none selected
+watch(richMenus, (newVal) => {
+  if (newVal && newVal.length > 0 && !selectedMenu.value) {
+    selectedMenu.value = newVal[0];
+  }
+}, { immediate: true });
 
 const resetForm = () => {
   form.name = "";
@@ -325,20 +349,30 @@ const resetForm = () => {
 </script>
 
 <template>
-  <div class="mx-auto w-full max-w-6xl space-y-4 p-2 sm:p-6">
+  <div class="relative mx-auto w-full max-w-7xl space-y-8 p-4 sm:p-8 overflow-hidden min-h-screen">
+    <!-- Premium background glows -->
+    <div class="absolute top-0 right-1/4 w-96 h-96 bg-primary/5 rounded-full blur-3xl pointer-events-none"></div>
+    <div class="absolute bottom-1/3 left-10 w-96 h-96 bg-indigo-500/5 rounded-full blur-3xl pointer-events-none"></div>
+
     <!-- Header Block -->
-    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 rounded-md border border-default/30 bg-default px-4 py-3 shadow-sm dark:border-default/20 dark:bg-elevated/55">
+    <div class="relative flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 rounded-2xl border border-default/30 bg-default/60 backdrop-blur-md px-6 py-5 shadow-sm dark:border-default/20 dark:bg-elevated/40">
       <div>
-        <h1 class="text-2xl font-bold flex items-center gap-2">
-          <UIcon name="i-lucide-menu" class="text-primary w-6 h-6" />
+        <h1 class="text-2xl sm:text-3xl font-black flex items-center gap-3 tracking-tight text-slate-800 dark:text-white">
+          <span class="p-2 rounded-xl bg-primary/10 text-primary dark:bg-primary/20">
+            <UIcon name="i-lucide-menu" class="w-6 h-6" />
+          </span>
           ระบบจัดการ LINE Rich Menu
         </h1>
-        <p class="mt-1 text-sm text-muted">สร้าง คอนฟิก และควบคุมการแสดงผลเมนูบน LINE แชทบอทของร้าน</p>
+        <p class="mt-1.5 text-sm text-slate-500 dark:text-slate-400 font-medium">
+          สร้าง กำหนดสิทธิ์บทบาท และทดสอบพิกัดการกดของ Rich Menu บนแชท LINE OA ของร้านได้แบบเรียลไทม์
+        </p>
       </div>
-      <div>
+      <div class="flex-shrink-0">
         <UButton
           icon="i-lucide-plus"
+          size="lg"
           color="primary"
+          class="font-bold py-2.5 px-5 rounded-xl shadow-md hover:shadow-primary/20 transition-all duration-300"
           @click="isCreateModalOpen = true; resetForm();"
         >
           ติดตั้ง Rich Menu ใหม่
@@ -346,294 +380,434 @@ const resetForm = () => {
       </div>
     </div>
 
-    <!-- Tabs Container -->
-    <div class="flex border-b border-default">
+    <!-- Mobile Tab Selector (Visible only on mobile/tablet screens < 1024px) -->
+    <div class="flex lg:hidden p-1 bg-slate-100 dark:bg-slate-800/80 rounded-xl border border-default/30 max-w-md mx-auto relative z-10">
       <button
-        class="px-4 py-2 text-sm font-medium border-b-2 transition-colors duration-200"
-        :class="activeTab === 'list' ? 'border-primary text-primary' : 'border-transparent text-muted hover:text-default'"
+        class="flex-1 py-2 text-xs font-semibold rounded-lg transition-all duration-200 flex items-center justify-center gap-1.5"
+        :class="activeTab === 'list' ? 'bg-white dark:bg-slate-900 text-primary shadow-sm' : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'"
         @click="activeTab = 'list'"
       >
-        รายการเมนูทั้งหมด
+        <UIcon name="i-lucide-list" class="w-4 h-4" />
+        รายการเมนูทั้งหมด ({{ richMenus.length }})
       </button>
       <button
-        class="px-4 py-2 text-sm font-medium border-b-2 transition-colors duration-200"
-        :class="activeTab === 'preview' ? 'border-primary text-primary' : 'border-transparent text-muted hover:text-default'"
+        class="flex-1 py-2 text-xs font-semibold rounded-lg transition-all duration-200 flex items-center justify-center gap-1.5"
+        :class="activeTab === 'preview' ? 'bg-white dark:bg-slate-900 text-primary shadow-sm' : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'"
         @click="activeTab = 'preview'"
         :disabled="!selectedMenu"
       >
-        พรีวิว Hotspots ({{ selectedMenu ? selectedMenu.name : 'ยังไม่เลือก' }})
+        <UIcon name="i-lucide-smartphone" class="w-4 h-4" />
+        พรีวิว Simulator
       </button>
     </div>
 
-    <!-- Dynamic Main Content -->
-    <div v-if="activeTab === 'list'">
-      <!-- Loading State -->
-      <div v-if="isLoading" class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        <UCard v-for="i in 3" :key="`rm-skeleton-${i}`" class="p-4 space-y-4">
-          <USkeleton class="h-6 w-3/4 rounded" />
-          <USkeleton class="h-40 w-full rounded" />
-          <USkeleton class="h-8 w-full rounded" />
-        </UCard>
+    <!-- Loading State -->
+    <div v-if="isLoading" class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+      <UCard v-for="i in 3" :key="`rm-skeleton-${i}`" class="p-4 space-y-4 border border-default/30">
+        <USkeleton class="h-6 w-3/4 rounded" />
+        <USkeleton class="h-40 w-full rounded" />
+        <USkeleton class="h-8 w-full rounded" />
+      </UCard>
+    </div>
+
+    <!-- Empty State -->
+    <div v-else-if="!richMenus.length" class="relative flex flex-col items-center justify-center py-20 text-center border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-3xl bg-default/40 backdrop-blur-md px-6 shadow-sm">
+      <div class="w-16 h-16 rounded-2xl bg-primary/10 text-primary flex items-center justify-center mb-5">
+        <UIcon name="i-lucide-menu" class="w-8 h-8" />
       </div>
+      <h3 class="text-xl font-bold text-slate-800 dark:text-white">ยังไม่มี Rich Menu ในระบบ</h3>
+      <p class="text-sm text-slate-500 dark:text-slate-400 mt-2 max-w-sm font-medium">
+        เริ่มต้นอัปโหลดภาพเมนูและไฟล์พิกัด JSON สำหรับ Rich Menu ของร้านคุณ เพื่ออำนวยความสะดวกสูงสุดในการใช้งานของลูกค้า
+      </p>
+      <UButton
+        class="mt-6 font-extrabold px-6 py-3 rounded-xl shadow-md hover:shadow-primary/20 transition-all duration-300"
+        icon="i-lucide-plus"
+        @click="isCreateModalOpen = true"
+      >
+        ติดตั้ง Rich Menu แรก
+      </UButton>
+    </div>
 
-      <!-- Empty State -->
-      <div v-else-if="!richMenus.length" class="flex flex-col items-center justify-center py-16 text-center border-2 border-dashed border-default rounded-md bg-default px-4">
-        <UIcon name="i-lucide-menu" class="w-12 h-12 text-muted mb-4" />
-        <h3 class="text-lg font-semibold text-default">ยังไม่มี Rich Menu ในระบบ</h3>
-        <p class="text-sm text-muted mt-1 max-w-sm">อัปโหลดโครงสร้างและรูปภาพเพื่อเริ่มปรับแต่ง Rich Menu สำหรับกลุ่มลูกค้าหรือพนักงานพิกัดร้านค้าของคุณ</p>
-        <UButton
-          class="mt-4"
-          icon="i-lucide-plus"
-          size="sm"
-          @click="isCreateModalOpen = true"
-        >
-          ติดตั้งเมนูแรก
-        </UButton>
-      </div>
-
-      <!-- Rich Menu Cards Grid -->
-      <div v-else class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        <UCard
-          v-for="menu in richMenus"
-          :key="menu.id"
-          class="overflow-hidden group hover:shadow-md transition-shadow duration-300 dark:border-default/30 flex flex-col justify-between"
-          :class="selectedMenu?.id === menu.id ? 'ring-2 ring-primary ring-offset-2 dark:ring-offset-slate-900' : ''"
-        >
-          <template #header>
-            <div class="flex items-center justify-between">
-              <div>
-                <h3 class="font-bold text-lg text-default truncate max-w-[200px]" :title="menu.name">
-                  {{ menu.name }}
-                </h3>
-                <span class="text-xs text-muted font-mono truncate max-w-[180px] block">{{ menu.richMenuId }}</span>
-              </div>
-              <div class="flex gap-1.5">
-                <UBadge v-if="menu.isDefault" color="success" size="sm">เมนูเริ่มต้น</UBadge>
-                <UBadge v-if="menu.targetRole" color="primary" size="sm">{{ menu.targetRole }}</UBadge>
-              </div>
-            </div>
-          </template>
-
-          <div class="relative rounded-md overflow-hidden bg-slate-900 aspect-[2500/1686]">
-            <img
-              :src="menu.imageUrl"
-              alt="Rich Menu Preview"
-              class="w-full h-full object-contain"
-            />
-            <!-- Visual Linkage Overlay -->
-            <div class="absolute inset-0 bg-slate-900/60 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity duration-200 gap-2">
-              <UButton
-                size="sm"
-                color="neutral"
-                icon="i-lucide-eye"
-                @click="selectMenuForPreview(menu)"
-              >
-                ดู Hotspots
-              </UButton>
-            </div>
+    <!-- Unified Master-Detail Layout -->
+    <div v-else class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start relative z-10">
+      
+      <!-- Left side: List of Rich Menus (Visible always on desktop, and on mobile when activeTab is list) -->
+      <div class="lg:col-span-7 space-y-6" :class="activeTab === 'list' ? 'block' : 'hidden lg:block'">
+        <div class="flex items-center justify-between border-b border-slate-200/50 dark:border-slate-800/50 pb-3">
+          <div class="flex items-center gap-2.5">
+            <span class="text-xs font-bold bg-primary/10 text-primary dark:bg-primary/20 px-3 py-1 rounded-full font-mono">
+              {{ richMenus.length }} รายการ
+            </span>
+            <span class="text-sm font-bold text-slate-800 dark:text-slate-200">LINE Rich Menus ทั้งหมด</span>
           </div>
+          <span class="text-[11px] text-slate-400 font-medium hidden sm:inline">💡 คลิกบนการ์ดเพื่อดูและทดสอบ Hotspots ทันที</span>
+        </div>
 
-          <template #footer>
-            <div class="flex flex-col gap-2">
-              <!-- Alias block -->
-              <div class="flex items-center justify-between text-xs border-b border-default pb-2">
-                <span class="text-muted flex items-center gap-1">
-                  <UIcon name="i-lucide-link" class="w-3.5 h-3.5" />
-                  LINE Alias:
-                </span>
-                <div class="flex items-center gap-1">
-                  <span v-if="menu.aliasId" class="font-mono bg-default border border-default rounded px-1.5 py-0.5 max-w-[120px] truncate text-primary">{{ menu.aliasId }}</span>
-                  <span v-else class="text-muted italic">ไม่มีการเชื่อมโยง</span>
-                  
+        <div class="grid gap-6 sm:grid-cols-2">
+          <UCard
+            v-for="menu in richMenus"
+            :key="menu.id"
+            class="overflow-hidden group hover:shadow-lg transition-all duration-300 dark:border-default/30 flex flex-col justify-between cursor-pointer"
+            :class="selectedMenu?.id === menu.id ? 'ring-2 ring-primary ring-offset-2 dark:ring-offset-slate-950 bg-primary-50/5 dark:bg-primary-950/5' : 'hover:border-primary-500/50'"
+            @click="selectMenuForPreview(menu)"
+          >
+            <template #header>
+              <div class="flex flex-col gap-1.5">
+                <div class="flex items-start justify-between gap-2">
+                  <h3 class="font-bold text-base text-slate-800 dark:text-white leading-tight group-hover:text-primary transition-colors truncate max-w-[160px]" :title="menu.name">
+                    {{ menu.name }}
+                  </h3>
+                  <div class="flex flex-wrap gap-1 flex-shrink-0">
+                    <UBadge v-if="menu.isDefault" color="success" variant="subtle" size="sm" class="font-bold">
+                      Default
+                    </UBadge>
+                    <UBadge v-if="menu.targetRole" color="primary" variant="subtle" size="sm" class="font-bold">
+                      {{ menu.targetRole }}
+                    </UBadge>
+                  </div>
+                </div>
+                
+                <!-- Rich Menu ID copyable -->
+                <div class="flex items-center gap-1 mt-1">
+                  <span class="text-[10px] font-mono text-slate-400 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded truncate max-w-[170px]" :title="menu.richMenuId">
+                    ID: {{ menu.richMenuId }}
+                  </span>
                   <UButton
                     size="xs"
                     color="neutral"
                     variant="ghost"
-                    :icon="menu.aliasId ? 'i-lucide-pencil' : 'i-lucide-plus-circle'"
-                    @click="openAliasModal(menu)"
-                  />
-                  <UButton
-                    v-if="menu.aliasId"
-                    size="xs"
-                    color="error"
-                    variant="ghost"
-                    icon="i-lucide-trash-2"
-                    @click="deleteAlias(menu)"
+                    icon="i-lucide-copy"
+                    class="p-1 min-h-0 text-slate-400 hover:text-primary"
+                    @click.stop="copyToClipboard(menu.richMenuId)"
+                    title="คัดลอก Rich Menu ID"
                   />
                 </div>
               </div>
+            </template>
 
-              <!-- Action button bar -->
-              <div class="flex items-center justify-between pt-1">
-                <UButton
-                  size="xs"
-                  color="neutral"
-                  variant="outline"
-                  icon="i-lucide-user-cog"
-                  @click="openAssignModal(menu)"
-                >
-                  ตั้งสิทธิ์บทบาท
-                </UButton>
-
-                <UButton
-                  size="xs"
-                  color="error"
-                  variant="soft"
-                  icon="i-lucide-trash"
-                  @click="deleteMenu(menu.id)"
-                >
-                  ลบเมนู
-                </UButton>
+            <!-- Image display -->
+            <div class="relative rounded-lg overflow-hidden bg-slate-950 aspect-[2500/1686] border border-slate-100 dark:border-slate-800">
+              <img
+                :src="menu.imageUrl"
+                alt="Rich Menu Preview"
+                class="w-full h-full object-contain group-hover:scale-[1.02] transition-transform duration-300"
+              />
+              <div class="absolute inset-0 bg-slate-950/50 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity duration-200">
+                <span class="bg-primary hover:bg-primary-600 text-white text-xs font-bold px-4 py-2 rounded-xl flex items-center gap-1.5 shadow-md">
+                  <UIcon name="i-lucide-smartphone" class="w-4 h-4" />
+                  จำลองปุ่มบนมือถือ
+                </span>
               </div>
             </div>
-          </template>
-        </UCard>
+
+            <!-- Sleek non-crowded footer -->
+            <template #footer>
+              <div class="space-y-3.5">
+                <!-- LINE Alias Row -->
+                <div class="flex items-center justify-between text-xs border-b border-slate-100 dark:border-slate-800/80 pb-2">
+                  <span class="text-slate-400 dark:text-slate-500 flex items-center gap-1 font-medium">
+                    <UIcon name="i-lucide-link" class="w-3.5 h-3.5 text-slate-400" />
+                    LINE Alias:
+                  </span>
+                  <div class="flex items-center gap-1">
+                    <span v-if="menu.aliasId" class="font-mono bg-primary-50 dark:bg-primary-950/30 border border-primary-200/50 dark:border-primary-800/30 text-primary rounded px-2 py-0.5 text-xs font-semibold max-w-[100px] truncate">
+                      {{ menu.aliasId }}
+                    </span>
+                    <span v-else class="text-slate-400 dark:text-slate-500 italic text-[11px]">ยังไม่ได้เชื่อม</span>
+                    
+                    <UButton
+                      size="xs"
+                      color="neutral"
+                      variant="ghost"
+                      :icon="menu.aliasId ? 'i-lucide-pencil' : 'i-lucide-plus-circle'"
+                      class="hover:text-primary p-1"
+                      @click.stop="openAliasModal(menu)"
+                    />
+                    <UButton
+                      v-if="menu.aliasId"
+                      size="xs"
+                      color="error"
+                      variant="ghost"
+                      icon="i-lucide-trash-2"
+                      class="p-1"
+                      @click.stop="deleteAlias(menu)"
+                    />
+                  </div>
+                </div>
+
+                <!-- Footer Operations Row -->
+                <div class="flex items-center justify-between pt-1">
+                  <!-- Dynamic selection indicator -->
+                  <div class="flex items-center gap-1.5 text-[11px] font-bold" :class="selectedMenu?.id === menu.id ? 'text-primary' : 'text-slate-400'">
+                    <span class="flex h-2.5 w-2.5 relative" v-if="selectedMenu?.id === menu.id">
+                      <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
+                      <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-primary"></span>
+                    </span>
+                    <span>{{ selectedMenu?.id === menu.id ? 'กำลังเปิดพรีวิว' : 'คลิกเปิดพรีวิว' }}</span>
+                  </div>
+
+                  <div class="flex items-center gap-1">
+                    <UButton
+                      size="xs"
+                      color="neutral"
+                      variant="soft"
+                      icon="i-lucide-user-cog"
+                      class="font-bold py-1 px-2.5 rounded-lg"
+                      @click.stop="openAssignModal(menu)"
+                    >
+                      ตั้งบทบาท
+                    </UButton>
+
+                    <UButton
+                      size="xs"
+                      color="error"
+                      variant="ghost"
+                      icon="i-lucide-trash-2"
+                      class="hover:bg-red-50 dark:hover:bg-red-950/20 p-1.5"
+                      @click.stop="deleteMenu(menu.id)"
+                    />
+                  </div>
+                </div>
+              </div>
+            </template>
+          </UCard>
+        </div>
       </div>
-    </div>
 
-    <!-- Tab Hotspots Preview -->
-    <div v-else-if="activeTab === 'preview' && selectedMenu" class="grid gap-6 lg:grid-cols-12">
-      <!-- Live Mobile Screen Simulator -->
-      <div class="lg:col-span-8 flex flex-col items-center">
-        <div class="w-full max-w-xl bg-slate-950 border border-slate-800 rounded-3xl p-3 shadow-2xl relative">
-          <!-- Mobile simulated chat head -->
-          <div class="flex items-center gap-2 border-b border-slate-900 pb-2 mb-2 px-2 text-slate-400 text-xs">
-            <div class="w-2.5 h-2.5 rounded-full bg-red-500"></div>
-            <div class="w-2.5 h-2.5 rounded-full bg-yellow-500"></div>
-            <div class="w-2.5 h-2.5 rounded-full bg-green-500"></div>
-            <span class="mx-auto font-medium text-slate-300">{{ selectedMenu.name }} (จำลองหน้าจอแชท LINE)</span>
+      <!-- Right side: Phone Simulator & Hotspot Info (Sticky on desktop, visible on mobile when activeTab is preview) -->
+      <div ref="simulatorRef" class="lg:col-span-5 scroll-mt-6" :class="activeTab === 'preview' ? 'block' : 'hidden lg:block'">
+        <div class="sticky top-6 space-y-6">
+          <div class="flex items-center justify-between border-b border-slate-200/50 dark:border-slate-800/50 pb-3">
+            <h2 class="text-lg font-bold text-slate-800 dark:text-white flex items-center gap-2">
+              <UIcon name="i-lucide-smartphone" class="w-5 h-5 text-primary" />
+              จำลองปุ่มบนสมาร์ทโฟน
+            </h2>
+            <UBadge v-if="selectedMenu" color="primary" variant="subtle" class="font-bold px-2.5 py-0.5 rounded-full">
+              {{ selectedMenu.name }}
+            </UBadge>
           </div>
 
-          <!-- Simulator Body -->
-          <div class="relative w-full aspect-[2500/1686] bg-slate-900 rounded-lg overflow-hidden select-none">
-            <img
-              :src="selectedMenu.imageUrl"
-              class="w-full h-full object-cover"
-              draggable="false"
-            />
+          <!-- iPhone style luxury phone simulator -->
+          <div v-if="selectedMenu" class="w-full max-w-[340px] bg-slate-950 ring-4 ring-slate-800/80 rounded-[38px] shadow-2xl p-3 pb-4 relative overflow-hidden mx-auto border-4 border-slate-900/90 select-none">
+            
+            <!-- Speaker & Camera Notch / Dynamic Island -->
+            <div class="absolute top-2 left-1/2 -translate-x-1/2 w-28 h-4 bg-slate-950 rounded-full z-20 flex items-center justify-center gap-1.5 px-3">
+              <div class="w-10 h-1 bg-slate-800 rounded-full"></div>
+              <div class="w-2.5 h-2.5 bg-slate-900 rounded-full border border-slate-800 flex items-center justify-center">
+                <div class="w-1 h-1 bg-blue-900 rounded-full"></div>
+              </div>
+            </div>
 
-            <!-- SVG hotspot layer overlay -->
-            <svg class="absolute inset-0 w-full h-full" xmlns="http://www.w3.org/2000/svg">
-              <g
-                v-for="hs in viewModeHotspots"
-                :key="`vh-${hs.index}`"
-                class="cursor-pointer group/hotspot"
-                @mouseenter="hoveredHotspot = hs"
-                @mouseleave="hoveredHotspot = null"
-              >
-                <!-- Clickable Area Highlight Rect -->
-                <rect
-                  :x="`${hs.x}%`"
-                  :y="`${hs.y}%`"
-                  :width="`${hs.width}%`"
-                  :height="`${hs.height}%`"
-                  fill="rgba(59, 130, 246, 0.18)"
-                  stroke="rgba(59, 130, 246, 0.85)"
-                  stroke-width="1.5"
-                  class="hover:fill-primary-500/35 hover:stroke-primary-400 transition-all duration-150"
-                  :stroke-dasharray="hs.action.type === 'richmenuswitch' ? '4 2' : 'none'"
-                />
-                
-                <!-- Tiny numeric key indicator -->
-                <rect
-                  :x="`${hs.x + 0.5}%`"
-                  :y="`${hs.y + 0.5}%`"
-                  width="20"
-                  height="20"
-                  rx="4"
-                  fill="rgba(15, 23, 42, 0.8)"
-                  class="pointer-events-none"
-                />
-                <text
-                  :x="`${hs.x + 0.5}%`"
-                  :y="`${hs.y + 0.5}%`"
-                  dx="10"
-                  dy="14"
-                  font-size="11"
-                  fill="#ffffff"
-                  font-weight="bold"
-                  text-anchor="middle"
-                  class="pointer-events-none font-sans"
+            <!-- Simulated Mobile Status Bar -->
+            <div class="flex justify-between items-center px-4 pt-1.5 pb-2 text-[10px] text-slate-400 font-semibold select-none z-10">
+              <span>12:30</span>
+              <div class="flex items-center gap-1.5">
+                <UIcon name="i-lucide-signal" class="w-3 h-3" />
+                <UIcon name="i-lucide-wifi" class="w-3 h-3" />
+                <div class="w-5 h-2.5 border border-slate-500 rounded-sm p-0.5 flex items-center">
+                  <div class="w-full h-full bg-slate-400 rounded-2xs"></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- LINE Chat Header -->
+            <div class="flex items-center justify-between bg-slate-900/95 border-b border-slate-800/80 py-2.5 px-3 text-slate-200">
+              <div class="flex items-center gap-2">
+                <UIcon name="i-lucide-chevron-left" class="w-5 h-5 text-slate-400" />
+                <div class="relative">
+                  <div class="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-primary font-black text-xs">
+                    SJ
+                  </div>
+                  <div class="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-500 rounded-full border-2 border-slate-900"></div>
+                </div>
+                <div>
+                  <div class="text-[11px] font-bold flex items-center gap-0.5">
+                    SaiJai Official
+                    <UIcon name="i-lucide-badge-check" class="w-3.5 h-3.5 text-primary" />
+                  </div>
+                  <span class="text-[9px] text-emerald-400 flex items-center gap-0.5">
+                    <span class="w-1 h-1 rounded-full bg-emerald-500 inline-block animate-pulse"></span>
+                    แชทบอทออนไลน์
+                  </span>
+                </div>
+              </div>
+              <div class="flex items-center gap-2 text-slate-400">
+                <UIcon name="i-lucide-phone" class="w-3.5 h-3.5" />
+                <UIcon name="i-lucide-search" class="w-3.5 h-3.5" />
+                <UIcon name="i-lucide-menu" class="w-3.5 h-3.5" />
+              </div>
+            </div>
+
+            <!-- Simulated Chat Bubble Space -->
+            <div class="p-3 space-y-2 bg-slate-950 flex-1 min-h-[90px] flex flex-col justify-end text-left">
+              <div class="flex gap-2 items-start max-w-[90%]">
+                <div class="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center text-primary text-[9px] font-bold">SJ</div>
+                <div class="bg-slate-900 text-slate-200 rounded-xl rounded-tl-none p-2 text-[10px] leading-relaxed shadow-sm border border-slate-800/80">
+                  สวัสดีค่ะ คุณลูกค้า 🌸 ยินดีต้อนรับสู่ SaiJai ค่ะ สามารถเลือกสั่งซื้อหรือสอบถามบริการได้ที่เมนูด้านล่างนี้ได้เลยค่ะ!
+                </div>
+              </div>
+            </div>
+
+            <!-- Simulator Body (Image & Hotspots) -->
+            <div class="relative w-full aspect-[2500/1686] bg-slate-900 overflow-hidden select-none border-y border-slate-900">
+              <img
+                :src="selectedMenu.imageUrl"
+                class="w-full h-full object-cover"
+                draggable="false"
+              />
+
+              <!-- SVG hotspot layer overlay -->
+              <svg class="absolute inset-0 w-full h-full" xmlns="http://www.w3.org/2000/svg">
+                <g
+                  v-for="hs in viewModeHotspots"
+                  :key="`vh-${hs.index}`"
+                  class="cursor-pointer group/hotspot"
+                  @mouseenter="hoveredHotspot = hs"
+                  @mouseleave="hoveredHotspot = null"
                 >
-                  {{ hs.index + 1 }}
-                </text>
-              </g>
-            </svg>
+                  <!-- Clickable Area Highlight Rect -->
+                  <rect
+                    :x="`${hs.x}%`"
+                    :y="`${hs.y}%`"
+                    :width="`${hs.width}%`"
+                    :height="`${hs.height}%`"
+                    :fill="hoveredHotspot?.index === hs.index ? 'rgba(99, 102, 241, 0.28)' : 'rgba(59, 130, 246, 0.12)'"
+                    :stroke="hoveredHotspot?.index === hs.index ? '#6366f1' : 'rgba(59, 130, 246, 0.7)'"
+                    :stroke-width="hoveredHotspot?.index === hs.index ? 2.5 : 1.5"
+                    class="transition-all duration-150"
+                    :stroke-dasharray="hs.action.type === 'richmenuswitch' ? '4 2' : 'none'"
+                  />
+                  
+                  <!-- Tiny numeric key indicator -->
+                  <rect
+                    :x="`${hs.x + 0.5}%`"
+                    :y="`${hs.y + 0.5}%`"
+                    width="18"
+                    height="18"
+                    rx="4"
+                    :fill="hoveredHotspot?.index === hs.index ? '#6366f1' : 'rgba(15, 23, 42, 0.8)'"
+                    class="pointer-events-none transition-colors duration-150"
+                  />
+                  <text
+                    :x="`${hs.x + 0.5}%`"
+                    :y="`${hs.y + 0.5}%`"
+                    dx="9"
+                    dy="13"
+                    font-size="10"
+                    fill="#ffffff"
+                    font-weight="bold"
+                    text-anchor="middle"
+                    class="pointer-events-none font-sans"
+                  >
+                    {{ hs.index + 1 }}
+                  </text>
+                </g>
+              </svg>
+            </div>
+
+            <!-- Bottom Chat bar sim -->
+            <div class="flex items-center justify-between py-2.5 px-4 bg-slate-900 text-slate-200 text-xs font-semibold select-none cursor-pointer hover:bg-slate-800 transition-colors">
+              <div class="flex items-center gap-1.5">
+                <UIcon name="i-lucide-keyboard" class="w-4 h-4 text-slate-400" />
+                <div class="w-[1px] h-3 bg-slate-800"></div>
+              </div>
+              <span class="font-bold tracking-wide flex items-center gap-1 text-[11px]">
+                {{ JSON.parse(selectedMenu.jsonContent)?.chatBarText || 'เมนูหลัก' }}
+                <UIcon name="i-lucide-chevron-up" class="w-3.5 h-3.5 text-slate-400" />
+              </span>
+              <UIcon name="i-lucide-smile" class="w-4 h-4 text-slate-400" />
+            </div>
+
+            <!-- Phone home indicator bar -->
+            <div class="w-24 h-1 bg-slate-800 rounded-full mx-auto mt-2.5"></div>
           </div>
 
-          <!-- Bottom Chat bar sim -->
-          <div class="mt-2 flex items-center justify-center py-2 px-4 rounded-xl bg-slate-900 border border-slate-800 text-slate-200 text-sm font-semibold select-none">
-            {{ JSON.parse(selectedMenu.jsonContent)?.chatBarText || 'เมนูหลัก' }}
-            <UIcon name="i-lucide-chevron-up" class="w-4 h-4 ml-1.5 text-slate-500" />
+          <!-- Hotspots info details section -->
+          <div v-if="selectedMenu" class="space-y-4">
+            <UCard class="p-1 border border-slate-200/50 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50">
+              <template #header>
+                <h3 class="font-bold text-sm flex items-center gap-2 text-slate-800 dark:text-white">
+                  <UIcon name="i-lucide-info" class="w-4 h-4 text-primary" />
+                  รายชื่อปุ่ม และ LINE Actions
+                </h3>
+              </template>
+
+              <!-- Dynamic Hover Details Block -->
+              <div v-if="hoveredHotspot" class="p-3 bg-primary-50/20 dark:bg-primary-950/20 border border-primary-500/20 rounded-xl mb-3 space-y-2 animate-pulse">
+                <div class="flex justify-between items-center">
+                  <span class="text-xs font-bold text-primary">กำลังตรวจสอบปุ่มที่ {{ hoveredHotspot.index + 1 }}</span>
+                  <span class="text-[10px] font-mono text-slate-400 font-medium">Bounds (พิกัดพิกเซลบน LINE)</span>
+                </div>
+                <div class="grid grid-cols-4 text-[10px] gap-2 font-mono text-slate-600 dark:text-slate-300">
+                  <div class="bg-slate-100 dark:bg-slate-800/80 px-1.5 py-0.5 rounded text-center">X: {{ hoveredHotspot.rawBounds.x }}</div>
+                  <div class="bg-slate-100 dark:bg-slate-800/80 px-1.5 py-0.5 rounded text-center">Y: {{ hoveredHotspot.rawBounds.y }}</div>
+                  <div class="bg-slate-100 dark:bg-slate-800/80 px-1.5 py-0.5 rounded text-center">กว้าง: {{ hoveredHotspot.rawBounds.width }}</div>
+                  <div class="bg-slate-100 dark:bg-slate-800/80 px-1.5 py-0.5 rounded text-center">สูง: {{ hoveredHotspot.rawBounds.height }}</div>
+                </div>
+                <div class="border-t border-slate-200/40 dark:border-slate-800/40 pt-2 text-xs">
+                  <span class="font-bold text-slate-700 dark:text-slate-200">แอ็กชัน:</span>
+                  <span class="font-mono bg-primary/10 px-2 py-0.5 rounded ml-1 text-primary text-[10px] font-bold">{{ hoveredHotspot.action.type }}</span>
+                  <p class="text-slate-500 dark:text-slate-400 text-xs mt-1.5 break-all leading-relaxed font-mono">
+                    ค่าข้อมูล: {{ hoveredHotspot.action.uri || hoveredHotspot.action.text || hoveredHotspot.action.richMenuAliasId || hoveredHotspot.action.data || 'ไม่มีข้อมูล' }}
+                  </p>
+                </div>
+              </div>
+
+              <div v-else class="p-4 bg-slate-50 dark:bg-slate-900/40 border border-slate-200/40 dark:border-slate-800/40 rounded-xl mb-3 text-xs text-slate-400 italic flex items-center justify-center py-6">
+                💡 เอาเมาส์วางบนแถบ Hotspots ซ้าย/ขวา เพื่อดูการเชื่อมข้อมูล
+              </div>
+
+              <!-- Hotspot Interactive Table List -->
+              <div class="space-y-2 max-h-[220px] overflow-y-auto pr-1">
+                <div
+                  v-for="hs in viewModeHotspots"
+                  :key="`vlist-${hs.index}`"
+                  class="p-3 rounded-xl border text-xs flex flex-col gap-2 transition-all duration-150 cursor-pointer"
+                  :class="hoveredHotspot?.index === hs.index ? 'border-primary bg-primary-50/15 shadow-sm' : 'border-default bg-default/40 hover:border-slate-300 dark:hover:border-slate-700'"
+                  @mouseenter="hoveredHotspot = hs"
+                  @mouseleave="hoveredHotspot = null"
+                >
+                  <div class="flex items-center justify-between font-bold">
+                    <span class="text-slate-700 dark:text-slate-200 flex items-center gap-1.5">
+                      <span class="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold"
+                            :class="hoveredHotspot?.index === hs.index ? 'bg-primary text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'">
+                        {{ hs.index + 1 }}
+                      </span>
+                      ปุ่มสัมผัสที่ {{ hs.index + 1 }}
+                    </span>
+                    <UBadge
+                      :color="hs.action.type === 'uri' ? 'primary' : hs.action.type === 'message' ? 'indigo' : hs.action.type === 'richmenuswitch' ? 'amber' : 'neutral'"
+                      variant="subtle"
+                      size="sm"
+                      class="font-mono text-[10px]"
+                    >
+                      {{ hs.action.type }}
+                    </UBadge>
+                  </div>
+                  <div class="text-[11px] text-slate-500 dark:text-slate-400 truncate flex items-center gap-1">
+                    <span class="font-semibold text-slate-700 dark:text-slate-300">ค่าแอ็กชัน:</span>
+                    <span class="font-mono bg-slate-50 dark:bg-slate-900/60 px-1.5 py-0.5 rounded text-xs truncate" :title="hs.action.uri || hs.action.text || hs.action.richMenuAliasId || hs.action.data">
+                      {{ hs.action.uri || hs.action.text || hs.action.richMenuAliasId || hs.action.data || '-' }}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </UCard>
           </div>
         </div>
-
-        <p class="text-xs text-muted mt-3 text-center">ชี้เมาส์ที่แต่ละแถบเพื่อตรวจสอบรายละเอียดพิกัดและ Action ของ LINE API ในตารางขวาด้านล่าง</p>
-      </div>
-
-      <!-- Hotspot details listing -->
-      <div class="lg:col-span-4 space-y-4">
-        <UCard class="p-2">
-          <template #header>
-            <h3 class="font-bold flex items-center gap-1.5">
-              <UIcon name="i-lucide-info" class="w-5 h-5 text-primary" />
-              รายละเอียดปุ่ม & Actions
-            </h3>
-          </template>
-
-          <!-- Hover Details Block -->
-          <div v-if="hoveredHotspot" class="p-3 bg-primary-50/20 border border-primary-500/20 rounded-md mb-3 space-y-2 animate-pulse">
-            <span class="text-xs font-bold text-primary block">คุณกำลังตรวจสอบปุ่มที่ {{ hoveredHotspot.index + 1 }}</span>
-            <div class="grid grid-cols-2 text-xs gap-1 font-mono">
-              <div>พิกัด X: {{ hoveredHotspot.rawBounds.x }}</div>
-              <div>พิกัด Y: {{ hoveredHotspot.rawBounds.y }}</div>
-              <div>กว้าง: {{ hoveredHotspot.rawBounds.width }}</div>
-              <div>สูง: {{ hoveredHotspot.rawBounds.height }}</div>
-            </div>
-            <div class="border-t border-default/50 pt-2 text-xs">
-              <span class="font-semibold text-default">แอ็กชัน:</span>
-              <span class="font-mono bg-default px-1 rounded ml-1 text-primary">{{ hoveredHotspot.action.type }}</span>
-              <p class="text-muted truncate mt-1" :title="hoveredHotspot.action.uri || hoveredHotspot.action.text || hoveredHotspot.action.richMenuAliasId">
-                ค่า: {{ hoveredHotspot.action.uri || hoveredHotspot.action.text || hoveredHotspot.action.richMenuAliasId || hoveredHotspot.action.data || 'ไม่มีข้อมูล' }}
-              </p>
-            </div>
-          </div>
-
-          <div v-else class="p-3 bg-default border border-default/50 rounded-md mb-3 text-xs text-muted italic flex items-center justify-center py-6">
-            ชี้เมาส์ในพื้นที่ Hotspot ฝั่งซ้ายเพื่อดูแอ็กชันทันที
-          </div>
-
-          <!-- Hotspot Table list -->
-          <div class="space-y-2 max-h-[300px] overflow-y-auto pr-1">
-            <div
-              v-for="hs in viewModeHotspots"
-              :key="`vlist-${hs.index}`"
-              class="p-2.5 rounded-md border text-xs flex flex-col gap-1 transition-colors duration-150"
-              :class="hoveredHotspot?.index === hs.index ? 'border-primary bg-primary-50/10' : 'border-default bg-elevated/40'"
-            >
-              <div class="flex items-center justify-between font-bold">
-                <span class="text-default font-semibold">ปุ่มที่ {{ hs.index + 1 }}</span>
-                <UBadge color="neutral" size="sm" class="font-mono">{{ hs.action.type }}</UBadge>
-              </div>
-              <div class="text-muted truncate mt-1">
-                <span class="text-default font-medium">รายละเอียด: </span>
-                <span class="font-mono text-muted">{{ hs.action.uri || hs.action.text || hs.action.richMenuAliasId || hs.action.data || '-' }}</span>
-              </div>
-            </div>
-          </div>
-        </UCard>
       </div>
     </div>
 
-    <!-- Create / Upload Modal Dialog -->
-    <UModal v-model:open="isCreateModalOpen" title="ติดตั้ง LINE Rich Menu ใหม่" :ui="{ body: 'sm:max-w-4xl' }">
+    <!-- Create / Upload Modal Dialog (Spacious & Clean Layout) -->
+    <UModal v-model:open="isCreateModalOpen" title="ติดตั้ง LINE Rich Menu ใหม่" :ui="{ content: 'sm:max-w-5xl' }">
       <template #body>
-        <UForm :state="form" class="space-y-4 pr-1 max-h-[85vh] overflow-y-auto" @submit="onSubmit">
-          <div class="grid gap-4 sm:grid-cols-2">
+        <UForm :state="form" class="space-y-6 pr-1 max-h-[85vh] overflow-y-auto" @submit="onSubmit">
+          <div class="grid gap-6 sm:grid-cols-2">
+            
             <!-- Left inputs column -->
             <div class="space-y-4">
-              <UFormField label="ชื่อระบุภายใน (Name)" name="name" required>
-                <UInput v-model="form.name" placeholder="เช่น เมนูลูกค้าทั่วไป, เมนูพนักงาน" class="w-full" />
+              <UFormField label="ชื่อเรียกภายในระบบ (Name)" name="name" required description="ใช้เพื่อระบุและค้นหาตัวเมนูในฝั่งแอดมิน">
+                <UInput v-model="form.name" placeholder="เช่น เมนูลูกค้าทั่วไป, เมนูพนักงาน" class="w-full rounded-xl" />
               </UFormField>
 
               <UFormField label="อัปโหลดรูปภาพเมนู (PNG เท่านั้น)" name="file" required>
@@ -646,12 +820,14 @@ const resetForm = () => {
                 />
               </UFormField>
 
-              <div class="grid grid-cols-2 gap-4">
-                <UFormField label="จำกัดสิทธิ์เฉพาะบทบาท" name="targetRole">
+              <!-- Space-out Target Role Block -->
+              <div class="space-y-4 rounded-xl border border-default p-4 bg-default/40 dark:bg-slate-900/40">
+                <UFormField label="จำกัดสิทธิ์เฉพาะบทบาท" name="targetRole" description="สลับสิทธิ์ Rich Menu บน LINE อัตโนมัติตามระดับบทบาทนี้">
                   <USelect
                     v-model="form.targetRole"
                     placeholder="สำหรับทุกคน (เมนูหลัก)"
                     :items="[
+                      { label: 'ไม่จำกัดบทบาท (สำหรับทุกคน)', value: '' },
                       { label: 'ผู้ใช้ทั่วไป (USER)', value: 'USER' },
                       { label: 'สมาชิกรายเดือน (MEMBER)', value: 'MEMBER' },
                       { label: 'พนักงาน (EMPLOYEE)', value: 'EMPLOYEE' },
@@ -661,50 +837,57 @@ const resetForm = () => {
                   />
                 </UFormField>
 
-                <div class="flex items-center h-full pt-6 pl-2">
+                <div class="pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center">
                   <UCheckbox
                     v-model="form.isDefault"
-                    label="ตั้งค่าเป็นเมนูเริ่มต้น"
+                    label="ตั้งค่าเป็นเมนูเริ่มต้น (Default)"
+                    description="เมนูจะถูกเปิดให้ลูกค้าที่ระบบไม่พบเงื่อนไขสิทธิ์อื่น"
                   />
                 </div>
               </div>
             </div>
 
             <!-- Right live schema inspector and visualizer block -->
-            <div class="space-y-3">
-              <UFormField label="JSON Configuration (LINE Messaging API Schema)" name="jsonContent" required>
+            <div class="space-y-4">
+              <UFormField label="JSON Configuration (LINE Messaging API Schema)" name="jsonContent" required description="พิกัดปุ่มสัมผัส (areas) และความกว้าง/ความสูง">
                 <UTextarea
                   v-model="form.jsonContent"
                   placeholder="กรอก JSON Configuration..."
-                  :rows="11"
-                  class="w-full font-mono text-xs"
+                  :rows="13"
+                  class="w-full font-mono text-xs p-3 bg-slate-900 text-slate-100 rounded-xl border-slate-800"
                 />
               </UFormField>
 
               <!-- Validation Feedback -->
               <div
                 v-if="jsonValidationError"
-                class="p-2 border border-red-500/20 bg-red-500/10 text-red-600 rounded text-xs"
+                class="p-3 border border-red-500/20 bg-red-500/10 text-red-600 rounded-xl text-xs font-semibold"
               >
-                {{ jsonValidationError }}
+                ⚠️ {{ jsonValidationError }}
               </div>
               <div
                 v-else
-                class="p-2 border border-green-500/20 bg-green-500/10 text-green-600 rounded text-xs flex items-center gap-1"
+                class="p-3 border border-green-500/20 bg-green-500/10 text-green-600 rounded-xl text-xs flex items-center gap-2 font-semibold"
               >
-                <UIcon name="i-lucide-check-circle" class="w-4 h-4" />
+                <UIcon name="i-lucide-check-circle" class="w-4 h-4 text-green-500" />
                 โครงสร้าง JSON และพิกัด Hotspots ได้รับการตรวจสอบว่าถูกต้อง!
               </div>
             </div>
           </div>
 
           <!-- Bottom Hotspot Layout Visual preview inside Create Modal -->
-          <div v-if="imagePreviewUrl && hotspots.length" class="border border-default/50 rounded-lg p-2 bg-slate-950/80">
-            <h4 class="text-xs font-semibold mb-2 text-default flex items-center gap-1">
-              <UIcon name="i-lucide-layout" class="w-3.5 h-3.5 text-primary" />
-              ภาพจำลองพิกัดปุ่มสัมผัสตามโครงสร้าง JSON (Hotspot Preview):
-            </h4>
-            <div class="relative w-full max-w-md mx-auto aspect-[2500/1686] bg-slate-900 rounded overflow-hidden select-none">
+          <div v-if="imagePreviewUrl && hotspots.length" class="border border-default/50 rounded-2xl p-4 bg-slate-950/90 shadow-inner">
+            <div class="flex items-center justify-between mb-3">
+              <h4 class="text-xs font-bold text-slate-300 flex items-center gap-1.5">
+                <UIcon name="i-lucide-layout" class="w-4 h-4 text-emerald-500 animate-pulse" />
+                ภาพจำลองพิกัดปุ่มสัมผัสตามโครงสร้าง JSON (Hotspots)
+              </h4>
+              <span class="text-[10px] text-muted bg-slate-800 px-2.5 py-0.5 rounded-full font-bold text-emerald-400">
+                พบพิกัดทั้งหมด {{ hotspots.length }} ปุ่ม
+              </span>
+            </div>
+            
+            <div class="relative w-full max-w-md mx-auto aspect-[2500/1686] bg-slate-900 rounded-xl overflow-hidden border border-slate-800 shadow-md">
               <img
                 :src="imagePreviewUrl"
                 class="w-full h-full object-cover"
@@ -721,7 +904,7 @@ const resetForm = () => {
                     stroke="rgba(16, 185, 129, 0.85)"
                     stroke-width="1.5"
                   />
-                  <!-- Tiny numeric key indicator -->
+                  <!-- Tiny numeric indicator -->
                   <rect
                     :x="`${hs.x + 0.5}%`"
                     :y="`${hs.y + 0.5}%`"
@@ -748,10 +931,11 @@ const resetForm = () => {
           </div>
 
           <!-- Deploy Submit Action -->
-          <div class="flex justify-end gap-2 border-t border-default pt-3">
+          <div class="flex justify-end gap-3 border-t border-slate-100 dark:border-slate-800 pt-4">
             <UButton
               color="neutral"
               variant="outline"
+              class="font-bold rounded-xl px-5"
               @click="isCreateModalOpen = false"
             >
               ยกเลิก
@@ -761,6 +945,7 @@ const resetForm = () => {
               color="primary"
               :loading="isSaving"
               :disabled="!!jsonValidationError"
+              class="font-bold rounded-xl px-5"
               icon="i-lucide-upload-cloud"
             >
               ปรับใช้ออนไลน์ไปยัง LINE
@@ -771,11 +956,11 @@ const resetForm = () => {
     </UModal>
 
     <!-- Assign Role / Default Modal -->
-    <UModal v-model:open="isAssignModalOpen" title="กำหนดบทบาทของ Rich Menu" :ui="{ body: 'sm:max-w-md' }">
+    <UModal v-model:open="isAssignModalOpen" title="กำหนดบทบาทของ Rich Menu" :ui="{ content: 'sm:max-w-md' }">
       <template #body>
         <div class="space-y-4 py-1">
-          <p class="text-sm text-muted">
-            การกำหนดบทบาทที่เฉพาะเจาะจง จะช่วยให้ระบบสามารถสลับเปลี่ยน Rich Menu ให้ลูกค้าและพนักงานโดยอัตโนมัติเมื่อพวกเขาเข้าใช้งาน LIFF
+          <p class="text-sm text-slate-500 dark:text-slate-400 leading-relaxed">
+            การกำหนดบทบาทที่เฉพาะเจาะจง จะช่วยให้ระบบสามารถสลับเปลี่ยน Rich Menu ให้ลูกค้าและพนักงานโดยอัตโนมัติเมื่อพวกเขาเข้าใช้งานแชทบอท
           </p>
 
           <UFormField label="กำหนดสำหรับบทบาท">
@@ -783,17 +968,17 @@ const resetForm = () => {
               v-model="assignForm.targetRole"
               placeholder="สำหรับทุกคน (เมนูหลัก)"
               :items="[
-                { label: 'ไม่กำหนดบทบาทเฉพาะเจาะจง', value: '' },
+                { label: 'ไม่กำหนดบทบาทเฉพาะเจาะจง (สำหรับทุกคน)', value: '' },
                 { label: 'ผู้ใช้ทั่วไป (USER)', value: 'USER' },
                 { label: 'สมาชิกรายเดือน (MEMBER)', value: 'MEMBER' },
                 { label: 'พนักงาน (EMPLOYEE)', value: 'EMPLOYEE' },
                 { label: 'ผู้ดูแลระบบ (ADMIN)', value: 'ADMIN' },
               ]"
-              class="w-full"
+              class="w-full rounded-xl"
             />
           </UFormField>
 
-          <div class="py-2 border-t border-default">
+          <div class="py-3 border-t border-slate-100 dark:border-slate-800">
             <UCheckbox
               v-model="assignForm.isDefault"
               label="ตั้งค่าเมนูนี้เป็นค่าเริ่มต้น (Default Rich Menu)"
@@ -801,16 +986,18 @@ const resetForm = () => {
             />
           </div>
 
-          <div class="flex justify-end gap-2 border-t border-default pt-3">
+          <div class="flex justify-end gap-3 border-t border-slate-100 dark:border-slate-800 pt-4">
             <UButton
               color="neutral"
               variant="outline"
+              class="font-bold rounded-xl"
               @click="isAssignModalOpen = false"
             >
               ยกเลิก
             </UButton>
             <UButton
               color="primary"
+              class="font-bold rounded-xl"
               :loading="isSaving"
               @click="onAssign"
             >
@@ -822,10 +1009,10 @@ const resetForm = () => {
     </UModal>
 
     <!-- Configure Alias Modal -->
-    <UModal v-model:open="isAliasModalOpen" title="ตั้งค่า LINE Alias ID" :ui="{ body: 'sm:max-w-md' }">
+    <UModal v-model:open="isAliasModalOpen" title="ตั้งค่า LINE Alias ID" :ui="{ content: 'sm:max-w-md' }">
       <template #body>
         <div class="space-y-4 py-1">
-          <p class="text-sm text-muted">
+          <p class="text-sm text-slate-500 dark:text-slate-400 leading-relaxed">
             Alias ID ใช้สำหรับความสามารถ <strong>richmenuswitch</strong> ใน LINE เพื่อเปลี่ยน Rich Menu แบบทันทีโดยไม่ต้องรอดึงจาก Server (เช่น สลับหน้าแท็บหลัก-ย่อย)
           </p>
 
@@ -833,21 +1020,23 @@ const resetForm = () => {
             <UInput
               v-model="aliasForm.aliasId"
               placeholder="ตัวอย่างเช่น richmenu-tab-a"
-              class="w-full font-mono text-sm"
+              class="w-full font-mono text-sm rounded-xl"
               maxlength="30"
             />
           </UFormField>
 
-          <div class="flex justify-end gap-2 border-t border-default pt-3">
+          <div class="flex justify-end gap-3 border-t border-slate-100 dark:border-slate-800 pt-4">
             <UButton
               color="neutral"
               variant="outline"
+              class="font-bold rounded-xl"
               @click="isAliasModalOpen = false"
             >
               ยกเลิก
             </UButton>
             <UButton
               color="primary"
+              class="font-bold rounded-xl"
               :loading="isSaving"
               :disabled="!aliasForm.aliasId.trim()"
               @click="onAliasSave"
