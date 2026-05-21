@@ -11,16 +11,15 @@ definePageMeta({
 </script>
 
 <template>
-  <UDashboardPage>
-    <UDashboardPanel grow>
-      <UDashboardNavbar title="ข้อมูลส่วนตัว" />
+  <div class="mx-auto w-full max-w-3xl space-y-3 p-2 sm:p-6">
+    <div class="rounded-md border border-default/30 bg-default px-4 py-3 shadow-[0_1px_2px_rgb(15_23_42/0.04)] dark:border-default/20 dark:bg-elevated/55">
+      <h1 class="text-xl font-semibold">ข้อมูลส่วนตัว</h1>
+      <p class="mt-1 text-sm text-muted">จัดการข้อมูลและการเชื่อมต่อบัญชีของคุณ</p>
+    </div>
 
-      <div class="p-6 max-w-2xl mx-auto space-y-6 w-full">
-        <ProfileForm />
-        <EmailVerificationSection callback-url="/me/settings/profile" />
-        <LineLinkSection />
-        <NotificationPreferenceForm />
-      </div>
-    </UDashboardPanel>
-  </UDashboardPage>
+    <ProfileForm />
+    <EmailVerificationSection callback-url="/me/settings/profile" />
+    <LineLinkSection />
+    <NotificationPreferenceForm />
+  </div>
 </template>

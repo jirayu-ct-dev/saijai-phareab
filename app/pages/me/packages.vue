@@ -162,7 +162,7 @@ const handleBuy = (pkg: any) => {
       </div>
     </UDashboardPanel>
 
-    <UModal v-model="isOpen">
+    <UModal v-model:open="isOpen">
       <UCard :ui="{ ring: '', divide: 'divide-y divide-gray-100 dark:divide-gray-800' }">
         <template #header>
           <div class="flex items-center justify-between">

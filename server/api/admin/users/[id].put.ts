@@ -1,6 +1,7 @@
 import { Prisma } from "~~/app/generated/prisma/client";
 import { prisma } from "~~/server/utils/prisma";
 import type { Role } from "~~/shared/types/enums";
+import { syncUserRichMenu } from "~~/server/utils/line-messaging";
 
 type UpdateUserBody = {
   email?: string;
@@ -103,6 +104,12 @@ export default defineEventHandler(async (event) => {
         sessionsRevoked,
       };
     });
+
+    if (isRoleChanged || isDeactivated) {
+      void syncUserRichMenu(id).catch((err) =>
+        console.error(`[PUT /api/admin/users/:id] Failed to sync rich menu:`, err),
+      );
+    }
 
     return result;
   } catch (error) {
