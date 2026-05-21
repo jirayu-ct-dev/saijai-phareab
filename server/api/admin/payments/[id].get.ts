@@ -90,6 +90,18 @@ export default defineEventHandler(async (event) => {
           },
         },
       },
+      auditLogs: {
+        orderBy: { createdAt: "desc" },
+        include: {
+          actor: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+            },
+          },
+        },
+      },
       serviceOrder: {
         include: {
           employee: {
@@ -261,6 +273,21 @@ export default defineEventHandler(async (event) => {
     metadata: payment.metadata,
     createdAt: payment.createdAt.toISOString(),
     updatedAt: payment.updatedAt.toISOString(),
+    auditLogs: payment.auditLogs.map((log) => ({
+      id: log.id,
+      action: log.action,
+      note: log.note,
+      beforeJson: log.beforeJson,
+      afterJson: log.afterJson,
+      createdAt: log.createdAt.toISOString(),
+      actor: log.actor
+        ? {
+            id: log.actor.id,
+            name: log.actor.name,
+            email: log.actor.email,
+          }
+        : null,
+    })),
     customer: {
       id: payment.user.id,
       name: payment.serviceOrder?.isWalkIn ? payment.serviceOrder.walkInName || "ลูกค้าหน้าร้าน" : payment.user.name,

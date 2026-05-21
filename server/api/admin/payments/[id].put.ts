@@ -78,14 +78,34 @@ export default defineEventHandler(async (event) => {
       const nextNote = body.note !== undefined ? body.note?.trim() || null : (existing.note ?? null);
       const nextSlipImageId = body.slipImageId !== undefined ? body.slipImageId : existing.slipImageId;
 
-      const updated = await prisma.paymentRecord.update({
-        where: { id },
-        data: {
-          slipImageId: nextSlipImageId ?? null,
-          note: nextNote,
-          paidAt: existing.paidAt ?? new Date(),
-          metadata: { updatedByAdminId: actor.id },
-        },
+      const updated = await prisma.$transaction(async (tx) => {
+        const row = await tx.paymentRecord.update({
+          where: { id },
+          data: {
+            slipImageId: nextSlipImageId ?? null,
+            note: nextNote,
+            paidAt: existing.paidAt ?? new Date(),
+            metadata: { updatedByAdminId: actor.id },
+          },
+        });
+
+        await tx.paymentAuditLog.create({
+          data: {
+            paymentId: id,
+            action: "UPDATED",
+            actorId: actor.id,
+            beforeJson: {
+              note: existing.note,
+              slipImageId: existing.slipImageId,
+            },
+            afterJson: {
+              note: nextNote,
+              slipImageId: nextSlipImageId ?? null,
+            },
+          },
+        });
+
+        return row;
       });
 
       return updated;
@@ -202,7 +222,7 @@ export default defineEventHandler(async (event) => {
         }
       }
 
-      return tx.paymentRecord.update({
+      const row = await tx.paymentRecord.update({
         where: { id },
         data: {
           userId: nextCustomerId,
@@ -215,6 +235,32 @@ export default defineEventHandler(async (event) => {
           metadata: { updatedByAdminId: actor.id },
         },
       });
+
+      await tx.paymentAuditLog.create({
+        data: {
+          paymentId: id,
+          action: "UPDATED",
+          actorId: actor.id,
+          beforeJson: {
+            userId: existing.userId,
+            amount: Number(existing.amount),
+            note: existing.note,
+            slipImageId: existing.slipImageId,
+            packageSaleCustomerId: existingPackageSale.customerId,
+            productId: primarySaleItem?.productId ?? null,
+          },
+          afterJson: {
+            userId: nextCustomerId,
+            amount: nextTotalAmount,
+            note: nextNote,
+            slipImageId: nextSlipImageId ?? null,
+            packageSaleCustomerId: nextCustomerId,
+            productId: nextProductId,
+          },
+        },
+      });
+
+      return row;
     });
 
     return updated;

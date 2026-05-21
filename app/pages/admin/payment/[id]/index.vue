@@ -24,6 +24,18 @@ type BadgeColor = "error" | "primary" | "secondary" | "success" | "info" | "warn
 type InfoRow = { label: string; value: string; valueClass?: string; dividerBefore?: boolean; href?: string };
 type DetailItemPhoto = { id: string; isDamaged?: boolean; url: string | null; secureUrl: string | null };
 type DetailItem = { id: string; title: string; metaLabel?: string | null; unitPriceLabel?: string | null; quantityLabel: string; totalLabel: string; badgeLabel?: string | null; badgeColor?: BadgeColor; photos?: DetailItemPhoto[]; notes?: string | null };
+type PaymentAuditAction = "CREATED" | "CONFIRMED" | "CANCELLED" | "SLIP_UPLOADED" | "UPDATED";
+type JsonRecord = Record<string, unknown>;
+type PaymentAuditLog = {
+  id: string;
+  action: PaymentAuditAction;
+  note: string | null;
+  beforeJson: unknown;
+  afterJson: unknown;
+  createdAt: string;
+  actor: { id: string; name: string | null; email: string } | null;
+};
+type AuditChange = { label: string; before: string; after: string };
 
 type PaymentDetailResponse = {
   id: string;
@@ -38,6 +50,7 @@ type PaymentDetailResponse = {
   createdAt: string;
   updatedAt: string;
   metadata: unknown;
+  auditLogs: PaymentAuditLog[];
   customer: { id: string; name: string | null; email: string; phoneNumber: string | null; image: string | null };
   slipImage: { id: string; url: string | null; secureUrl: string | null } | null;
   memberEntitlement: {
@@ -137,6 +150,65 @@ const serviceOrderStatusMap: Record<ServiceOrderStatus, { label: string; color: 
   COMPLETED: { label: "เสร็จสิ้น", color: "success" },
   CANCELLED: { label: "ยกเลิก", color: "error" },
 };
+
+const auditActionMap: Record<PaymentAuditAction, { label: string; icon: string; color: BadgeColor }> = {
+  CREATED: { label: "สร้างรายการ", icon: "i-lucide-plus-circle", color: "primary" },
+  CONFIRMED: { label: "ยืนยันชำระเงิน", icon: "i-lucide-check-circle", color: "success" },
+  CANCELLED: { label: "ยกเลิก", icon: "i-lucide-ban", color: "error" },
+  SLIP_UPLOADED: { label: "อัปโหลดสลิป", icon: "i-lucide-image-up", color: "info" },
+  UPDATED: { label: "อัปเดตข้อมูล", icon: "i-lucide-pencil", color: "warning" },
+};
+const auditFieldLabels: Record<string, string> = {
+  status: "สถานะ",
+  method: "วิธีชำระ",
+  amount: "ยอดชำระ",
+  note: "หมายเหตุ",
+  slipImageId: "หลักฐานชำระเงิน",
+  receiptNo: "เลขใบเสร็จ",
+  paidAt: "วันที่ชำระ",
+  confirmedAt: "วันที่ยืนยัน",
+  confirmedById: "ผู้ยืนยัน",
+  userId: "ลูกค้า",
+  packageSaleCustomerId: "ลูกค้าแพ็กเกจ",
+  productId: "แพ็กเกจ",
+  quotationNo: "เลขใบแจ้งราคา",
+};
+
+const isRecord = (value: unknown): value is JsonRecord => Boolean(value && typeof value === "object" && !Array.isArray(value));
+const formatAuditValue = (log: PaymentAuditLog, key: string, value: unknown): string => {
+  if (value === null || value === undefined || value === "") return "-";
+  if (key === "status" && typeof value === "string" && value in paymentStatusLabels) return paymentStatusLabels[value as PaymentStatus];
+  if (key === "method" && typeof value === "string" && value in paymentMethodLabels) return paymentMethodLabels[value as PaymentMethod];
+  if (key === "confirmedById" && typeof value === "string" && log.actor?.id === value) return getAuditActorLabel(log);
+  if (key === "amount" && typeof value === "number") return formatCurrency(value);
+  if ((key.endsWith("At") || key === "paidAt" || key === "confirmedAt") && typeof value === "string") return formatDateTime(value);
+  if (typeof value === "boolean") return value ? "ใช่" : "ไม่ใช่";
+  if (typeof value === "number") return value.toLocaleString("th-TH");
+  if (typeof value === "string") return value;
+  return JSON.stringify(value);
+};
+const getAuditChanges = (log: PaymentAuditLog): AuditChange[] => {
+  const before = isRecord(log.beforeJson) ? log.beforeJson : {};
+  const after = isRecord(log.afterJson) ? log.afterJson : {};
+  const keys = Array.from(new Set([...Object.keys(before), ...Object.keys(after)]));
+  return keys
+    .filter((key) => JSON.stringify(before[key] ?? null) !== JSON.stringify(after[key] ?? null))
+    .map((key) => ({
+      label: auditFieldLabels[key] ?? key,
+      before: formatAuditValue(log, key, before[key]),
+      after: formatAuditValue(log, key, after[key]),
+    }));
+};
+const getAuditActorLabel = (log: PaymentAuditLog) => log.actor?.name || log.actor?.email || "ระบบ";
+const getAuditActionLabel = (log: PaymentAuditLog) => {
+  if (log.action === "UPDATED") {
+    const after = isRecord(log.afterJson) ? log.afterJson : {};
+    if ("status" in after) return "เปลี่ยนสถานะการชำระเงิน";
+    if ("slipImageId" in after) return "อัปเดตหลักฐานการชำระเงิน";
+  }
+  return auditActionMap[log.action]?.label || log.action;
+};
+const auditLogs = computed(() => payment.value?.auditLogs ?? []);
 
 const paymentForm = ref({ note: "", slipImageId: null as string | null });
 const pendingSlipFile = ref<File | null>(null);
@@ -769,6 +841,56 @@ const savePaymentChanges = async () => {
               </div>
 
               <UButton block label="บันทึก" icon="i-lucide-check" color="primary" :loading="isSavingPayment" :disabled="isSavingPayment || isUploadingSlip" @click="handleSaveButtonClick" />
+            </div>
+          </UCard>
+
+          <UCard :ui="{ root: 'rounded-md border border-default shadow-none', body: 'p-5' }">
+            <div class="flex items-start justify-between gap-3">
+              <div>
+                <p class="text-base font-semibold text-highlighted">ประวัติการชำระเงิน</p>
+                <p class="text-sm text-muted">การเปลี่ยนแปลงและผู้ดำเนินการ</p>
+              </div>
+              <UBadge color="neutral" variant="subtle">{{ auditLogs.length }} รายการ</UBadge>
+            </div>
+
+            <div v-if="auditLogs.length" class="mt-5 space-y-4">
+              <div v-for="(log, index) in auditLogs" :key="log.id" class="relative pl-8">
+                <div v-if="index < auditLogs.length - 1" class="absolute left-2 top-7 bottom-[-1rem] w-px bg-default" />
+                <div class="absolute left-0 top-0 flex size-5 items-center justify-center rounded-full border border-default bg-default">
+                  <UIcon :name="auditActionMap[log.action]?.icon || 'i-lucide-history'" class="size-3.5 text-muted" />
+                </div>
+
+                <div class="min-w-0 rounded-md border border-default/60 p-3">
+                  <div class="flex flex-wrap items-start justify-between gap-2">
+                    <div class="min-w-0">
+                      <div class="flex min-w-0 flex-wrap items-center gap-2">
+                        <p class="text-sm font-medium text-highlighted">{{ getAuditActionLabel(log) }}</p>
+                        <UBadge :color="auditActionMap[log.action]?.color || 'neutral'" variant="subtle" size="xs">
+                          {{ log.action }}
+                        </UBadge>
+                      </div>
+                      <p class="mt-0.5 text-xs text-muted">{{ getAuditActorLabel(log) }} • {{ formatDateTime(log.createdAt) }}</p>
+                    </div>
+                  </div>
+
+                  <div v-if="getAuditChanges(log).length" class="mt-3 space-y-1.5 text-xs">
+                    <div v-for="change in getAuditChanges(log)" :key="`${log.id}-${change.label}`" class="grid grid-cols-[5.5rem_minmax(0,1fr)] gap-2">
+                      <span class="text-muted">{{ change.label }}</span>
+                      <span class="min-w-0 wrap-break-word text-highlighted">
+                        <span class="text-muted">ก่อน: {{ change.before }}</span>
+                        <UIcon name="i-lucide-arrow-right" class="mx-1 inline size-3 text-muted" />
+                        <span>หลัง: {{ change.after }}</span>
+                      </span>
+                    </div>
+                  </div>
+
+                  <p v-if="log.note" class="mt-3 rounded-md bg-elevated/40 p-2 text-xs text-muted whitespace-pre-line">{{ log.note }}</p>
+                </div>
+              </div>
+            </div>
+
+            <div v-else class="mt-5 rounded-md border border-dashed border-default p-4 text-center text-sm text-muted">
+              ยังไม่มีประวัติการชำระเงิน
             </div>
           </UCard>
         </div>
