@@ -78,3 +78,9 @@ export const uploadImageBufferToCloudinary = async (
     url: result.url ?? null,
   };
 };
+
+export const deleteImageFromCloudinary = async (publicId: string): Promise<void> => {
+  ensureCloudinaryConfigured();
+  await cloudinary.uploader.destroy(publicId);
+};
+
