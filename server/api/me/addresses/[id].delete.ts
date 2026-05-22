@@ -1,22 +1,19 @@
 import { prisma } from "~~/server/utils/prisma";
 
 export default defineEventHandler(async (event) => {
-  const user = event.context.user;
+  const user = requireUser(event);
   const id = getRouterParam(event, 'id');
-  
-  if (!user) {
-    throw createError({
-      statusCode: 401,
-      message: "Unauthorized",
-    });
-  }
 
-  // Check ownership
-  const existing = await prisma.userAddress.findUnique({
-    where: { id },
+  // Check ownership and not already deleted
+  const existing = await prisma.userAddress.findFirst({
+    where: { 
+      id,
+      userId: user.id,
+      deletedAt: null,
+    },
   });
 
-  if (!existing || existing.userId !== user.id) {
+  if (!existing) {
     throw createError({
       statusCode: 404,
       message: "Address not found",

@@ -12,14 +12,22 @@ export default defineEventHandler(async (event) => {
   const actor = requireUser(event);
   const body = await readValidatedBody(event, schema.parse);
 
-  await prisma.user.update({
-    where: { id: actor.id },
-    data: {
-      name: body.name ?? undefined,
-      phoneNumber: body.phoneNumber ?? null,
-      image: body.image ?? null,
-    },
-  });
+  try {
+    await prisma.user.update({
+      where: { id: actor.id },
+      data: {
+        name: body.name ?? undefined,
+        phoneNumber: body.phoneNumber ?? null,
+        image: body.image ?? null,
+      },
+    });
 
-  return { success: true };
+    return { success: true };
+  } catch (error: any) {
+    console.error("[Profile Update Error]", error);
+    throw createError({
+      statusCode: 500,
+      message: "ไม่สามารถบันทึกข้อมูลได้ กรุณาลองใหม่อีกครั้ง",
+    });
+  }
 });

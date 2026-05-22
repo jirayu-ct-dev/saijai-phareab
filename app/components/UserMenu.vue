@@ -14,9 +14,9 @@ const isStaff = computed(() => {
   return role === "ADMIN" || role === "EMPLOYEE";
 });
 
-const profileRoute = computed(() => (isStaff.value ? "/admin/settings/profile" : "/settings/notification"));
-const settingsRoute = computed(() => (isStaff.value ? "/admin/settings/billing" : "/settings/notification"));
-const homeRoute = computed(() => (isStaff.value ? "/admin" : "/"));
+const profileRoute = computed(() => (isStaff.value ? "/admin/settings/profile" : "/me/settings/profile"));
+const settingsRoute = computed(() => (isStaff.value ? "/admin/settings/billing" : "/me/settings/notification"));
+const homeRoute = computed(() => "/");
 
 const handleLogout = async (e: Event) => {
   e.preventDefault();

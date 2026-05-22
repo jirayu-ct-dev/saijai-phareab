@@ -126,8 +126,21 @@ watch(session, async (newSession) => {
     <!-- RIGHT PANEL: Register Form -->
     <div class="flex-1 flex flex-col relative bg-white dark:bg-gray-900">
       
+      <!-- Top left nav -->
+      <div class="absolute top-8 left-8 sm:left-12 z-10">
+        <UButton 
+          to="/" 
+          variant="ghost" 
+          color="neutral" 
+          icon="i-lucide-arrow-left" 
+          class="text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white"
+        >
+          กลับหน้าหลัก
+        </UButton>
+      </div>
+
       <!-- Top right nav -->
-      <div class="hidden sm:block absolute top-8 right-8 text-sm text-gray-500 dark:text-gray-400">
+      <div class="hidden sm:block absolute top-8 right-8 text-sm text-gray-500 dark:text-gray-400 z-10">
         มีบัญชีอยู่แล้ว?
         <NuxtLink to="/auth/login" class="text-primary font-bold hover:underline ml-1">
           เข้าสู่ระบบ

@@ -36,6 +36,16 @@ async function handleSignIn() {
     }
 }
 
+async function handleLineLogin() {
+    loading.value = true;
+    try {
+        await loginWithLine();
+    } catch (error: any) {
+        notify.error(error.message || "เข้าสู่ระบบด้วย LINE ไม่สำเร็จ");
+        loading.value = false;
+    }
+}
+
 watch(session, async (newSession) => {
     if (newSession?.user) {
         await redirectByRole((newSession.user as any).role);
@@ -148,6 +158,19 @@ onMounted(async () => {
     <!-- RIGHT PANEL: Login Form -->
     <div class="flex-1 flex flex-col relative bg-white dark:bg-gray-900">
       
+      <!-- Top left nav -->
+      <div class="absolute top-8 left-8 sm:left-12">
+        <UButton 
+          to="/" 
+          variant="ghost" 
+          color="neutral" 
+          icon="i-lucide-arrow-left" 
+          class="text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white"
+        >
+          กลับหน้าหลัก
+        </UButton>
+      </div>
+
       <!-- Top right nav -->
       <div class="hidden sm:block absolute top-8 right-8 text-sm text-gray-500 dark:text-gray-400">
         ยังไม่มีบัญชี?
@@ -170,7 +193,7 @@ onMounted(async () => {
             block 
             size="xl" 
             class="mb-6 font-bold text-[15px] bg-[#00B900] hover:bg-[#009900] dark:bg-[#00B900] dark:hover:bg-[#009900] text-white transition-all shadow-sm" 
-            @click="loginWithLine"
+            @click="handleLineLogin"
           >
             <UIcon name="i-ph-chat-circle-fill" class="w-5 h-5 mr-1" />
             เข้าสู่ระบบด้วย LINE

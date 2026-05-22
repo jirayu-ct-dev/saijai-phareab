@@ -9,9 +9,18 @@ const router = useRouter();
 const { data, status, refresh } = useFetch<ProfileResponse>("/api/me/profile", { key: "me-profile" });
 const isLoading = computed(() => status.value === "pending");
 const isProcessing = ref(false);
+const isHighlighted = ref(false);
 
 // Handle OAuth callback result from query params
 onMounted(async () => {
+  if (route.query.highlight === "line") {
+    isHighlighted.value = true;
+    setTimeout(() => {
+      isHighlighted.value = false;
+      void router.replace({ query: { ...route.query, highlight: undefined } });
+    }, 5000);
+  }
+
   const error = route.query.error as string | undefined;
   if (error) {
     if (error === "account_already_linked" || error === "ACCOUNT_ALREADY_LINKED") {
@@ -73,7 +82,16 @@ const onUnlink = async () => {
 <template>
   <USkeleton v-if="isLoading" class="h-32 w-full rounded-md" />
 
-  <UCard v-else class="p-2">
+  <UCard
+    v-else
+    id="line-link-section"
+    :class="[
+      'p-2 transition-all duration-700',
+      isHighlighted 
+        ? 'ring-2 ring-primary ring-offset-2 ring-offset-white dark:ring-offset-slate-900 shadow-xl shadow-primary/20 scale-[1.02] border-primary z-10' 
+        : ''
+    ]"
+  >
     <template #header>
       <div>
         <p class="font-semibold">บัญชี LINE</p>

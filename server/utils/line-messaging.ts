@@ -1,4 +1,6 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
+import { prisma } from "./prisma";
+import { hasActiveMemberPackage } from "./auth";
 
 type LineMessagingTokenResponse = {
   access_token: string;
@@ -243,7 +245,7 @@ export const getMessageContent = async (messageId: string): Promise<LineMessageC
   };
 };
 
-export const verifyLineWebhookSignature = (rawBody: string, signature: string): boolean => {
+export function verifyLineWebhookSignature(rawBody: string, signature: string): boolean {
   const secret = getLineChannelSecret();
 
   const digest = createHmac("sha256", secret).update(rawBody).digest("base64");
@@ -255,9 +257,9 @@ export const verifyLineWebhookSignature = (rawBody: string, signature: string): 
   }
 
   return timingSafeEqual(digestBuffer, signatureBuffer);
-};
+}
 
-export const parseLineWebhookPayload = (rawBody: string): LineWebhookPayload => {
+export function parseLineWebhookPayload(rawBody: string): LineWebhookPayload {
   const payload = JSON.parse(rawBody) as LineWebhookPayload;
 
   if (!payload || !Array.isArray(payload.events)) {
@@ -265,5 +267,207 @@ export const parseLineWebhookPayload = (rawBody: string): LineWebhookPayload => 
   }
 
   return payload;
+}
+
+// --- LINE Rich Menu APIs ---
+
+export async function createRichMenu(richMenuConfig: Record<string, unknown>): Promise<{ richMenuId: string }> {
+  const response = await callLineMessagingApi("/richmenu", richMenuConfig);
+  return response as { richMenuId: string };
+}
+
+export const uploadRichMenuImage = async (
+  richMenuId: string,
+  buffer: Buffer,
+  contentType: string,
+): Promise<void> => {
+  const accessToken = await getLineAccessToken();
+  const url = getMessagingDataApiUrl(`/richmenu/${richMenuId}/content`);
+
+  await $fetch(url, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": contentType,
+    },
+    body: buffer,
+  });
 };
+
+export const deleteRichMenu = async (richMenuId: string): Promise<void> => {
+  const accessToken = await getLineAccessToken();
+  const url = getMessagingApiUrl(`/richmenu/${richMenuId}`);
+
+  await $fetch(url, {
+    method: "DELETE",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+};
+
+export const linkRichMenuToUser = async (userId: string, richMenuId: string): Promise<void> => {
+  const accessToken = await getLineAccessToken();
+  const url = getMessagingApiUrl(`/user/${userId}/richmenu/${richMenuId}`);
+
+  await $fetch(url, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+};
+
+export const unlinkRichMenuFromUser = async (userId: string): Promise<void> => {
+  const accessToken = await getLineAccessToken();
+  const url = getMessagingApiUrl(`/user/${userId}/richmenu`);
+
+  await $fetch(url, {
+    method: "DELETE",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  }).catch((err) => {
+    // Ignore 404/not found when unlinking
+    console.warn(`[LINE RichMenu] Unlink failed for user ${userId}:`, err?.message || err);
+  });
+};
+
+export const setDefaultRichMenu = async (richMenuId: string): Promise<void> => {
+  const accessToken = await getLineAccessToken();
+  const url = getMessagingApiUrl(`/user/all/richmenu/${richMenuId}`);
+
+  await $fetch(url, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+};
+
+export const cancelDefaultRichMenu = async (): Promise<void> => {
+  const accessToken = await getLineAccessToken();
+  const url = getMessagingApiUrl(`/user/all/richmenu`);
+
+  await $fetch(url, {
+    method: "DELETE",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+};
+
+export const createRichMenuAlias = async (aliasId: string, richMenuId: string): Promise<void> => {
+  await callLineMessagingApi("/richmenu/alias", {
+    richMenuAliasId: aliasId,
+    richMenuId,
+  });
+};
+
+export const deleteRichMenuAlias = async (aliasId: string): Promise<void> => {
+  const accessToken = await getLineAccessToken();
+  const url = getMessagingApiUrl(`/richmenu/alias/${aliasId}`);
+
+  await $fetch(url, {
+    method: "DELETE",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+};
+
+export const listRichMenuAliases = async (): Promise<{ aliases: Array<{ richMenuAliasId: string; richMenuId: string }> }> => {
+  const accessToken = await getLineAccessToken();
+  const url = getMessagingApiUrl("/richmenu/alias/list");
+
+  const response = await $fetch<{ aliases: Array<{ richMenuAliasId: string; richMenuId: string }> }>(url, {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+  return response;
+};
+
+// Automatic role-based sync helper
+export const syncUserRichMenu = async (userId: string): Promise<void> => {
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: userId, deletedAt: null },
+      select: { id: true, role: true, isActive: true },
+    });
+
+    if (!user || !user.isActive) {
+      // If user is deleted or inactive, we could unlink their rich menu
+      const lineAccount = await prisma.account.findFirst({
+        where: { userId, providerId: "line" },
+        select: { accountId: true },
+      });
+      if (lineAccount) {
+        await unlinkRichMenuFromUser(lineAccount.accountId).catch(() => {});
+      }
+      return;
+    }
+
+    const lineAccount = await prisma.account.findFirst({
+      where: { userId, providerId: "line" },
+      select: { accountId: true },
+    });
+
+    if (!lineAccount?.accountId) {
+      return; // Not a LINE user, nothing to sync
+    }
+
+    const lineUserId = lineAccount.accountId;
+
+    // Determine effective role
+    let effectiveRole = "USER";
+    if (user.role === "ADMIN") {
+      effectiveRole = "ADMIN";
+    } else if (user.role === "EMPLOYEE") {
+      effectiveRole = "EMPLOYEE";
+    } else {
+      // Check if they are a MEMBER (active entitlement)
+      const isMember = await hasActiveMemberPackage(user.id);
+      if (isMember) {
+        effectiveRole = "MEMBER";
+      }
+    }
+
+    // Find rich menu matching this effective role
+    let richMenu = await prisma.lineRichMenu.findFirst({
+      where: { targetRole: effectiveRole },
+    });
+
+    // Fallback between ADMIN and EMPLOYEE since they share the same rich menu
+    if (!richMenu && effectiveRole === "EMPLOYEE") {
+      richMenu = await prisma.lineRichMenu.findFirst({
+        where: { targetRole: "ADMIN" },
+      });
+    }
+    if (!richMenu && effectiveRole === "ADMIN") {
+      richMenu = await prisma.lineRichMenu.findFirst({
+        where: { targetRole: "EMPLOYEE" },
+      });
+    }
+
+    // Fallback to default rich menu if none is found for the role
+    if (!richMenu) {
+      richMenu = await prisma.lineRichMenu.findFirst({
+        where: { isDefault: true },
+      });
+    }
+
+    if (richMenu) {
+      await linkRichMenuToUser(lineUserId, richMenu.richMenuId);
+      console.log(`[LINE RichMenu] Linked richMenuId ${richMenu.richMenuId} to user ${userId} (effectiveRole: ${effectiveRole})`);
+    } else {
+      await unlinkRichMenuFromUser(lineUserId).catch(() => {});
+      console.log(`[LINE RichMenu] Unlinked richMenu from user ${userId} (no menu configured)`);
+    }
+  } catch (error) {
+    console.error(`[LINE RichMenu] Failed to sync user ${userId}:`, error);
+  }
+};
+
 

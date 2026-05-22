@@ -24,11 +24,11 @@ const currentStepIndex = computed(() => {
 });
 
 const getStepClass = (index: number) => {
-  if (!order.value) return "bg-gray-200 dark:bg-gray-700 text-gray-400";
-  if (order.value.status === "CANCELLED") return "bg-red-500 text-white";
-  if (index < currentStepIndex.value) return "bg-green-500 text-white";
-  if (index === currentStepIndex.value) return "bg-primary-500 text-white ring-4 ring-primary-500/20 scale-110";
-  return "bg-gray-200 dark:bg-gray-700 text-gray-400";
+  if (!order.value) return "bg-elevated text-dimmed";
+  if (order.value.status === "CANCELLED") return "bg-error text-white";
+  if (index < currentStepIndex.value) return "bg-success text-white";
+  if (index === currentStepIndex.value) return "bg-primary text-white ring-4 ring-primary/20 scale-110";
+  return "bg-elevated text-dimmed";
 };
 </script>
 
@@ -50,8 +50,8 @@ const getStepClass = (index: number) => {
       </div>
 
       <div v-else-if="!order" class="p-12 text-center">
-        <UIcon name="i-lucide-file-question" class="h-12 w-12 text-gray-400 mx-auto mb-4" />
-        <p class="text-gray-500">ไม่พบออเดอร์ที่ต้องการ</p>
+        <UIcon name="i-lucide-file-question" class="h-12 w-12 text-dimmed mx-auto mb-4" />
+        <p class="text-muted">ไม่พบออเดอร์ที่ต้องการ</p>
         <UButton to="/me/orders" color="neutral" class="mt-4">กลับไปรายการออเดอร์</UButton>
       </div>
 
@@ -63,20 +63,20 @@ const getStepClass = (index: number) => {
           </template>
           
           <div v-if="order.status === 'CANCELLED'" class="text-center py-6">
-            <UIcon name="i-lucide-x-circle" class="h-16 w-16 text-red-500 mx-auto mb-4" />
-            <h4 class="text-xl font-bold text-red-500">ยกเลิกแล้ว</h4>
-            <p class="text-gray-500 mt-2">ออเดอร์นี้ถูกยกเลิกแล้ว กรุณาติดต่อร้านหากมีข้อสงสัย</p>
+            <UIcon name="i-lucide-x-circle" class="h-16 w-16 text-error mx-auto mb-4" />
+            <h4 class="text-xl font-bold text-error">ยกเลิกแล้ว</h4>
+            <p class="text-muted mt-2">ออเดอร์นี้ถูกยกเลิกแล้ว กรุณาติดต่อร้านหากมีข้อสงสัย</p>
           </div>
           
           <div v-else class="relative flex items-center justify-between py-4">
             <!-- Background Line -->
-            <div class="absolute left-0 top-1/2 -translate-y-1/2 w-full h-1 bg-gray-200 dark:bg-gray-700 z-0 rounded-full overflow-hidden">
+            <div class="absolute left-0 top-1/2 -translate-y-1/2 w-full h-1 bg-elevated z-0 rounded-full overflow-hidden">
                <div class="h-full bg-primary transition-all duration-500" :style="{ width: `${currentStepIndex > 0 ? (currentStepIndex / (orderSteps.length - 1)) * 100 : 0}%` }" />
             </div>
             
             <div v-for="(step, index) in orderSteps" :key="step.value" class="relative z-10 flex flex-col items-center gap-2">
               <div 
-                class="flex h-10 w-10 items-center justify-center rounded-full border-4 border-white dark:border-gray-900 transition-all duration-300"
+                class="flex h-10 w-10 items-center justify-center rounded-full border-4 border-default transition-all duration-300"
                 :class="[
                   getStepClass(index),
                   index === currentStepIndex ? 'animate-pulse' : ''
@@ -84,7 +84,7 @@ const getStepClass = (index: number) => {
               >
                 <UIcon :name="step.icon" class="h-5 w-5" />
               </div>
-              <span class="text-sm font-medium" :class="index <= currentStepIndex ? 'text-gray-900 dark:text-white' : 'text-gray-500'">{{ step.label }}</span>
+              <span class="text-sm font-medium" :class="index <= currentStepIndex ? 'text-highlighted' : 'text-muted'">{{ step.label }}</span>
             </div>
           </div>
         </UCard>
@@ -97,23 +97,23 @@ const getStepClass = (index: number) => {
             </template>
             <dl class="space-y-4">
               <div class="flex justify-between">
-                <dt class="text-gray-500">เลขรับผ้า</dt>
+                <dt class="text-muted">เลขรับผ้า</dt>
                 <dd class="font-medium">{{ order.orderNo || '-' }}</dd>
               </div>
               <div class="flex justify-between">
-                <dt class="text-gray-500">วันที่รับ</dt>
+                <dt class="text-muted">วันที่รับ</dt>
                 <dd class="font-medium">{{ formatDateTime(order.receivedAt) }}</dd>
               </div>
               <div class="flex justify-between">
-                <dt class="text-gray-500">นัดรับ/ส่ง</dt>
+                <dt class="text-muted">นัดรับ/ส่ง</dt>
                 <dd class="font-medium">{{ order.dueAt ? formatDateTime(order.dueAt) : '-' }}</dd>
               </div>
               <div v-if="order.employee" class="flex justify-between">
-                <dt class="text-gray-500">พนักงานที่รับผ้า</dt>
+                <dt class="text-muted">พนักงานที่รับผ้า</dt>
                 <dd class="font-medium">{{ order.employee.name }}</dd>
               </div>
-              <div v-if="order.note" class="pt-4 border-t border-gray-200 dark:border-gray-800">
-                <dt class="text-gray-500 mb-1">หมายเหตุ</dt>
+              <div v-if="order.note" class="pt-4 border-t border-default">
+                <dt class="text-muted mb-1">หมายเหตุ</dt>
                 <dd class="text-sm">{{ order.note }}</dd>
               </div>
             </dl>
@@ -125,14 +125,14 @@ const getStepClass = (index: number) => {
             </template>
             <div class="space-y-6">
               <div v-if="order.image">
-                <p class="text-sm text-gray-500 mb-2">รูปถ่ายตอนรับผ้า</p>
-                <img :src="order.image.secureUrl || order.image.url || ''" alt="รูปรับผ้า" class="rounded-lg max-h-48 object-cover w-full" />
+                <p class="text-sm text-muted mb-2">รูปถ่ายตอนรับผ้า</p>
+                <img :src="order.image.secureUrl || order.image.url || ''" alt="รูปรับผ้า" class="rounded-md max-h-48 object-cover w-full" />
               </div>
               <div v-if="order.deliveryImage">
-                <p class="text-sm text-gray-500 mb-2">รูปถ่ายหลักฐานการส่ง</p>
-                <img :src="order.deliveryImage.secureUrl || order.deliveryImage.url || ''" alt="รูปส่งผ้า" class="rounded-lg max-h-48 object-cover w-full" />
+                <p class="text-sm text-muted mb-2">รูปถ่ายหลักฐานการส่ง</p>
+                <img :src="order.deliveryImage.secureUrl || order.deliveryImage.url || ''" alt="รูปส่งผ้า" class="rounded-md max-h-48 object-cover w-full" />
               </div>
-              <div v-if="!order.image && !order.deliveryImage" class="text-center py-8 text-gray-500">
+              <div v-if="!order.image && !order.deliveryImage" class="text-center py-8 text-muted">
                 ไม่มีรูปภาพ
               </div>
             </div>
@@ -146,12 +146,12 @@ const getStepClass = (index: number) => {
           </template>
           
           <div class="space-y-4">
-            <div v-for="item in order.items" :key="item.id" class="flex justify-between py-3 border-b border-gray-100 dark:border-gray-800 last:border-0">
+            <div v-for="item in order.items" :key="item.id" class="flex justify-between py-3 border-b border-default last:border-0">
               <div>
                 <p class="font-medium">{{ item.label }}</p>
-                <p v-if="item.notes" class="text-xs text-gray-500">{{ item.notes }}</p>
+                <p v-if="item.notes" class="text-xs text-muted">{{ item.notes }}</p>
                 <div v-if="item.photos && item.photos.length > 0" class="flex gap-2 mt-2">
-                  <img v-for="photo in item.photos" :key="photo.id" :src="photo.secureUrl || photo.url || ''" class="w-12 h-12 rounded object-cover border" :class="photo.isDamaged ? 'border-red-500' : 'border-gray-200'" />
+                  <img v-for="photo in item.photos" :key="photo.id" :src="photo.secureUrl || photo.url || ''" class="w-12 h-12 rounded-md object-cover border" :class="photo.isDamaged ? 'border-error' : 'border-default'" />
                 </div>
               </div>
               <div class="text-right">
@@ -162,19 +162,19 @@ const getStepClass = (index: number) => {
             </div>
             
             <div class="pt-4 space-y-2">
-              <div class="flex justify-between text-gray-500">
+              <div class="flex justify-between text-muted">
                 <span>รวมค่าบริการ</span>
                 <span>{{ formatCurrency(order.subtotalAmount) }}</span>
               </div>
-              <div v-if="order.hangerCharge?.total && order.hangerCharge.total > 0" class="flex justify-between text-gray-500">
+              <div v-if="order.hangerCharge?.total && order.hangerCharge.total > 0" class="flex justify-between text-muted">
                 <span>ค่าไม้แขวน ({{ order.hangerCharge?.count || 0 }} ชิ้น)</span>
                 <span>{{ formatCurrency(order.hangerCharge?.total || 0) }}</span>
               </div>
-              <div v-if="order.discountAmount > 0" class="flex justify-between text-green-500">
+              <div v-if="order.discountAmount > 0" class="flex justify-between text-success">
                 <span>ส่วนลด</span>
                 <span>-{{ formatCurrency(order.discountAmount) }}</span>
               </div>
-              <div class="flex justify-between font-bold text-lg pt-2 border-t border-gray-200 dark:border-gray-700">
+              <div class="flex justify-between font-bold text-lg pt-2 border-t border-default">
                 <span>ยอดสุทธิ</span>
                 <span>{{ formatCurrency(order.totalAmount) }}</span>
               </div>
@@ -183,7 +183,7 @@ const getStepClass = (index: number) => {
           
           <template #footer v-if="order.payment">
             <div class="flex justify-between items-center">
-              <p class="text-sm text-gray-500">ชำระเงินแล้ว (บิล: {{ order.payment.paymentNo }})</p>
+              <p class="text-sm text-muted">ชำระเงินแล้ว (บิล: {{ order.payment.paymentNo }})</p>
               <UButton :to="`/me/receipts/${order.payment.id}`" variant="soft">ดูใบเสร็จ</UButton>
             </div>
           </template>

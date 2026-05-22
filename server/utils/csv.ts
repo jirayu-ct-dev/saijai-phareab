@@ -7,22 +7,22 @@ const escapeCell = (value: unknown): string => {
   return str;
 };
 
-export const buildCsv = (headers: string[], rows: Array<Record<string, unknown>>): string => {
+export function buildCsv(headers: string[], rows: Array<Record<string, unknown>>): string {
   const headerLine = headers.map(escapeCell).join(",");
   const bodyLines = rows.map((row) => headers.map((h) => escapeCell(row[h])).join(","));
   return "﻿" + [headerLine, ...bodyLines].join("\r\n");
-};
+}
 
-export const sendCsv = (filename: string, csv: string) => {
+export function sendCsv(filename: string, csv: string) {
   return new Response(csv, {
     headers: {
       "Content-Type": "text/csv; charset=utf-8",
       "Content-Disposition": `attachment; filename="${encodeURIComponent(filename)}.csv"`,
     },
   });
-};
+}
 
-export const formatBangkokDateTime = (date: Date | string | null | undefined): string => {
+export function formatBangkokDateTime(date: Date | string | null | undefined): string {
   if (!date) return "";
   const d = typeof date === "string" ? new Date(date) : date;
   const offsetMs = 7 * 60 * 60 * 1000;
@@ -33,9 +33,9 @@ export const formatBangkokDateTime = (date: Date | string | null | undefined): s
   const hh = String(bkk.getUTCHours()).padStart(2, "0");
   const mi = String(bkk.getUTCMinutes()).padStart(2, "0");
   return `${yyyy}-${mm}-${dd} ${hh}:${mi}`;
-};
+}
 
-export const parseDateRange = (from: unknown, to: unknown): { from: Date; to: Date } => {
+export function parseDateRange(from: unknown, to: unknown): { from: Date; to: Date } {
   const fromStr = String(from ?? "").trim();
   const toStr = String(to ?? "").trim();
   const fromDate = fromStr ? new Date(fromStr) : new Date(Date.now() - 30 * 86400000);
@@ -45,4 +45,4 @@ export const parseDateRange = (from: unknown, to: unknown): { from: Date; to: Da
   }
   toDate.setHours(23, 59, 59, 999);
   return { from: fromDate, to: toDate };
-};
+}

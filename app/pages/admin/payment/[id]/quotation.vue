@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import ThermalSlip from "~~/app/components/admin/thermal/ThermalSlip.vue";
+import ThermalSlip from "~~/app/components/thermal/ThermalSlip.vue";
 import QuotationDocument from "~~/app/components/print/QuotationDocument.vue";
 import EditPaymentStateModal from "~~/app/components/admin/payment/EditPaymentStateModal.vue";
 import type { ReceiptPayload } from "~~/shared/types/receipt";

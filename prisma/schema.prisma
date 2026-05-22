@@ -616,3 +616,20 @@ model NotificationSubscriber {
 
   @@map("notification_subscriber")
 }
+
+model LineRichMenu {
+  id             String    @id @default(cuid())
+  name           String    // Name/identifier for the rich menu
+  richMenuId     String    @unique // LINE richMenuId
+  imageUrl       String?   // Permanent URL of the rich menu image
+  imagePublicId  String?   // Cloudinary publicId
+  jsonContent    String    @db.Text // Raw JSON configuration
+  targetRole     String?   // Mapped role: "USER", "MEMBER", "EMPLOYEE", "ADMIN"
+  aliasId        String?   @unique // LINE rich menu alias ID
+  isDefault      Boolean   @default(false)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@map("line_rich_menu")
+}
+

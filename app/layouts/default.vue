@@ -8,19 +8,23 @@ const open = ref(false)
 const menu = computed<NavigationMenuItem[]>(() => [
     {
         label: 'ซักอบรีดรายชิ้น',
-        to: '/#per-item-pricing'
+        href: '/#per-item-pricing',
+        active: false
     },
     {
         label: 'สมัครสมาชิกรายเดือน',
-        to: '/#monthly-membership'
+        href: '/#monthly-membership',
+        active: false
     },
     {
         label: 'คำถามที่พบบ่อย',
-        to: '/#faq'
+        href: '/#faq',
+        active: false
     },
     {
         label: 'ติดต่อเรา',
-        to: '/#contact'
+        href: '/#contact',
+        active: false
     }
 ])
 

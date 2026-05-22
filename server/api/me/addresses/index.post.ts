@@ -11,13 +11,7 @@ const addressSchema = z.object({
 });
 
 export default defineEventHandler(async (event) => {
-  const user = event.context.user;
-  if (!user) {
-    throw createError({
-      statusCode: 401,
-      message: "Unauthorized",
-    });
-  }
+  const user = requireUser(event);
 
   const body = await readBody(event);
   const validated = addressSchema.parse(body);
