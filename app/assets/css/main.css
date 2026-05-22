@@ -4,3 +4,172 @@
 body {
     font-family: 'Prompt', sans-serif;
 }
+
+/* ------------------------------------------------------------------ */
+/* Admin / Employee shell — Shopee-style ecommerce dashboard tokens   */
+/* ------------------------------------------------------------------ */
+
+.admin-shell {
+    /* Base radius for Nuxt UI primitives — Nuxt UI v4 scales radius by
+       --ui-radius (sm=×1, md=×1.5, lg=×2, xl=×3). Setting to 0.25rem
+       maps rounded-md → 0.375rem (standard Tailwind rounded-md feel). */
+    --ui-radius: 0.25rem;
+
+    /* Page background — uses neutral-100 directly so there is a real
+       visible step down from white cards. The default `--ui-bg-muted`
+       (= neutral-50) is too close to white to read as a separate surface.
+       This is what gives the Shopee-style page↔card contrast. */
+    background-color: var(--ui-color-neutral-100);
+}
+
+.dark .admin-shell {
+    /* Dark mode: deeper neutral than card surface so cards float. */
+    background-color: var(--ui-color-neutral-950);
+}
+
+/* Inner scroll surface — same depth as shell; cards do the lifting */
+.admin-workspace {
+    background-color: var(--ui-color-neutral-100);
+}
+
+.dark .admin-workspace {
+    background-color: var(--ui-color-neutral-950);
+}
+
+.admin-sidebar {
+    border-color: color-mix(in srgb, var(--ui-border) 60%, transparent);
+}
+
+/* UCard root inside admin shell — unified floating card treatment.
+   Brighter than page background, rounded-2xl, soft layered shadow.
+   This is the canonical "Shopee card" surface for the admin/employee app.
+
+   Opt-out: add class `card-flat` on the UCard (or any ancestor) to disable
+   the floating treatment — used for transparent section wrappers. */
+.admin-shell .card-flat [data-slot="root"].ring-default.divide-default,
+.admin-shell [data-slot="root"].ring-default.divide-default.card-flat {
+    background-color: transparent;
+    box-shadow: none;
+    border-radius: 0;
+    --tw-ring-color: transparent;
+}
+
+/* Top header bar (UDashboardNavbar + UDashboardToolbar) — white surface,
+   compact. Both share the signature `border-b border-default shrink-0` on
+   their root; UCards don't, so this selector targets only header bars. */
+.admin-shell div.border-b.border-default.shrink-0 {
+    background-color: var(--ui-bg) !important;
+    padding-left: 0.625rem !important;
+    padding-right: 0.625rem !important;
+}
+
+.dark .admin-shell div.border-b.border-default.shrink-0 {
+    background-color: color-mix(in srgb, var(--ui-bg-elevated) 62%, var(--ui-bg)) !important;
+}
+
+@media (min-width: 640px) {
+    .admin-shell div.border-b.border-default.shrink-0 {
+        padding-left: 0.875rem !important;
+        padding-right: 0.875rem !important;
+    }
+}
+
+
+.admin-shell [data-slot="root"].ring-default.divide-default {
+    border-radius: 0.125rem;
+    background-color: var(--ui-bg);
+    box-shadow:
+        0 1px 2px rgb(15 23 42 / 0.04),
+        0 6px 18px -10px rgb(15 23 42 / 0.08);
+    --tw-ring-color: color-mix(in srgb, var(--ui-border) 50%, transparent);
+}
+
+.admin-dashboard [data-slot="root"].ring-default.divide-default,
+.admin-dashboard-card {
+    border-radius: 0.375rem !important;
+}
+
+/* Nuxt UI primitives can carry radius on their internal `base` slot.
+   Keep admin buttons, filters, selects, inputs, and badges consistently md. */
+.admin-shell [data-slot="base"]:not(.rounded-full):not(.\!rounded-full),
+.admin-shell [data-slot="root"].relative.inline-flex,
+.admin-shell [role="combobox"][data-slot="base"] {
+    border-radius: 0.375rem !important;
+}
+
+.admin-shell [data-slot="base"]::before,
+.admin-shell [data-slot="item"]::before {
+    border-radius: 0.375rem !important;
+}
+
+.dark .admin-shell [data-slot="root"].ring-default.divide-default {
+    background-color: color-mix(in srgb, var(--ui-bg-elevated) 62%, var(--ui-bg));
+    box-shadow:
+        0 1px 2px rgb(0 0 0 / 0.16),
+        0 8px 22px -12px rgb(0 0 0 / 0.26);
+    --tw-ring-color: color-mix(in srgb, var(--ui-border) 50%, transparent);
+}
+
+/* Compact UCard internals — Shopee-style dense operational rhythm.
+   Tightens header/body/footer padding for every UCard inside admin-shell. */
+.admin-shell [data-slot="root"].ring-default.divide-default > [data-slot="header"] {
+    padding: 0.25rem 0.625rem !important;
+}
+
+.admin-shell [data-slot="root"].ring-default.divide-default > [data-slot="body"] {
+    padding: 0.5rem 0.625rem !important;
+}
+
+.admin-shell [data-slot="root"].ring-default.divide-default > [data-slot="footer"] {
+    padding: 0.25rem 0.625rem !important;
+}
+
+/* UDashboardPanel body default = p-4 sm:p-6 gap-4 sm:gap-6 → flatten to zero.
+   Page-level <div :class="adminDashboardBodyClass"> handles the actual
+   padding/gap, this prevents Nuxt UI default from stacking on top. */
+.admin-workspace [data-slot="body"] {
+    padding: 0 !important;
+    gap: 0 !important;
+}
+
+/* Force row separators on all admin tables — visible across themes */
+.admin-shell tbody > tr > td {
+    border-bottom: 1px solid color-mix(in srgb, var(--ui-border) 100%, transparent) !important;
+}
+
+.admin-shell tbody > tr:last-child > td {
+    border-bottom: 0 !important;
+}
+
+.dark .admin-shell tbody > tr > td {
+    border-bottom-color: color-mix(in srgb, var(--ui-border) 70%, transparent) !important;
+}
+
+/* Force header separator (thead → tbody divider) */
+.admin-shell thead > tr > th {
+    border-bottom: 1px solid color-mix(in srgb, var(--ui-border) 100%, transparent) !important;
+}
+
+.dark .admin-shell thead > tr > th {
+    border-bottom-color: color-mix(in srgb, var(--ui-border) 70%, transparent) !important;
+}
+
+/* Divider between header/body/footer — calm, low-contrast */
+.admin-shell [data-slot="root"].ring-default.divide-default > * + * {
+    border-top-color: color-mix(in srgb, var(--ui-border) 35%, transparent);
+}
+
+/* Subtle lift on hover for interactive UCards (those wrapped in <a>/<button>) */
+.admin-shell a:hover > [data-slot="root"].ring-default.divide-default,
+.admin-shell button:hover > [data-slot="root"].ring-default.divide-default {
+    box-shadow:
+        0 1px 3px rgb(15 23 42 / 0.05),
+        0 10px 24px -12px rgb(15 23 42 / 0.10);
+}
+
+.dark .admin-shell a:hover > [data-slot="root"].ring-default.divide-default,
+.dark .admin-shell button:hover > [data-slot="root"].ring-default.divide-default {
+    box-shadow:
+        0 1px 3px rgb(0 0 0 / 0.22),
+        0 12px 28px -12px rgb(0 0 0 / 0.32);
+}

@@ -1,25 +1,30 @@
-import type { PaymentStatus, Timestamps, SoftDeletable } from "./enums";
+import type { PaymentMethod, Timestamps, SoftDeletable } from "./enums";
 import type { User } from "./auth";
-import type { UserPackage } from "./package";
+import type { MemberEntitlement } from "./package";
 import type { Image } from "./image";
 
 // ============================
-// PAYMENT TRANSACTION
+// PAYMENT RECORD
 // ============================
 
-export interface PaymentTransaction extends Timestamps, SoftDeletable {
-    id: string;
-    userId: string;
-    userPackageId: string;
-    amount: number | string; // decimal
-    slipImageId: string | null;
-    status: PaymentStatus;
-    verifiedById: string | null;
-    verifiedAt: Date | null;
+export interface PaymentRecord extends Timestamps, SoftDeletable {
+  id: string;
+  userId: string;
+  memberEntitlementId: string | null;
+  packageSaleId: string | null;
+  serviceOrderId: string | null;
+  amount: number | string;
+  paymentMethod: PaymentMethod;
+  slipImageId: string | null;
+  note: string | null;
+  paidAt: Date | null;
+  metadata: any | null;
+  rejectionReason: string | null;
+  verifiedById: string | null;
+  verifiedAt: Date | null;
 
-    // Relations
-    user?: User;
-    userPackage?: UserPackage;
-    slipImage?: Image | null;
-    verifiedBy?: User | null;
+  user?: User;
+  memberEntitlement?: MemberEntitlement | null;
+  slipImage?: Image | null;
+  verifiedBy?: User | null;
 }

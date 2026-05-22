@@ -1,63 +1,52 @@
-import type { PackageType, PackageStatus, Timestamps, SoftDeletable } from "./enums";
+import type {
+  DeductOn,
+  EntitlementStatus,
+  PackageType,
+  Timestamps,
+  SoftDeletable,
+} from "./enums";
 import type { User } from "./auth";
-import type { StorefrontPrice } from "./storefront";
-import type { Order } from "./order";
-import type { PaymentTransaction } from "./payment";
+import type { PaymentRecord } from "./payment";
 
 // ============================
-// PACKAGE
+// PACKAGE PRODUCT
 // ============================
 
-export interface Package extends Timestamps, SoftDeletable {
-    id: string;
-    name: string;
-    description: string | null;
-    packageType: PackageType;
-    price: number | string; // Decimal from Prisma usually maps to number/string or Decimal instance
-    credits: number | null;
-    validityDays: number | null;
-    isActive: boolean;
+export interface PackageProduct extends Timestamps, SoftDeletable {
+  id: string;
+  name: string;
+  description: string | null;
+  packageType: PackageType;
+  isDelivery: boolean;
+  deductOn: DeductOn;
+  price: number | string;
+  credits: number | null;
+  validityDays: number | null;
+  isActive: boolean;
 
-    // Relations
-    packageBonuses?: PackageBonus[];
-    userPackages?: UserPackage[];
+  memberEntitlements?: MemberEntitlement[];
 }
 
-// ============================
-// PACKAGE BONUS
-// ============================
-
-export interface PackageBonus extends Timestamps, SoftDeletable {
-    id: string;
-    packageId: string;
-    storefrontPriceId: string;
-    quantity: number;
-    description: string | null;
-
-    // Relations
-    package?: Package;
-    storefrontPrice?: StorefrontPrice;
-}
+export type Package = PackageProduct;
 
 // ============================
-// USER PACKAGE
+// MEMBER ENTITLEMENT
 // ============================
 
-export interface UserPackage extends Timestamps, SoftDeletable {
-    id: string;
-    userId: string;
-    packageId: string;
-    parentUserPackageId: string | null;
-    startDate: Date | null;
-    endDate: Date | null;
-    status: PackageStatus;
-    creditRemain: number | null;
+export interface MemberEntitlement extends Timestamps, SoftDeletable {
+  id: string;
+  customerId: string;
+  productId: string;
+  sourceSaleItemId: string | null;
+  startAt: Date | null;
+  endAt: Date | null;
+  activatedAt: Date | null;
+  suspendedAt: Date | null;
+  status: EntitlementStatus;
+  creditInitial: number | null;
+  creditRemaining: number | null;
 
-    // Relations
-    user?: User;
-    package?: Package;
-    parentUserPackage?: UserPackage | null;
-    addonPackages?: UserPackage[];
-    orders?: Order[];
-    paymentTransactions?: PaymentTransaction[];
+  customer?: User;
+  product?: PackageProduct;
+  payments?: PaymentRecord[];
 }

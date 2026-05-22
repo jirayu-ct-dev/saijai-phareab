@@ -24,3 +24,20 @@ logs
 !.env.example
 
 /app/generated/prisma
+
+.claude
+.agents
+.codex
+error.md
+flow.md
+CLAUDE*.md
+claude*
+.gemini
+GEMINI*.md
+gemini*.md
+betterauth_unable*.md
+
+docs
+richmenu
+packagesaijai.json
+pricing.json

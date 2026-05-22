@@ -1,12 +1,12 @@
 export default defineAppConfig({
   ui: {
     colors: {
-      primary: 'brand',
-      secondary: 'purple',
-      success: 'green',
-      info: 'blue',
-      warning: 'yellow',
-      error: 'red',
+      primary: 'sky',
+      secondary: 'blue',
+      success: 'emerald',
+      info: 'cyan',
+      warning: 'amber',
+      error: 'rose',
       neutral: 'slate'
     },
     icons: {
@@ -23,7 +23,36 @@ export default defineAppConfig({
     },
     button: {
       slots: {
-        base: 'cursor-pointer'
+        base: 'cursor-pointer rounded-md!'
+      }
+    },
+    badge: {
+      slots: {
+        base: 'rounded-md!'
+      }
+    },
+    input: {
+      slots: {
+        base: 'rounded-md!'
+      }
+    },
+    inputNumber: {
+      slots: {
+        base: 'rounded-md!'
+      }
+    },
+    select: {
+      slots: {
+        base: 'rounded-md!',
+        content: 'rounded-md!',
+        item: 'before:rounded-md!'
+      }
+    },
+    selectMenu: {
+      slots: {
+        base: 'rounded-md!',
+        content: 'rounded-md!',
+        item: 'before:rounded-md!'
       }
     }
   }

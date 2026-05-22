@@ -2,7 +2,7 @@
 export default defineNuxtConfig({
   compatibilityDate: '2025-07-15',
   devtools: { enabled: true },
-  modules: ['@nuxt/ui', '@nuxt/eslint', '@nuxtjs/google-fonts', '@nuxt/image'],
+  modules: ['@nuxt/ui', '@nuxt/eslint', '@nuxtjs/google-fonts', '@nuxt/image', '@vueuse/nuxt'],
   css: ['@/assets/css/main.css'],
   googleFonts: {
     families: {
@@ -17,11 +17,7 @@ export default defineNuxtConfig({
   },
   vite: {
     server: {
-      allowedHosts: ['.ngrok-free.app'],
-      hmr: {
-        protocol: 'wss',
-        clientPort: 443
-      }
+      allowedHosts: [`${process.env.NUXT_PUBLIC_HOSTNAME}`],
     },
   },
   app: {
@@ -40,4 +36,19 @@ export default defineNuxtConfig({
       ],
     },
   },
+  nitro: {
+    experimental: {
+      tasks: true,
+    },
+    // Cron times are UTC. 02:00 UTC = 09:00 Asia/Bangkok.
+    scheduledTasks: {
+      '0 2 * * *': ['notify:expiring-packages'],
+    },
+  },
+  runtimeConfig: {
+    public: {
+      liffId: process.env.NUXT_PUBLIC_LIFF_ID,
+      lineBizChatUrl: process.env.LINE_BIZ_CHAT_URL
+    }
+  }
 })

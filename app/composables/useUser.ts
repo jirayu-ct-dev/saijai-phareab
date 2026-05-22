@@ -1,116 +1,195 @@
+import type { Session as AppSession, User as AppUser } from "~~/shared/types/auth";
+
+type SessionWithUser = (AppSession & { user?: AppUser }) | null;
+
 export const useUser = () => {
-    const user = useState<User | null>('user', () => null);
-    const { start, finish } = useLoadingIndicator()
+  const notify = useNotify();
+  const { start, finish } = useLoadingIndicator();
+  const router = useRouter();
 
-    const getCurrentUser = async () => {
-        start()
+  // ใช้ state กลางสำหรับ session เพื่อให้ SSR กับ client ได้ข้อมูลชุดเดียวกัน
+  const session = useState<SessionWithUser>("auth:session", () => null);
+  const user = computed(() => session.value?.user as AppUser | undefined);
+
+  const userAvatar = computed(() => ({
+    as: { img: "img" },
+    src: user.value?.image || "",
+    alt: user.value?.name || "ผู้ใช้งาน",
+    loading: "lazy" as const,
+  }));
+
+  const refreshSession = async () => {
+    const { data, error } = await authClient.useSession(useFetch);
+
+    if (!error.value) {
+      session.value = (data.value as SessionWithUser) ?? null;
+    }
+
+    return session.value;
+  };
+
+  const redirectByRole = async (role?: string) => {
+    if (user.value?.isActive === false && (role === "ADMIN" || role === "EMPLOYEE")) {
+      return navigateTo("/me");
+    }
+    if (role === 'ADMIN') return navigateTo('/admin')
+    if (role === 'EMPLOYEE') return navigateTo('/admin/employee-dashboard')
+    if (role === 'USER') return navigateTo('/me')
+    return navigateTo('/auth/login')
+  }
+
+  const login = async (email: string, password: string, rememberMe?: boolean) => {
+    start();
+    try {
+      const { data, error } = await authClient.signIn.email({
+        email,
+        password,
+        rememberMe,
+      });
+
+      if (error) {
+        throw new Error(error.message || "เข้าสู่ระบบไม่สำเร็จ");
+      }
+
+      if (!data) {
+        throw new Error("ไม่พบข้อมูลผู้ใช้งาน");
+      }
+
+      await refreshSession();
+      notify.success("เข้าสู่ระบบสำเร็จ");
+      console.log("user login data:", user);
+
+      // Redirect based on role
+      await redirectByRole(user.value?.role);
+    } catch (error: any) {
+      console.error(error);
+      notify.error(error.message || "เกิดข้อผิดพลาดในการเข้าสู่ระบบ");
+      throw error;
+    } finally {
+      finish();
+    }
+  };
+
+  const register = async (name: string, email: string, password: string) => {
+    start();
+    try {
+      const { data, error } = await authClient.signUp.email({
+        name,
+        email,
+        password,
+        role: "USER",
+      } as Parameters<typeof authClient.signUp.email>[0] & { role: "USER" });
+
+      if (error) {
+        throw new Error(error.message || "สมัครสมาชิกไม่สำเร็จ");
+      }
+
+      if (!data) {
+        throw new Error("ไม่พบข้อมูลผู้ใช้งาน");
+      }
+
+      await refreshSession();
+      notify.success("สมัครสมาชิกสำเร็จ");
+      await redirectByRole(user.value?.role);
+    } catch (error: any) {
+      console.error(error);
+      throw new Error(error.message || "เกิดข้อผิดพลาดในการสมัครสมาชิก");
+    } finally {
+      finish();
+    }
+  };
+
+  const loginWithLine = async () => {
+    start();
+    try {
+      const { data, error } = await authClient.signIn.social({
+        provider: "line",
+        callbackURL: "/",
+      });
+
+      if (error) {
+        throw new Error(error.message || "เข้าสู่ระบบด้วย LINE ไม่สำเร็จ");
+      }
+      
+      // การทำ Social Login จะทำให้เบราว์เซอร์สลับหน้าไปที่ Provider (LINE) ทันที
+      // จึงไม่ควรเขียนโค้ดที่ต้องการประมวลผลต่อหลังจากบรรทัดนี้ เพราะอาจไม่ถูกเรียกหรือเกิดข้อผิดพลาด
+
+    } catch (error: any) {
+      console.error(error);
+      throw new Error(error.message || "เกิดข้อผิดพลาดในการเข้าสู่ระบบด้วย LINE");
+    } finally {
+      finish();
+    }
+  };
+
+  const loginWithLineIdToken = async (accessToken: string, idToken: string, displayName?: string) => {
+    start();
+    try {
+      const { data, error } = await authClient.signIn.social({
+        provider: "line",
+        idToken: {
+          token: idToken,
+          accessToken,
+        },
+        callbackURL: "/",
+        newUserCallbackURL: "/",
+        errorCallbackURL: "/auth/login",
+        disableRedirect: true,
+      });
+
+      if (error) {
+        throw new Error(error.message || "เข้าสู่ระบบด้วย LINE ไม่สำเร็จ");
+      }
+
+      if (!data) {
+        throw new Error("ไม่พบข้อมูลผู้ใช้งาน");
+      }
+
+      await refreshSession();
+
+      // Sync name if it's the placeholder "liff-auto login" or empty
+      if (user.value && (user.value.name === "liff-auto login" || !user.value.name) && displayName) {
         try {
-            const session = await authClient.getSession({
-                fetchOptions: {
-                    headers: useRequestHeaders(['cookie'])
-                }
-            })
-
-            if (session.error || !session.data) {
-                user.value = null
-                return
-            }
-
-            user.value = session.data.user as User
+          await $fetch("/api/me/profile", {
+            method: "PUT",
+            body: { name: displayName },
+          });
+          await refreshSession();
+        } catch (e) {
+          console.error("[useUser] Failed to sync LIFF name:", e);
         }
-        catch (error) {
-            console.error(error)
-            user.value = null
-        }
-        finally {
-            finish()
-        }
+      }
+    } catch (error: any) {
+      console.error(error);
+      throw new Error(error.message || "เกิดข้อผิดพลาดในการเข้าสู่ระบบด้วย LINE");
+    } finally {
+      finish();
     }
+  };
 
-    const login = async (email: string, password: string): Promise<void> => {
-        start()
-        try {
-            const { data, error } = await authClient.signIn.email({
-                email,
-                password
-            })
-
-            if (error) {
-                throw new Error(error.message || 'เข้าสู่ระบบไม่สำเร็จ')
-            }
-
-            if (!data) {
-                throw new Error('ไม่พบข้อมูลผู้ใช้')
-            }
-
-            await getCurrentUser()
-        }
-        finally {
-            finish()
-        }
+  const logout = async () => {
+    start();
+    try {
+      await authClient.signOut();
+      session.value = null;
+    } catch (error: any) {
+      console.error(error);
+      throw new Error(error.message || "ออกจากระบบไม่สำเร็จ");
+    } finally {
+      finish();
     }
+  };
 
-    const register = async (name: string, email: string, password: string): Promise<void> => {
-        start()
-        try {
-            const { data, error } = await authClient.signUp.email({
-                name,
-                email,
-                password
-            })
-
-            if (error) {
-                throw new Error(error.message || 'สมัครสมาชิกไม่สำเร็จ')
-            }
-
-            if (!data) {
-                throw new Error('ไม่พบข้อมูลผู้ใช้')
-            }
-
-            await getCurrentUser()
-        }
-        finally {
-            finish()
-        }
-    }
-
-    const loginWithLine = async (): Promise<void> => {
-        start()
-        try {
-            const { error } = await authClient.signIn.social({
-                provider: "line",
-                callbackURL: "/"
-            })
-
-            if (error) {
-                throw new Error(error.message || 'เข้าสู่ระบบด้วย LINE ไม่สำเร็จ')
-            }
-        }
-        finally {
-            finish()
-        }
-    }
-
-    const logout = async () => {
-        start()
-        try {
-            await authClient.signOut()
-            user.value = null
-        }
-        catch (error) {
-            console.error(error)
-        }
-        finally {
-            finish()
-        }
-    }
-
-    return {
-        user,
-        getCurrentUser,
-        login,
-        register,
-        loginWithLine,
-        logout
-    }
-}
+  return {
+    session,
+    user,
+    userAvatar,
+    refreshSession,
+    login,
+    register,
+    loginWithLine,
+    loginWithLineIdToken,
+    logout,
+    redirectByRole,
+  };
+};

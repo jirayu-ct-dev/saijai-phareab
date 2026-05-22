@@ -1,0 +1,1 @@
+export const DEFAULT_HANGER_PRICE_PER_UNIT = 10;

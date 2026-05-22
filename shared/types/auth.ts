@@ -10,16 +10,16 @@ export interface User extends Timestamps, SoftDeletable {
     name: string | null;
     emailVerified: boolean;
     image: string | null;
-    imageId: string | null;
     role: Role;
     phoneNumber: string | null;
+    isActive: boolean;
 
     // Relations (optional - populated when included)
-    profileImage?: Image | null;
+    uploadedImages?: Image[];
     sessions?: Session[];
     accounts?: Account[];
-    userPackages?: UserPackage[];
-    customerOrders?: Order[];
+    memberEntitlements?: MemberEntitlement[];
+    serviceOrders?: ServiceOrder[];
     userAddresses?: UserAddress[];
 }
 
@@ -75,6 +75,6 @@ export interface Verification {
 
 // Forward declarations for circular refs
 import type { Image } from "./image";
-import type { UserPackage } from "./package";
-import type { Order } from "./order";
+import type { MemberEntitlement } from "./package";
+import type { ServiceOrder } from "./order";
 import type { UserAddress } from "./address";

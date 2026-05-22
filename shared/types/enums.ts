@@ -6,22 +6,38 @@ export type Role = "USER" | "EMPLOYEE" | "ADMIN";
 
 export type OrderType = "PACKAGE" | "STOREFRONT";
 
-export type OrderStatus =
+export type ServiceOrderStatus =
     | "RECEIVED"
-    | "PENDING"
-    | "CHECKING"
     | "PROCESSING"
-    | "PENDING_REVIEW"
+    | "DELIVERING"
     | "COMPLETED"
     | "CANCELLED";
 
-export type PackageStatus = "PENDING" | "ACTIVE" | "EXPIRED";
+export type OrderStatus = ServiceOrderStatus;
+
+export type PackageSaleStatus = "DRAFT" | "PENDING" | "PAID" | "CANCELLED";
+
+export type EntitlementStatus =
+    | "PENDING"
+    | "ACTIVE"
+    | "SUSPENDED"
+    | "EXPIRED"
+    | "CANCELLED";
+
+export type PackageStatus = EntitlementStatus;
 
 export type BasketStatus = "AVAILABLE" | "IN_USE";
 
 export type PackageType = "MAIN" | "ADDON";
+export type DeductOn = "CREATED" | "COMPLETED";
 
-export type PaymentStatus = "PENDING" | "VERIFIED" | "FAILED";
+export type PaymentMethod = "CASH" | "TRANSFER";
+
+export type PaymentStatus =
+    | "UNPAID"
+    | "PENDING_VERIFICATION"
+    | "PAID"
+    | "CANCELLED";
 
 // ============================
 // SOFT DELETE (shared fields)

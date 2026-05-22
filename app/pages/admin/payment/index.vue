@@ -1,0 +1,871 @@
+<script setup lang="ts">
+import { h, resolveComponent } from "vue";
+import { getPaginationRowModel } from "@tanstack/table-core";
+import type { TableColumn } from "@nuxt/ui";
+import type { AdminPaymentRecord } from "~~/app/composables/useAdminPayments";
+import { formatCurrency, formatDateTime } from "~~/shared/utils/format";
+import type { Role } from "~~/shared/types/enums";
+import * as adminUi from "~~/shared/config/adminUi";
+import { paymentMethodLabels, paymentStatusColors, paymentStatusLabels } from "~~/shared/config/paymentConfig";
+import EditPaymentStateModal from "~~/app/components/admin/payment/EditPaymentStateModal.vue";
+
+const adminDashboardBodyClass =
+  adminUi.adminDashboardBodyClass
+  ?? "admin-dashboard flex flex-col gap-3 p-2 sm:p-6";
+const adminDashboardCardClass =
+  adminUi.adminDashboardCardClass
+  ?? "admin-dashboard-card rounded-md border border-default/30 bg-default p-4 shadow-[0_1px_2px_rgb(15_23_42/0.04),0_6px_18px_-10px_rgb(15_23_42/0.08)] dark:border-default/20 dark:bg-elevated/55";
+const adminFilterBarClass =
+  adminUi.adminFilterBarClass
+  ?? "admin-dashboard-card rounded-md border border-default/30 bg-default p-2 shadow-[0_1px_2px_rgb(15_23_42/0.04)] dark:border-default/20 dark:bg-elevated/55";
+const adminEmptyStateClass =
+  adminUi.adminEmptyStateClass
+  ?? "flex flex-col items-center justify-center rounded-sm border border-dashed border-default/30 bg-default/55 px-3 py-5 text-center text-muted dark:border-default/20 dark:bg-elevated/30";
+const adminMobileListCardClass =
+  adminUi.adminMobileListCardClass
+  ?? "overflow-hidden rounded-sm border border-default/30 bg-default transition-[background-color,border-color,box-shadow] duration-200 hover:border-default/45 hover:bg-default dark:border-default/20 dark:bg-elevated/55 dark:hover:bg-elevated/70";
+const adminTableUi = adminUi.adminTableUi;
+
+definePageMeta({
+  layout: "admin",
+  middleware: ["role-employee"],
+});
+
+const UAvatar = resolveComponent("UAvatar");
+const UBadge = resolveComponent("UBadge");
+const UButton = resolveComponent("UButton");
+const UCheckbox = resolveComponent("UCheckbox");
+const UDropdownMenu = resolveComponent("UDropdownMenu");
+
+const { user } = useUser();
+const isAdmin = computed(() => (user.value?.role as Role | undefined) === "ADMIN");
+const { payments, isLoading, refresh, deletePayment } = useAdminPayments();
+
+const canConfirmPayment = (payment: AdminPaymentRecord) => payment.status !== "PAID" && payment.status !== "CANCELLED";
+const editStateModalOpen = ref(false);
+const editStateTarget = ref<AdminPaymentRecord | null>(null);
+const openEditStateModal = (payment: AdminPaymentRecord) => {
+  editStateTarget.value = payment;
+  editStateModalOpen.value = true;
+};
+const onStateUpdatedFromList = async () => {
+  await refresh();
+};
+const canManagePaymentState = (_payment: AdminPaymentRecord) => true;
+const getPaymentStateActionTitle = (_payment: AdminPaymentRecord) => "คลิกเพื่อแก้ไขสถานะ";
+const handlePaymentStateClick = (payment: AdminPaymentRecord) => {
+  openEditStateModal(payment);
+};
+
+const hydrated = ref(false);
+const activatedOnce = ref(false);
+onMounted(() => {
+  hydrated.value = true;
+});
+
+onActivated(async () => {
+  if (!activatedOnce.value) {
+    activatedOnce.value = true;
+    return;
+  }
+  await refresh();
+});
+
+const showSkeleton = computed(() => !hydrated.value || isLoading.value);
+
+const saleTypeOptions: Array<{ label: string; value: "all" | "PACKAGE" | "SERVICE" | "SERVICE_MEMBER" }> = [
+  { label: "ทุกประเภท", value: "all" },
+  { label: "แพ็กเกจ", value: "PACKAGE" },
+  { label: "งานซักรีด", value: "SERVICE" },
+  { label: "งานซักรีด (รายเดือน)", value: "SERVICE_MEMBER" },
+];
+const getAvatarProps = (customer?: AdminPaymentRecord["customer"] | null) => ({
+  as: { img: "img" },
+  src: customer?.image || "",
+  alt: customer?.name || customer?.email || "ลูกค้า",
+  loading: "lazy" as const,
+});
+
+type TableRow<T> = { original: T; toggleSelected: (value: boolean) => void };
+type TableApi = {
+  getFilteredSelectedRowModel: () => { rows: TableRow<AdminPaymentRecord>[] };
+  getRowModel: () => { rows: TableRow<AdminPaymentRecord>[] };
+  resetRowSelection: () => void;
+};
+type TableInstance = { tableApi?: TableApi };
+
+const table = useTemplateRef<TableInstance>("table");
+const rowSelection = ref<Record<string, boolean>>({});
+const pagination = ref({
+  pageIndex: 0,
+  pageSize: 10,
+});
+
+const searchQuery = ref("");
+const saleTypeFilter = ref<(typeof saleTypeOptions)[number]["value"]>("all");
+
+const filteredPayments = computed<AdminPaymentRecord[]>(() => {
+  const keyword = searchQuery.value.trim().toLowerCase();
+
+  return (payments.value ?? []).filter((payment) => {
+    const matchKeyword = keyword
+      ? [
+          payment.paymentNo ?? "",
+          payment.customer.name ?? "",
+          payment.customer.email,
+          payment.customer.phoneNumber ?? "",
+          payment.packageSale.productName ?? "",
+          ...payment.packageSale.items.map((item) => item.productName),
+          payment.serviceOrder?.id ?? "",
+          payment.serviceOrder?.orderNo ?? "",
+        ]
+          .join(" ")
+          .toLowerCase()
+          .includes(keyword)
+      : true;
+
+    const matchSaleType = (() => {
+      if (saleTypeFilter.value === "all") return true;
+      const isService = Boolean(payment.serviceOrder?.id);
+      if (saleTypeFilter.value === "PACKAGE") return !isService;
+      if (saleTypeFilter.value === "SERVICE") return isService;
+      if (saleTypeFilter.value === "SERVICE_MEMBER") {
+        return isService && Boolean(payment.serviceOrder?.memberEntitlementId);
+      }
+      return true;
+    })();
+
+    return matchKeyword && matchSaleType;
+  });
+});
+
+const selectedRows = computed<TableRow<AdminPaymentRecord>[]>(() => {
+  return table.value?.tableApi?.getFilteredSelectedRowModel().rows ?? [];
+});
+
+const selectedPayments = computed<AdminPaymentRecord[]>(() => selectedRows.value.map((row) => row.original));
+const selectedRowsCount = computed(() => selectedRows.value.length);
+const filteredRowCount = computed(() => filteredPayments.value.length);
+const paginatedPayments = computed(() => {
+  const start = pagination.value.pageIndex * pagination.value.pageSize;
+  return filteredPayments.value.slice(start, start + pagination.value.pageSize);
+});
+
+const getMobileRowId = (index: number) => String(pagination.value.pageIndex * pagination.value.pageSize + index);
+const isMobileRowSelected = (index: number) => Boolean(rowSelection.value[getMobileRowId(index)]);
+const setMobileRowSelected = (index: number, value: boolean | "indeterminate") => {
+  const rowId = getMobileRowId(index);
+  rowSelection.value = {
+    ...rowSelection.value,
+    [rowId]: !!value,
+  };
+  if (!value) {
+    const next = { ...rowSelection.value };
+    delete next[rowId];
+    rowSelection.value = next;
+  }
+};
+
+const currentPageRange = computed(() => {
+  const total = filteredRowCount.value;
+  if (!total) return { start: 0, end: 0, total: 0 };
+
+  const start = pagination.value.pageIndex * pagination.value.pageSize + 1;
+  const end = Math.min(total, start + pagination.value.pageSize - 1);
+  return { start, end, total };
+});
+
+const paginationSummary = computed(() => {
+  const { start, end, total } = currentPageRange.value;
+
+  if (!total) return "ไม่พบรายการ";
+  if (!selectedRowsCount.value) return `แสดง ${start}-${end} จาก ${total} รายการ`;
+  return `แสดง ${start}-${end} จาก ${total} รายการ | เลือก ${selectedRowsCount.value} รายการ`;
+});
+
+const setPage = (page: number) => {
+  pagination.value = { ...pagination.value, pageIndex: page - 1 };
+};
+
+watch([searchQuery, saleTypeFilter], () => {
+  pagination.value = { ...pagination.value, pageIndex: 0 };
+  rowSelection.value = {};
+});
+
+watch(() => pagination.value.pageIndex, () => {
+  rowSelection.value = {};
+});
+
+const openPaymentDetail = (payment: AdminPaymentRecord) => navigateTo(`/admin/payment/${payment.id}`);
+const openReceipt = (payment: AdminPaymentRecord) => {
+  const target = payment.status === "PAID" ? "receipt" : "quotation";
+  return navigateTo(`/admin/payment/${payment.id}/${target}`);
+};
+const openMemberDetail = (payment: AdminPaymentRecord) => navigateTo(`/admin/users/${payment.customer.id}`);
+const openServiceOrderDetail = (serviceOrderId: string) => navigateTo(`/admin/service-orders/${serviceOrderId}`);
+
+const isServiceMember = (payment: AdminPaymentRecord) =>
+  Boolean(payment.serviceOrder?.id) && Boolean(payment.serviceOrder?.memberEntitlementId);
+const getSaleType = (payment: AdminPaymentRecord) => {
+  if (payment.serviceOrder?.id) {
+    return isServiceMember(payment) ? "SERVICE_MEMBER" : "SERVICE";
+  }
+  return "PACKAGE";
+};
+const getSaleTypeLabel = (payment: AdminPaymentRecord) => {
+  const type = getSaleType(payment);
+  if (type === "SERVICE_MEMBER") return "งานซักรีด (รายเดือน)";
+  if (type === "SERVICE") return "งานซักรีด";
+  return "แพ็กเกจ";
+};
+const getSaleTypeColor = (payment: AdminPaymentRecord) => {
+  const type = getSaleType(payment);
+  if (type === "SERVICE_MEMBER") return "success";
+  if (type === "SERVICE") return "warning";
+  return "primary";
+};
+
+const formatPaymentItems = (payment: AdminPaymentRecord) => {
+  const items = payment.packageSale.items.slice(0, 2).map((item) => `${item.productName} x${item.quantity}`);
+  if (payment.packageSale.items.length > 2) items.push(`+ อีก ${payment.packageSale.items.length - 2} รายการ`);
+  if (items.length) return items;
+  return [`รายการผ้า ${payment.serviceOrder?.itemCount ?? 0} รายการ`];
+};
+
+const getPaymentMethodLabel = (payment: AdminPaymentRecord) => (
+  payment.method ? paymentMethodLabels[payment.method] : "ยังไม่ชำระ"
+);
+
+const isDeleteOpen = ref(false);
+const isBulkDeleteOpen = ref(false);
+const isDeleting = ref(false);
+const deletingPayment = ref<AdminPaymentRecord | null>(null);
+
+const openDeleteModal = (payment: AdminPaymentRecord) => {
+  deletingPayment.value = payment;
+  isDeleteOpen.value = true;
+};
+
+const confirmDelete = async () => {
+  if (!deletingPayment.value) return;
+
+  isDeleting.value = true;
+  const ok = await deletePayment(deletingPayment.value.id);
+  isDeleting.value = false;
+
+  if (ok) {
+    isDeleteOpen.value = false;
+    deletingPayment.value = null;
+  }
+};
+
+const handlePaymentDeselected = (payment: AdminPaymentRecord) => {
+  const rows = table.value?.tableApi?.getRowModel().rows ?? [];
+  const rowIndex = rows.findIndex((row) => row.original.id === payment.id);
+  if (rowIndex >= 0) rows[rowIndex]?.toggleSelected(false);
+};
+
+const confirmBulkDelete = async () => {
+  if (!selectedPayments.value.length) return;
+
+  isDeleting.value = true;
+  for (const payment of selectedPayments.value) {
+    await deletePayment(payment.id);
+  }
+  isDeleting.value = false;
+
+  table.value?.tableApi?.resetRowSelection();
+  isBulkDeleteOpen.value = false;
+};
+
+const getActionItems = (payment: AdminPaymentRecord) => {
+  const primaryItems: Array<Record<string, unknown>> = [
+    { label: "ดูรายละเอียด", icon: "i-lucide-eye", onSelect: () => openPaymentDetail(payment) },
+    payment.status === "PAID"
+      ? { label: "ดูใบเสร็จ", icon: "i-lucide-receipt", onSelect: () => openReceipt(payment) }
+      : { label: "ดูใบแจ้งราคา", icon: "i-lucide-file-text", onSelect: () => openReceipt(payment) },
+  ];
+
+  const serviceOrderId = payment.serviceOrder?.id;
+  if (serviceOrderId) {
+    primaryItems.push({
+      label: `เลขออเดอร์ ${payment.serviceOrder?.orderNo || serviceOrderId}`,
+      icon: "i-lucide-package-search",
+      onSelect: () => openServiceOrderDetail(serviceOrderId),
+    });
+  } else {
+    primaryItems.push({ label: "ดูข้อมูลลูกค้า", icon: "i-lucide-user-round-search", onSelect: () => openMemberDetail(payment) });
+  }
+
+  if (isAdmin.value) {
+    return [
+      primaryItems,
+      [{ label: "ลบรายการ", icon: "i-lucide-trash-2", color: "error", onSelect: () => openDeleteModal(payment) }],
+    ];
+  }
+
+  return [primaryItems];
+};
+
+const columns: TableColumn<AdminPaymentRecord>[] = [
+  {
+    id: "select",
+    header: ({ table }) =>
+      h("div", [
+        h(UCheckbox, {
+          modelValue: table.getIsSomePageRowsSelected() ? "indeterminate" : table.getIsAllPageRowsSelected(),
+          "onUpdate:modelValue": (value: boolean | "indeterminate") => table.toggleAllPageRowsSelected(!!value),
+          ariaLabel: "เลือกทั้งหมด",
+        }),
+      ]),
+    cell: ({ row }) =>
+      h("div", [
+        h(UCheckbox, {
+          modelValue: row.getIsSelected(),
+          "onUpdate:modelValue": (value: boolean | "indeterminate") => row.toggleSelected(!!value),
+          ariaLabel: "เลือกรายการ",
+        }),
+      ]),
+  },
+  {
+    accessorKey: "paymentNo",
+    header: "เลขชำระ",
+    cell: ({ row }) => h("div", { class: "font-mono text-xs text-muted cursor-pointer hover:underline", onClick: (e: MouseEvent) => { e.stopPropagation(); openPaymentDetail(row.original); } }, row.original.paymentNo || "-"),
+  },
+  {
+    accessorKey: "customer",
+    header: "ลูกค้า",
+    cell: ({ row }) => {
+      const customer = row.original.customer;
+      return h("div", { class: "flex min-w-0 items-center gap-3 cursor-pointer", onClick: (e: MouseEvent) => { e.stopPropagation(); openMemberDetail(row.original); } }, [
+        h(UAvatar, { ...getAvatarProps(customer) }),
+        h("div", { class: "min-w-0 max-w-60 space-y-0.5" }, [
+          h("p", { class: "truncate font-medium text-highlighted hover:underline" }, customer.name || "-"),
+          h("p", { class: "truncate text-sm text-muted" }, customer.email),
+        ]),
+      ]);
+    },
+  },
+  {
+    id: "saleType",
+    header: "ประเภท",
+    cell: ({ row }) => h(UBadge, { color: getSaleTypeColor(row.original), variant: "subtle" }, () => getSaleTypeLabel(row.original)),
+  },
+  {
+    accessorKey: "packageSale.items",
+    header: "รายการขาย",
+    cell: ({ row }) => {
+      const payment = row.original;
+      const items = payment.packageSale.items;
+
+      const serviceOrderId = payment.serviceOrder?.id;
+      const handleClick = (e: MouseEvent) => {
+        e.stopPropagation();
+        if (serviceOrderId) openServiceOrderDetail(serviceOrderId);
+        else openPaymentDetail(payment);
+      };
+
+      if (items.length > 0) {
+        return h(
+          "div",
+          { class: "space-y-1 cursor-pointer", onClick: handleClick },
+          items.map((item) =>
+            h("div", { key: `${item.productId}-${item.quantity}`, class: "flex items-center gap-3 text-sm" }, [
+              h("span", { class: "text-highlighted" }, item.productName),
+              h("span", { class: "shrink-0 whitespace-nowrap text-muted" }, `x${item.quantity}`),
+            ]),
+          ),
+        );
+      }
+
+      return h("div", { class: "flex items-center gap-3 text-sm cursor-pointer", onClick: handleClick }, [
+        h("span", { class: "text-highlighted" }, "รายการผ้า"),
+        h("span", { class: "shrink-0 whitespace-nowrap text-muted" }, `${payment.serviceOrder?.itemCount ?? 0} รายการ`),
+      ]);
+    },
+  },
+  {
+    accessorKey: "amount",
+    header: () => h("div", { class: "text-right" }, "จำนวนเงิน"),
+    cell: ({ row }) => {
+      const payment = row.original;
+      const isMemberZero = isServiceMember(payment) && Number(payment.amount ?? 0) === 0;
+      if (isMemberZero) {
+        const credits = Number(payment.serviceOrder?.creditUsed ?? 0);
+        return h("div", { class: "space-y-0.5 text-right" }, [
+          h("p", { class: "text-sm font-medium text-success" }, "ใช้เครดิต"),
+          h("p", { class: "text-xs text-muted" }, `${credits} เครดิต`),
+        ]);
+      }
+      return h("div", { class: "text-right font-medium" }, formatCurrency(payment.amount));
+    },
+  },
+  {
+    accessorKey: "status",
+    header: "สถานะ",
+    cell: ({ row }) => {
+      const payment = row.original;
+      const color = paymentStatusColors[payment.status] ?? "neutral";
+      const label = paymentStatusLabels[payment.status] ?? payment.status;
+      return h(
+        "div",
+        {
+          class: canManagePaymentState(payment) ? "inline-flex cursor-pointer" : "inline-flex",
+          title: getPaymentStateActionTitle(payment),
+          onClick: (e: MouseEvent) => {
+            e.stopPropagation();
+            handlePaymentStateClick(payment);
+          },
+        },
+        [h(UBadge, { color, variant: "soft", size: "md", icon: canManagePaymentState(payment) ? "i-lucide-pencil" : undefined }, () => label)],
+      );
+    },
+  },
+  {
+    accessorKey: "method",
+    header: "วิธีชำระ",
+    cell: ({ row }) => h("span", { class: "text-sm text-muted" }, getPaymentMethodLabel(row.original)),
+  },
+  {
+    accessorKey: "createdAt",
+    header: "วันที่สร้าง",
+    cell: ({ row }) => h("p", { class: "text-sm" }, formatDateTime(row.original.createdAt)),
+  },
+  {
+    id: "actions",
+    header: "",
+    cell: ({ row }) => {
+      const confirmButton = canConfirmPayment(row.original)
+        ? h(UButton, {
+            icon: "i-lucide-check",
+            size: "xs",
+            color: "success",
+            variant: "ghost",
+            title: "ยืนยันการชำระเงิน",
+            onClick: (e: MouseEvent) => {
+              e.stopPropagation();
+              openEditStateModal(row.original);
+            },
+          })
+        : null;
+      const detailButton = h(UButton, {
+        icon: "i-lucide-eye",
+        size: "xs",
+        color: "neutral",
+        variant: "ghost",
+        title: "ดูรายละเอียดการชำระเงิน",
+        onClick: (e: MouseEvent) => {
+          e.stopPropagation();
+          openPaymentDetail(row.original);
+        },
+      });
+
+      const editButton = h(UButton, {
+        icon: "i-lucide-credit-card",
+        size: "xs",
+        color: "primary",
+        variant: "ghost",
+        title: "แก้ไขการชำระเงิน",
+        onClick: (e: MouseEvent) => {
+          e.stopPropagation();
+          openEditStateModal(row.original);
+        },
+      });
+
+      const menuButton = h(UButton, {
+        icon: "i-lucide-ellipsis",
+        size: "xs",
+        color: "neutral",
+        variant: "ghost",
+        title: "เมนูเพิ่มเติม",
+      });
+
+      return h("div", { class: "flex items-center justify-end gap-1" }, [
+        confirmButton,
+        editButton,
+        detailButton,
+        h(
+          UDropdownMenu,
+          { items: getActionItems(row.original), content: { align: "end" } },
+          { default: () => menuButton },
+        ),
+      ].filter(Boolean));
+    },
+  },
+];
+</script>
+
+<template>
+  <UDashboardPanel id="payments">
+    <template #header>
+      <UDashboardNavbar title="รายการชำระเงิน" icon="i-lucide-receipt">
+        <template #leading>
+          <UDashboardSidebarCollapse class="hidden lg:inline-flex" />
+        </template>
+
+        <template #right>
+          <UButton
+            label="ไปหน้ารายการขาย"
+            icon="i-lucide-shopping-cart"
+            color="primary"
+            class="shrink-0"
+            aria-label="ไปหน้ารายการขาย"
+            :ui="{ label: 'hidden sm:inline' }"
+            @click="navigateTo('/admin/sales')"
+          />
+        </template>
+      </UDashboardNavbar>
+    </template>
+
+    <template #body>
+        <div :class="adminDashboardBodyClass">
+          <section class="flex flex-col gap-1">
+            <div :class="[adminFilterBarClass, 'flex items-center justify-between gap-1.5 px-3! px-y!']">
+              <div class="flex min-w-0 flex-[1_1_32rem] md:max-w-xl">
+                <UInput
+                  v-model="searchQuery"
+                  class="min-w-0 flex-1"
+                  icon="i-lucide-search"
+                  placeholder="ค้นหาลูกค้า เลขชำระ เลขรับผ้า หรือชื่อรายการ"
+                />
+              </div>
+
+              <div class="flex shrink-0 items-center justify-end gap-1.5">
+                <USelect v-model="saleTypeFilter" :items="saleTypeOptions" value-key="value" class="w-28 shrink-0 sm:w-40" />
+
+                <ClientOnly>
+                  <UButton
+                    v-if="isAdmin && selectedRowsCount"
+                    color="error"
+                    variant="subtle"
+                    icon="i-lucide-trash"
+                    class="shrink-0"
+                    :aria-label="`ลบ ${selectedRowsCount} รายการ`"
+                    @click="isBulkDeleteOpen = true"
+                  >
+                    <template #trailing>
+                      <UKbd class="hidden sm:inline-flex">{{ selectedRowsCount }}</UKbd>
+                    </template>
+                  </UButton>
+                </ClientOnly>
+
+                <UButton
+                  icon="i-lucide-refresh-cw"
+                  color="neutral"
+                  variant="outline"
+                  title="รีเฟรชรายการ"
+                  class="shrink-0"
+                  :loading="isLoading"
+                  @click="refresh"
+                />
+              </div>
+            </div>
+
+            <template v-if="showSkeleton">
+              <div class="space-y-1 md:hidden">
+                <div
+                  v-for="i in 5"
+                  :key="`mob-sk-${i}`"
+                  :class="[adminMobileListCardClass, 'admin-dashboard-card rounded-md']"
+                >
+                  <div class="flex items-center gap-2 p-2">
+                    <USkeleton class="size-4 rounded shrink-0" />
+                    <USkeleton class="size-8 rounded-full shrink-0" />
+                    <div class="min-w-0 flex-1 space-y-1.5">
+                      <div class="flex items-start justify-between gap-2">
+                        <div class="min-w-0 flex-1 space-y-1">
+                          <USkeleton class="h-3.5 w-32 rounded" />
+                          <USkeleton class="h-2.5 w-24 rounded" />
+                        </div>
+                        <div class="flex shrink-0 flex-col items-end gap-1">
+                          <USkeleton class="h-4 w-16 rounded-full" />
+                          <USkeleton class="h-3 w-14 rounded" />
+                        </div>
+                      </div>
+                      <div class="flex flex-wrap items-center gap-2">
+                        <USkeleton class="h-3.5 w-14 rounded-full" />
+                        <USkeleton class="h-2.5 w-16 rounded" />
+                        <USkeleton class="h-2.5 w-20 rounded" />
+                      </div>
+                      <div class="space-y-1">
+                        <USkeleton class="h-3 w-3/4 rounded" />
+                        <USkeleton class="h-3 w-1/2 rounded" />
+                      </div>
+                      <div class="flex items-center justify-end gap-1">
+                        <USkeleton class="size-5 rounded" />
+                        <USkeleton class="size-5 rounded" />
+                        <USkeleton class="size-5 rounded" />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div :class="[adminDashboardCardClass, 'hidden p-0! md:block']">
+                <div class="space-y-2 p-3">
+                  <USkeleton v-for="i in 8" :key="`dt-sk-${i}`" class="h-12 w-full rounded-md" />
+                </div>
+              </div>
+            </template>
+
+            <template v-else>
+            <div class="md:hidden">
+            <div v-if="isLoading" class="space-y-3">
+              <USkeleton v-for="i in 5" :key="i" class="h-40 w-full rounded-md" />
+            </div>
+
+            <div v-else-if="!paginatedPayments.length" :class="adminEmptyStateClass">
+              <UIcon name="i-lucide-receipt" class="mb-3 size-10 opacity-60" />
+              <p>ไม่พบรายการชำระเงิน</p>
+            </div>
+
+            <div v-else class="space-y-1">
+              <div
+                v-for="(payment, index) in paginatedPayments"
+                :key="payment.id"
+                :class="[adminMobileListCardClass, 'admin-dashboard-card rounded-md']"
+              >
+                <div class="flex items-center gap-2 p-2">
+                  <UCheckbox
+                    :model-value="isMobileRowSelected(index)"
+                    aria-label="เลือกรายการ"
+                    class="shrink-0"
+                    @update:model-value="setMobileRowSelected(index, $event)"
+                  />
+
+                  <UAvatar v-bind="getAvatarProps(payment.customer)" size="sm" class="shrink-0" />
+
+                  <div class="min-w-0 flex-1">
+                    <div class="flex min-w-0 items-start justify-between gap-2">
+                      <div class="min-w-0 flex-1">
+                        <button
+                          type="button"
+                          class="block max-w-full truncate text-left text-sm font-medium text-highlighted hover:underline"
+                          @click="openMemberDetail(payment)"
+                        >
+                          {{ payment.customer.name || "-" }}
+                        </button>
+                        <button
+                          type="button"
+                          class="block max-w-full truncate font-mono text-[10px] text-muted hover:underline"
+                          @click="openPaymentDetail(payment)"
+                        >
+                          {{ payment.paymentNo || payment.id }}
+                        </button>
+                      </div>
+
+                      <div class="flex shrink-0 flex-col items-end gap-1">
+                        <button
+                          type="button"
+                          class="inline-flex items-center rounded-md transition"
+                          :class="canManagePaymentState(payment) ? 'cursor-pointer hover:bg-elevated/60' : 'cursor-default'"
+                          :title="getPaymentStateActionTitle(payment)"
+                          :aria-label="canManagePaymentState(payment) ? 'เปลี่ยนสถานะการชำระเงิน' : undefined"
+                          @click="handlePaymentStateClick(payment)"
+                        >
+                          <UBadge
+                            :color="paymentStatusColors[payment.status]"
+                            variant="subtle"
+                            size="xs"
+                            :icon="canManagePaymentState(payment) ? 'i-lucide-pencil' : undefined"
+                          >
+                            {{ paymentStatusLabels[payment.status] }}
+                          </UBadge>
+                        </button>
+                        <template v-if="isServiceMember(payment) && Number(payment.amount ?? 0) === 0">
+                          <span class="text-sm font-semibold leading-none text-success">ใช้เครดิต</span>
+                          <span class="text-[10px] text-muted">{{ Number(payment.serviceOrder?.creditUsed ?? 0) }} เครดิต</span>
+                        </template>
+                        <span v-else class="text-sm font-semibold leading-none text-primary">{{ formatCurrency(payment.amount) }}</span>
+                      </div>
+                    </div>
+
+                    <div class="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-muted">
+                      <UBadge :color="getSaleTypeColor(payment)" variant="subtle" size="xs">
+                        {{ getSaleTypeLabel(payment) }}
+                      </UBadge>
+                      <span>{{ getPaymentMethodLabel(payment) }}</span>
+                      <span>{{ formatDateTime(payment.createdAt) }}</span>
+                    </div>
+
+                    <div class="mt-1 min-w-0 space-y-0.5">
+                      <p v-for="item in formatPaymentItems(payment)" :key="item" class="truncate text-xs text-highlighted">
+                        {{ item }}
+                      </p>
+                    </div>
+
+                    <div class="mt-1 flex items-center justify-end gap-1">
+                      <UButton
+                        v-if="canConfirmPayment(payment)"
+                        icon="i-lucide-check"
+                        size="xs"
+                        color="success"
+                        variant="ghost"
+                        aria-label="ยืนยันการชำระเงิน"
+                        @click="openEditStateModal(payment)"
+                      />
+                      <UButton
+                        icon="i-lucide-credit-card"
+                        size="xs"
+                        color="primary"
+                        variant="ghost"
+                        aria-label="แก้ไขการชำระเงิน"
+                        @click="openEditStateModal(payment)"
+                      />
+                      <UButton icon="i-lucide-eye" size="xs" color="neutral" variant="ghost" aria-label="ดูรายละเอียดการชำระเงิน" @click="openPaymentDetail(payment)" />
+                      <UButton
+                        :icon="payment.status === 'PAID' ? 'i-lucide-receipt' : 'i-lucide-file-text'"
+                        size="xs"
+                        color="primary"
+                        variant="ghost"
+                        :aria-label="payment.status === 'PAID' ? 'ดูใบเสร็จ' : 'ดูใบแจ้งราคา'"
+                        @click="openReceipt(payment)"
+                      />
+                      <UDropdownMenu :items="getActionItems(payment)" :content="{ align: 'end' }">
+                        <UButton icon="i-lucide-ellipsis" size="xs" color="neutral" variant="ghost" aria-label="เมนูเพิ่มเติม" />
+                      </UDropdownMenu>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+            <div :class="[adminDashboardCardClass, 'hidden overflow-hidden p-0! md:block']">
+            <UTable
+              ref="table"
+              v-model:row-selection="rowSelection"
+              v-model:pagination="pagination"
+              :pagination-options="{ getPaginationRowModel: getPaginationRowModel() }"
+              :data="filteredPayments"
+              :columns="columns"
+              :loading="isLoading"
+              :ui="adminTableUi"
+            >
+              <template #empty>
+                <div v-if="isLoading" class="space-y-2 p-3">
+                  <USkeleton v-for="i in 6" :key="`tbl-${i}`" class="h-12 w-full rounded-md" />
+                </div>
+                <div v-else :class="adminEmptyStateClass">
+                  <UIcon name="i-lucide-receipt" class="mb-3 size-10 opacity-60" />
+                  <p>ไม่พบรายการชำระเงิน</p>
+                </div>
+              </template>
+            </UTable>
+            </div>
+            </template>
+          </section>
+
+          <div class="mt-auto flex flex-wrap items-center justify-between gap-3 border-t border-default pt-4">
+            <div class="text-sm text-muted">
+              <template v-if="showSkeleton">
+                <span class="inline-flex items-center gap-2">
+                  <UIcon name="i-lucide-loader-2" class="size-4 animate-spin" />
+                  กำลังโหลด...
+                </span>
+              </template>
+              <template v-else>{{ paginationSummary }}</template>
+            </div>
+
+            <UPagination
+              v-if="!showSkeleton"
+              :page="pagination.pageIndex + 1"
+              :items-per-page="pagination.pageSize"
+              :total="filteredRowCount"
+              @update:page="setPage"
+            />
+          </div>
+        </div>
+
+    </template>
+  </UDashboardPanel>
+
+  <ClientOnly>
+    <UModal
+      v-if="isAdmin"
+      v-model:open="isBulkDeleteOpen"
+      title="ลบรายการชำระเงินที่เลือก"
+      :description="`ยืนยันการลบ ${selectedRowsCount} รายการ`"
+    >
+      <template #body>
+        <div v-if="selectedPayments.length" class="max-h-72 space-y-3 overflow-auto pr-1">
+          <div
+            v-for="payment in selectedPayments"
+            :key="payment.id"
+            class="flex items-start gap-3"
+          >
+            <UAvatar v-bind="getAvatarProps(payment.customer)" />
+            <div class="min-w-0 flex-1">
+              <p class="truncate font-medium text-highlighted">
+                {{ payment.customer.name || payment.customer.email }}
+              </p>
+              <p class="truncate text-sm text-muted">
+                {{ payment.paymentNo || payment.id }}
+              </p>
+            </div>
+            <UButton
+              icon="i-lucide-x"
+              variant="ghost"
+              size="xs"
+              color="neutral"
+              @click="handlePaymentDeselected(payment)"
+            />
+          </div>
+        </div>
+        <p v-else class="py-6 text-center text-sm text-muted">
+          ยังไม่มีรายการที่เลือก
+        </p>
+      </template>
+
+      <template #footer>
+        <div class="flex w-full justify-end gap-3">
+          <UButton label="ยกเลิก" color="neutral" variant="outline" @click="isBulkDeleteOpen = false" />
+          <UButton label="ลบ" color="error" :disabled="!selectedRowsCount" :loading="isDeleting" @click="confirmBulkDelete" />
+        </div>
+      </template>
+    </UModal>
+
+    <UIConfirmModal
+      v-if="isAdmin"
+      v-model:open="isDeleteOpen"
+      title="ลบรายการชำระเงิน"
+      description="ยืนยันการลบรายการชำระเงินนี้ออกจากระบบ"
+      icon="i-lucide-trash-2"
+      icon-color="error"
+      confirm-label="ลบรายการ"
+      confirm-color="error"
+      :loading="isDeleting"
+      @confirm="confirmDelete"
+    >
+      <template #message>
+        ต้องการลบรายการของ
+        <strong class="text-highlighted">
+          {{ deletingPayment?.customer.name || deletingPayment?.customer.email }}
+        </strong>
+        ใช่หรือไม่?
+      </template>
+
+      <template #subMessage>
+        <div class="space-y-1">
+          <p class="text-sm text-muted">เลขชำระ: {{ deletingPayment?.paymentNo || "-" }}</p>
+          <p class="text-sm text-muted">
+            รายการขาย:
+            {{ deletingPayment?.packageSale.items.map((item) => `${item.productName} x${item.quantity}`).join(", ") || (deletingPayment?.serviceOrder?.orderNo || deletingPayment?.serviceOrder?.id || "-") }}
+          </p>
+          <p class="text-sm text-muted">จำนวนเงิน: {{ formatCurrency(Number(deletingPayment?.amount ?? 0)) }}</p>
+        </div>
+      </template>
+    </UIConfirmModal>
+  </ClientOnly>
+
+  <EditPaymentStateModal
+    v-if="editStateTarget"
+    v-model:open="editStateModalOpen"
+    :payment-id="editStateTarget.id"
+    :payment-no="editStateTarget.paymentNo"
+    :amount="Number(editStateTarget.amount ?? 0)"
+    :status="editStateTarget.status"
+    :method="editStateTarget.method"
+    :existing-slip="editStateTarget.slipImage ?? null"
+    @updated="onStateUpdatedFromList"
+  />
+</template>

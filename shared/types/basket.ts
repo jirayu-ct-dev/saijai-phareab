@@ -1,5 +1,5 @@
 import type { BasketStatus, Timestamps, SoftDeletable } from "./enums";
-import type { Order } from "./order";
+import type { ServiceOrder } from "./order";
 
 // ============================
 // BASKET
@@ -13,5 +13,5 @@ export interface Basket extends Timestamps, SoftDeletable {
     isActivated: boolean;
 
     // Relations
-    orders?: Order[];
+    serviceOrders?: ServiceOrder[];
 }
