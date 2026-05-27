@@ -67,8 +67,8 @@ onUnmounted(() => {
 
           <!-- Headline -->
           <h1 class="text-[42px] md:text-[52px] lg:text-[60px] font-bold text-gray-900 dark:text-white leading-[1.08] tracking-tight mb-5">
-            ซัก-อบ-รีด<br />
-            ด้วยความ<span class="text-primary-600 dark:text-primary-400"> ใส่ใจ</span><br />
+            ซัก-อบ-รีด<br>
+            ด้วยความ<span class="text-primary-600 dark:text-primary-400"> ใส่ใจ</span><br>
             ทุกผืนผ้า
           </h1>
 

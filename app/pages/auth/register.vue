@@ -86,7 +86,7 @@ watch(session, async (newSession) => {
           NEW MEMBER
         </div>
         <h2 class="text-4xl xl:text-5xl font-bold leading-[1.15] mb-5">
-          เริ่มต้นดูแลผ้าของคุณ<br />ด้วยความใส่ใจ
+          เริ่มต้นดูแลผ้าของคุณ<br>ด้วยความใส่ใจ
         </h2>
         <p class="text-blue-100 text-sm xl:text-base max-w-sm mb-10 leading-relaxed">
           สมัครสมาชิกเพื่อสะสมแต้ม จัดการแพ็กเกจ และรับการแจ้งเตือนสถานะผ้าแบบเรียลไทม์ผ่าน LINE

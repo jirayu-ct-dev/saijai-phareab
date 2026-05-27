@@ -69,7 +69,7 @@ const handleBuy = async (pkg: any) => {
               Laundry Package Plans
             </span>
             <h1 class="text-3xl sm:text-5xl font-black tracking-tight text-slate-800 dark:text-white leading-tight">
-              คุ้มค่า สะดวกสบาย <br />
+              คุ้มค่า สะดวกสบาย <br>
               <span class="bg-clip-text text-transparent bg-gradient-to-r from-primary via-indigo-500 to-info">
                 กับแพ็กเกจซักอบรีดที่ใส่ใจคุณ
               </span>
@@ -276,8 +276,6 @@ const handleBuy = async (pkg: any) => {
             </div>
           </div>
         </div>
-        
-        </div>
       </template>
         
       <template #footer>
@@ -314,8 +312,6 @@ const handleBuy = async (pkg: any) => {
               เพื่อความปลอดภัยและการอัปเดตสิทธิ์การใช้งานผ่านแชท LINE ที่ถูกต้องและรวดเร็ว กรุณาเชื่อมต่อบัญชี LINE ของคุณก่อนทำรายการซื้อแพ็กเกจครับ
             </p>
           </div>
-        </div>
-        
         </div>
       </template>
         

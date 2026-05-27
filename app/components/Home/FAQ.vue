@@ -28,7 +28,7 @@ const items = [
         <div class="lg:col-span-5 lg:sticky lg:top-24">
           <span class="inline-block text-primary-600 dark:text-primary-400 font-semibold text-[13px] tracking-wide mb-2">คำถามที่พบบ่อย</span>
           <h2 class="text-[26px] md:text-[38px] font-bold text-gray-900 dark:text-white leading-[1.15] tracking-tight mb-4">
-            ข้อสงสัยที่ลูกค้า<br class="hidden lg:block"/>มักจะถามเราบ่อยๆ
+            ข้อสงสัยที่ลูกค้า<br class="hidden lg:block">มักจะถามเราบ่อยๆ
           </h2>
           <p class="text-gray-500 dark:text-gray-400 text-base leading-relaxed mb-8">
             หากมีคำถามอื่นๆ ที่ไม่พบในนี้ สามารถสอบถามทีมงานของเราได้ทาง LINE เลยครับ ยินดีให้บริการ

@@ -80,7 +80,7 @@
               </div>
               <h3 class="text-xl font-bold text-gray-900 dark:text-white mb-3">แวะมาหาเราได้ที่ร้าน</h3>
               <p class="text-gray-500 dark:text-gray-400 text-sm leading-relaxed mb-6">
-                ใส่ใจ ผ้าเรียบ - บริการ ซัก อบ รีด คุ้มค่า สะดวกสบาย <br/>
+                ใส่ใจ ผ้าเรียบ - บริการ ซัก อบ รีด คุ้มค่า สะดวกสบาย <br>
                 อำเภอเมือง จังหวัดบุรีรัมย์
               </p>
               

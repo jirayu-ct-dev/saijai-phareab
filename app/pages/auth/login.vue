@@ -92,7 +92,7 @@ onMounted(async () => {
           MEMBER PORTAL
         </div>
         <h2 class="text-4xl xl:text-5xl font-bold leading-[1.15] mb-5">
-          ยินดีต้อนรับ<br />กลับมาอีกครั้ง
+          ยินดีต้อนรับ<br>กลับมาอีกครั้ง
         </h2>
         <p class="text-blue-100 text-sm xl:text-base max-w-sm mb-10 leading-relaxed">
           เข้าสู่ระบบเพื่อจัดการแพ็กเกจ ดูประวัติการซัก และติดตามสถานะผ้าของคุณแบบเรียลไทม์
