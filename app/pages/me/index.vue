@@ -82,7 +82,7 @@ const handleRefresh = async () => {
                   variant: 'solid',
                 }]"
                 close
-                @close="showEmailBanner = false"
+                @update:open="showEmailBanner = false"
               />
             </div>
           </ClientOnly>
