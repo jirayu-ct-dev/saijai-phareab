@@ -46,21 +46,22 @@ const columns: TableColumn<any>[] = [
             <UButton icon="i-lucide-refresh-cw" :loading="pending" variant="ghost" color="neutral" @click="() => refresh()" />
           </template>
         </UDashboardNavbar>
+        <UDashboardToolbar :class="adminFilterBarClass">
+          <template #left>
+            <USelect
+              v-model="status"
+              :items="statusOptions"
+              class="w-48"
+            />
+          </template>
+        </UDashboardToolbar>
       </template>
 
       <template #body>
         <div :class="adminUi.adminDashboardBodyClass">
           <ClientOnly>
             <section class="flex flex-col gap-1">
-              <UDashboardToolbar :class="adminFilterBarClass">
-                <template #left>
-                  <USelect
-                    v-model="status"
-                    :items="statusOptions"
-                    class="w-48"
-                  />
-                </template>
-              </UDashboardToolbar>
+
               <p class="text-sm text-muted px-2 pb-2">รายการทั้งหมด: {{ meta.total }} รายการ</p>
 
               <!-- Mobile View -->

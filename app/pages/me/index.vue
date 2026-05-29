@@ -69,8 +69,7 @@ const handleRefresh = async () => {
           <ClientOnly>
             <div class="mb-4">
               <UAlert
-                v-model:open="showEmailBanner"
-                v-if="user && !user.emailVerified"
+                v-if="showEmailBanner && user && !user.emailVerified"
                 color="warning"
                 variant="subtle"
                 icon="i-lucide-mail-warning"
@@ -83,6 +82,7 @@ const handleRefresh = async () => {
                   variant: 'solid',
                 }]"
                 close
+                @close="showEmailBanner = false"
               />
             </div>
           </ClientOnly>

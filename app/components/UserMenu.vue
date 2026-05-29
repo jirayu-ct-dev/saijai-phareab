@@ -59,33 +59,13 @@ const items = computed<DropdownMenuItem[][]>(() => [
   ],
   [
     {
-      label: "ธีม",
-      icon: "i-lucide-sun-moon",
+      label: colorMode.value === "light" ? "เปลี่ยนเป็นโหมดมืด" : "เปลี่ยนเป็นโหมดสว่าง",
+      icon: colorMode.value === "light" ? "i-lucide-moon" : "i-lucide-sun",
       class: "cursor-pointer",
-      children: [
-        {
-          label: "สว่าง",
-          icon: "i-lucide-sun",
-          type: "checkbox",
-          checked: colorMode.value === "light",
-          class: "cursor-pointer",
-          onSelect(e: Event) {
-            e.preventDefault();
-            colorMode.preference = "light";
-          },
-        },
-        {
-          label: "มืด",
-          icon: "i-lucide-moon",
-          type: "checkbox",
-          checked: colorMode.value === "dark",
-          class: "cursor-pointer",
-          onSelect(e: Event) {
-            e.preventDefault();
-            colorMode.preference = "dark";
-          },
-        },
-      ],
+      onSelect(e: Event) {
+        e.preventDefault();
+        colorMode.preference = colorMode.value === "light" ? "dark" : "light";
+      },
     },
   ],
   [

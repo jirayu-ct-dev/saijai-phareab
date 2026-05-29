@@ -29,22 +29,6 @@ const addonPackages = computed(() => packages.value?.filter((p: any) => p.packag
 
       <template #body>
         <div :class="adminUi.adminDashboardBodyClass">
-          <!-- Header Redesign -->
-          <div class="text-center space-y-4 max-w-3xl mx-auto pt-6">
-            <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-primary/10 text-primary dark:bg-primary/20">
-              <UIcon name="i-lucide-sparkles" class="w-3.5 h-3.5" />
-              Laundry Package Plans
-            </span>
-            <h1 class="text-3xl sm:text-5xl font-black tracking-tight text-slate-800 dark:text-white leading-tight">
-              คุ้มค่า สะดวกสบาย <br>
-              <span class="bg-clip-text text-transparent bg-gradient-to-r from-primary via-indigo-500 to-info">
-                กับแพ็กเกจซักอบรีดที่ใส่ใจคุณ
-              </span>
-            </h1>
-            <p class="text-base sm:text-lg text-slate-500 dark:text-slate-400 font-medium">
-              เลือกแผนบริการที่ตอบโจทย์รูปแบบการใช้ชีวิตของคุณ เพื่อการดูแลเสื้อผ้าที่สมบูรณ์แบบในราคาที่คุ้มค่ากว่าเดิม
-            </p>
-          </div>
 
           <ClientOnly>
             <!-- Loading State Redesign -->

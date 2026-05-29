@@ -24,12 +24,12 @@ const isCreateModalOpen = ref(false);
 const isManageModalOpen = ref(false);
 const activeManageTab = ref("preview");
 const searchQuery = ref("");
-const selectedRoleFilter = ref("");
+const selectedRoleFilter = ref("ALL");
 const isSaving = ref(false);
 
 const selectedMenu = ref<any>(null);
 const assignForm = reactive({
-  targetRole: "" as string | null,
+  targetRole: "ALL" as string | null,
   isDefault: false,
 });
 const aliasForm = reactive({
@@ -47,7 +47,7 @@ const filteredRichMenus = computed(() => {
     let matchesRole = true;
     if (selectedRoleFilter.value === "DEFAULT") {
       matchesRole = menu.isDefault;
-    } else if (selectedRoleFilter.value) {
+    } else if (selectedRoleFilter.value && selectedRoleFilter.value !== "ALL") {
       matchesRole = menu.targetRole === selectedRoleFilter.value;
     }
 
@@ -65,7 +65,7 @@ const quickStats = computed(() => {
 
 const openManageDetails = (menu: any) => {
   selectedMenu.value = menu;
-  assignForm.targetRole = menu.targetRole || "";
+  assignForm.targetRole = menu.targetRole || "ALL";
   assignForm.isDefault = menu.isDefault;
   aliasForm.aliasId = menu.aliasId || "";
   activeManageTab.value = "preview";
@@ -126,7 +126,7 @@ const onJsonFileChange = (e: Event) => {
 const onDuplicateMenu = async (menu: any) => {
   form.name = `${menu.name} (คัดลอก)`;
   form.jsonContent = menu.jsonContent;
-  form.targetRole = menu.targetRole || "";
+  form.targetRole = menu.targetRole || "ALL";
   form.isDefault = false;
   
   try {
@@ -199,7 +199,7 @@ const form = reactive({
       }
     ]
   }, null, 2),
-  targetRole: "" as string | null,
+  targetRole: "ALL" as string | null,
   isDefault: false,
   logoUrl: undefined as string | undefined,
 });
@@ -332,8 +332,8 @@ const viewModeHotspots = computed(() => {
   if (!selectedMenu.value) return [];
   try {
     const config = JSON.parse(selectedMenu.value.jsonContent);
-    const w = config.size.width;
-    const h = config.size.height;
+    const w = config.size?.width;
+    const h = config.size?.height;
     if (!w || !h || !Array.isArray(config.areas)) return [];
 
     return config.areas.map((area: any, index: number) => {
@@ -351,6 +351,24 @@ const viewModeHotspots = computed(() => {
     }).filter(Boolean);
   } catch {
     return [];
+  }
+});
+
+const selectedMenuChatBarText = computed(() => {
+  if (!selectedMenu.value) return 'เมนูหลัก';
+  try {
+    return JSON.parse(selectedMenu.value.jsonContent)?.chatBarText || 'เมนูหลัก';
+  } catch {
+    return 'เมนูหลัก';
+  }
+});
+
+const selectedMenuPrettyJson = computed(() => {
+  if (!selectedMenu.value) return '';
+  try {
+    return JSON.stringify(JSON.parse(selectedMenu.value.jsonContent), null, 2);
+  } catch {
+    return selectedMenu.value.jsonContent || '';
   }
 });
 
@@ -378,7 +396,7 @@ const onSubmit = async () => {
   const fd = new FormData();
   fd.append("name", form.name);
   fd.append("jsonContent", form.jsonContent);
-  if (form.targetRole) fd.append("targetRole", form.targetRole);
+  if (form.targetRole && form.targetRole !== "ALL") fd.append("targetRole", form.targetRole);
   fd.append("isDefault", form.isDefault.toString());
   fd.append("file", photoFile.value);
 
@@ -423,7 +441,7 @@ const onAssign = async () => {
       method: "POST",
       body: {
         id: selectedMenu.value.id,
-        targetRole: assignForm.targetRole || null,
+        targetRole: assignForm.targetRole === "ALL" ? null : assignForm.targetRole,
         isDefault: assignForm.isDefault,
       },
     });
@@ -494,7 +512,7 @@ watch(richMenus, (newVal) => {
 
 const resetForm = () => {
   form.name = "";
-  form.targetRole = "";
+  form.targetRole = "ALL";
   form.isDefault = false;
   form.logoUrl = undefined;
   photoFile.value = null;
@@ -597,7 +615,7 @@ const formatDate = (dateStr: string) => {
           v-model="selectedRoleFilter"
           placeholder="แสดงตามบทบาททั้งหมด"
           :items="[
-            { label: 'บทบาททั้งหมด', value: '' },
+            { label: 'บทบาททั้งหมด', value: 'ALL' },
             { label: 'เมนูเริ่มต้น (DEFAULT)', value: 'DEFAULT' },
             { label: 'ผู้ใช้ทั่วไป (USER)', value: 'USER' },
             { label: 'สมาชิก (MEMBER)', value: 'MEMBER' },
@@ -804,7 +822,7 @@ const formatDate = (dateStr: string) => {
                     v-model="form.targetRole"
                     placeholder="สำหรับทุกคน (เมนูหลัก)"
                     :items="[
-                      { label: 'ไม่จำกัดบทบาท (สำหรับทุกคน)', value: '' },
+                      { label: 'ไม่จำกัดบทบาท (สำหรับทุกคน)', value: 'ALL' },
                       { label: 'ผู้ใช้ทั่วไป (USER)', value: 'USER' },
                       { label: 'สมาชิกรายเดือน (MEMBER)', value: 'MEMBER' },
                       { label: 'พนักงาน (EMPLOYEE)', value: 'EMPLOYEE' },
@@ -1140,7 +1158,7 @@ const formatDate = (dateStr: string) => {
                   <div class="w-[1px] h-2 bg-slate-800"></div>
                 </div>
                 <span class="font-bold tracking-wide flex items-center gap-0.5 text-[9px]">
-                  {{ JSON.parse(selectedMenu.jsonContent)?.chatBarText || 'เมนูหลัก' }}
+                  {{ selectedMenuChatBarText }}
                   <UIcon name="i-lucide-chevron-up" class="w-2.5 h-2.5 text-slate-400" />
                 </span>
                 <UIcon name="i-lucide-smile" class="w-3 h-3 text-slate-400" />
@@ -1280,7 +1298,7 @@ const formatDate = (dateStr: string) => {
                     v-model="assignForm.targetRole"
                     placeholder="สำหรับทุกคน (ไม่มีการจำกัด)"
                     :items="[
-                      { label: 'ไม่กำหนดบทบาทเฉพาะเจาะจง (สำหรับทุกคน)', value: '' },
+                      { label: 'ไม่กำหนดบทบาทเฉพาะเจาะจง (สำหรับทุกคน)', value: 'ALL' },
                       { label: 'ผู้ใช้ทั่วไป (USER)', value: 'USER' },
                       { label: 'สมาชิกรายเดือน (MEMBER)', value: 'MEMBER' },
                       { label: 'พนักงานดูแลร้าน (EMPLOYEE)', value: 'EMPLOYEE' },
@@ -1385,7 +1403,7 @@ const formatDate = (dateStr: string) => {
                 <!-- Textarea formatted as disabled code block for safety and high-fidelity scrolling -->
                 <textarea
                   readonly
-                  :value="JSON.stringify(JSON.parse(selectedMenu.jsonContent), null, 2)"
+                  :value="selectedMenuPrettyJson"
                   class="w-full font-mono text-xs p-4 bg-slate-950 text-emerald-400 select-all border-none outline-none focus:ring-0 leading-relaxed cursor-text"
                   rows="14"
                 ></textarea>
