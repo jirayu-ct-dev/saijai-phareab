@@ -168,9 +168,10 @@ const statusLabels: Record<string, string> = {
               </div>
             </template>
           </UTable>
-          </section>
         </div>
-      </template>
+      </section>
+    </div>
+  </template>
     </UDashboardPanel>
   </UDashboardPage>
 </template>

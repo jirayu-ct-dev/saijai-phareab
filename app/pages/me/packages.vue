@@ -67,7 +67,7 @@ const addonPackages = computed(() => packages.value?.filter((p: any) => p.packag
 
           <!-- Content Grid -->
           <ClientOnly>
-            <div v-else class="space-y-20">
+            <div v-if="!pending" class="space-y-20">
               <!-- Main Packages Redesign -->
               <div v-if="mainPackages.length > 0" class="space-y-8">
                 <div class="flex flex-col sm:flex-row items-center gap-3 justify-between border-b border-slate-200/50 dark:border-slate-800/50 pb-4">
