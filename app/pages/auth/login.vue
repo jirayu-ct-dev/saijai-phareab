@@ -201,10 +201,7 @@ onMounted(async () => {
 
               <UFormField name="password" required>
                 <template #label>
-                  <div class="flex justify-between items-center w-full">
-                    <span class="text-sm font-medium text-gray-700 dark:text-gray-200">รหัสผ่าน</span>
-                    <NuxtLink to="/auth/forgot-password" class="text-xs text-primary font-semibold hover:underline">ลืมรหัสผ่าน?</NuxtLink>
-                  </div>
+                  <span class="text-sm font-medium text-gray-700 dark:text-gray-200">รหัสผ่าน</span>
                 </template>
                 <UInput 
                   v-model="form.password" 
@@ -229,8 +226,9 @@ onMounted(async () => {
                 </UInput>
               </UFormField>
 
-              <div class="flex items-center mt-4 mb-8">
-                <UCheckbox v-model="rememberMe" label="จดจำการเข้าสู่ระบบของฉันบนอุปกรณ์นี้" :ui="{ label: 'text-sm text-gray-600 dark:text-gray-300' }" />
+              <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mt-4 mb-8">
+                <UCheckbox v-model="rememberMe" label="จดจำฉันบนอุปกรณ์นี้" :ui="{ label: 'text-sm text-gray-600 dark:text-gray-300' }" />
+                <NuxtLink to="/auth/forgot-password" class="text-sm text-primary font-semibold hover:underline self-start sm:self-auto">ลืมรหัสผ่าน?</NuxtLink>
               </div>
 
               <UButton 

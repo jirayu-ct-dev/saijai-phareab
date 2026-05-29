@@ -99,18 +99,18 @@ watch(session, async (newSession) => {
           เริ่มต้นดูแลผ้าของคุณ<br>ด้วยความใส่ใจ
         </h2>
         <p class="text-blue-100 text-sm xl:text-base max-w-sm mb-10 leading-relaxed">
-          สมัครสมาชิกเพื่อสะสมแต้ม จัดการแพ็กเกจ และรับการแจ้งเตือนสถานะผ้าแบบเรียลไทม์ผ่าน LINE
+          สมัครสมาชิกเพื่อจัดการแพ็กเกจ และรับการแจ้งเตือนสถานะผ้าแบบเรียลไทม์ผ่าน LINE
         </p>
 
         <!-- Feature List -->
          <div class="space-y-4">
             <div class="flex items-center gap-3 p-4 bg-white/5 rounded-md border border-white/10 backdrop-blur-sm transition-all hover:bg-white/10">
                 <div class="w-10 h-10 rounded-full bg-primary-500/20 flex items-center justify-center shadow-inner">
-                    <UIcon name="i-lucide-badge-check" class="w-6 h-6 text-primary-300" />
+                    <UIcon name="i-lucide-package" class="w-6 h-6 text-primary-300" />
                 </div>
                 <div>
-                    <h4 class="font-bold text-sm text-white">รับสิทธิประโยชน์สมาชิก</h4>
-                    <p class="text-xs text-blue-200">สะสมแต้มและส่วนลดพิเศษสำหรับแพ็กเกจ</p>
+                    <h4 class="font-bold text-sm text-white">จัดการแพ็กเกจของคุณ</h4>
+                    <p class="text-xs text-blue-200">ตรวจสอบยอดคงเหลือและประวัติการใช้บริการ</p>
                 </div>
             </div>
             <div class="flex items-center gap-3 p-4 bg-white/5 rounded-md border border-white/10 backdrop-blur-sm transition-all hover:bg-white/10">
@@ -175,8 +175,8 @@ watch(session, async (newSession) => {
             <!-- Mobile benefit summary -->
             <div class="lg:hidden mb-6 p-4 bg-blue-50 dark:bg-blue-950/30 rounded-md border border-blue-200 dark:border-blue-800">
               <div class="flex items-center gap-2 text-sm font-medium text-blue-800 dark:text-blue-200">
-                <UIcon name="i-lucide-badge-check" class="w-4 h-4 text-primary flex-shrink-0" />
-                สะสมแต้มและส่วนลดพิเศษสำหรับแพ็กเกจ
+                <UIcon name="i-lucide-package" class="w-4 h-4 text-primary flex-shrink-0" />
+                จัดการแพ็กเกจและประวัติการใช้งาน
               </div>
               <div class="flex items-center gap-2 text-sm font-medium text-blue-800 dark:text-blue-200 mt-2">
                 <UIcon name="i-lucide-bell" class="w-4 h-4 text-emerald-500 flex-shrink-0" />
