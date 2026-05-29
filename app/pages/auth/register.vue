@@ -4,7 +4,17 @@ const notify = useNotify();
 
 definePageMeta({ layout: false });
 
-const { register, redirectByRole } = useUser();
+const { register, redirectByRole, loginWithLine } = useUser();
+
+async function handleLineLogin() {
+    loading.value = true;
+    try {
+        await loginWithLine();
+    } catch (error: any) {
+        notify.error(error.message || "เข้าสู่ระบบด้วย LINE ไม่สำเร็จ");
+        loading.value = false;
+    }
+}
 
 const sessionRef = authClient.useSession();
 const session = computed(() => sessionRef.value.data);
@@ -71,7 +81,7 @@ watch(session, async (newSession) => {
       
       <!-- Top: Logo -->
       <div class="relative z-10 flex items-center gap-3">
-        <div class="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center border border-white/20 backdrop-blur-sm">
+        <div class="w-10 h-10 rounded-md bg-white/10 flex items-center justify-center border border-white/20 backdrop-blur-sm">
           <UIcon name="i-lucide-washing-machine" class="w-6 h-6 text-white" />
         </div>
         <div>
@@ -94,7 +104,7 @@ watch(session, async (newSession) => {
 
         <!-- Feature List -->
          <div class="space-y-4">
-            <div class="flex items-center gap-3 p-4 bg-white/5 rounded-2xl border border-white/10 backdrop-blur-sm transition-all hover:bg-white/10">
+            <div class="flex items-center gap-3 p-4 bg-white/5 rounded-md border border-white/10 backdrop-blur-sm transition-all hover:bg-white/10">
                 <div class="w-10 h-10 rounded-full bg-primary-500/20 flex items-center justify-center shadow-inner">
                     <UIcon name="i-lucide-badge-check" class="w-6 h-6 text-primary-300" />
                 </div>
@@ -103,7 +113,7 @@ watch(session, async (newSession) => {
                     <p class="text-xs text-blue-200">สะสมแต้มและส่วนลดพิเศษสำหรับแพ็กเกจ</p>
                 </div>
             </div>
-            <div class="flex items-center gap-3 p-4 bg-white/5 rounded-2xl border border-white/10 backdrop-blur-sm transition-all hover:bg-white/10">
+            <div class="flex items-center gap-3 p-4 bg-white/5 rounded-md border border-white/10 backdrop-blur-sm transition-all hover:bg-white/10">
                 <div class="w-10 h-10 rounded-full bg-emerald-500/20 flex items-center justify-center shadow-inner">
                     <UIcon name="i-lucide-bell" class="w-6 h-6 text-emerald-300" />
                 </div>
@@ -160,6 +170,30 @@ watch(session, async (newSession) => {
             <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-2">สมัครสมาชิก</h1>
             <p class="text-gray-500 dark:text-gray-400 text-sm">สร้างบัญชีผู้ใช้ใหม่เพื่อเริ่มใช้บริการและจัดการออเดอร์</p>
           </div>
+
+          <!-- Mobile benefit summary -->
+          <div class="lg:hidden mb-6 p-4 bg-blue-50 dark:bg-blue-950/30 rounded-md border border-blue-200 dark:border-blue-800">
+            <div class="flex items-center gap-2 text-sm font-medium text-blue-800 dark:text-blue-200">
+              <UIcon name="i-lucide-badge-check" class="w-4 h-4 text-primary flex-shrink-0" />
+              สะสมแต้มและส่วนลดพิเศษสำหรับแพ็กเกจ
+            </div>
+            <div class="flex items-center gap-2 text-sm font-medium text-blue-800 dark:text-blue-200 mt-2">
+              <UIcon name="i-lucide-bell" class="w-4 h-4 text-emerald-500 flex-shrink-0" />
+              แจ้งเตือนสถานะผ้าแบบเรียลไทม์ผ่าน LINE
+            </div>
+          </div>
+
+          <!-- LINE Register Button -->
+          <UButton 
+            block 
+            size="xl" 
+            class="mb-6 font-bold text-[15px] bg-[#00B900] hover:bg-[#009900] dark:bg-[#00B900] dark:hover:bg-[#009900] text-white transition-all shadow-sm" 
+            @click="handleLineLogin"
+          >
+            <UIcon name="i-simple-icons-line" class="w-5 h-5 mr-1" />
+            ลงทะเบียนด้วย LINE
+          </UButton>
+          <UDivider label="หรือ" class="mb-6" :ui="{ label: 'text-gray-400 dark:text-gray-500 text-xs' }" />
 
           <UForm :state="form" class="space-y-4" @submit="handleSignUp">
             

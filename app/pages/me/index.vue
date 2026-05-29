@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { sub } from "date-fns";
 import type { Period, Range } from "~~/shared/types/dashboard";
+import { adminDashboardBodyClass, adminMetricCardClass } from "~~/shared/config/adminUi";
 
 definePageMeta({
   layout: "user",
@@ -15,6 +16,7 @@ const period = ref<Period>("daily");
 
 const { user } = useUser();
 
+const showEmailBanner = ref(true);
 const isRefreshing = ref(false);
 const handleRefresh = async () => {
   isRefreshing.value = true;
@@ -62,24 +64,27 @@ const handleRefresh = async () => {
     </template>
 
       <template #body>
-        <div class="flex flex-col gap-4 p-4 sm:gap-6 sm:p-6">
+        <div :class="adminDashboardBodyClass">
           <!-- Email Verification Banner (Phase 3) -->
-          <div v-if="user && !user.emailVerified" class="mb-4">
-            <UAlert
-              color="warning"
-              variant="subtle"
-              icon="i-lucide-mail-warning"
-              title="ยังไม่ได้ยืนยันอีเมล"
-              description="ยืนยันอีเมลของคุณเพื่อรับใบเสร็จและการแจ้งเตือนทางอีเมล"
-              :actions="[{
-                label: 'ไปยืนยันอีเมล',
-                to: '/me/settings/profile',
-                color: 'warning',
-                variant: 'solid',
-              }]"
-              close
-            />
-          </div>
+          <ClientOnly>
+            <div v-if="user && !user.emailVerified && showEmailBanner" class="mb-4">
+              <UAlert
+                color="warning"
+                variant="subtle"
+                icon="i-lucide-mail-warning"
+                title="ยังไม่ได้ยืนยันอีเมล"
+                description="ยืนยันอีเมลของคุณเพื่อรับใบเสร็จและการแจ้งเตือนทางอีเมล"
+                :actions="[{
+                  label: 'ไปยืนยันอีเมล',
+                  to: '/me/settings/profile',
+                  color: 'warning',
+                  variant: 'solid',
+                }]"
+                close
+                @close="showEmailBanner = false"
+              />
+            </div>
+          </ClientOnly>
 
           <!-- Membership Card (Member เท่านั้น) -->
           <MeDashboardMembershipCard />
@@ -99,7 +104,7 @@ const handleRefresh = async () => {
                     leading: 'p-2.5 rounded-full bg-primary/10 ring ring-inset ring-primary/25 flex-col',
                     title: 'font-normal text-muted text-xs',
                   }"
-                  class="lg:rounded-none first:rounded-l-lg last:rounded-r-lg"
+                  :class="[adminMetricCardClass, 'admin-dashboard-card']"
                 >
                   <template #leading>
                     <div class="p-2.5 rounded-full bg-elevated animate-pulse size-10" />

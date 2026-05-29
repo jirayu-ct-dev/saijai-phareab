@@ -37,26 +37,32 @@ const columns: TableColumn<any>[] = [
 <template>
   <UDashboardPage>
     <UDashboardPanel grow>
-      <UDashboardNavbar title="รายการออเดอร์">
-        <template #leading>
-          <UDashboardSidebarCollapse />
-        </template>
-        <template #right>
-          <UButton icon="i-lucide-refresh-cw" :loading="pending" variant="ghost" color="neutral" @click="() => refresh()" />
-        </template>
-      </UDashboardNavbar>
+      <template #header>
+        <UDashboardNavbar title="รายการออเดอร์ของฉัน">
+          <template #leading>
+            <UDashboardSidebarCollapse />
+          </template>
+          <template #right>
+            <UButton icon="i-lucide-refresh-cw" :loading="pending" variant="ghost" color="neutral" @click="() => refresh()" />
+          </template>
+        </UDashboardNavbar>
+      </template>
 
-      <UDashboardToolbar :class="adminFilterBarClass">
-        <template #left>
-          <USelect
-            v-model="status"
-            :items="statusOptions"
-            class="w-48"
-          />
-        </template>
-      </UDashboardToolbar>
+      <template #body>
+        <div :class="adminUi.adminDashboardBodyClass">
+          <section class="flex flex-col gap-1">
+            <UDashboardToolbar :class="adminFilterBarClass">
+              <template #left>
+                <USelect
+                  v-model="status"
+                  :items="statusOptions"
+                  class="w-48"
+                />
+              </template>
+            </UDashboardToolbar>
+            <p class="text-sm text-muted px-2 pb-2">รายการทั้งหมด: {{ meta.total }} รายการ</p>
 
-      <!-- Mobile View -->
+            <!-- Mobile View -->
       <div class="md:hidden space-y-2 p-2">
         <div v-for="order in orders" :key="order.id" :class="adminMobileListCardClass" class="p-3">
           <div class="flex justify-between items-start mb-2">
@@ -142,6 +148,9 @@ const columns: TableColumn<any>[] = [
           show-edges
         />
       </div>
+          </section>
+        </div>
+      </template>
     </UDashboardPanel>
   </UDashboardPage>
 </template>

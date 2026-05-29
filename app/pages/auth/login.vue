@@ -77,7 +77,7 @@ onMounted(async () => {
       
       <!-- Top: Logo -->
       <div class="relative z-10 flex items-center gap-3">
-        <div class="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center border border-white/20 backdrop-blur-sm">
+        <div class="w-10 h-10 rounded-md bg-white/10 flex items-center justify-center border border-white/20 backdrop-blur-sm">
           <UIcon name="i-lucide-washing-machine" class="w-6 h-6 text-white" />
         </div>
         <div>
@@ -100,7 +100,7 @@ onMounted(async () => {
 
         <!-- LINE Mockup -->
         <div class="relative w-full max-w-sm opacity-95">
-          <div class="relative bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl shadow-2xl overflow-hidden">
+          <div class="relative bg-white/10 backdrop-blur-md border border-white/20 rounded-md shadow-2xl overflow-hidden">
             <div class="p-4">
               <div class="flex items-center gap-3 pb-3 mb-3 border-b border-white/10">
                 <div class="w-10 h-10 rounded-full bg-gradient-to-br from-[#06C755] to-[#04a045] text-white flex items-center justify-center font-bold text-sm shrink-0 shadow ring-2 ring-white/20">
@@ -115,7 +115,7 @@ onMounted(async () => {
                 </div>
               </div>
               
-              <div class="bg-white/95 dark:bg-gray-800 rounded-xl rounded-tl-sm p-3 mb-3">
+              <div class="bg-white/95 dark:bg-gray-800 rounded-md rounded-tl-sm p-3 mb-3">
                 <div class="font-semibold flex items-center gap-1.5 mb-2 text-gray-900 dark:text-white text-[12px]">
                   <span class="w-2 h-2 rounded-full bg-amber-500" />
                   กำลังซัก...
@@ -132,7 +132,7 @@ onMounted(async () => {
                 </div>
               </div>
 
-              <div class="bg-white/95 dark:bg-gray-800 rounded-xl rounded-tl-sm p-3">
+              <div class="bg-white/95 dark:bg-gray-800 rounded-md rounded-tl-sm p-3">
                 <div class="font-semibold flex items-center gap-1.5 mb-1.5 text-gray-900 dark:text-white text-[12px]">
                   <span class="w-2 h-2 rounded-full bg-emerald-500" />
                   พร้อมส่ง 🛵
@@ -189,17 +189,19 @@ onMounted(async () => {
           </div>
 
           <!-- LINE Button -->
-          <UButton 
-            block 
-            size="xl" 
-            class="mb-6 font-bold text-[15px] bg-[#00B900] hover:bg-[#009900] dark:bg-[#00B900] dark:hover:bg-[#009900] text-white transition-all shadow-sm" 
-            @click="handleLineLogin"
-          >
-            <UIcon name="i-ph-chat-circle-fill" class="w-5 h-5 mr-1" />
-            เข้าสู่ระบบด้วย LINE
-          </UButton>
+          <ClientOnly>
+            <UButton 
+              block 
+              size="xl" 
+              class="mb-6 font-bold text-[15px] bg-[#00B900] hover:bg-[#009900] dark:bg-[#00B900] dark:hover:bg-[#009900] text-white transition-all shadow-sm" 
+              @click="handleLineLogin"
+            >
+              <UIcon name="i-simple-icons-line" class="w-5 h-5 mr-1" />
+              เข้าสู่ระบบด้วย LINE
+            </UButton>
 
-          <UDivider label="หรือ" class="mb-6" :ui="{ label: 'text-gray-400 dark:text-gray-500 text-xs' }" />
+            <UDivider label="หรือ" class="mb-6" :ui="{ label: 'text-gray-400 dark:text-gray-500 text-xs' }" />
+          </ClientOnly>
 
           <UForm :state="form" class="space-y-5" @submit="handleSignIn">
             
@@ -221,12 +223,7 @@ onMounted(async () => {
 
             <UFormField name="password" required>
               <template #label>
-                <div class="flex justify-between items-center w-full">
-                  <span class="text-sm font-medium text-gray-700 dark:text-gray-200">รหัสผ่าน</span>
-                  <NuxtLink to="/auth/forgot-password" class="text-xs text-primary font-semibold hover:underline">
-                    ลืมรหัสผ่าน?
-                  </NuxtLink>
-                </div>
+                <span class="text-sm font-medium text-gray-700 dark:text-gray-200">รหัสผ่าน</span>
               </template>
               <UInput 
                 v-model="form.password" 
@@ -250,6 +247,10 @@ onMounted(async () => {
                 </template>
               </UInput>
             </UFormField>
+
+            <div class="flex justify-end mt-1">
+              <NuxtLink to="/auth/forgot-password" class="text-xs text-primary font-semibold hover:underline">ลืมรหัสผ่าน?</NuxtLink>
+            </div>
 
             <div class="flex items-center mt-4 mb-8">
               <UCheckbox v-model="rememberMe" label="จดจำการเข้าสู่ระบบของฉันบนอุปกรณ์นี้" :ui="{ label: 'text-sm text-gray-600 dark:text-gray-300' }" />

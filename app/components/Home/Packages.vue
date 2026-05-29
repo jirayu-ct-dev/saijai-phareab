@@ -35,7 +35,7 @@ const getPackageLabel = (index: number) => {
 
       <!-- Main Packages Grid -->
       <div v-if="pending" class="grid grid-cols-1 md:grid-cols-3 gap-8 mb-16">
-        <UCard v-for="i in 3" :key="i" class="h-[600px] animate-pulse rounded-[32px] bg-gray-100 dark:bg-gray-900/50 border-gray-200 dark:border-gray-800" />
+        <UCard v-for="i in 3" :key="i" class="h-[600px] animate-pulse rounded-md bg-gray-100 dark:bg-gray-900/50 border-gray-200 dark:border-gray-800" />
       </div>
 
       <div v-else-if="error" class="text-center py-12 text-red-400">
@@ -46,7 +46,7 @@ const getPackageLabel = (index: number) => {
         <div
           v-for="(pkg, index) in mainPackages"
           :key="pkg.id"
-          class="relative flex flex-col bg-white dark:bg-[#0f172a] rounded-[32px] transition-all duration-500 border h-full group"
+          class="relative flex flex-col bg-white dark:bg-[#0f172a] rounded-md transition-all duration-500 border h-full group"
           :class="[
             index === 1
               ? 'border-blue-600 shadow-[0_0_40px_-10px_rgba(37,99,235,0.3)] scale-[1.02] z-10'
@@ -109,10 +109,10 @@ const getPackageLabel = (index: number) => {
         <div
           v-for="addon in addonPackages"
           :key="addon.id"
-          class="bg-white dark:bg-[#0f172a] border border-gray-200 dark:border-gray-800 rounded-[24px] p-6 md:p-8 flex flex-col md:flex-row items-center justify-between gap-8 shadow-sm hover:border-gray-300 dark:hover:border-gray-700 transition-colors"
+          class="bg-white dark:bg-[#0f172a] border border-gray-200 dark:border-gray-800 rounded-md p-6 md:p-8 flex flex-col md:flex-row items-center justify-between gap-8 shadow-sm hover:border-gray-300 dark:hover:border-gray-700 transition-colors"
         >
           <div class="flex items-center gap-6 flex-1 w-full md:w-auto">
-            <div class="w-14 h-14 bg-gray-50 dark:bg-gray-800 rounded-2xl flex items-center justify-center shadow-sm shrink-0 border border-gray-100 dark:border-gray-800">
+            <div class="w-14 h-14 bg-gray-50 dark:bg-gray-800 rounded-md flex items-center justify-center shadow-sm shrink-0 border border-gray-100 dark:border-gray-800">
               <UIcon name="i-lucide-truck" class="w-7 h-7 text-blue-600 dark:text-blue-400" />
             </div>
             <div>
@@ -153,9 +153,9 @@ const getPackageLabel = (index: number) => {
       </div>
 
       <!-- Delivery Package Static Card (fallback หาก API ไม่มี addon) -->
-      <div v-else-if="!pending" class="bg-white dark:bg-[#0f172a] border border-gray-200 dark:border-gray-800 rounded-[24px] p-6 md:p-8 flex flex-col md:flex-row items-center justify-between gap-8 shadow-sm">
+      <div v-else-if="!pending" class="bg-white dark:bg-[#0f172a] border border-gray-200 dark:border-gray-800 rounded-md p-6 md:p-8 flex flex-col md:flex-row items-center justify-between gap-8 shadow-sm">
         <div class="flex items-center gap-6 flex-1 w-full md:w-auto">
-          <div class="w-14 h-14 bg-gray-50 dark:bg-gray-800 rounded-2xl flex items-center justify-center shadow-sm shrink-0 border border-gray-100 dark:border-gray-800">
+          <div class="w-14 h-14 bg-gray-50 dark:bg-gray-800 rounded-md flex items-center justify-center shadow-sm shrink-0 border border-gray-100 dark:border-gray-800">
             <UIcon name="i-lucide-truck" class="w-7 h-7 text-blue-600 dark:text-blue-400" />
           </div>
           <div>

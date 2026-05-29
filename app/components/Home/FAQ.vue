@@ -37,7 +37,7 @@ const items = [
             size="xl" 
             color="primary" 
             variant="outline" 
-            class="font-bold rounded-xl px-8 bg-white dark:bg-gray-900"
+          class="font-bold rounded-md px-8 bg-white dark:bg-gray-900"
             to="#contact"
           >
             สอบถามเพิ่มเติม
@@ -46,32 +46,14 @@ const items = [
 
         <!-- Right Column - Accordion -->
         <div class="lg:col-span-7">
-          <div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-3xl p-2 sm:p-4 shadow-sm">
+          <div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-md p-2 sm:p-4 shadow-sm">
             <UAccordion 
               :items="items" 
               multiple
               variant="ghost"
               size="xl"
               class="w-full"
-            >
-              <template #default="{ item, index, open }">
-                <UButton
-                  color="neutral"
-                  variant="ghost"
-                  class="w-full justify-between py-5 px-4 text-left border-b border-gray-100 dark:border-gray-800 last:border-0 transition-colors rounded-none"
-                  :class="[open ? 'text-primary-600 dark:text-primary-400' : 'text-gray-900 dark:text-white hover:bg-gray-50 dark:hover:bg-gray-800/50']"
-                >
-                  <span class="text-base font-semibold">{{ item.label }}</span>
-                  <template #trailing>
-                    <UIcon
-                      name="i-lucide-chevron-down"
-                      class="w-5 h-5 ms-auto transform transition-transform duration-200"
-                      :class="[open ? 'rotate-180' : '']"
-                    />
-                  </template>
-                </UButton>
-              </template>
-            </UAccordion>
+            />
           </div>
         </div>
 

@@ -26,16 +26,23 @@ const columns: TableColumn<any>[] = [
 <template>
   <UDashboardPage>
     <UDashboardPanel grow>
-      <UDashboardNavbar title="รายการใบเสร็จ">
-        <template #leading>
-          <UDashboardSidebarCollapse />
-        </template>
-        <template #right>
-          <UButton icon="i-lucide-refresh-cw" :loading="pending" variant="ghost" color="neutral" @click="() => refresh()" />
-        </template>
-      </UDashboardNavbar>
+      <template #header>
+        <UDashboardNavbar title="รายการใบเสร็จ">
+          <template #leading>
+            <UDashboardSidebarCollapse />
+          </template>
+          <template #right>
+            <UButton icon="i-lucide-refresh-cw" :loading="pending" variant="ghost" color="neutral" @click="() => refresh()" />
+          </template>
+        </UDashboardNavbar>
+      </template>
 
-      <!-- Mobile View -->
+      <template #body>
+        <div :class="adminUi.adminDashboardBodyClass">
+          <section class="flex flex-col gap-1">
+            <p class="text-sm text-muted px-2 pb-2">รายการทั้งหมด: {{ total }} รายการ</p>
+
+            <!-- Mobile View -->
       <div class="md:hidden space-y-2 p-2">
         <div v-for="receipt in receipts" :key="receipt.id" :class="adminMobileListCardClass" class="p-3">
           <div class="flex justify-between items-start mb-2">
@@ -121,6 +128,9 @@ const columns: TableColumn<any>[] = [
           show-edges
         />
       </div>
+          </section>
+        </div>
+      </template>
     </UDashboardPanel>
   </UDashboardPage>
 </template>

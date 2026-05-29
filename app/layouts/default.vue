@@ -137,6 +137,7 @@ const itemsDropdown = computed<DropdownMenuItem[][]>(() => {
             <UNavigationMenu :items="menu" orientation="vertical" class="-mx-2.5" />
             <USeparator class="my-4" />
             <UIButtonAddFriendLine :addLineFriend="addLineFriend" class="w-full" />
+            <UColorModeButton />
             <div v-if="!session" class="mt-4 flex flex-col gap-2">
                 <UButton block color="neutral" variant="outline" to="/auth/login" label="ลงชื่อเข้าใช้" />
                 <UButton block color="primary" variant="solid" to="/auth/register" label="สมัครสมาชิก" />

@@ -47,19 +47,23 @@ const statusLabels: Record<string, string> = {
 <template>
   <UDashboardPage>
     <UDashboardPanel grow>
-      <UDashboardNavbar title="ประวัติการใช้เครดิต">
-        <template #leading>
-          <UDashboardSidebarCollapse />
-        </template>
-        <template #right>
-          <div class="flex items-center gap-2">
-            <UButton icon="i-lucide-refresh-cw" :loading="pending" variant="ghost" color="neutral" @click="() => refresh()" />
-            <UButton color="neutral" variant="ghost" to="/me/membership" icon="i-lucide-arrow-left">กลับ</UButton>
-          </div>
-        </template>
-      </UDashboardNavbar>
+      <template #header>
+        <UDashboardNavbar title="ประวัติการใช้เครดิต">
+          <template #leading>
+            <UDashboardSidebarCollapse />
+          </template>
+          <template #right>
+            <div class="flex items-center gap-2">
+              <UButton icon="i-lucide-refresh-cw" :loading="pending" variant="ghost" color="neutral" @click="() => refresh()" />
+              <UButton color="neutral" variant="ghost" to="/me/membership" icon="i-lucide-arrow-left">กลับ</UButton>
+            </div>
+          </template>
+        </UDashboardNavbar>
+      </template>
 
-      <div class="p-6 space-y-6">
+      <template #body>
+        <div :class="adminUi.adminDashboardBodyClass">
+          <section class="flex flex-col gap-3">
         <div class="flex items-center gap-4">
           <span class="text-sm font-medium text-muted">เลือกแพ็กเกจ:</span>
           <USelectMenu
@@ -164,8 +168,9 @@ const statusLabels: Record<string, string> = {
               </div>
             </template>
           </UTable>
+          </section>
         </div>
-      </div>
+      </template>
     </UDashboardPanel>
   </UDashboardPage>
 </template>

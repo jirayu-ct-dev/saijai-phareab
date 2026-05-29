@@ -29,9 +29,7 @@ const links = [
     </template>
 
     <template #body>
-      <div class="mx-auto flex w-full flex-col gap-3 lg:max-w-2xl">
-        <NuxtPage />
-      </div>
+      <NuxtPage />
     </template>
   </UDashboardPanel>
 </template>
