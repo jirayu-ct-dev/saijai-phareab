@@ -69,7 +69,7 @@ export default defineEventHandler(async (event) => {
     {
       title: "ออเดอร์ทั้งหมด",
       icon: "i-lucide-shopping-basket",
-      to: "/me/orders",
+      to: "/me/service-orders",
       value: currentTotal,
       variation: calcVariation(currentTotal, prevTotal),
       isCurrency: false,
@@ -77,7 +77,7 @@ export default defineEventHandler(async (event) => {
     {
       title: "กำลังดำเนินการ",
       icon: "i-lucide-loader",
-      to: "/me/orders",
+      to: "/me/service-orders",
       value: currentActive,
       variation: calcVariation(currentActive, prevActive),
       isCurrency: false,
@@ -85,7 +85,7 @@ export default defineEventHandler(async (event) => {
     {
       title: "เสร็จสิ้น",
       icon: "i-lucide-check-circle",
-      to: "/me/orders",
+      to: "/me/service-orders",
       value: currentCompleted,
       variation: calcVariation(currentCompleted, prevCompleted),
       isCurrency: false,

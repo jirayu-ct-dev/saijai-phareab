@@ -45,7 +45,7 @@ const statusLabels: Record<string, string> = {
 </script>
 
 <template>
-  <UDashboardPage>
+  <div class="flex-1 flex flex-col min-h-0">
     <UDashboardPanel grow>
       <template #header>
         <UDashboardNavbar title="ประวัติการใช้เครดิต">
@@ -121,7 +121,7 @@ const statusLabels: Record<string, string> = {
               <div class="text-sm text-muted">
                 <p>วันที่: {{ formatDateTime(usage.receivedAt) }}</p>
                 <p>ออเดอร์: 
-                  <NuxtLink :to="`/me/orders/${usage.orderId}`" class="text-primary hover:underline">
+                  <NuxtLink :to="`/me/service-orders/${usage.orderId}`" class="text-primary hover:underline">
                     {{ usage.orderNo || '-' }}
                   </NuxtLink>
                 </p>
@@ -149,7 +149,7 @@ const statusLabels: Record<string, string> = {
             </template>
             
             <template #orderNo-cell="{ row }">
-              <NuxtLink :to="`/me/orders/${row.original.orderId}`" class="text-primary hover:underline font-medium">
+              <NuxtLink :to="`/me/service-orders/${row.original.orderId}`" class="text-primary hover:underline font-medium">
                 {{ row.original.orderNo || '-' }}
               </NuxtLink>
             </template>
@@ -173,5 +173,5 @@ const statusLabels: Record<string, string> = {
     </div>
   </template>
     </UDashboardPanel>
-  </UDashboardPage>
+  </div>
 </template>

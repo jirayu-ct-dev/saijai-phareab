@@ -53,7 +53,14 @@ const items = [
               variant="ghost"
               size="xl"
               class="w-full"
-            />
+            >
+              <template #trailing="{ open }">
+                <UIcon 
+                  :name="open ? 'i-lucide-chevron-up' : 'i-lucide-chevron-down'" 
+                  class="w-5 h-5 text-gray-500 transition-transform duration-200" 
+                />
+              </template>
+            </UAccordion>
           </div>
         </div>
 

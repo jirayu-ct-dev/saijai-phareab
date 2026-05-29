@@ -22,7 +22,7 @@ const menu = computed<any[][]>(() => {
     {
       label: "รายการออเดอร์",
       icon: "i-lucide-shopping-basket",
-      to: "/me/orders",
+      to: "/me/service-orders",
       onSelect: closeSidebar,
     },
     {

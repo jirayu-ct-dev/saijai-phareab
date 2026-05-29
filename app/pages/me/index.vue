@@ -29,8 +29,8 @@ const handleRefresh = async () => {
 </script>
 
 <template>
-  <UDashboardPage>
-    <UDashboardPanel id="me-home">
+  <div class="flex-1 flex flex-col min-h-0">
+    <UDashboardPanel id="me-home" grow>
       <template #header>
         <UDashboardNavbar title="แดชบอร์ด" :ui="{ right: 'gap-3' }">
           <template #leading>
@@ -67,8 +67,10 @@ const handleRefresh = async () => {
         <div :class="adminDashboardBodyClass">
           <!-- Email Verification Banner (Phase 3) -->
           <ClientOnly>
-            <div v-if="user && !user.emailVerified && showEmailBanner" class="mb-4">
+            <div class="mb-4">
               <UAlert
+                v-model:open="showEmailBanner"
+                v-if="user && !user.emailVerified"
                 color="warning"
                 variant="subtle"
                 icon="i-lucide-mail-warning"
@@ -81,7 +83,6 @@ const handleRefresh = async () => {
                   variant: 'solid',
                 }]"
                 close
-                @close="showEmailBanner = false"
               />
             </div>
           </ClientOnly>
@@ -141,5 +142,5 @@ const handleRefresh = async () => {
         </div>
       </template>
     </UDashboardPanel>
-  </UDashboardPage>
+  </div>
 </template>

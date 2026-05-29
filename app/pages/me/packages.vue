@@ -17,7 +17,7 @@ const addonPackages = computed(() => packages.value?.filter((p: any) => p.packag
 </script>
 
 <template>
-  <UDashboardPage>
+  <div class="flex-1 flex flex-col min-h-0">
     <UDashboardPanel grow>
       <template #header>
         <UDashboardNavbar title="แพ็กเกจบริการ">
@@ -46,28 +46,28 @@ const addonPackages = computed(() => packages.value?.filter((p: any) => p.packag
             </p>
           </div>
 
-          <!-- Loading State Redesign -->
-          <div v-if="pending" class="space-y-12">
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
-              <UCard v-for="i in 3" :key="i" class="border border-default/30 dark:border-default/20 bg-default/40 backdrop-blur-md">
-                <template #header>
-                  <USkeleton class="h-6 w-1/2 mb-2" />
-                  <USkeleton class="h-4 w-full" />
-                </template>
-                <USkeleton class="h-10 w-1/3 mb-6" />
-                <div class="space-y-4">
-                  <div v-for="j in 3" :key="j" class="flex items-center gap-3">
-                    <USkeleton class="w-5 h-5 rounded-full" />
-                    <USkeleton class="h-4 w-3/4" />
-                  </div>
-                </div>
-              </UCard>
-            </div>
-          </div>
-
-          <!-- Content Grid -->
           <ClientOnly>
-            <div v-if="!pending" class="space-y-20">
+            <!-- Loading State Redesign -->
+            <div v-if="pending" class="space-y-12">
+              <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+                <UCard v-for="i in 3" :key="i" class="border border-default/30 dark:border-default/20 bg-default/40 backdrop-blur-md">
+                  <template #header>
+                    <USkeleton class="h-6 w-1/2 mb-2" />
+                    <USkeleton class="h-4 w-full" />
+                  </template>
+                  <USkeleton class="h-10 w-1/3 mb-6" />
+                  <div class="space-y-4">
+                    <div v-for="j in 3" :key="j" class="flex items-center gap-3">
+                      <USkeleton class="w-5 h-5 rounded-full" />
+                      <USkeleton class="h-4 w-3/4" />
+                    </div>
+                  </div>
+                </UCard>
+              </div>
+            </div>
+
+            <!-- Content Grid -->
+            <div v-else class="space-y-20">
               <!-- Main Packages Redesign -->
               <div v-if="mainPackages.length > 0" class="space-y-8">
                 <div class="flex flex-col sm:flex-row items-center gap-3 justify-between border-b border-slate-200/50 dark:border-slate-800/50 pb-4">
@@ -226,5 +226,5 @@ const addonPackages = computed(() => packages.value?.filter((p: any) => p.packag
         </div>
       </template>
     </UDashboardPanel>
-  </UDashboardPage>
+  </div>
 </template>

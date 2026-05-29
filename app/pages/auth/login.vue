@@ -158,38 +158,17 @@ onMounted(async () => {
     <!-- RIGHT PANEL: Login Form -->
     <div class="flex-1 flex flex-col relative bg-white dark:bg-gray-900">
       
-      <!-- Top left nav -->
-      <div class="absolute top-8 left-8 sm:left-12">
-        <UButton 
-          to="/" 
-          variant="ghost" 
-          color="neutral" 
-          icon="i-lucide-arrow-left" 
-          class="text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white"
-        >
-          กลับหน้าหลัก
-        </UButton>
-      </div>
-
-      <!-- Top right nav -->
-      <div class="hidden sm:block absolute top-8 right-8 text-sm text-gray-500 dark:text-gray-400">
-        ยังไม่มีบัญชี?
-        <NuxtLink to="/auth/register" class="text-primary font-bold hover:underline ml-1">
-          สมัครสมาชิก
-        </NuxtLink>
-      </div>
-
-      <!-- Form Container -->
+      <!--      <!-- Form Container -->
       <div class="flex-1 flex items-center justify-center p-6 sm:p-12">
-        <div class="w-full max-w-[400px]">
-          
-          <div class="mb-10">
-            <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-2">เข้าสู่ระบบ</h1>
-            <p class="text-gray-500 dark:text-gray-400 text-sm">ใช้บัญชีของคุณเพื่อจัดการบริการ และดูสถานะผ้าทุกผืน</p>
-          </div>
+        <ClientOnly>
+          <div class="w-full max-w-[400px]">
+            
+            <div class="mb-10">
+              <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-2">เข้าสู่ระบบ</h1>
+              <p class="text-gray-500 dark:text-gray-400 text-sm">ใช้บัญชีของคุณเพื่อจัดการบริการ และดูสถานะผ้าทุกผืน</p>
+            </div>
 
-          <!-- LINE Button -->
-          <ClientOnly>
+            <!-- LINE Button -->
             <UButton 
               block 
               size="xl" 
@@ -200,88 +179,93 @@ onMounted(async () => {
               เข้าสู่ระบบด้วย LINE
             </UButton>
 
-            <UDivider label="หรือ" class="mb-6" :ui="{ label: 'text-gray-400 dark:text-gray-500 text-xs' }" />
-          </ClientOnly>
+            <USeparator label="หรือ" class="mb-6" :ui="{ label: 'text-gray-400 dark:text-gray-500 text-xs' }" />
 
-          <UForm :state="form" class="space-y-5" @submit="handleSignIn">
-            
-            <UFormField name="email" required>
-              <template #label>
-                <span class="text-sm font-medium text-gray-700 dark:text-gray-200">อีเมล</span>
-              </template>
-              <UInput 
-                v-model="form.email" 
-                type="email" 
-                placeholder="you@example.com" 
-                autocomplete="email" 
-                icon="i-lucide-mail" 
-                size="lg" 
-                class="w-full mt-1.5" 
-                required
-              />
-            </UFormField>
-
-            <UFormField name="password" required>
-              <template #label>
-                <span class="text-sm font-medium text-gray-700 dark:text-gray-200">รหัสผ่าน</span>
-              </template>
-              <UInput 
-                v-model="form.password" 
-                :type="showPassword ? 'text' : 'password'" 
-                placeholder="••••••••" 
-                autocomplete="current-password" 
-                icon="i-lucide-lock" 
-                size="lg" 
-                class="w-full mt-1.5" 
-                required
-              >
-                <template #trailing>
-                  <UButton
-                    color="neutral"
-                    variant="link"
-                    :icon="showPassword ? 'i-lucide-eye' : 'i-lucide-eye-off'"
-                    :padded="false"
-                    @click="showPassword = !showPassword"
-                    class="text-gray-400"
-                  />
+            <UForm :state="form" class="space-y-5" @submit="handleSignIn">
+              
+              <UFormField name="email" required>
+                <template #label>
+                  <span class="text-sm font-medium text-gray-700 dark:text-gray-200">อีเมล</span>
                 </template>
-              </UInput>
-            </UFormField>
+                <UInput 
+                  v-model="form.email" 
+                  type="email" 
+                  placeholder="you@example.com" 
+                  autocomplete="email" 
+                  icon="i-lucide-mail" 
+                  size="lg" 
+                  class="w-full mt-1.5" 
+                  required
+                />
+              </UFormField>
 
-            <div class="flex justify-end mt-1">
-              <NuxtLink to="/auth/forgot-password" class="text-xs text-primary font-semibold hover:underline">ลืมรหัสผ่าน?</NuxtLink>
+              <UFormField name="password" required>
+                <template #label>
+                  <div class="flex justify-between items-center w-full">
+                    <span class="text-sm font-medium text-gray-700 dark:text-gray-200">รหัสผ่าน</span>
+                    <NuxtLink to="/auth/forgot-password" class="text-xs text-primary font-semibold hover:underline">ลืมรหัสผ่าน?</NuxtLink>
+                  </div>
+                </template>
+                <UInput 
+                  v-model="form.password" 
+                  :type="showPassword ? 'text' : 'password'" 
+                  placeholder="••••••••" 
+                  autocomplete="current-password" 
+                  icon="i-lucide-lock" 
+                  size="lg" 
+                  class="w-full mt-1.5" 
+                  required
+                >
+                  <template #trailing>
+                    <UButton
+                      color="neutral"
+                      variant="link"
+                      :icon="showPassword ? 'i-lucide-eye' : 'i-lucide-eye-off'"
+                      :padded="false"
+                      @click="showPassword = !showPassword"
+                      class="text-gray-400"
+                    />
+                  </template>
+                </UInput>
+              </UFormField>
+
+              <div class="flex items-center mt-4 mb-8">
+                <UCheckbox v-model="rememberMe" label="จดจำการเข้าสู่ระบบของฉันบนอุปกรณ์นี้" :ui="{ label: 'text-sm text-gray-600 dark:text-gray-300' }" />
+              </div>
+
+              <UButton 
+                type="submit" 
+                block 
+                color="primary" 
+                size="xl" 
+                :loading="loading" 
+                class="font-bold text-[15px] shadow-sm"
+              >
+                เข้าสู่ระบบ
+                <template #trailing>
+                  <UIcon name="i-lucide-arrow-right" class="w-4 h-4 ml-1" />
+                </template>
+              </UButton>
+            </UForm>
+
+            <p class="text-center text-sm text-gray-600 dark:text-gray-400 mt-8 sm:hidden">
+              ยังไม่มีบัญชี?
+              <NuxtLink to="/auth/register" class="text-primary font-bold hover:underline ml-1">
+                สมัครสมาชิก
+              </NuxtLink>
+            </p>
+            <p class="text-center text-sm text-gray-600 dark:text-gray-400 mt-8 hidden sm:block">
+              ยังไม่มีบัญชี? <NuxtLink to="/auth/register" class="text-primary font-bold hover:underline ml-1">สมัครสมาชิกฟรี</NuxtLink>
+            </p>
+
+          </div>
+          <template #fallback>
+            <div class="w-full max-w-[400px] flex flex-col items-center justify-center py-12">
+              <UIcon name="i-lucide-loader-2" class="w-8 h-8 animate-spin text-primary mb-2" />
+              <p class="text-gray-500 text-sm">กำลังโหลดระบบเข้าสู่ระบบ...</p>
             </div>
-
-            <div class="flex items-center mt-4 mb-8">
-              <UCheckbox v-model="rememberMe" label="จดจำการเข้าสู่ระบบของฉันบนอุปกรณ์นี้" :ui="{ label: 'text-sm text-gray-600 dark:text-gray-300' }" />
-            </div>
-
-            <UButton 
-              type="submit" 
-              block 
-              color="primary" 
-              size="xl" 
-              :loading="loading" 
-              class="font-bold text-[15px] shadow-sm"
-            >
-              เข้าสู่ระบบ
-              <template #trailing>
-                <UIcon name="i-lucide-arrow-right" class="w-4 h-4 ml-1" />
-              </template>
-            </UButton>
-          </UForm>
-
-          <p class="text-center text-sm text-gray-600 dark:text-gray-400 mt-8 sm:hidden">
-            ยังไม่มีบัญชี?
-            <NuxtLink to="/auth/register" class="text-primary font-bold hover:underline ml-1">
-              สมัครสมาชิกฟรี
-            </NuxtLink>
-          </p>
-          <p class="text-center text-sm text-gray-600 dark:text-gray-400 mt-8 hidden sm:block">
-            ยังไม่มีบัญชี? <NuxtLink to="/auth/register" class="text-primary font-bold hover:underline ml-1">สมัครสมาชิกฟรี</NuxtLink>
-          </p>
-
-        </div>
+          </template>
+        </ClientOnly>
       </div>
     </div>
   </div>

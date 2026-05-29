@@ -32,7 +32,7 @@ const items = [
 </script>
 
 <template>
-  <UDashboardPage>
+  <div class="flex-1 flex flex-col min-h-0">
     <UDashboardPanel grow>
       <template #header>
         <UDashboardNavbar title="แพ็กเกจของฉัน">
@@ -140,5 +140,5 @@ const items = [
         </div>
       </template>
     </UDashboardPanel>
-  </UDashboardPage>
+  </div>
 </template>

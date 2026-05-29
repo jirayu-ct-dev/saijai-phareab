@@ -70,7 +70,7 @@ const columns: TableColumn<RecentOrder>[] = [
       <div class="flex items-center justify-between">
         <p class="font-semibold">ออเดอร์ล่าสุด</p>
         <UButton
-          to="/me/orders"
+          to="/me/service-orders"
           variant="link"
           color="primary"
           size="sm"
@@ -92,7 +92,7 @@ const columns: TableColumn<RecentOrder>[] = [
         th: 'first:rounded-l-lg last:rounded-r-lg border-y border-default first:border-l last:border-r',
         td: 'border-b border-default',
       }"
-      @select="(_e: Event, row) => router.push(`/me/orders/${row.original.id}`)"
+      @select="(_e: Event, row) => router.push(`/me/service-orders/${row.original.id}`)"
     >
       <template #empty>
         <div class="flex flex-col items-center justify-center py-8 text-muted">

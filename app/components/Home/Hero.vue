@@ -144,11 +144,6 @@ onUnmounted(() => {
             </div>
             <div class="w-px h-10 bg-gray-200 dark:bg-gray-800" />
             <div>
-              <p class="text-2xl font-bold text-gray-900 dark:text-white">48<span class="text-sm font-medium text-gray-500"> ชม.</span></p>
-              <p class="text-xs text-gray-500 mt-0.5">ส่งคืนไว</p>
-            </div>
-            <div class="w-px h-10 bg-gray-200 dark:bg-gray-800" />
-            <div>
               <p class="text-2xl font-bold text-gray-900 dark:text-white">6<span class="text-sm font-medium text-gray-500"> วัน</span></p>
               <p class="text-xs text-gray-500 mt-0.5">หยุดอาทิตย์</p>
             </div>

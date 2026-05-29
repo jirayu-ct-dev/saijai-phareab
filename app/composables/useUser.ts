@@ -19,10 +19,10 @@ export const useUser = () => {
   }));
 
   const refreshSession = async () => {
-    const { data, error } = await authClient.useSession(useFetch);
+    const { data, error } = await authClient.getSession();
 
-    if (!error.value) {
-      session.value = (data.value as SessionWithUser) ?? null;
+    if (!error) {
+      session.value = (data as SessionWithUser) ?? null;
     }
 
     return session.value;

@@ -159,169 +159,177 @@ watch(session, async (newSession) => {
 
       <!-- Form Container -->
       <div class="flex-1 flex items-center justify-center p-6 sm:p-12 overflow-y-auto">
-        <div v-if="isPending" class="text-center text-gray-500">
-            <UIcon name="i-lucide-loader-2" class="w-8 h-8 animate-spin mx-auto mb-2" />
-            <p>กำลังโหลด...</p>
-        </div>
-        
-        <div v-else class="w-full max-w-[400px] py-12 lg:py-0">
+        <ClientOnly>
+          <div v-if="isPending" class="text-center text-gray-500">
+              <UIcon name="i-lucide-loader-2" class="w-8 h-8 animate-spin mx-auto mb-2" />
+              <p>กำลังโหลด...</p>
+          </div>
           
-          <div class="mb-8 text-center lg:text-left">
-            <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-2">สมัครสมาชิก</h1>
-            <p class="text-gray-500 dark:text-gray-400 text-sm">สร้างบัญชีผู้ใช้ใหม่เพื่อเริ่มใช้บริการและจัดการออเดอร์</p>
-          </div>
-
-          <!-- Mobile benefit summary -->
-          <div class="lg:hidden mb-6 p-4 bg-blue-50 dark:bg-blue-950/30 rounded-md border border-blue-200 dark:border-blue-800">
-            <div class="flex items-center gap-2 text-sm font-medium text-blue-800 dark:text-blue-200">
-              <UIcon name="i-lucide-badge-check" class="w-4 h-4 text-primary flex-shrink-0" />
-              สะสมแต้มและส่วนลดพิเศษสำหรับแพ็กเกจ
-            </div>
-            <div class="flex items-center gap-2 text-sm font-medium text-blue-800 dark:text-blue-200 mt-2">
-              <UIcon name="i-lucide-bell" class="w-4 h-4 text-emerald-500 flex-shrink-0" />
-              แจ้งเตือนสถานะผ้าแบบเรียลไทม์ผ่าน LINE
-            </div>
-          </div>
-
-          <!-- LINE Register Button -->
-          <UButton 
-            block 
-            size="xl" 
-            class="mb-6 font-bold text-[15px] bg-[#00B900] hover:bg-[#009900] dark:bg-[#00B900] dark:hover:bg-[#009900] text-white transition-all shadow-sm" 
-            @click="handleLineLogin"
-          >
-            <UIcon name="i-simple-icons-line" class="w-5 h-5 mr-1" />
-            ลงทะเบียนด้วย LINE
-          </UButton>
-          <UDivider label="หรือ" class="mb-6" :ui="{ label: 'text-gray-400 dark:text-gray-500 text-xs' }" />
-
-          <UForm :state="form" class="space-y-4" @submit="handleSignUp">
+          <div v-else class="w-full max-w-[400px] py-12 lg:py-0">
             
-            <UFormField name="name" required>
-              <template #label>
-                <span class="text-sm font-medium text-gray-700 dark:text-gray-200">ชื่อ - นามสกุล</span>
-              </template>
-              <UInput 
-                v-model="form.name" 
-                placeholder="ระบุชื่อและนามสกุลของคุณ" 
-                icon="i-lucide-user" 
-                size="lg" 
-                class="w-full mt-1.5" 
-                required
-              />
-            </UFormField>
-
-            <UFormField name="email" required>
-              <template #label>
-                <span class="text-sm font-medium text-gray-700 dark:text-gray-200">อีเมล</span>
-              </template>
-              <UInput 
-                v-model="form.email" 
-                type="email" 
-                placeholder="you@example.com" 
-                autocomplete="email" 
-                icon="i-lucide-mail" 
-                size="lg" 
-                class="w-full mt-1.5" 
-                required
-              />
-            </UFormField>
-
-            <UFormField name="password" required>
-              <template #label>
-                <span class="text-sm font-medium text-gray-700 dark:text-gray-200">รหัสผ่าน</span>
-              </template>
-              <UInput 
-                v-model="form.password" 
-                :type="showPassword ? 'text' : 'password'" 
-                placeholder="••••••••" 
-                autocomplete="new-password" 
-                icon="i-lucide-lock" 
-                size="lg" 
-                class="w-full mt-1.5" 
-                required
-              >
-                <template #trailing>
-                  <UButton
-                    color="neutral"
-                    variant="link"
-                    :icon="showPassword ? 'i-lucide-eye' : 'i-lucide-eye-off'"
-                    :padded="false"
-                    @click="showPassword = !showPassword"
-                    class="text-gray-400"
-                  />
-                </template>
-              </UInput>
-            </UFormField>
-
-            <UFormField name="confirmPassword" required :error="form.confirmPassword && form.password !== form.confirmPassword ? 'รหัสผ่านไม่ตรงกัน' : ''">
-              <template #label>
-                <span class="text-sm font-medium text-gray-700 dark:text-gray-200">ยืนยันรหัสผ่าน</span>
-              </template>
-              <UInput 
-                v-model="form.confirmPassword" 
-                :type="showConfirmPassword ? 'text' : 'password'" 
-                placeholder="••••••••" 
-                autocomplete="new-password" 
-                icon="i-lucide-shield-check" 
-                size="lg" 
-                class="w-full mt-1.5" 
-                required
-              >
-                <template #trailing>
-                  <UButton
-                    color="neutral"
-                    variant="link"
-                    :icon="showConfirmPassword ? 'i-lucide-eye' : 'i-lucide-eye-off'"
-                    :padded="false"
-                    @click="showConfirmPassword = !showConfirmPassword"
-                    class="text-gray-400"
-                  />
-                </template>
-              </UInput>
-            </UFormField>
-
-            <!-- Terms & Privacy Checkbox -->
-            <div class="flex items-start gap-3 py-1">
-              <UCheckbox
-                v-model="acceptTerms"
-                id="accept-terms"
-                class="mt-0.5 shrink-0"
-              />
-              <label for="accept-terms" class="text-sm text-gray-600 dark:text-gray-400 cursor-pointer leading-snug">
-                ฉันยอมรับ
-                <NuxtLink to="/terms" class="text-primary font-semibold hover:underline">เงื่อนไขการใช้บริการ</NuxtLink>
-                และ
-                <NuxtLink to="/privacy" class="text-primary font-semibold hover:underline">นโยบายความเป็นส่วนตัว</NuxtLink>
-              </label>
+            <div class="mb-8 text-center lg:text-left">
+              <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-2">สมัครสมาชิก</h1>
+              <p class="text-gray-500 dark:text-gray-400 text-sm">สร้างบัญชีผู้ใช้ใหม่เพื่อเริ่มใช้บริการและจัดการออเดอร์</p>
             </div>
 
-            <div class="pt-2">
-                <UButton 
-                type="submit" 
-                block 
-                color="primary" 
-                size="xl" 
-                :loading="loading" 
-                :disabled="loading || !acceptTerms || (form.password !== form.confirmPassword && form.confirmPassword !== '')"
-                class="font-bold text-[15px] shadow-sm shadow-primary-500/20"
+            <!-- Mobile benefit summary -->
+            <div class="lg:hidden mb-6 p-4 bg-blue-50 dark:bg-blue-950/30 rounded-md border border-blue-200 dark:border-blue-800">
+              <div class="flex items-center gap-2 text-sm font-medium text-blue-800 dark:text-blue-200">
+                <UIcon name="i-lucide-badge-check" class="w-4 h-4 text-primary flex-shrink-0" />
+                สะสมแต้มและส่วนลดพิเศษสำหรับแพ็กเกจ
+              </div>
+              <div class="flex items-center gap-2 text-sm font-medium text-blue-800 dark:text-blue-200 mt-2">
+                <UIcon name="i-lucide-bell" class="w-4 h-4 text-emerald-500 flex-shrink-0" />
+                แจ้งเตือนสถานะผ้าแบบเรียลไทม์ผ่าน LINE
+              </div>
+            </div>
+
+            <!-- LINE Register Button -->
+            <UButton 
+              block 
+              size="xl" 
+              class="mb-6 font-bold text-[15px] bg-[#00B900] hover:bg-[#009900] dark:bg-[#00B900] dark:hover:bg-[#009900] text-white transition-all shadow-sm" 
+              @click="handleLineLogin"
+            >
+              <UIcon name="i-simple-icons-line" class="w-5 h-5 mr-1" />
+              ลงทะเบียนด้วย LINE
+            </UButton>
+            <USeparator label="หรือ" class="mb-6" :ui="{ label: 'text-gray-400 dark:text-gray-500 text-xs' }" />
+
+            <UForm :state="form" class="space-y-4" @submit="handleSignUp">
+              
+              <UFormField name="name" required>
+                <template #label>
+                  <span class="text-sm font-medium text-gray-700 dark:text-gray-200">ชื่อ - นามสกุล</span>
+                </template>
+                <UInput 
+                  v-model="form.name" 
+                  placeholder="ระบุชื่อและนามสกุลของคุณ" 
+                  icon="i-lucide-user" 
+                  size="lg" 
+                  class="w-full mt-1.5" 
+                  required
+                />
+              </UFormField>
+
+              <UFormField name="email" required>
+                <template #label>
+                  <span class="text-sm font-medium text-gray-700 dark:text-gray-200">อีเมล</span>
+                </template>
+                <UInput 
+                  v-model="form.email" 
+                  type="email" 
+                  placeholder="you@example.com" 
+                  autocomplete="email" 
+                  icon="i-lucide-mail" 
+                  size="lg" 
+                  class="w-full mt-1.5" 
+                  required
+                />
+              </UFormField>
+
+              <UFormField name="password" required>
+                <template #label>
+                  <span class="text-sm font-medium text-gray-700 dark:text-gray-200">รหัสผ่าน</span>
+                </template>
+                <UInput 
+                  v-model="form.password" 
+                  :type="showPassword ? 'text' : 'password'" 
+                  placeholder="••••••••" 
+                  autocomplete="new-password" 
+                  icon="i-lucide-lock" 
+                  size="lg" 
+                  class="w-full mt-1.5" 
+                  required
                 >
-                สร้างบัญชี
-                <template #trailing>
-                    <UIcon name="i-lucide-arrow-right" class="w-4 h-4 ml-1" />
+                  <template #trailing>
+                    <UButton
+                      color="neutral"
+                      variant="link"
+                      :icon="showPassword ? 'i-lucide-eye' : 'i-lucide-eye-off'"
+                      :padded="false"
+                      @click="showPassword = !showPassword"
+                      class="text-gray-400"
+                    />
+                  </template>
+                </UInput>
+              </UFormField>
+
+              <UFormField name="confirmPassword" required :error="form.confirmPassword && form.password !== form.confirmPassword ? 'รหัสผ่านไม่ตรงกัน' : ''">
+                <template #label>
+                  <span class="text-sm font-medium text-gray-700 dark:text-gray-200">ยืนยันรหัสผ่าน</span>
                 </template>
-                </UButton>
+                <UInput 
+                  v-model="form.confirmPassword" 
+                  :type="showConfirmPassword ? 'text' : 'password'" 
+                  placeholder="••••••••" 
+                  autocomplete="new-password" 
+                  icon="i-lucide-shield-check" 
+                  size="lg" 
+                  class="w-full mt-1.5" 
+                  required
+                >
+                  <template #trailing>
+                    <UButton
+                      color="neutral"
+                      variant="link"
+                      :icon="showConfirmPassword ? 'i-lucide-eye' : 'i-lucide-eye-off'"
+                      :padded="false"
+                      @click="showConfirmPassword = !showConfirmPassword"
+                      class="text-gray-400"
+                    />
+                  </template>
+                </UInput>
+              </UFormField>
+
+              <!-- Terms & Privacy Checkbox -->
+              <div class="flex items-start gap-3 py-1">
+                <UCheckbox
+                  v-model="acceptTerms"
+                  id="accept-terms"
+                  class="mt-0.5 shrink-0"
+                />
+                <label for="accept-terms" class="text-sm text-gray-600 dark:text-gray-400 cursor-pointer leading-snug">
+                  ฉันยอมรับ
+                  <NuxtLink to="/terms" class="text-primary font-semibold hover:underline">เงื่อนไขการใช้บริการ</NuxtLink>
+                  และ
+                  <NuxtLink to="/privacy" class="text-primary font-semibold hover:underline">นโยบายความเป็นส่วนตัว</NuxtLink>
+                </label>
+              </div>
+
+              <div class="pt-2">
+                  <UButton 
+                  type="submit" 
+                  block 
+                  color="primary" 
+                  size="xl" 
+                  :loading="loading" 
+                  :disabled="loading || !acceptTerms || (form.password !== form.confirmPassword && form.confirmPassword !== '')"
+                  class="font-bold text-[15px] shadow-sm shadow-primary-500/20"
+                  >
+                  สร้างบัญชี
+                  <template #trailing>
+                      <UIcon name="i-lucide-arrow-right" class="w-4 h-4 ml-1" />
+                  </template>
+                  </UButton>
+              </div>
+            </UForm>
+
+            <p class="text-center text-sm text-gray-600 dark:text-gray-400 mt-8">
+              มีบัญชีอยู่แล้ว? 
+              <NuxtLink to="/auth/login" class="text-primary font-bold hover:underline ml-1">
+                เข้าสู่ระบบที่นี่
+              </NuxtLink>
+            </p>
+
+          </div>
+          <template #fallback>
+            <div class="w-full max-w-[400px] flex flex-col items-center justify-center py-12">
+              <UIcon name="i-lucide-loader-2" class="w-8 h-8 animate-spin text-primary mb-2" />
+              <p class="text-gray-500 text-sm">กำลังโหลดระบบสมัครสมาชิก...</p>
             </div>
-          </UForm>
-
-          <p class="text-center text-sm text-gray-600 dark:text-gray-400 mt-8">
-            มีบัญชีอยู่แล้ว? 
-            <NuxtLink to="/auth/login" class="text-primary font-bold hover:underline ml-1">
-              เข้าสู่ระบบที่นี่
-            </NuxtLink>
-          </p>
-
-        </div>
+          </template>
+        </ClientOnly>
       </div>
     </div>
   </div>
