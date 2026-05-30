@@ -14,6 +14,11 @@ const { settings: shopSettings } = useShopSettings();
 
 const mainPackages = computed(() => packages.value?.filter((p: any) => p.packageType === 'MAIN') || []);
 const addonPackages = computed(() => packages.value?.filter((p: any) => p.packageType === 'ADDON') || []);
+
+const getPackageLabel = (index: number) => {
+  const labels = ['SMALL', 'MEDIUM', 'LARGE'];
+  return labels[index] || '';
+};
 </script>
 
 <template>
@@ -69,7 +74,7 @@ const addonPackages = computed(() => packages.value?.filter((p: any) => p.packag
                     target="_blank"
                   >
                     <UIcon name="i-simple-icons-line" class="w-5 h-5 mr-1" />
-                    เพิ่มเพื่อน LINE: @883vmdct
+                    เพิ่มเพื่อน LINE
                   </UButton>
                 </div>
               </div>
@@ -84,43 +89,41 @@ const addonPackages = computed(() => packages.value?.filter((p: any) => p.packag
                   <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">คุ้มครองครบครัน ดูแลเสื้อผ้าได้ตลอดทั้งเดือน</p>
                 </div>
                 
-                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  <UCard
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 items-stretch">
+                  <div
                     v-for="(pkg, index) in mainPackages"
                     :key="pkg.id"
-                    class="flex flex-col relative transition-all duration-300 hover:-translate-y-1.5 hover:shadow-xl group"
-                    :ui="{
-                      base: 'flex-1 flex flex-col',
-                      ring: 'ring-1 ring-gray-200 dark:ring-gray-800 hover:ring-primary-500/50 dark:hover:ring-primary-400/50 transition-colors',
-                      shadow: 'shadow-sm',
-                      body: { base: 'flex-1 flex flex-col' }
-                    }"
+                    class="relative flex flex-col bg-white dark:bg-[#0f172a] rounded-md transition-all duration-500 border border-gray-200 dark:border-gray-800 shadow-sm hover:border-gray-300 dark:hover:border-gray-700 h-full group"
                   >
-                    <div class="mb-4">
-                      <h3 class="text-lg font-bold text-gray-900 dark:text-white group-hover:text-primary transition-colors">{{ pkg.name }}</h3>
-                      <p class="text-gray-500 dark:text-gray-400 text-sm mt-1 min-h-[2.5rem]">
-                        {{ pkg.description || "ดูแลเสื้อผ้าอย่างพิถีพิถัน เหมาะสำหรับใช้งานในชีวิตประจำวัน" }}
-                      </p>
+                    <div class="p-8 flex flex-col h-full justify-between">
+                      <div class="flex-grow flex flex-col">
+                        <div class="mb-6">
+                          <span class="text-[14px] font-medium tracking-[0.2em] text-blue-600/80 dark:text-blue-400/60 uppercase">
+                            {{ getPackageLabel(index) }}
+                          </span>
+                          <h3 class="text-[28px] font-bold text-gray-900 dark:text-white mt-1 group-hover:text-primary transition-colors">
+                            {{ pkg.name }}
+                          </h3>
+                        </div>
+
+                        <div class="mb-8 flex items-baseline gap-1">
+                          <span class="text-[44px] font-bold text-gray-900 dark:text-white">฿{{ formatCurrency(pkg.price) }}</span>
+                          <span class="text-gray-500 dark:text-gray-400 text-[16px] ml-1">บาท</span>
+                        </div>
+
+                        <p class="text-gray-500 dark:text-gray-400 text-[14px] mb-8 mt-[-20px]">
+                          ต่อ {{ pkg.validityDays || 30 }} วัน
+                        </p>
+
+                        <div class="space-y-5 mb-10 flex-grow">
+                          <div v-for="(feature, fIndex) in pkg.features" :key="fIndex" class="flex items-start gap-3">
+                            <UIcon name="i-lucide-check" class="w-5 h-5 text-blue-600 dark:text-blue-400 mt-0.5 shrink-0" />
+                            <span class="text-[15px] text-gray-600 dark:text-gray-300 leading-snug">{{ feature }}</span>
+                          </div>
+                        </div>
+                      </div>
                     </div>
-
-                    <div class="mb-6 flex items-baseline gap-1">
-                      <span class="text-3xl font-bold text-gray-900 dark:text-white">
-                        {{ formatCurrency(pkg.price) }}
-                      </span>
-                      <span v-if="pkg.validityDays" class="text-sm font-medium text-gray-500 dark:text-gray-400">
-                        / {{ pkg.validityDays }} วัน
-                      </span>
-                    </div>
-
-                    <USeparator class="mb-6" />
-
-                    <ul class="space-y-3 flex-1 text-sm text-gray-600 dark:text-gray-300">
-                      <li v-for="(feature, fIndex) in pkg.features" :key="fIndex" class="flex items-start gap-2">
-                        <UIcon name="i-lucide-check-circle-2" class="w-4 h-4 text-primary shrink-0 mt-0.5" />
-                        <span>{{ feature }}</span>
-                      </li>
-                    </ul>
-                  </UCard>
+                  </div>
                 </div>
               </div>
 
@@ -140,8 +143,7 @@ const addonPackages = computed(() => packages.value?.filter((p: any) => p.packag
                     :key="pkg.id"
                     class="flex flex-col transition-all duration-300 hover:-translate-y-1 hover:shadow-lg group"
                     :ui="{
-                      ring: 'ring-1 ring-gray-200 dark:ring-gray-800 hover:ring-info-500/50 dark:hover:ring-info-400/50 transition-colors',
-                      shadow: 'shadow-sm'
+                      root: 'ring-1 ring-gray-200 dark:ring-gray-800 hover:ring-info-500/50 dark:hover:ring-info-400/50 transition-colors shadow-sm'
                     }"
                   >
                     <div class="flex-1 space-y-3">

@@ -46,21 +46,8 @@ const getPackageLabel = (index: number) => {
         <div
           v-for="(pkg, index) in mainPackages"
           :key="pkg.id"
-          class="relative flex flex-col bg-white dark:bg-[#0f172a] rounded-md transition-all duration-500 border h-full group"
-          :class="[
-            index === 1
-              ? 'border-blue-600 shadow-[0_0_40px_-10px_rgba(37,99,235,0.3)] scale-[1.02] z-10'
-              : 'border-gray-200 dark:border-gray-800 shadow-sm hover:border-gray-300 dark:hover:border-gray-700'
-          ]"
+          class="relative flex flex-col bg-white dark:bg-[#0f172a] rounded-md transition-all duration-500 border h-full group border-gray-200 dark:border-gray-800 shadow-sm hover:border-gray-300 dark:hover:border-gray-700"
         >
-          <!-- Recommended Badge -->
-          <div
-            v-if="index === 1"
-            class="absolute -top-3 left-1/2 -translate-x-1/2 bg-blue-600 text-white text-[12px] font-bold px-4 py-1 rounded-full z-20 shadow-lg"
-          >
-            แนะนำ
-          </div>
-
           <div class="p-8 md:p-10 flex flex-col h-full">
             <div class="mb-6">
               <span class="text-[14px] font-medium tracking-[0.2em] text-blue-600/80 dark:text-blue-400/60 uppercase">
@@ -89,13 +76,8 @@ const getPackageLabel = (index: number) => {
               block
               size="xl"
               to="/me/packages"
-              :variant="index === 1 ? 'solid' : 'outline'"
-              :class="[
-                'rounded-[16px] py-4 text-[16px] font-bold transition-all group/btn',
-                index === 1
-                  ? 'bg-blue-600 hover:bg-blue-700 text-white border-transparent'
-                  : 'bg-transparent hover:bg-gray-50 dark:hover:bg-white/5 text-gray-900 dark:text-white border-gray-200 dark:border-gray-700'
-              ]"
+              variant="outline"
+              class="rounded-[16px] py-4 text-[16px] font-bold transition-all group/btn bg-transparent hover:bg-gray-50 dark:hover:bg-white/5 text-gray-900 dark:text-white border-gray-200 dark:border-gray-700"
             >
               เลือกแพ็กเกจนี้
               <UIcon name="i-lucide-arrow-right" class="ml-2 w-4 h-4 group-hover/btn:translate-x-1 transition-transform" />

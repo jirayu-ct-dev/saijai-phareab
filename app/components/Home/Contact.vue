@@ -118,7 +118,7 @@
               width="100%"
               height="100%"
               style="border:0;"
-              allowfullscreen=""
+              allowfullscreen
               loading="lazy"
               referrerpolicy="no-referrer-when-downgrade"
               class="filter grayscale-[0.2] contrast-[1.1] hover:grayscale-0 transition-all duration-500"

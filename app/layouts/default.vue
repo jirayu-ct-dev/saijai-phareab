@@ -68,7 +68,7 @@ const itemsDropdown = computed<DropdownMenuItem[][]>(() => {
             {
                 label: 'Settings',
                 icon: 'i-lucide-cog',
-                to: '/settings'
+                to: '/me/settings'
             }
         ],
         roleLinks,

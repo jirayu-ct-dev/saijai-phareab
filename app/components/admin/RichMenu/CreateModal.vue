@@ -32,7 +32,7 @@ const form = reactive({
       }
     ]
   }, null, 2),
-  targetRole: "ALL" as string | null,
+  targetRole: "ALL" as string | undefined,
   isDefault: false,
   logoUrl: undefined as string | undefined,
 });

@@ -27,7 +27,8 @@ const hydrated = ref(false);
 onMounted(() => { hydrated.value = true; });
 const isLoading = computed(() => pending.value);
 const showSkeleton = computed(() => !hydrated.value || isLoading.value);
-const orderStatusBadgeColors = orderStatusColors as Record<string, string>;
+type BadgeColor = "success" | "info" | "error" | "neutral" | "primary" | "secondary" | "warning";
+const orderStatusBadgeColors = orderStatusColors as Record<string, BadgeColor>;
 
 const orderNoText = computed(() => order.value?.orderNo || order.value?.id || "");
 const copiedOrderNo = ref(false);

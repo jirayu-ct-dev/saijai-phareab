@@ -54,7 +54,7 @@ const searchQuery = ref("");
 watch(
   () => route.query.status,
   (value) => {
-    const nextStatus = Array.isArray(value) ? value[0] : value;
+    const nextStatus = (Array.isArray(value) ? value[0] : value) || "";
     statusFilter.value = serviceOrderStatusOptions.some((item) => item.value === nextStatus) ? nextStatus : "ALL";
   },
   { immediate: true },

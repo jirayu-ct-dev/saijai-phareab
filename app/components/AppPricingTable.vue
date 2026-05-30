@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, h } from 'vue'
 
-const { data: pricingData, pending, error } = await useFetch<any>('/api/public/pricing')
+const { data: pricingData, pending, error } = useFetch<any>('/api/public/pricing')
 
 // services as columns
 const columns = computed(() => {

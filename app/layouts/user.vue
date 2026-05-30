@@ -37,6 +37,12 @@ const menu = computed<any[][]>(() => {
       to: "/me/packages",
       onSelect: closeSidebar,
     },
+    {
+      label: "ราคาหน้าร้าน",
+      icon: "i-lucide-tags",
+      to: "/me/pricing",
+      onSelect: closeSidebar,
+    },
   ];
 
   if (isMember.value) {

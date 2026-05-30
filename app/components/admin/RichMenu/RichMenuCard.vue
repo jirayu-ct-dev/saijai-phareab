@@ -33,7 +33,7 @@ const formatDate = (dateStr: string) => {
 <template>
   <UCard
     class="overflow-hidden group hover:shadow-xl transition-all duration-300 border border-default/30 dark:border-slate-800 bg-white dark:bg-slate-900/60"
-    :ui="{ body: { padding: 'p-0' } }"
+    :ui="{ body: 'p-0' }"
   >
     <div class="flex flex-col md:flex-row w-full">
       <!-- Card Image Preview Left Side -->

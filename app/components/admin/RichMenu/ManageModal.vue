@@ -19,7 +19,7 @@ const isSaving = ref(false);
 const hoveredHotspot = ref<any>(null);
 
 const assignForm = reactive({
-  targetRole: "ALL" as string | null,
+  targetRole: "ALL" as string | undefined,
   isDefault: false,
 });
 
@@ -342,7 +342,7 @@ const deleteAlias = async (menu: any) => {
                     ปุ่มสัมผัสที่ {{ hs.index + 1 }}
                   </span>
                   <UBadge
-                    :color="hs.action.type === 'uri' ? 'primary' : hs.action.type === 'message' ? 'indigo' : hs.action.type === 'richmenuswitch' ? 'amber' : hs.action.type === 'postback' ? 'rose' : hs.action.type === 'datetimepicker' ? 'purple' : 'neutral'"
+                    :color="hs.action.type === 'uri' ? 'primary' : hs.action.type === 'message' ? 'info' : hs.action.type === 'richmenuswitch' ? 'warning' : hs.action.type === 'postback' ? 'error' : hs.action.type === 'datetimepicker' ? 'secondary' : 'neutral'"
                     variant="subtle"
                     size="sm"
                     class="font-mono text-[10px]"
