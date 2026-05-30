@@ -277,7 +277,6 @@ const handleBuy = async (pkg: any) => {
           </div>
         </div>
         
-        </div>
       </template>
         
       <template #footer>
@@ -316,7 +315,6 @@ const handleBuy = async (pkg: any) => {
           </div>
         </div>
         
-        </div>
       </template>
         
       <template #footer>

@@ -1,25 +1,16 @@
 <script setup lang="ts">
 import type { PaymentMethod, PaymentStatus, ServiceOrderStatus } from "~~/shared/types/enums";
 import { orderStatusColors, orderStatusLabels } from "~~/shared/config/orderConfig";
-import * as adminUi from "~~/shared/config/adminUi";
 import { formatCurrency, formatDateTime } from "~~/shared/utils/format";
 import type { AdminServiceOrder } from "~~/app/composables/useAdminServiceOrders";
 import ImagePreviewModal from "~~/app/components/UI/ImagePreviewModal.vue";
 import EditPaymentStateModal from "~~/app/components/admin/payment/EditPaymentStateModal.vue";
 import EditServiceOrderModal from "~~/app/components/admin/service-orders/EditServiceOrderModal.vue";
 
-const adminDashboardBodyClass =
-  adminUi.adminDashboardBodyClass
-  ?? "admin-dashboard flex flex-col gap-3 p-2 sm:p-6";
-const adminDashboardCardClass =
-  adminUi.adminDashboardCardClass
-  ?? "admin-dashboard-card rounded-md border border-default/30 bg-default p-4 shadow-[0_1px_2px_rgb(15_23_42/0.04),0_6px_18px_-10px_rgb(15_23_42/0.08)] dark:border-default/20 dark:bg-elevated/55";
-const adminMobileListCardClass =
-  adminUi.adminMobileListCardClass
-  ?? "overflow-hidden rounded-sm border border-default/30 bg-default transition-[background-color,border-color,box-shadow] duration-200 hover:border-default/45 hover:bg-default dark:border-default/20 dark:bg-elevated/55 dark:hover:bg-elevated/70";
-const adminEmptyStateClass =
-  adminUi.adminEmptyStateClass
-  ?? "flex flex-col items-center justify-center rounded-sm border border-dashed border-default/30 bg-default/55 px-3 py-5 text-center text-muted dark:border-default/20 dark:bg-elevated/30";
+const adminDashboardBodyClass = "flex flex-col gap-3 p-2 sm:p-6";
+const adminDashboardCardClass = "rounded-md border border-default/30 bg-default p-4 shadow-[0_1px_2px_rgb(15_23_42/0.04),0_6px_18px_-10px_rgb(15_23_42/0.08)] dark:border-default/20 dark:bg-elevated/55 dark:shadow-[0_1px_2px_rgb(0_0_0/0.16),0_8px_22px_-12px_rgb(0_0_0/0.26)]";
+const adminMobileListCardClass = "overflow-hidden rounded-md border border-default/30 bg-default shadow-[0_1px_2px_rgb(15_23_42/0.04),0_6px_18px_-10px_rgb(15_23_42/0.08)] transition-[background-color,border-color,box-shadow] duration-200 hover:border-default/45 hover:bg-default hover:shadow-[0_1px_3px_rgb(15_23_42/0.05),0_10px_24px_-12px_rgb(15_23_42/0.10)] dark:border-default/20 dark:bg-elevated/55 dark:shadow-[0_1px_2px_rgb(0_0_0/0.16),0_8px_22px_-12px_rgb(0_0_0/0.26)] dark:hover:bg-elevated/70 dark:hover:shadow-[0_1px_3px_rgb(0_0_0/0.22),0_12px_28px_-12px_rgb(0_0_0/0.32)]";
+const adminEmptyStateClass = "flex flex-col items-center justify-center rounded-md border border-dashed border-default/30 bg-default/55 px-3 py-5 text-center text-muted dark:border-default/20 dark:bg-elevated/30";
 
 type BadgeColor = "success" | "info" | "error" | "neutral" | "primary" | "secondary" | "warning";
 type InfoRow = { label: string; value: string; valueClass?: string; dividerBefore?: boolean };
@@ -622,7 +613,7 @@ const getItemPhotos = (item: ServiceOrderDetailItem) =>
               <div
                 v-for="item in order.items"
                 :key="item.id"
-                :class="[adminMobileListCardClass, 'admin-dashboard-card rounded-md']"
+                :class="adminMobileListCardClass"
               >
                 <div class="flex min-w-0 items-center gap-2 p-2">
                   <div class="shrink-0">
