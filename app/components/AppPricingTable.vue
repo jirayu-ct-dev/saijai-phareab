@@ -78,6 +78,11 @@ const rows = computed(() => {
         :columns="columns" 
         :data="rows"
         class="w-full"
+        :ui="{
+          thead: 'bg-gray-50 dark:bg-gray-800/70',
+          th: 'py-3.5 px-5 font-semibold text-[#1a2b4c] dark:text-gray-200 text-sm border-b border-gray-200 dark:border-gray-700 text-left',
+          td: 'py-3.5 px-5 text-sm text-gray-600 dark:text-gray-300 border-b border-gray-100 dark:border-gray-800/60 transition-colors'
+        }"
       >
         <template #empty>
           <div class="flex flex-col items-center justify-center py-8 text-gray-500">
