@@ -80,47 +80,60 @@ const getPackageLabel = (index: number) => {
               </div>
 
               <!-- Main Packages -->
-              <div v-if="mainPackages.length > 0" class="space-y-6">
-                <div>
-                  <h2 class="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+              <div v-if="mainPackages.length > 0" class="space-y-4">
+                <!-- Header Card Frame -->
+                <div class="bg-white dark:bg-gray-900/60 border border-gray-100 dark:border-gray-800/80 rounded-2xl p-4 sm:p-5 shadow-sm">
+                  <h2 class="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
                     <UIcon name="i-lucide-award" class="w-5 h-5 text-primary" />
                     แพ็กเกจรายเดือนสุดคุ้ม
                   </h2>
-                  <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">คุ้มครองครบครัน ดูแลเสื้อผ้าได้ตลอดทั้งเดือน</p>
+                  <p class="text-sm text-gray-500 dark:text-gray-400 mt-0.5">คุ้มครองครบครัน ดูแลเสื้อผ้าได้ตลอดทั้งเดือน</p>
                 </div>
                 
                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 items-stretch">
                   <div
                     v-for="(pkg, index) in mainPackages"
                     :key="pkg.id"
-                    class="relative flex flex-col bg-white dark:bg-[#0f172a] rounded-md transition-all duration-500 border border-gray-200 dark:border-gray-800 shadow-sm hover:border-gray-300 dark:hover:border-gray-700 h-full group"
+                    class="relative flex flex-col bg-white dark:bg-gray-900 border border-gray-200/80 dark:border-gray-800 rounded-3xl transition-all duration-300 shadow-md hover:shadow-xl hover:border-primary-500/50 dark:hover:border-primary-400/50 h-full overflow-hidden"
                   >
-                    <div class="p-8 flex flex-col h-full justify-between">
-                      <div class="flex-grow flex flex-col">
-                        <div class="mb-6">
-                          <span class="text-[14px] font-medium tracking-[0.2em] text-blue-600/80 dark:text-blue-400/60 uppercase">
-                            {{ getPackageLabel(index) }}
-                          </span>
-                          <h3 class="text-[28px] font-bold text-gray-900 dark:text-white mt-1 group-hover:text-primary transition-colors">
-                            {{ pkg.name }}
-                          </h3>
-                        </div>
+                    <!-- Header Gradient in System Theme -->
+                    <div class="p-6 text-white relative flex flex-col justify-end min-h-[110px] bg-gradient-to-br from-primary-500 to-primary-700">
+                      <h3 class="text-2xl font-bold">
+                        {{ pkg.name === 'S' ? 'สเปเชียล S' : pkg.name === 'M' ? 'มัลติ M' : 'ลักชูรี่ L' }}
+                      </h3>
+                      <p class="text-sm opacity-90 font-medium mt-1">
+                        {{ pkg.credits }} เครดิต
+                      </p>
+                    </div>
 
-                        <div class="mb-8 flex items-baseline gap-1">
-                          <span class="text-[44px] font-bold text-gray-900 dark:text-white">฿{{ formatCurrency(pkg.price) }}</span>
-                          <span class="text-gray-500 dark:text-gray-400 text-[16px] ml-1">บาท</span>
-                        </div>
-
-                        <p class="text-gray-500 dark:text-gray-400 text-[14px] mb-8 mt-[-20px]">
-                          ต่อ {{ pkg.validityDays || 30 }} วัน
+                    <!-- Body List in System Theme -->
+                    <div class="p-6 flex-grow flex flex-col justify-between divide-y divide-gray-100 dark:divide-gray-800">
+                      <div class="py-3.5 first:pt-0">
+                        <p class="text-xs text-gray-400 dark:text-gray-500 font-medium">ค่าบริการรายเดือน</p>
+                        <p class="text-lg font-bold text-gray-900 dark:text-white mt-1">
+                          {{ formatCurrency(pkg.price) }} บาท
                         </p>
+                      </div>
 
-                        <div class="space-y-5 mb-10 flex-grow">
-                          <div v-for="(feature, fIndex) in pkg.features" :key="fIndex" class="flex items-start gap-3">
-                            <UIcon name="i-lucide-check" class="w-5 h-5 text-blue-600 dark:text-blue-400 mt-0.5 shrink-0" />
-                            <span class="text-[15px] text-gray-600 dark:text-gray-300 leading-snug">{{ feature }}</span>
-                          </div>
-                        </div>
+                      <div class="py-3.5">
+                        <p class="text-xs text-gray-400 dark:text-gray-500 font-medium">เครดิตการบริการ</p>
+                        <p class="text-sm font-semibold text-gray-800 dark:text-gray-200 mt-1">
+                          {{ pkg.credits }} เครดิต (ชิ้น)
+                        </p>
+                      </div>
+
+                      <div class="py-3.5">
+                        <p class="text-xs text-gray-400 dark:text-gray-500 font-medium">ราคาเฉลี่ยต่อชิ้น</p>
+                        <p class="text-sm font-semibold text-gray-800 dark:text-gray-200 mt-1">
+                          {{ (pkg.price / (pkg.credits || 1)).toFixed(1) }} บาท / ชิ้น
+                        </p>
+                      </div>
+
+                      <div class="py-3.5 last:pb-0">
+                        <p class="text-xs text-gray-400 dark:text-gray-500 font-medium">ระยะเวลาการใช้งาน</p>
+                        <p class="text-sm font-semibold text-gray-800 dark:text-gray-200 mt-1">
+                          ต่ออายุทุกๆ {{ pkg.validityDays || 30 }} วัน
+                        </p>
                       </div>
                     </div>
                   </div>
@@ -128,38 +141,57 @@ const getPackageLabel = (index: number) => {
               </div>
 
               <!-- Addon Packages -->
-              <div v-if="addonPackages.length > 0" class="space-y-6 pt-4">
-                <div>
-                  <h2 class="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                    <UIcon name="i-lucide-plus-circle" class="w-5 h-5 text-info" />
+              <div v-if="addonPackages.length > 0" class="space-y-4 pt-4">
+                <!-- Header Card Frame -->
+                <div class="bg-white dark:bg-gray-900/60 border border-gray-100 dark:border-gray-800/80 rounded-2xl p-4 sm:p-5 shadow-sm">
+                  <h2 class="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                    <UIcon name="i-lucide-plus-circle" class="w-5 h-5 text-primary" />
                     แพ็กเกจเสริม
                   </h2>
-                  <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">ปรับแต่งเพิ่มเติมได้ตามความต้องการของคุณ</p>
+                  <p class="text-sm text-gray-500 dark:text-gray-400 mt-0.5">ปรับแต่งเพิ่มเติมได้ตามความต้องการของคุณ</p>
                 </div>
 
-                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                  <UCard
+                <div class="grid grid-cols-1 gap-6 justify-center">
+                  <div
                     v-for="pkg in addonPackages"
                     :key="pkg.id"
-                    class="flex flex-col transition-all duration-300 hover:-translate-y-1 hover:shadow-lg group"
-                    :ui="{
-                      root: 'ring-1 ring-gray-200 dark:ring-gray-800 hover:ring-info-500/50 dark:hover:ring-info-400/50 transition-colors shadow-sm'
-                    }"
+                    class="max-w-2xl mx-auto w-full bg-white dark:bg-gray-900 border border-gray-200/80 dark:border-gray-800 rounded-3xl transition-all duration-300 shadow-md hover:shadow-xl hover:border-primary-500/50 dark:hover:border-primary-400/50 overflow-hidden flex flex-col sm:flex-row"
                   >
-                    <div class="flex-1 space-y-3">
-                      <div class="flex justify-between items-start">
+                    <!-- Left side: Gradient with Icon -->
+                    <div class="sm:w-1/3 bg-gradient-to-br from-primary-500 to-primary-700 p-6 text-white flex flex-col justify-center items-center text-center shrink-0">
+                      <UIcon 
+                        :name="pkg.name.includes('รับส่ง') || pkg.name.includes('ขนส่ง') ? 'i-lucide-truck' : 'i-lucide-sparkles'" 
+                        class="w-12 h-12 mb-3 text-white/90" 
+                      />
+                      <h3 class="text-xl font-bold leading-tight">{{ pkg.name }}</h3>
+                      <p class="text-xs opacity-90 mt-1">บริการเสริมพิเศษ</p>
+                    </div>
+
+                    <!-- Right side: Content Details -->
+                    <div class="flex-grow p-6 flex flex-col justify-between gap-4">
+                      <div class="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
                         <div>
-                          <h3 class="text-base font-bold text-gray-900 dark:text-white group-hover:text-info transition-colors">{{ pkg.name }}</h3>
-                          <p class="text-xs text-gray-500 dark:text-gray-400 mt-1 min-h-[2rem]">
-                            {{ pkg.description || "สั่งซื้อเพิ่มเพื่อใช้งานเพิ่มเติม" }}
+                          <p class="text-xs text-gray-400 dark:text-gray-500 font-medium">ค่าบริการเพิ่มเติม</p>
+                          <p class="text-xl font-bold text-gray-900 dark:text-white mt-1">
+                            {{ formatCurrency(pkg.price) }} บาท
+                          </p>
+                        </div>
+                        <div class="sm:text-right">
+                          <p class="text-xs text-gray-400 dark:text-gray-500 font-medium">ระยะเวลาใช้งาน</p>
+                          <p class="text-sm font-semibold text-gray-800 dark:text-gray-200 mt-1">
+                            ตามรอบบิลหลัก ({{ pkg.validityDays || 30 }} วัน)
                           </p>
                         </div>
                       </div>
-                      <div class="text-xl font-bold text-info-600 dark:text-info-400">
-                        {{ formatCurrency(pkg.price) }}
+
+                      <div class="border-t border-gray-100 dark:border-gray-800 pt-4">
+                        <p class="text-xs text-gray-400 dark:text-gray-500 font-medium mb-1.5">สิทธิประโยชน์ที่ได้รับ</p>
+                        <p class="text-sm font-medium text-gray-600 dark:text-gray-300 leading-relaxed">
+                          {{ pkg.description || "บริการอำนวยความสะดวกเพิ่มเติมสำหรับคุณโดยเฉพาะ" }}
+                        </p>
                       </div>
                     </div>
-                  </UCard>
+                  </div>
                 </div>
               </div>
             </div>
