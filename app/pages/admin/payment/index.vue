@@ -3,28 +3,10 @@ import { h, resolveComponent } from "vue";
 import { getPaginationRowModel } from "@tanstack/table-core";
 import type { TableColumn } from "@nuxt/ui";
 import type { AdminPaymentRecord } from "~~/app/composables/useAdminPayments";
-import { formatCurrency, formatDateTime } from "~~/shared/utils/format";
+import { formatCurrency, formatDate, formatDateTime } from "~~/shared/utils/format";
 import type { Role } from "~~/shared/types/enums";
-import * as adminUi from "~~/shared/config/adminUi";
 import { paymentMethodLabels, paymentStatusColors, paymentStatusLabels } from "~~/shared/config/paymentConfig";
 import EditPaymentStateModal from "~~/app/components/admin/payment/EditPaymentStateModal.vue";
-
-const adminDashboardBodyClass =
-  adminUi.adminDashboardBodyClass
-  ?? "admin-dashboard flex flex-col gap-3 p-2 sm:p-6";
-const adminDashboardCardClass =
-  adminUi.adminDashboardCardClass
-  ?? "admin-dashboard-card rounded-md border border-default/30 bg-default p-4 shadow-[0_1px_2px_rgb(15_23_42/0.04),0_6px_18px_-10px_rgb(15_23_42/0.08)] dark:border-default/20 dark:bg-elevated/55";
-const adminFilterBarClass =
-  adminUi.adminFilterBarClass
-  ?? "admin-dashboard-card rounded-md border border-default/30 bg-default p-2 shadow-[0_1px_2px_rgb(15_23_42/0.04)] dark:border-default/20 dark:bg-elevated/55";
-const adminEmptyStateClass =
-  adminUi.adminEmptyStateClass
-  ?? "flex flex-col items-center justify-center rounded-sm border border-dashed border-default/30 bg-default/55 px-3 py-5 text-center text-muted dark:border-default/20 dark:bg-elevated/30";
-const adminMobileListCardClass =
-  adminUi.adminMobileListCardClass
-  ?? "overflow-hidden rounded-sm border border-default/30 bg-default transition-[background-color,border-color,box-shadow] duration-200 hover:border-default/45 hover:bg-default dark:border-default/20 dark:bg-elevated/55 dark:hover:bg-elevated/70";
-const adminTableUi = adminUi.adminTableUi;
 
 definePageMeta({
   layout: "admin",
@@ -160,8 +142,7 @@ const setMobileRowSelected = (index: number, value: boolean | "indeterminate") =
     [rowId]: !!value,
   };
   if (!value) {
-    const next = { ...rowSelection.value };
-    delete next[rowId];
+    const { [rowId]: _removedRow, ...next } = rowSelection.value;
     rowSelection.value = next;
   }
 };
@@ -231,6 +212,7 @@ const formatPaymentItems = (payment: AdminPaymentRecord) => {
   if (items.length) return items;
   return [`รายการผ้า ${payment.serviceOrder?.itemCount ?? 0} รายการ`];
 };
+const formatOptionalShortDate = (value: string | null | undefined) => value ? formatDate(value).replace(/\s+\d{4}$/, "") : "-";
 
 const getPaymentMethodLabel = (payment: AdminPaymentRecord) => (
   payment.method ? paymentMethodLabels[payment.method] : "ยังไม่ชำระ"
@@ -508,6 +490,7 @@ const columns: TableColumn<AdminPaymentRecord>[] = [
 </script>
 
 <template>
+  <div class="contents">
   <UDashboardPanel id="payments">
     <template #header>
       <UDashboardNavbar title="รายการชำระเงิน" icon="i-lucide-receipt">
@@ -530,20 +513,16 @@ const columns: TableColumn<AdminPaymentRecord>[] = [
     </template>
 
     <template #body>
-        <div :class="adminDashboardBodyClass">
+        <div class="flex flex-col gap-3 p-2 sm:p-6">
           <section class="flex flex-col gap-1">
-            <div :class="[adminFilterBarClass, 'flex items-center justify-between gap-1.5 px-3! px-y!']">
-              <div class="flex min-w-0 flex-[1_1_32rem] md:max-w-xl">
+            <div class="-mx-2 rounded-lg border border-default/30 bg-default p-2 px-3! py-3! dark:border-default/40 dark:bg-default/80 space-y-2 sm:mx-0 md:flex md:items-center md:justify-between md:gap-3 md:space-y-0">
+              <div class="flex min-w-0 items-center gap-2 md:flex-1 md:max-w-sm">
                 <UInput
                   v-model="searchQuery"
                   class="min-w-0 flex-1"
                   icon="i-lucide-search"
                   placeholder="ค้นหาลูกค้า เลขชำระ เลขรับผ้า หรือชื่อรายการ"
                 />
-              </div>
-
-              <div class="flex shrink-0 items-center justify-end gap-1.5">
-                <USelect v-model="saleTypeFilter" :items="saleTypeOptions" value-key="value" class="w-28 shrink-0 sm:w-40" />
 
                 <ClientOnly>
                   <UButton
@@ -551,7 +530,7 @@ const columns: TableColumn<AdminPaymentRecord>[] = [
                     color="error"
                     variant="subtle"
                     icon="i-lucide-trash"
-                    class="shrink-0"
+                    class="shrink-0 md:hidden"
                     :aria-label="`ลบ ${selectedRowsCount} รายการ`"
                     @click="isBulkDeleteOpen = true"
                   >
@@ -561,80 +540,94 @@ const columns: TableColumn<AdminPaymentRecord>[] = [
                   </UButton>
                 </ClientOnly>
 
-                <UButton
-                  icon="i-lucide-refresh-cw"
-                  color="neutral"
-                  variant="outline"
-                  title="รีเฟรชรายการ"
-                  class="shrink-0"
-                  :loading="isLoading"
-                  @click="refresh"
-                />
+                <UIButtonRefresh class="shrink-0 md:hidden" :loading="isLoading" @refresh="refresh" />
+              </div>
+
+              <div class="grid grid-cols-1 gap-2 sm:flex sm:flex-wrap sm:items-center md:justify-end">
+                <USelect v-model="saleTypeFilter" :items="saleTypeOptions" value-key="value" class="min-w-0 sm:w-44" />
+
+                <ClientOnly>
+                  <UButton
+                    v-if="isAdmin && selectedRowsCount"
+                    color="error"
+                    variant="subtle"
+                    icon="i-lucide-trash"
+                    class="hidden shrink-0 md:inline-flex"
+                    :aria-label="`ลบ ${selectedRowsCount} รายการ`"
+                    @click="isBulkDeleteOpen = true"
+                  >
+                    <template #trailing>
+                      <UKbd class="hidden sm:inline-flex">{{ selectedRowsCount }}</UKbd>
+                    </template>
+                  </UButton>
+                </ClientOnly>
+
+                <UIButtonRefresh class="hidden shrink-0 md:inline-flex" :loading="isLoading" @refresh="refresh" />
               </div>
             </div>
 
             <template v-if="showSkeleton">
-              <div class="space-y-1 md:hidden">
+              <div class="-mx-2 space-y-1 sm:mx-0 md:hidden">
                 <div
                   v-for="i in 5"
                   :key="`mob-sk-${i}`"
-                  :class="[adminMobileListCardClass, 'admin-dashboard-card rounded-md']"
+                  class="overflow-hidden border border-default/30 bg-default transition-[background-color,border-color] duration-200 hover:border-default/45 hover:bg-default dark:border-default/20 dark:bg-elevated/55 dark:hover:bg-elevated/70"
                 >
                   <div class="flex items-center gap-2 p-2">
-                    <USkeleton class="size-4 rounded shrink-0" />
+                    <USkeleton class="size-4 rounded-lg shrink-0" />
                     <USkeleton class="size-8 rounded-full shrink-0" />
                     <div class="min-w-0 flex-1 space-y-1.5">
                       <div class="flex items-start justify-between gap-2">
                         <div class="min-w-0 flex-1 space-y-1">
-                          <USkeleton class="h-3.5 w-32 rounded" />
-                          <USkeleton class="h-2.5 w-24 rounded" />
+                          <USkeleton class="h-3.5 w-32 rounded-lg" />
+                          <USkeleton class="h-2.5 w-24 rounded-lg" />
                         </div>
                         <div class="flex shrink-0 flex-col items-end gap-1">
                           <USkeleton class="h-4 w-16 rounded-full" />
-                          <USkeleton class="h-3 w-14 rounded" />
+                          <USkeleton class="h-3 w-14 rounded-lg" />
                         </div>
                       </div>
                       <div class="flex flex-wrap items-center gap-2">
                         <USkeleton class="h-3.5 w-14 rounded-full" />
-                        <USkeleton class="h-2.5 w-16 rounded" />
-                        <USkeleton class="h-2.5 w-20 rounded" />
+                        <USkeleton class="h-2.5 w-16 rounded-lg" />
+                        <USkeleton class="h-2.5 w-20 rounded-lg" />
                       </div>
                       <div class="space-y-1">
-                        <USkeleton class="h-3 w-3/4 rounded" />
-                        <USkeleton class="h-3 w-1/2 rounded" />
+                        <USkeleton class="h-3 w-3/4 rounded-lg" />
+                        <USkeleton class="h-3 w-1/2 rounded-lg" />
                       </div>
                       <div class="flex items-center justify-end gap-1">
-                        <USkeleton class="size-5 rounded" />
-                        <USkeleton class="size-5 rounded" />
-                        <USkeleton class="size-5 rounded" />
+                        <USkeleton class="size-5 rounded-lg" />
+                        <USkeleton class="size-5 rounded-lg" />
+                        <USkeleton class="size-5 rounded-lg" />
                       </div>
                     </div>
                   </div>
                 </div>
               </div>
-              <div :class="[adminDashboardCardClass, 'hidden p-0! md:block']">
+              <div class="hidden rounded-lg border border-default/30 bg-default p-4 p-0! dark:border-default/20 dark:bg-elevated/55 md:block">
                 <div class="space-y-2 p-3">
-                  <USkeleton v-for="i in 8" :key="`dt-sk-${i}`" class="h-12 w-full rounded-md" />
+                  <USkeleton v-for="i in 8" :key="`dt-sk-${i}`" class="h-12 w-full rounded-lg" />
                 </div>
               </div>
             </template>
 
             <template v-else>
             <div class="md:hidden">
-            <div v-if="isLoading" class="space-y-3">
-              <USkeleton v-for="i in 5" :key="i" class="h-40 w-full rounded-md" />
+            <div v-if="isLoading" class="-mx-2 space-y-1 sm:mx-0">
+              <USkeleton v-for="i in 5" :key="i" class="h-40 w-full rounded-lg" />
             </div>
 
-            <div v-else-if="!paginatedPayments.length" :class="adminEmptyStateClass">
+            <div v-else-if="!paginatedPayments.length" class="flex flex-col items-center justify-center rounded-lg border border-dashed border-default/30 bg-default/55 px-3 py-5 text-center text-muted dark:border-default/20 dark:bg-elevated/30">
               <UIcon name="i-lucide-receipt" class="mb-3 size-10 opacity-60" />
               <p>ไม่พบรายการชำระเงิน</p>
             </div>
 
-            <div v-else class="space-y-1">
+            <div v-else class="-mx-2 space-y-1 sm:mx-0">
               <div
                 v-for="(payment, index) in paginatedPayments"
                 :key="payment.id"
-                :class="[adminMobileListCardClass, 'admin-dashboard-card rounded-md']"
+                class="overflow-hidden border border-default/30 bg-default transition-[background-color,border-color] duration-200 hover:border-default/45 hover:bg-default dark:border-default/20 dark:bg-elevated/55 dark:hover:bg-elevated/70"
               >
                 <div class="flex items-center gap-2 p-2">
                   <UCheckbox
@@ -655,6 +648,7 @@ const columns: TableColumn<AdminPaymentRecord>[] = [
                           @click="openMemberDetail(payment)"
                         >
                           {{ payment.customer.name || "-" }}
+                          <span class="text-[11px] font-normal text-muted">· {{ payment.customer.phoneNumber || payment.customer.email }}</span>
                         </button>
                         <button
                           type="button"
@@ -668,7 +662,7 @@ const columns: TableColumn<AdminPaymentRecord>[] = [
                       <div class="flex shrink-0 flex-col items-end gap-1">
                         <button
                           type="button"
-                          class="inline-flex items-center rounded-md transition"
+                          class="inline-flex items-center transition"
                           :class="canManagePaymentState(payment) ? 'cursor-pointer hover:bg-elevated/60' : 'cursor-default'"
                           :title="getPaymentStateActionTitle(payment)"
                           :aria-label="canManagePaymentState(payment) ? 'เปลี่ยนสถานะการชำระเงิน' : undefined"
@@ -687,7 +681,7 @@ const columns: TableColumn<AdminPaymentRecord>[] = [
                           <span class="text-sm font-semibold leading-none text-success">ใช้เครดิต</span>
                           <span class="text-[10px] text-muted">{{ Number(payment.serviceOrder?.creditUsed ?? 0) }} เครดิต</span>
                         </template>
-                        <span v-else class="text-sm font-semibold leading-none text-primary">{{ formatCurrency(payment.amount) }}</span>
+                        <span v-else class="text-[13px] font-semibold leading-none tabular-nums text-primary">{{ formatCurrency(payment.amount) }}</span>
                       </div>
                     </div>
 
@@ -696,45 +690,31 @@ const columns: TableColumn<AdminPaymentRecord>[] = [
                         {{ getSaleTypeLabel(payment) }}
                       </UBadge>
                       <span>{{ getPaymentMethodLabel(payment) }}</span>
-                      <span>{{ formatDateTime(payment.createdAt) }}</span>
                     </div>
 
-                    <div class="mt-1 min-w-0 space-y-0.5">
-                      <p v-for="item in formatPaymentItems(payment)" :key="item" class="truncate text-xs text-highlighted">
-                        {{ item }}
+                    <div class="mt-1 min-w-0">
+                      <p class="truncate text-xs text-highlighted">
+                        {{ formatPaymentItems(payment).join(" · ") }}
                       </p>
                     </div>
 
-                    <div class="mt-1 flex items-center justify-end gap-1">
-                      <UButton
-                        v-if="canConfirmPayment(payment)"
-                        icon="i-lucide-check"
-                        size="xs"
-                        color="success"
-                        variant="ghost"
-                        aria-label="ยืนยันการชำระเงิน"
-                        @click="openEditStateModal(payment)"
-                      />
-                      <UButton
-                        icon="i-lucide-credit-card"
-                        size="xs"
-                        color="primary"
-                        variant="ghost"
-                        aria-label="แก้ไขการชำระเงิน"
-                        @click="openEditStateModal(payment)"
-                      />
-                      <UButton icon="i-lucide-eye" size="xs" color="neutral" variant="ghost" aria-label="ดูรายละเอียดการชำระเงิน" @click="openPaymentDetail(payment)" />
-                      <UButton
-                        :icon="payment.status === 'PAID' ? 'i-lucide-receipt' : 'i-lucide-file-text'"
-                        size="xs"
-                        color="primary"
-                        variant="ghost"
-                        :aria-label="payment.status === 'PAID' ? 'ดูใบเสร็จ' : 'ดูใบแจ้งราคา'"
-                        @click="openReceipt(payment)"
-                      />
-                      <UDropdownMenu :items="getActionItems(payment)" :content="{ align: 'end' }">
-                        <UButton icon="i-lucide-ellipsis" size="xs" color="neutral" variant="ghost" aria-label="เมนูเพิ่มเติม" />
-                      </UDropdownMenu>
+                    <div class="mt-1 flex items-center justify-between gap-2">
+                      <div class="min-w-0 truncate text-[11px] text-muted">
+                        สร้าง {{ formatOptionalShortDate(payment.createdAt) }}
+                      </div>
+                      <div class="flex shrink-0 items-center justify-end gap-1">
+                        <UButton
+                          icon="i-lucide-credit-card"
+                          size="xs"
+                          color="primary"
+                          variant="ghost"
+                          aria-label="แก้ไขการชำระเงิน"
+                          @click="openEditStateModal(payment)"
+                        />
+                        <UDropdownMenu :items="getActionItems(payment)" :content="{ align: 'end' }">
+                          <UButton icon="i-lucide-ellipsis" size="xs" color="neutral" variant="ghost" aria-label="เมนูเพิ่มเติม" />
+                        </UDropdownMenu>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -742,7 +722,7 @@ const columns: TableColumn<AdminPaymentRecord>[] = [
             </div>
           </div>
 
-            <div :class="[adminDashboardCardClass, 'hidden overflow-hidden p-0! md:block']">
+            <div class="hidden overflow-hidden rounded-lg border border-default/30 bg-default p-4 p-0! dark:border-default/20 dark:bg-elevated/55 md:block">
             <UTable
               ref="table"
               v-model:row-selection="rowSelection"
@@ -751,13 +731,21 @@ const columns: TableColumn<AdminPaymentRecord>[] = [
               :data="filteredPayments"
               :columns="columns"
               :loading="isLoading"
-              :ui="adminTableUi"
+              :ui="{
+                root: 'relative overflow-x-auto',
+                base: 'table-fixed border-separate border-spacing-0',
+                thead: 'sticky top-0 z-1 [&>tr]:bg-default dark:[&>tr]:bg-default/80 [&>tr]:after:content-none',
+                tbody: '[&>tr]:last:[&>td]:border-b-0 [&>tr:hover>td]:bg-primary/5 dark:[&>tr:hover>td]:bg-elevated/45',
+                th: 'border-b border-default bg-default py-2.5 text-xs font-semibold uppercase tracking-wide text-toned dark:border-default/40 dark:bg-default/80',
+                td: 'border-b border-default py-2.5 transition-colors dark:border-default/25',
+                separator: 'h-0',
+              }"
             >
               <template #empty>
                 <div v-if="isLoading" class="space-y-2 p-3">
-                  <USkeleton v-for="i in 6" :key="`tbl-${i}`" class="h-12 w-full rounded-md" />
+                  <USkeleton v-for="i in 6" :key="`tbl-${i}`" class="h-12 w-full rounded-lg" />
                 </div>
-                <div v-else :class="adminEmptyStateClass">
+                <div v-else class="flex flex-col items-center justify-center rounded-lg border border-dashed border-default/30 bg-default/55 px-3 py-5 text-center text-muted dark:border-default/20 dark:bg-elevated/30">
                   <UIcon name="i-lucide-receipt" class="mb-3 size-10 opacity-60" />
                   <p>ไม่พบรายการชำระเงิน</p>
                 </div>
@@ -880,4 +868,5 @@ const columns: TableColumn<AdminPaymentRecord>[] = [
     :existing-slip="editStateTarget.slipImage ?? null"
     @updated="onStateUpdatedFromList"
   />
+  </div>
 </template>
