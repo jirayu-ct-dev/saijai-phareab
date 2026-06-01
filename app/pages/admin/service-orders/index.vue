@@ -10,19 +10,6 @@ import { orderStatusColors, orderStatusLabels } from "~~/shared/config/orderConf
 import { formatCurrency, formatDate, formatDateTime } from "~~/shared/utils/format";
 import type { ServiceOrderStatus } from "~~/shared/types/enums";
 
-const adminDashboardCardClass = "rounded-lg border border-default/30 bg-default p-4 shadow-[0_1px_2px_rgb(15_23_42/0.04),0_6px_18px_-10px_rgb(15_23_42/0.08)] dark:border-default/20 dark:bg-elevated/55 dark:shadow-[0_1px_2px_rgb(0_0_0/0.16),0_8px_22px_-12px_rgb(0_0_0/0.26)]";
-const adminEmptyStateClass = "flex flex-col items-center justify-center rounded-lg border border-dashed border-default/30 bg-default/55 px-3 py-5 text-center text-muted dark:border-default/20 dark:bg-elevated/30";
-const adminMobileListCardClass = "overflow-hidden border border-default/30 bg-default shadow-[0_1px_2px_rgb(15_23_42/0.04),0_6px_18px_-10px_rgb(15_23_42/0.08)] transition-[background-color,border-color,box-shadow] duration-200 hover:border-default/45 hover:bg-default hover:shadow-[0_1px_3px_rgb(15_23_42/0.05),0_10px_24px_-12px_rgb(15_23_42/0.10)] dark:border-default/20 dark:bg-elevated/55 dark:shadow-[0_1px_2px_rgb(0_0_0/0.16),0_8px_22px_-12px_rgb(0_0_0/0.26)] dark:hover:bg-elevated/70 dark:hover:shadow-[0_1px_3px_rgb(0_0_0/0.22),0_12px_28px_-12px_rgb(0_0_0/0.32)]";
-const adminTableUi = {
-  root: "relative overflow-x-auto",
-  base: "table-fixed border-separate border-spacing-0",
-  thead: "sticky top-0 z-1 [&>tr]:bg-default dark:[&>tr]:bg-elevated/55 [&>tr]:after:content-none",
-  tbody: "[&>tr]:last:[&>td]:border-b-0 [&>tr:hover>td]:bg-primary/5 dark:[&>tr:hover>td]:bg-elevated/45",
-  th: "border-b border-default bg-default py-2.5 text-xs font-semibold uppercase tracking-wide text-toned dark:border-default/30 dark:bg-elevated/55",
-  td: "border-b border-default py-2.5 transition-colors dark:border-default/25",
-  separator: "h-0",
-} as const;
-
 definePageMeta({
   layout: "admin",
   middleware: ["role-employee"],
@@ -506,6 +493,7 @@ const columns: TableColumn<AdminServiceOrder>[] = [
 </script>
 
 <template>
+  <div class="contents">
     <UDashboardPanel id="service-orders">
     <template #header>
       <UDashboardNavbar title="รายการรับผ้า" icon="i-lucide-shopping-basket">
@@ -532,7 +520,7 @@ const columns: TableColumn<AdminServiceOrder>[] = [
     <template #body>
         <div class="flex flex-col gap-3 p-2 sm:p-6">
           <section class="flex flex-col gap-1">
-            <div class="-mx-2 border border-default/30 bg-default p-2 px-3! py-3! shadow-[0_1px_2px_rgb(15_23_42/0.04),0_6px_18px_-10px_rgb(15_23_42/0.08)] dark:border-default/25 dark:bg-default dark:shadow-[0_1px_2px_rgb(0_0_0/0.18),0_8px_22px_-12px_rgb(0_0_0/0.32)] space-y-2 sm:mx-0 sm:rounded-lg md:flex md:items-center md:justify-between md:gap-3 md:space-y-0">
+            <div class="-mx-2 rounded-lg border border-default/30 bg-default p-2 px-3! py-3! dark:border-default/40 dark:bg-default/80 space-y-2 sm:mx-0 md:flex md:items-center md:justify-between md:gap-3 md:space-y-0">
               <div class="flex min-w-0 items-center gap-2 md:flex-1 md:max-w-sm">
                 <UInput
                   v-model="searchQuery"
@@ -600,7 +588,7 @@ const columns: TableColumn<AdminServiceOrder>[] = [
                 <div
                   v-for="i in 5"
                   :key="`so-mob-sk-${i}`"
-                  :class="adminMobileListCardClass"
+                  class="overflow-hidden border border-default/30 bg-default transition-[background-color,border-color] duration-200 hover:border-default/45 hover:bg-default dark:border-default/20 dark:bg-elevated/55 dark:hover:bg-elevated/70"
                 >
                   <div class="flex items-center gap-2 p-2">
                     <USkeleton class="size-4 rounded-lg shrink-0" />
@@ -631,7 +619,7 @@ const columns: TableColumn<AdminServiceOrder>[] = [
                   </div>
                 </div>
               </div>
-              <div :class="[adminDashboardCardClass, 'hidden p-0! md:block']">
+              <div class="hidden rounded-lg border border-default/30 bg-default p-4 p-0! dark:border-default/20 dark:bg-elevated/55 md:block">
                 <div class="space-y-2 p-3">
                   <USkeleton v-for="i in 8" :key="`so-dt-sk-${i}`" class="h-12 w-full rounded-lg" />
                 </div>
@@ -644,7 +632,7 @@ const columns: TableColumn<AdminServiceOrder>[] = [
                   <USkeleton v-for="i in 5" :key="i" class="h-40 w-full rounded-lg" />
                 </div>
 
-                <div v-else-if="!paginatedServiceOrders.length" :class="adminEmptyStateClass">
+                <div v-else-if="!paginatedServiceOrders.length" class="flex flex-col items-center justify-center rounded-lg border border-dashed border-default/30 bg-default/55 px-3 py-5 text-center text-muted dark:border-default/20 dark:bg-elevated/30">
                   <UIcon name="i-lucide-shopping-basket" class="mb-3 size-10 opacity-60" />
                   <p>ไม่พบรายการรับผ้า</p>
                 </div>
@@ -653,7 +641,7 @@ const columns: TableColumn<AdminServiceOrder>[] = [
                   <div
                     v-for="(order, index) in paginatedServiceOrders"
                     :key="order.id"
-                    :class="adminMobileListCardClass"
+                    class="overflow-hidden border border-default/30 bg-default transition-[background-color,border-color] duration-200 hover:border-default/45 hover:bg-default dark:border-default/20 dark:bg-elevated/55 dark:hover:bg-elevated/70"
                   >
                     <div class="flex items-center gap-2 p-2">
                       <UCheckbox
@@ -735,7 +723,7 @@ const columns: TableColumn<AdminServiceOrder>[] = [
                 </div>
               </div>
 
-              <div :class="[adminDashboardCardClass, 'hidden overflow-hidden p-0! md:block']">
+              <div class="hidden overflow-hidden rounded-lg border border-default/30 bg-default p-4 p-0! dark:border-default/20 dark:bg-elevated/55 md:block">
                 <UTable
                   ref="table"
                   v-model:row-selection="rowSelection"
@@ -744,13 +732,21 @@ const columns: TableColumn<AdminServiceOrder>[] = [
                   :data="filteredServiceOrders"
                   :columns="columns"
                   :loading="isLoading"
-                  :ui="adminTableUi"
+                  :ui="{
+                    root: 'relative overflow-x-auto',
+                    base: 'table-fixed border-separate border-spacing-0',
+                    thead: 'sticky top-0 z-1 [&>tr]:bg-default dark:[&>tr]:bg-default/80 [&>tr]:after:content-none',
+                    tbody: '[&>tr]:last:[&>td]:border-b-0 [&>tr:hover>td]:bg-primary/5 dark:[&>tr:hover>td]:bg-elevated/45',
+                    th: 'border-b border-default bg-default py-2.5 text-xs font-semibold uppercase tracking-wide text-toned dark:border-default/40 dark:bg-default/80',
+                    td: 'border-b border-default py-2.5 transition-colors dark:border-default/25',
+                    separator: 'h-0',
+                  }"
                 >
                   <template #empty>
                     <div v-if="isLoading" class="space-y-2 p-3">
                       <USkeleton v-for="i in 6" :key="`so-tbl-${i}`" class="h-12 w-full rounded-lg" />
                     </div>
-                    <div v-else :class="adminEmptyStateClass">
+                    <div v-else class="flex flex-col items-center justify-center rounded-lg border border-dashed border-default/30 bg-default/55 px-3 py-5 text-center text-muted dark:border-default/20 dark:bg-elevated/30">
                       <UIcon name="i-lucide-shopping-basket" class="mb-3 size-10 opacity-60" />
                       <p>ไม่พบรายการรับผ้า</p>
                     </div>
@@ -882,4 +878,5 @@ const columns: TableColumn<AdminServiceOrder>[] = [
     />
 
     </ClientOnly>
+  </div>
 </template>

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { PaymentMethod, PaymentStatus, ServiceOrderStatus } from "~~/shared/types/enums";
 import { orderStatusColors, orderStatusLabels } from "~~/shared/config/orderConfig";
+import { paymentMethodLabels, paymentStatusColors, paymentStatusLabels } from "~~/shared/config/paymentConfig";
 import { formatCurrency, formatDateTime } from "~~/shared/utils/format";
 import type { AdminServiceOrder } from "~~/app/composables/useAdminServiceOrders";
 import ImagePreviewModal from "~~/app/components/UI/ImagePreviewModal.vue";
@@ -8,9 +9,9 @@ import EditPaymentStateModal from "~~/app/components/admin/payment/EditPaymentSt
 import EditServiceOrderModal from "~~/app/components/admin/service-orders/EditServiceOrderModal.vue";
 
 const adminDashboardBodyClass = "flex flex-col gap-3 p-2 sm:p-6";
-const adminDashboardCardClass = "rounded-md border border-default/30 bg-default p-4 shadow-[0_1px_2px_rgb(15_23_42/0.04),0_6px_18px_-10px_rgb(15_23_42/0.08)] dark:border-default/20 dark:bg-elevated/55 dark:shadow-[0_1px_2px_rgb(0_0_0/0.16),0_8px_22px_-12px_rgb(0_0_0/0.26)]";
-const adminMobileListCardClass = "overflow-hidden rounded-md border border-default/30 bg-default shadow-[0_1px_2px_rgb(15_23_42/0.04),0_6px_18px_-10px_rgb(15_23_42/0.08)] transition-[background-color,border-color,box-shadow] duration-200 hover:border-default/45 hover:bg-default hover:shadow-[0_1px_3px_rgb(15_23_42/0.05),0_10px_24px_-12px_rgb(15_23_42/0.10)] dark:border-default/20 dark:bg-elevated/55 dark:shadow-[0_1px_2px_rgb(0_0_0/0.16),0_8px_22px_-12px_rgb(0_0_0/0.26)] dark:hover:bg-elevated/70 dark:hover:shadow-[0_1px_3px_rgb(0_0_0/0.22),0_12px_28px_-12px_rgb(0_0_0/0.32)]";
-const adminEmptyStateClass = "flex flex-col items-center justify-center rounded-md border border-dashed border-default/30 bg-default/55 px-3 py-5 text-center text-muted dark:border-default/20 dark:bg-elevated/30";
+const adminDashboardCardClass = "rounded-lg border border-default/30 bg-default p-4 shadow-[0_1px_2px_rgb(15_23_42/0.04),0_6px_18px_-10px_rgb(15_23_42/0.08)] dark:border-default/20 dark:bg-elevated/55 dark:shadow-[0_1px_2px_rgb(0_0_0/0.16),0_8px_22px_-12px_rgb(0_0_0/0.26)]";
+const adminMobileListCardClass = "overflow-hidden border border-default/30 bg-default shadow-[0_1px_2px_rgb(15_23_42/0.04),0_6px_18px_-10px_rgb(15_23_42/0.08)] transition-[background-color,border-color,box-shadow] duration-200 hover:border-default/45 hover:bg-default hover:shadow-[0_1px_3px_rgb(15_23_42/0.05),0_10px_24px_-12px_rgb(15_23_42/0.10)] dark:border-default/20 dark:bg-elevated/55 dark:shadow-[0_1px_2px_rgb(0_0_0/0.16),0_8px_22px_-12px_rgb(0_0_0/0.26)] dark:hover:bg-elevated/70 dark:hover:shadow-[0_1px_3px_rgb(0_0_0/0.22),0_12px_28px_-12px_rgb(0_0_0/0.32)]";
+const adminEmptyStateClass = "flex flex-col items-center justify-center rounded-lg border border-dashed border-default/30 bg-default/55 px-3 py-5 text-center text-muted dark:border-default/20 dark:bg-elevated/30";
 
 type BadgeColor = "success" | "info" | "error" | "neutral" | "primary" | "secondary" | "warning";
 type InfoRow = { label: string; value: string; valueClass?: string; dividerBefore?: boolean };
@@ -297,6 +298,33 @@ const usedCreditLabel = computed(() => {
 });
 const latestPayment = computed(() => order.value?.payments[0] ?? null);
 const canEditPayment = computed(() => Boolean(latestPayment.value) && order.value?.status !== "COMPLETED");
+const latestPaymentStatusLabel = computed(() =>
+  latestPayment.value ? paymentStatusLabels[latestPayment.value.status] : "ยังไม่มีรายการชำระเงิน",
+);
+const latestPaymentStatusColor = computed(() =>
+  latestPayment.value ? paymentStatusColors[latestPayment.value.status] : "neutral",
+);
+const latestPaymentMethodLabel = computed(() =>
+  latestPayment.value?.method ? paymentMethodLabels[latestPayment.value.method] : "-",
+);
+const paymentRows = computed<InfoRow[]>(() => {
+  if (!latestPayment.value) {
+    return [
+      { label: "สถานะชำระเงิน", value: "ยังไม่มีรายการชำระเงิน" },
+      { label: "วิธีชำระ", value: "-" },
+      { label: "ยอดชำระ", value: "-" },
+    ];
+  }
+
+  return [
+    { label: "เลขชำระเงิน", value: latestPayment.value.paymentNo || latestPayment.value.id, valueClass: "font-mono text-xs" },
+    { label: "สถานะชำระเงิน", value: paymentStatusLabels[latestPayment.value.status] },
+    { label: "วิธีชำระ", value: latestPaymentMethodLabel.value },
+    { label: "ยอดชำระ", value: formatCurrency(latestPayment.value.amount), valueClass: "font-semibold text-primary" },
+    { label: "วันที่ชำระ", value: latestPayment.value.paidAt ? formatDateTime(latestPayment.value.paidAt) : "-" },
+    { label: "ผู้ตรวจสอบ", value: latestPayment.value.verifiedBy?.name || latestPayment.value.verifiedBy?.email || "-" },
+  ];
+});
 const editPaymentOpen = ref(false);
 const onPaymentUpdated = async () => {
   await refresh();
@@ -337,15 +365,15 @@ const getItemPhotos = (item: ServiceOrderDetailItem) =>
 
         <template #right>
           <div class="flex flex-wrap items-center gap-2">
-            <UButton 
-            label="กลับ" 
-            color="neutral" 
-            variant="outline" 
-            icon="i-lucide-arrow-left" 
-            class="shrink-0"
-            aria-label="กลับ"
-            :ui="{ label: 'hidden sm:inline' }"
-            @click="goBack" 
+            <UButton
+              label="กลับ"
+              color="neutral"
+              variant="outline"
+              icon="i-lucide-arrow-left"
+              class="shrink-0"
+              aria-label="กลับ"
+              :ui="{ label: 'hidden sm:inline' }"
+              @click="goBack"
             />
             <UButton
               v-if="order"
@@ -370,15 +398,15 @@ const getItemPhotos = (item: ServiceOrderDetailItem) =>
               @click="editPaymentOpen = true"
             />
             <UButton
-            :label="documentLabel"
-            color="neutral"
-            variant="outline"
-            :icon="documentIcon"
-            class="shrink-0"
-            :aria-label="documentLabel"
-            :ui="{ label: 'hidden sm:inline' }"
-            @click="openDocument"
-          />
+              :label="documentLabel"
+              color="neutral"
+              variant="outline"
+              :icon="documentIcon"
+              class="shrink-0"
+              :aria-label="documentLabel"
+              :ui="{ label: 'hidden sm:inline' }"
+              @click="openDocument"
+            />
           </div>
         </template>
       </UDashboardNavbar>
@@ -387,56 +415,56 @@ const getItemPhotos = (item: ServiceOrderDetailItem) =>
     <template #body>
       <div :class="adminDashboardBodyClass">
       <div v-if="showSkeleton" class="space-y-3">
-        <div class="rounded-md border border-default bg-default p-5">
+        <div :class="[adminDashboardCardClass, 'p-5!']">
           <div class="flex items-start gap-3">
             <USkeleton class="size-12 rounded-full" />
             <div class="flex-1 space-y-2">
-              <USkeleton class="h-4 w-48 rounded" />
-              <USkeleton class="h-3 w-32 rounded" />
+              <USkeleton class="h-4 w-48 rounded-lg" />
+              <USkeleton class="h-3 w-32 rounded-lg" />
             </div>
             <USkeleton class="h-6 w-20 rounded-full" />
           </div>
         </div>
         <div class="grid gap-3 xl:grid-cols-[minmax(0,1.3fr)_360px]">
           <div class="space-y-3">
-            <div class="rounded-md border border-default bg-default p-5 space-y-3">
-              <USkeleton class="h-4 w-32 rounded" />
+            <div :class="[adminDashboardCardClass, 'space-y-3 p-5!']">
+              <USkeleton class="h-4 w-32 rounded-lg" />
               <div class="grid gap-x-6 gap-y-2 lg:grid-cols-2">
                 <div v-for="i in 6" :key="`so-d-${i}`" class="flex justify-between gap-3">
-                  <USkeleton class="h-3 w-24 rounded" />
-                  <USkeleton class="h-3 w-28 rounded" />
+                  <USkeleton class="h-3 w-24 rounded-lg" />
+                  <USkeleton class="h-3 w-28 rounded-lg" />
                 </div>
               </div>
             </div>
-            <div class="rounded-md border border-default bg-default overflow-hidden">
+            <div :class="[adminDashboardCardClass, 'overflow-hidden p-0!']">
               <div class="border-b border-default/40 p-3">
-                <USkeleton class="h-4 w-32 rounded" />
+                <USkeleton class="h-4 w-32 rounded-lg" />
               </div>
               <div class="space-y-2 p-3">
-                <USkeleton v-for="i in 4" :key="`so-row-${i}`" class="h-14 w-full rounded-md" />
+                <USkeleton v-for="i in 4" :key="`so-row-${i}`" class="h-14 w-full rounded-lg" />
               </div>
             </div>
           </div>
           <div class="space-y-3">
-            <div class="rounded-md border border-default bg-default p-5 space-y-3">
-              <USkeleton class="h-5 w-36 rounded" />
+            <div :class="[adminDashboardCardClass, 'space-y-3 p-5!']">
+              <USkeleton class="h-5 w-36 rounded-lg" />
               <div class="space-y-2">
                 <div v-for="i in 4" :key="`so-t-${i}`" class="flex justify-between gap-3">
-                  <USkeleton class="h-3 w-24 rounded" />
-                  <USkeleton class="h-3 w-20 rounded" />
+                  <USkeleton class="h-3 w-24 rounded-lg" />
+                  <USkeleton class="h-3 w-20 rounded-lg" />
                 </div>
               </div>
             </div>
-            <div class="rounded-md border border-default bg-default p-5 space-y-3">
-              <USkeleton class="h-5 w-32 rounded" />
-              <USkeleton class="h-32 w-full rounded-md" />
-              <USkeleton class="h-10 w-full rounded-md" />
+            <div :class="[adminDashboardCardClass, 'space-y-3 p-5!']">
+              <USkeleton class="h-5 w-32 rounded-lg" />
+              <USkeleton class="h-32 w-full rounded-lg" />
+              <USkeleton class="h-10 w-full rounded-lg" />
             </div>
           </div>
         </div>
       </div>
 
-      <div v-else-if="error || !order" class="rounded-md border border-default bg-default p-6">
+      <div v-else-if="error || !order" :class="[adminDashboardCardClass, 'p-6!']">
         <p class="text-base font-semibold text-highlighted">ไม่พบรายละเอียดรายการรับผ้า</p>
         <p class="mt-2 text-sm text-muted">รายการอาจถูกลบหรือยังไม่พร้อมใช้งาน</p>
         <div class="mt-4">
@@ -445,39 +473,73 @@ const getItemPhotos = (item: ServiceOrderDetailItem) =>
       </div>
 
       <div v-else class="space-y-3">
-        <section class="grid grid-cols-2 gap-3 lg:grid-cols-4">
-          <div :class="[adminDashboardCardClass, 'p-3!']">
-            <div class="space-y-1">
-              <p class="text-xs text-muted">สถานะล่าสุด</p>
-              <UBadge :color="orderStatusBadgeColors[order.status]" variant="subtle" size="lg">
-                {{ orderStatusLabels[order.status] }}
-              </UBadge>
-              <p class="text-xs text-muted">อัปเดต {{ formatDateTime(order.updatedAt) }}</p>
+        <section class="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <div :class="[adminDashboardCardClass, 'min-h-28 p-3!']">
+            <div class="flex h-full min-w-0 items-start justify-between gap-3">
+              <div class="min-w-0 space-y-1.5">
+                <p class="text-xs text-muted">สถานะล่าสุด</p>
+                <UBadge :color="orderStatusBadgeColors[order.status]" variant="subtle" size="lg">
+                  {{ orderStatusLabels[order.status] }}
+                </UBadge>
+                <p class="truncate text-xs text-muted">อัปเดต {{ formatDateTime(order.updatedAt) }}</p>
+              </div>
+              <div class="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                <UIcon name="i-lucide-activity" class="size-4" />
+              </div>
             </div>
           </div>
-          <div :class="[adminDashboardCardClass, 'p-3!']">
-            <div class="space-y-1">
-              <p class="text-xs text-muted">จำนวนรายการ</p>
-              <p class="text-lg font-semibold text-highlighted">{{ itemCountLabel }}</p>
-              <p class="text-xs text-muted">{{ totalQuantity }} ชิ้น</p>
+          <div :class="[adminDashboardCardClass, 'min-h-28 p-3!']">
+            <div class="flex h-full min-w-0 items-start justify-between gap-3">
+              <div class="min-w-0 space-y-1">
+                <p class="text-xs text-muted">จำนวนรายการ</p>
+                <p class="truncate text-lg font-semibold text-highlighted">{{ itemCountLabel }}</p>
+                <p class="text-xs text-muted">{{ totalQuantity }} ชิ้น</p>
+              </div>
+              <div class="flex size-9 shrink-0 items-center justify-center rounded-lg bg-info/10 text-info">
+                <UIcon name="i-lucide-shirt" class="size-4" />
+              </div>
             </div>
           </div>
-          <div :class="[adminDashboardCardClass, 'p-3!']">
-            <div class="space-y-1">
-              <p class="text-xs text-muted">ยอดรวมสุทธิ</p>
-              <p :class="['text-lg font-semibold', isMemberZero ? 'text-success' : 'text-primary']">
-                {{ isMemberZero ? "ใช้สิทธิ์แพ็กเกจ" : formatCurrency(order.totalAmount || 0) }}
-              </p>
-              <p class="text-xs text-muted">
-                {{ hasMemberEntitlement ? "งานนี้ใช้ร่วมกับแพ็กเกจสมาชิก" : "รวมค่าไม้แขวนและส่วนลดแล้ว" }}
-              </p>
+          <div :class="[adminDashboardCardClass, 'min-h-28 p-3!']">
+            <div class="flex h-full min-w-0 items-start justify-between gap-3">
+              <div class="min-w-0 space-y-1">
+                <p class="text-xs text-muted">ยอดรวมสุทธิ</p>
+                <p :class="['truncate text-lg font-semibold', isMemberZero ? 'text-success' : 'text-primary']">
+                  {{ isMemberZero ? "ใช้สิทธิ์แพ็กเกจ" : formatCurrency(order.totalAmount || 0) }}
+                </p>
+                <p class="line-clamp-2 text-xs text-muted">
+                  {{ hasMemberEntitlement ? "งานนี้ใช้ร่วมกับแพ็กเกจสมาชิก" : "รวมค่าไม้แขวนและส่วนลดแล้ว" }}
+                </p>
+              </div>
+              <div class="flex size-9 shrink-0 items-center justify-center rounded-lg bg-success/10 text-success">
+                <UIcon name="i-lucide-wallet" class="size-4" />
+              </div>
             </div>
           </div>
-          <div v-if="hasMemberEntitlement" :class="[adminDashboardCardClass, 'p-3!']">
-            <div class="space-y-1">
-              <p class="text-xs text-muted">เครดิตที่ใช้</p>
-              <p class="text-lg font-semibold text-highlighted">{{ usedCreditLabel }}</p>
-              <p class="text-xs text-muted">คงเหลือ {{ remainingCreditLabel }}</p>
+          <div :class="[adminDashboardCardClass, 'min-h-28 p-3!']">
+            <div class="flex h-full min-w-0 items-start justify-between gap-3">
+              <div class="min-w-0 space-y-1.5">
+                <p class="text-xs text-muted">การชำระเงิน</p>
+                <UBadge :color="latestPaymentStatusColor" variant="subtle" size="lg">
+                  {{ latestPaymentStatusLabel }}
+                </UBadge>
+                <p class="truncate text-xs text-muted">{{ latestPaymentMethodLabel }}</p>
+              </div>
+              <div class="flex size-9 shrink-0 items-center justify-center rounded-lg bg-warning/10 text-warning">
+                <UIcon name="i-lucide-credit-card" class="size-4" />
+              </div>
+            </div>
+          </div>
+          <div v-if="hasMemberEntitlement" :class="[adminDashboardCardClass, 'min-h-28 p-3! xl:col-span-4']">
+            <div class="flex min-w-0 items-start justify-between gap-3">
+              <div class="min-w-0 space-y-1">
+                <p class="text-xs text-muted">แพ็กเกจสมาชิก</p>
+                <p class="truncate text-lg font-semibold text-highlighted">{{ memberPackageName }}</p>
+                <p class="text-xs text-muted">ใช้ {{ usedCreditLabel }} · คงเหลือ {{ remainingCreditLabel }}</p>
+              </div>
+              <div class="flex size-9 shrink-0 items-center justify-center rounded-lg bg-success/10 text-success">
+                <UIcon name="i-lucide-ticket-check" class="size-4" />
+              </div>
             </div>
           </div>
         </section>
@@ -485,15 +547,18 @@ const getItemPhotos = (item: ServiceOrderDetailItem) =>
         <section :class="[adminDashboardCardClass, 'space-y-3']">
           <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
             <div class="flex min-w-0 items-center gap-4">
-              <UAvatar size="xl" v-bind="getAvatarProps(order.customer)" />
+              <UAvatar size="xl" class="shrink-0" v-bind="getAvatarProps(order.customer)" />
               <div class="min-w-0 space-y-1">
                 <div class="flex flex-wrap items-center gap-2">
                   <button
-                    class="truncate text-lg font-semibold text-highlighted hover:underline cursor-pointer"
+                    class="min-w-0 truncate text-left text-lg font-semibold text-highlighted hover:underline cursor-pointer"
                     @click="navigateTo(`/admin/users/${order.customer.id}`)"
                   >
                     {{ order.customer.name || order.customer.email || "-" }}
                   </button>
+                  <UBadge color="neutral" variant="soft" size="xs">
+                    {{ order.isWalkIn ? "ลูกค้าหน้าร้าน" : "ลูกค้าในระบบ" }}
+                  </UBadge>
                 </div>
                 <div class="flex items-center gap-1">
                   <p class="font-mono text-xs text-muted">{{ order.orderNo || order.id }}</p>
@@ -552,10 +617,24 @@ const getItemPhotos = (item: ServiceOrderDetailItem) =>
             </div>
           </div>
 
+          <div class="border-t border-default pt-5">
+            <div class="flex items-center justify-between gap-3">
+              <p class="text-sm font-semibold text-highlighted">ข้อมูลการชำระเงิน</p>
+              <UBadge :color="latestPaymentStatusColor" variant="subtle" size="sm">
+                {{ latestPaymentStatusLabel }}
+              </UBadge>
+            </div>
+            <div class="mt-3 grid gap-x-6 gap-y-3 text-sm lg:grid-cols-2 lg:[&>*:nth-child(odd)]:pr-4 lg:[&>*:nth-child(even)]:border-l lg:[&>*:nth-child(even)]:border-dashed lg:[&>*:nth-child(even)]:border-default lg:[&>*:nth-child(even)]:pl-4">
+              <div v-for="row in paymentRows" :key="`p-${row.label}`" class="flex items-start justify-between gap-3">
+                <span class="text-muted">{{ row.label }}</span>
+                <span :class="['max-w-[62%] text-right text-highlighted', row.valueClass]">{{ row.value }}</span>
+              </div>
+            </div>
+          </div>
         </section>
 
         <section :class="[adminDashboardCardClass, 'overflow-hidden p-0!']">
-          <div class="flex flex-col justify-between gap-3 border-b border-default/40 px-3 py-2 sm:flex-row sm:items-center">
+          <div class="flex flex-col justify-between gap-3 border-b border-default/40 px-3 py-2.5 sm:flex-row sm:items-center">
               <div>
                 <p class="text-sm font-semibold text-highlighted">รายการบริการ <span class="ml-2 text-xs text-muted">{{ itemCountLabel }}</span></p>
               </div>
@@ -567,7 +646,7 @@ const getItemPhotos = (item: ServiceOrderDetailItem) =>
                     <button
                       v-if="order.image"
                       type="button"
-                      class="relative block size-12 overflow-hidden rounded-md cursor-pointer"
+                      class="relative block size-12 overflow-hidden rounded-lg cursor-pointer"
                       title="ดูหลักฐานการรับผ้า"
                       @click="openImagePreview(order.image.secureUrl || order.image.url, 'หลักฐานการรับผ้า')"
                     >
@@ -578,7 +657,7 @@ const getItemPhotos = (item: ServiceOrderDetailItem) =>
                         loading="lazy"
                       />
                     </button>
-                    <div v-else class="flex size-12 items-center justify-center rounded-md border border-dashed border-default bg-muted/10 text-xs text-muted" title="ไม่มีรูปรับผ้า">
+                    <div v-else class="flex size-12 items-center justify-center rounded-lg border border-dashed border-default bg-muted/10 text-xs text-muted" title="ไม่มีรูปรับผ้า">
                       <UIcon name="i-lucide-image-off" class="size-4" />
                     </div>
                     <span class="text-[10px] text-muted">รับผ้า</span>
@@ -588,7 +667,7 @@ const getItemPhotos = (item: ServiceOrderDetailItem) =>
                     <button
                       v-if="order.deliveryImage"
                       type="button"
-                      class="relative block size-12 overflow-hidden rounded-md cursor-pointer"
+                      class="relative block size-12 overflow-hidden rounded-lg cursor-pointer"
                       title="ดูหลักฐานการส่งผ้า"
                       @click="openImagePreview(order.deliveryImage.secureUrl || order.deliveryImage.url, 'หลักฐานการส่งผ้า')"
                     >
@@ -599,7 +678,7 @@ const getItemPhotos = (item: ServiceOrderDetailItem) =>
                         loading="lazy"
                       />
                     </button>
-                    <div v-else class="flex size-12 items-center justify-center rounded-md border border-dashed border-default bg-muted/10 text-xs text-muted" title="ไม่มีรูปส่งผ้า">
+                    <div v-else class="flex size-12 items-center justify-center rounded-lg border border-dashed border-default bg-muted/10 text-xs text-muted" title="ไม่มีรูปส่งผ้า">
                       <UIcon name="i-lucide-image-off" class="size-4" />
                     </div>
                     <span class="text-[10px] text-muted">ส่งผ้า</span>
@@ -609,7 +688,7 @@ const getItemPhotos = (item: ServiceOrderDetailItem) =>
           </div>
 
           <div>
-            <div v-if="order.items.length" class="space-y-1 p-2 md:hidden">
+            <div v-if="order.items.length" class="space-y-1 md:hidden">
               <div
                 v-for="item in order.items"
                 :key="item.id"
@@ -617,7 +696,7 @@ const getItemPhotos = (item: ServiceOrderDetailItem) =>
               >
                 <div class="flex min-w-0 items-center gap-2 p-2">
                   <div class="shrink-0">
-                    <div class="flex size-14 items-center justify-center overflow-hidden rounded-md border border-default/30 bg-elevated/30 dark:border-default/20 dark:bg-elevated/45">
+                    <div class="flex size-14 items-center justify-center overflow-hidden rounded-lg border border-default/30 bg-elevated/30 dark:border-default/20 dark:bg-elevated/45">
                       <button
                         v-if="getItemPhotos(item)[0]"
                         type="button"
@@ -665,7 +744,7 @@ const getItemPhotos = (item: ServiceOrderDetailItem) =>
                         >
                           {{ item.quantity }} เครดิต
                         </p>
-                        <p v-else class="text-sm font-semibold leading-none text-primary">{{ formatCurrency(item.totalPrice) }}</p>
+                        <p v-else class="text-[13px] font-semibold leading-none tabular-nums text-primary">{{ formatCurrency(item.totalPrice) }}</p>
                         <p v-if="getItemPhotos(item).length > 1" class="mt-1 text-[10px] text-muted">รูป {{ getItemPhotos(item).length }}</p>
                       </div>
                     </div>
@@ -678,28 +757,28 @@ const getItemPhotos = (item: ServiceOrderDetailItem) =>
 
             <div v-if="order.items.length" class="hidden overflow-x-auto md:block">
               <table class="w-full min-w-160 text-sm">
-                <thead class="bg-elevated/50 text-xs text-muted dark:bg-elevated/40">
+                <thead class="bg-default text-xs text-toned dark:bg-elevated/55">
                   <tr>
-                    <th class="w-20 px-3 py-2 text-left font-medium">รูป</th>
-                    <th class="px-3 py-2 text-left font-medium">รายการ</th>
-                    <th class="w-28 px-3 py-2 text-right font-medium">ราคา/ชิ้น</th>
-                    <th class="w-24 px-3 py-2 text-right font-medium">จำนวน</th>
-                    <th class="w-28 px-3 py-2 text-right font-medium">รวม</th>
+                    <th class="w-20 border-b border-default px-3 py-2.5 text-left font-semibold uppercase tracking-wide dark:border-default/30">รูป</th>
+                    <th class="border-b border-default px-3 py-2.5 text-left font-semibold uppercase tracking-wide dark:border-default/30">รายการ</th>
+                    <th class="w-28 border-b border-default px-3 py-2.5 text-right font-semibold uppercase tracking-wide dark:border-default/30">ราคา/ชิ้น</th>
+                    <th class="w-24 border-b border-default px-3 py-2.5 text-right font-semibold uppercase tracking-wide dark:border-default/30">จำนวน</th>
+                    <th class="w-28 border-b border-default px-3 py-2.5 text-right font-semibold uppercase tracking-wide dark:border-default/30">รวม</th>
                   </tr>
                 </thead>
-                <tbody>
+                <tbody class="[&>tr:last-child>td]:border-b-0">
                   <tr
                     v-for="item in order.items"
                     :key="item.id"
-                    class="border-t border-default/40 align-top transition-colors even:bg-elevated/25 hover:bg-primary/5 dark:even:bg-elevated/30"
+                    class="align-top transition-colors hover:bg-primary/5 dark:hover:bg-elevated/45"
                   >
-                    <td class="px-3 py-2">
+                    <td class="border-b border-default px-3 py-2 dark:border-default/25">
                       <div class="flex flex-wrap gap-1">
                         <button
                           v-for="photo in getItemPhotos(item)"
                           :key="photo.id"
                           type="button"
-                          class="relative size-14 overflow-hidden rounded-md border border-default bg-muted/30"
+                          class="relative size-14 overflow-hidden rounded-lg border border-default bg-muted/30"
                           @click="openImagePreview(photo.secureUrl || photo.url, `${item.label}`)"
                         >
                           <NuxtImg
@@ -718,11 +797,11 @@ const getItemPhotos = (item: ServiceOrderDetailItem) =>
                         </button>
                         <div
                           v-if="!getItemPhotos(item).length"
-                          class="flex size-14 items-center justify-center rounded-md border border-dashed border-default text-xs text-muted"
+                          class="flex size-14 items-center justify-center rounded-lg border border-dashed border-default text-xs text-muted"
                         >-</div>
                       </div>
                     </td>
-                    <td class="px-3 py-2">
+                    <td class="border-b border-default px-3 py-2 dark:border-default/25">
                       <div class="flex flex-wrap items-center gap-2">
                         <p class="wrap-break-word font-medium text-highlighted">{{ item.label }}</p>
                         <UBadge v-if="item.isPackageIncluded" color="success" variant="subtle" size="xs">
@@ -732,11 +811,11 @@ const getItemPhotos = (item: ServiceOrderDetailItem) =>
                       <p class="wrap-break-word text-xs text-muted">{{ item.service.name }} | {{ item.item.name }}</p>
                       <p v-if="item.notes" class="mt-1 wrap-break-word text-xs text-muted whitespace-pre-line">{{ item.notes }}</p>
                     </td>
-                    <td class="px-3 py-2 text-right text-muted">
+                    <td class="border-b border-default px-3 py-2 text-right text-muted dark:border-default/25">
                       {{ hasMemberEntitlement && item.isPackageIncluded ? "-" : formatCurrency(item.unitPrice) }}
                     </td>
-                    <td class="px-3 py-2 text-right text-muted">{{ item.quantity }} ชิ้น</td>
-                    <td class="px-3 py-2 text-right">
+                    <td class="border-b border-default px-3 py-2 text-right text-muted dark:border-default/25">{{ item.quantity }} ชิ้น</td>
+                    <td class="border-b border-default px-3 py-2 text-right dark:border-default/25">
                       <span
                         v-if="hasMemberEntitlement && item.isPackageIncluded"
                         class="font-semibold text-success"
