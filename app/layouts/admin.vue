@@ -1,9 +1,16 @@
 <script setup lang="ts">
+import { useMediaQuery } from "@vueuse/core";
 import type { NavigationMenuItem } from "@nuxt/ui";
+import type { Session as AppSession, User as AppUser } from "~~/shared/types/auth";
 import type { Role } from "~~/shared/types/enums";
+
+type SessionWithUser = (AppSession & { user?: AppUser }) | null;
 
 const open = ref(false);
 const { user, session } = useUser();
+const isDesktopSidebar = useMediaQuery("(min-width: 1024px)");
+
+const sidebarCollapsed = (collapsed: boolean) => isDesktopSidebar.value ? collapsed : false;
 
 const closeSidebar = () => {
   open.value = false;
@@ -216,7 +223,7 @@ const groups = computed(() => [
 const checkAdminSession = async () => {
   if (import.meta.server) return;
   try {
-    const currentSession = await $fetch<any>("/api/auth/session-status");
+    const currentSession = await $fetch<SessionWithUser>("/api/auth/session-status");
     if (!currentSession?.user) {
       session.value = null;
       await navigateTo("/auth/login");
@@ -258,17 +265,17 @@ onBeforeUnmount(() => {
         :ui="{ footer: 'lg:border-t lg:border-default/60' }"
       >
         <template #header="{ collapsed }">
-          <AppLogo :collapsed="collapsed" label="ADMIN PANEL" :to="homeTarget" />
+          <AppLogo :collapsed="sidebarCollapsed(collapsed)" label="ADMIN PANEL" :to="homeTarget" />
         </template>
 
         <template #default="{ collapsed }">
-          <UDashboardSearchButton :collapsed="collapsed" class="bg-transparent ring-default" />
+          <UDashboardSearchButton :collapsed="sidebarCollapsed(collapsed)" class="bg-transparent ring-default" />
 
-          <UNavigationMenu :collapsed="collapsed" :items="menu[0]" orientation="vertical" tooltip popover />
+          <UNavigationMenu :collapsed="sidebarCollapsed(collapsed)" :items="menu[0]" orientation="vertical" tooltip popover />
 
           <UNavigationMenu
             v-if="menu[1]?.length"
-            :collapsed="collapsed"
+            :collapsed="sidebarCollapsed(collapsed)"
             :items="menu[1]"
             orientation="vertical"
             tooltip
@@ -277,7 +284,7 @@ onBeforeUnmount(() => {
         </template>
 
         <template #footer="{ collapsed }">
-          <UserMenu :collapsed="collapsed" />
+          <UserMenu :collapsed="sidebarCollapsed(collapsed)" />
         </template>
       </UDashboardSidebar>
 
