@@ -50,6 +50,8 @@ export default defineEventHandler(async (event) => {
                   id: true,
                   name: true,
                   packageType: true,
+                  credits: true,
+                  validityDays: true,
                 },
               },
             },
@@ -93,6 +95,14 @@ export default defineEventHandler(async (event) => {
                   },
                 },
               },
+              image: {
+                select: { id: true, url: true, secureUrl: true },
+              },
+              photos: {
+                where: { deletedAt: null },
+                include: { image: { select: { id: true, url: true, secureUrl: true } } },
+                orderBy: { sortOrder: "asc" },
+              },
             },
             where: {
               deletedAt: null,
@@ -131,6 +141,8 @@ export default defineEventHandler(async (event) => {
     id: item.id,
     name: item.product.name,
     type: item.product.packageType,
+    credits: item.product.credits,
+    validityDays: item.product.validityDays,
     quantity: item.qty,
     unitPrice: toNumber(item.unitPrice),
     totalPrice: toNumber(item.totalPrice),
@@ -140,6 +152,7 @@ export default defineEventHandler(async (event) => {
   const serviceItems = payment.serviceOrder?.serviceOrderItems.map((item) => ({
     id: item.id,
     name: `${item.storefrontPrice?.storefrontService.name ?? ""} ${item.storefrontPrice?.storefrontItem.name ?? ""}`.trim(),
+    serviceName: item.storefrontPrice?.storefrontService.name ?? null,
     quantity: item.quantity,
     unitPrice: toNumber(item.unitPrice),
     totalPrice: toNumber(item.totalPrice),
@@ -147,6 +160,15 @@ export default defineEventHandler(async (event) => {
     isPackageIncluded: item.isPackageIncluded,
     isWashFold: isWashFoldOrder,
     weightKg: null as number | null,
+    image: item.image ? { id: item.image.id, url: item.image.url, secureUrl: item.image.secureUrl } : null,
+    photos: item.photos.map((photo) => ({
+      id: photo.id,
+      imageId: photo.imageId,
+      isDamaged: photo.isDamaged,
+      sortOrder: photo.sortOrder,
+      url: photo.image.url,
+      secureUrl: photo.image.secureUrl,
+    })),
   })) ?? [];
 
   const hangerChargeSource = (payment.serviceOrder?.hangerCharge ?? null) as
@@ -156,9 +178,14 @@ export default defineEventHandler(async (event) => {
   return {
     id: payment.id,
     paymentNo: payment.paymentNo,
+    receiptNo: payment.receiptNo,
+    status: payment.status,
+    method: payment.method,
     receiptType: payment.packageSaleId ? "PACKAGE" : "STOREFRONT",
     createdAt: payment.createdAt.toISOString(),
+    updatedAt: payment.updatedAt.toISOString(),
     paidAt: payment.paidAt?.toISOString() ?? null,
+    confirmedAt: payment.confirmedAt?.toISOString() ?? null,
     amount: toNumber(payment.amount),
     note: payment.note,
     vat: (() => {

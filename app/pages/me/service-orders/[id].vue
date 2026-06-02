@@ -98,7 +98,7 @@ const documentIcon = computed(() => (isPaid.value ? "i-lucide-receipt" : "i-luci
 const openDocument = () => {
   const paymentId = latestPayment.value?.id;
   if (!paymentId) return;
-  void navigateTo(`/me/receipts/${paymentId}`);
+  void navigateTo(`/me/payment/${paymentId}`);
 };
 
 const getAvatarProps = () => ({

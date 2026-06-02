@@ -1029,7 +1029,7 @@ export const notifyReceipt = async (params: { paymentId: string }): Promise<void
         subline: customerSubline,
         bodyContents: body,
         buttonLabel: "ดูใบเสร็จ",
-        buttonUrl: `${getBaseUrl()}/me/receipts/${payment.id}`,
+        buttonUrl: `${getBaseUrl()}/me/payment/${payment.id}`,
         color: "#16A34A",
         altText: `[${shopName}] ใบเสร็จ${saleKindLabel} ${receiptCode}`,
       });

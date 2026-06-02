@@ -212,11 +212,19 @@ const formatPaymentItems = (payment: AdminPaymentRecord) => {
   if (items.length) return items;
   return [`รายการผ้า ${payment.serviceOrder?.itemCount ?? 0} รายการ`];
 };
-const formatOptionalShortDate = (value: string | null | undefined) => value ? formatDate(value).replace(/\s+\d{4}$/, "") : "-";
+
+const formatMobilePaymentItem = (payment: AdminPaymentRecord) => formatPaymentItems(payment)[0] ?? "-";
+
+const formatOptionalShortDate = (value: string | null | undefined) => value ? formatDate(value) : "-";
 
 const getPaymentMethodLabel = (payment: AdminPaymentRecord) => (
-  payment.method ? paymentMethodLabels[payment.method] : "ยังไม่ชำระ"
+  payment.method ? paymentMethodLabels[payment.method] : "-"
 );
+
+const getMobilePaymentMeta = (payment: AdminPaymentRecord) => {
+  const date = formatOptionalShortDate(payment.createdAt);
+  return payment.method ? `${getPaymentMethodLabel(payment)} · ${date}` : date;
+};
 
 const isDeleteOpen = ref(false);
 const isBulkDeleteOpen = ref(false);
@@ -629,37 +637,46 @@ const columns: TableColumn<AdminPaymentRecord>[] = [
                 :key="payment.id"
                 class="overflow-hidden border border-default/30 bg-default transition-[background-color,border-color] duration-200 hover:border-default/45 hover:bg-default dark:border-default/20 dark:bg-elevated/55 dark:hover:bg-elevated/70"
               >
-                <div class="flex items-center gap-2 p-2">
+                <div class="flex items-start gap-2 p-2">
                   <UCheckbox
                     :model-value="isMobileRowSelected(index)"
                     aria-label="เลือกรายการ"
-                    class="shrink-0"
+                    class="mt-1 shrink-0"
                     @update:model-value="setMobileRowSelected(index, $event)"
                   />
 
-                  <UAvatar v-bind="getAvatarProps(payment.customer)" size="sm" class="shrink-0" />
+                  <UAvatar v-bind="getAvatarProps(payment.customer)" size="sm" class="mt-0.5 shrink-0" />
 
-                  <div class="min-w-0 flex-1">
-                    <div class="flex min-w-0 items-start justify-between gap-2">
-                      <div class="min-w-0 flex-1">
-                        <button
-                          type="button"
-                          class="block max-w-full truncate text-left text-sm font-medium text-highlighted hover:underline"
-                          @click="openMemberDetail(payment)"
-                        >
-                          {{ payment.customer.name || "-" }}
-                          <span class="text-[11px] font-normal text-muted">· {{ payment.customer.phoneNumber || payment.customer.email }}</span>
-                        </button>
-                        <button
-                          type="button"
-                          class="block max-w-full truncate font-mono text-[10px] text-muted hover:underline"
-                          @click="openPaymentDetail(payment)"
-                        >
-                          {{ payment.paymentNo || payment.id }}
-                        </button>
+                  <div class="min-w-0 flex-1 space-y-1">
+                    <div class="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-start gap-2">
+                      <button
+                        type="button"
+                        class="min-w-0 truncate text-left text-sm font-medium text-highlighted hover:underline"
+                        @click="openMemberDetail(payment)"
+                      >
+                        {{ payment.customer.name || "-" }}
+                      </button>
+                      <div class="shrink-0 text-right">
+                        <template v-if="isServiceMember(payment) && Number(payment.amount ?? 0) === 0">
+                          <p class="text-[13px] font-semibold leading-none text-success">ใช้เครดิต</p>
+                          <p class="mt-0.5 text-[10px] leading-none text-muted">{{ Number(payment.serviceOrder?.creditUsed ?? 0) }} เครดิต</p>
+                        </template>
+                        <p v-else class="text-[13px] font-semibold leading-none tabular-nums text-primary">{{ formatCurrency(payment.amount) }}</p>
                       </div>
+                    </div>
 
-                      <div class="flex shrink-0 flex-col items-end gap-1">
+                    <div class="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-2">
+                      <button
+                        type="button"
+                        class="min-w-0 truncate text-left font-mono text-[10px] leading-4 text-muted hover:underline"
+                        @click="openPaymentDetail(payment)"
+                      >
+                        {{ payment.paymentNo || payment.id }}
+                      </button>
+                      <div class="flex shrink-0 items-center justify-end gap-1">
+                        <UBadge :color="getSaleTypeColor(payment)" variant="subtle" size="xs">
+                          {{ getSaleTypeLabel(payment) }}
+                        </UBadge>
                         <button
                           type="button"
                           class="inline-flex items-center transition"
@@ -677,30 +694,16 @@ const columns: TableColumn<AdminPaymentRecord>[] = [
                             {{ paymentStatusLabels[payment.status] }}
                           </UBadge>
                         </button>
-                        <template v-if="isServiceMember(payment) && Number(payment.amount ?? 0) === 0">
-                          <span class="text-sm font-semibold leading-none text-success">ใช้เครดิต</span>
-                          <span class="text-[10px] text-muted">{{ Number(payment.serviceOrder?.creditUsed ?? 0) }} เครดิต</span>
-                        </template>
-                        <span v-else class="text-[13px] font-semibold leading-none tabular-nums text-primary">{{ formatCurrency(payment.amount) }}</span>
                       </div>
                     </div>
 
-                    <div class="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-muted">
-                      <UBadge :color="getSaleTypeColor(payment)" variant="subtle" size="xs">
-                        {{ getSaleTypeLabel(payment) }}
-                      </UBadge>
-                      <span>{{ getPaymentMethodLabel(payment) }}</span>
+                    <div class="min-w-0">
+                      <p class="min-w-0 truncate text-xs text-highlighted">{{ formatMobilePaymentItem(payment) }}</p>
                     </div>
 
-                    <div class="mt-1 min-w-0">
-                      <p class="truncate text-xs text-highlighted">
-                        {{ formatPaymentItems(payment).join(" · ") }}
-                      </p>
-                    </div>
-
-                    <div class="mt-1 flex items-center justify-between gap-2">
+                    <div class="flex items-center justify-between gap-2">
                       <div class="min-w-0 truncate text-[11px] text-muted">
-                        สร้าง {{ formatOptionalShortDate(payment.createdAt) }}
+                        {{ getMobilePaymentMeta(payment) }}
                       </div>
                       <div class="flex shrink-0 items-center justify-end gap-1">
                         <UButton

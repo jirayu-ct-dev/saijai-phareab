@@ -114,7 +114,7 @@ const formatOptionalShortDate = (value: string | null | undefined) => value ? fo
 const openDocument = (order: MyServiceOrder) => {
   const paymentId = order.payment?.id;
   if (!paymentId) return navigateTo(`/me/service-orders/${order.id}`);
-  return navigateTo(`/me/receipts/${paymentId}`);
+  return navigateTo(`/me/payment/${paymentId}`);
 };
 
 const openDetailPage = (order: MyServiceOrder) => navigateTo(`/me/service-orders/${order.id}`);

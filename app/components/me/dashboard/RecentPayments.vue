@@ -61,7 +61,7 @@ const columns: TableColumn<RecentPayment>[] = [
     <div class="admin-dashboard-card flex items-center justify-between rounded-md border border-default/30 bg-default px-3 py-2 shadow-[0_1px_2px_rgb(15_23_42/0.04)] dark:border-default/20 dark:bg-elevated/55">
       <p class="font-semibold text-highlighted">ชำระเงินล่าสุด</p>
       <UButton
-        to="/me/receipts"
+        to="/me/payment"
         variant="link"
         color="primary"
         size="sm"
@@ -86,7 +86,7 @@ const columns: TableColumn<RecentPayment>[] = [
           v-for="payment in data"
           :key="payment.id"
           :class="[adminMobileListCardClass, 'admin-dashboard-card rounded-md cursor-pointer']"
-          @click="router.push(`/me/receipts/${payment.id}`)"
+          @click="router.push(`/me/payment/${payment.id}`)"
         >
           <div class="flex items-center gap-2 p-2">
             <div class="min-w-0 flex-1">
@@ -102,7 +102,7 @@ const columns: TableColumn<RecentPayment>[] = [
             </div>
             <span class="shrink-0 text-sm font-semibold text-primary">{{ formatCurrency(payment.amount) }}</span>
             <div class="flex shrink-0 items-center">
-              <UButton icon="i-lucide-eye" size="xs" color="neutral" variant="ghost" aria-label="ดูรายการชำระเงิน" @click.stop="router.push(`/me/receipts/${payment.id}`)" />
+              <UButton icon="i-lucide-eye" size="xs" color="neutral" variant="ghost" aria-label="ดูรายการชำระเงิน" @click.stop="router.push(`/me/payment/${payment.id}`)" />
             </div>
           </div>
         </div>
@@ -115,7 +115,7 @@ const columns: TableColumn<RecentPayment>[] = [
         :columns="columns"
         :loading="status === 'pending'"
         :ui="adminTableUi"
-        @select="(_e: Event, row) => router.push(`/me/receipts/${row.original.id}`)"
+        @select="(_e: Event, row) => router.push(`/me/payment/${row.original.id}`)"
       >
         <template #empty>
           <div :class="adminEmptyStateClass">

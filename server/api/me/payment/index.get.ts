@@ -78,10 +78,9 @@ export default defineEventHandler(async (event) => {
       };
     });
 
-    return { items, total: items.length }; // We return {items, total} to maintain some compatibility with `useMyReceipts` if it expects `items`.
+    return { items, total: items.length };
   } catch (error) {
-    console.error("[GET /api/me/receipts]", error);
-    throw createError({ statusCode: 500, statusMessage: "ไม่สามารถโหลดใบเสร็จได้" });
+    console.error("[GET /api/me/payment]", error);
+    throw createError({ statusCode: 500, statusMessage: "ไม่สามารถโหลดประวัติการชำระเงินได้" });
   }
 });
-

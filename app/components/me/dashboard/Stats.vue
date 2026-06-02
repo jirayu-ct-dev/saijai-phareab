@@ -49,7 +49,7 @@ const displayStats = computed<DisplayStat[]>(() => {
     {
       title: 'ยอดใช้จ่ายรวม',
       icon: 'i-lucide-wallet',
-      to: '/me/receipts',
+      to: '/me/payment',
       value: totalSpent,
       variation: 0,
       isCurrency: true,

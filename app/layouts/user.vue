@@ -1,17 +1,24 @@
 <script setup lang="ts">
 import type { NavigationMenuItem } from "@nuxt/ui";
+import type { Session as AppSession, User as AppUser } from "~~/shared/types/auth";
 
 const open = ref(false);
-const route = useRoute();
-const { user, session } = useUser();
+const { session } = useUser();
 const { isMember } = useMemberStatus();
+
+type MenuItem = NavigationMenuItem & {
+  id?: string;
+  to?: string;
+  children?: MenuItem[];
+};
+type SessionWithUser = (AppSession & { user?: AppUser }) | null;
 
 const closeSidebar = () => {
   open.value = false;
 };
 
-const menu = computed<any[][]>(() => {
-  const mainGroup: any[] = [
+const menu = computed<MenuItem[][]>(() => {
+  const mainGroup: MenuItem[] = [
     {
       label: "แดชบอร์ด",
       icon: "i-lucide-layout-dashboard",
@@ -26,9 +33,9 @@ const menu = computed<any[][]>(() => {
       onSelect: closeSidebar,
     },
     {
-      label: "รายการใบเสร็จ",
+      label: "รายการชำระเงิน",
       icon: "i-lucide-receipt",
-      to: "/me/receipts",
+      to: "/me/payment",
       onSelect: closeSidebar,
     },
     {
@@ -87,16 +94,16 @@ const menu = computed<any[][]>(() => {
         exact: true,
         onSelect: closeSidebar,
       },
-    ] as any
+    ],
   });
 
   return [mainGroup];
 });
 
 const groups = computed(() => {
-  const items = menu.value[0]?.flatMap((item: any) => {
+  const items = menu.value[0]?.flatMap((item) => {
     if (item.children) {
-      return item.children.map((child: any) => ({
+      return item.children.map((child) => ({
         id: child.to,
         label: child.label,
         icon: child.icon,
@@ -123,7 +130,7 @@ const groups = computed(() => {
 const checkUserSession = async () => {
   if (import.meta.server) return;
   try {
-    const currentSession = await $fetch<any>("/api/auth/session-status");
+    const currentSession = await $fetch<SessionWithUser>("/api/auth/session-status");
     if (!currentSession?.user) {
       session.value = null;
       await navigateTo("/auth/login");
