@@ -29,8 +29,11 @@ const handleDelete = async () => {
     isOpen.value = false
     notify.success('ลบบัญชีเรียบร้อยแล้ว')
     await router.push('/login')
-  } catch (e: any) {
-    notify.error(e?.data?.statusMessage || 'ไม่สามารถลบบัญชีได้')
+  } catch (error: unknown) {
+    const message = error && typeof error === 'object' && 'data' in error
+      ? (error as { data?: { statusMessage?: string } }).data?.statusMessage
+      : null
+    notify.error(message || 'ไม่สามารถลบบัญชีได้')
   } finally {
     isDeleting.value = false
   }
@@ -38,7 +41,7 @@ const handleDelete = async () => {
 </script>
 
 <template>
-  <div class="rounded-md border border-error/30 bg-default px-4 py-3 shadow-[0_1px_2px_rgb(15_23_42/0.04)] dark:border-error/20 dark:bg-elevated/55">
+  <section class="-mx-2 border border-error/30 bg-default px-4 py-3 dark:border-error/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg">
     <div class="flex items-start justify-between gap-4">
       <div>
         <h2 class="text-base font-semibold text-error">ลบบัญชี</h2>
@@ -56,12 +59,12 @@ const handleDelete = async () => {
         @click="open"
       />
     </div>
-  </div>
+  </section>
 
   <UModal v-model:open="isOpen" title="ยืนยันการลบบัญชี" :ui="{ footer: 'justify-end' }">
     <template #body>
       <div class="space-y-4">
-        <div class="rounded-md border border-error/20 bg-error/5 px-3 py-2 text-sm text-error">
+        <div class="rounded-lg border border-error/20 bg-error/5 px-3 py-2 text-sm text-error">
           การดำเนินการนี้ไม่สามารถย้อนกลับได้ บัญชีและข้อมูลส่วนตัวของคุณจะถูกลบออกจากระบบ
         </div>
         <UFormField label="ยืนยันรหัสผ่าน" required>

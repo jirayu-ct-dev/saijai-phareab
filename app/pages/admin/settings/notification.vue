@@ -164,14 +164,14 @@ const roleLabel = (role: "ADMIN" | "EMPLOYEE" | "USER") =>
 </script>
 
 <template>
-  <div class="mx-auto w-full max-w-4xl space-y-3 p-2 sm:p-6">
-    <div class="rounded-md border border-default/30 bg-default px-4 py-3 shadow-[0_1px_2px_rgb(15_23_42/0.04)] dark:border-default/20 dark:bg-elevated/55">
-      <h1 class="text-xl font-semibold">การแจ้งเตือน</h1>
+  <div class="mx-auto flex w-full max-w-3xl flex-col gap-3 p-2 sm:p-6">
+    <section class="-mx-2 border border-default/30 bg-default px-4 py-3 dark:border-default/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg">
+      <h1 class="text-xl font-semibold text-highlighted">การแจ้งเตือน</h1>
       <p class="mt-1 text-sm text-muted">ตั้งค่าการแจ้งเตือนผ่าน LINE สำหรับลูกค้าและทีมงาน</p>
-    </div>
+    </section>
 
     <template v-if="isLoading">
-      <div class="rounded-md border border-default bg-default p-4 space-y-3">
+      <div class="-mx-2 space-y-3 border border-default/30 bg-default p-4 dark:border-default/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg">
         <div class="space-y-1.5 border-b border-default/40 pb-3">
           <USkeleton class="h-4 w-48 rounded" />
           <USkeleton class="h-3 w-64 rounded" />
@@ -184,15 +184,15 @@ const roleLabel = (role: "ADMIN" | "EMPLOYEE" | "USER") =>
           <USkeleton class="h-5 w-9 rounded-full shrink-0" />
         </div>
       </div>
-      <div class="rounded-md border border-default bg-default p-4 space-y-3">
+      <div class="-mx-2 space-y-3 border border-default/30 bg-default p-4 dark:border-default/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg">
         <div class="flex items-center justify-between gap-3 border-b border-default/40 pb-3">
           <div class="space-y-1">
             <USkeleton class="h-4 w-44 rounded" />
             <USkeleton class="h-3 w-60 rounded" />
           </div>
-          <USkeleton class="h-9 w-28 rounded-md" />
+          <USkeleton class="h-9 w-28 rounded-lg" />
         </div>
-        <div v-for="i in 3" :key="`nt-sub-${i}`" class="rounded-md border border-default p-3 space-y-2">
+        <div v-for="i in 3" :key="`nt-sub-${i}`" class="space-y-2 rounded-lg border border-default p-3">
           <div class="flex items-center gap-3">
             <USkeleton class="size-10 rounded-full" />
             <div class="flex-1 space-y-1">
@@ -202,20 +202,18 @@ const roleLabel = (role: "ADMIN" | "EMPLOYEE" | "USER") =>
             <USkeleton class="h-5 w-9 rounded-full" />
           </div>
           <div class="grid grid-cols-3 gap-3 border-t border-default pt-2">
-            <USkeleton v-for="j in 3" :key="`nt-sub-${i}-${j}`" class="h-8 w-full rounded-md" />
+            <USkeleton v-for="j in 3" :key="`nt-sub-${i}-${j}`" class="h-8 w-full rounded-lg" />
           </div>
         </div>
       </div>
     </template>
 
     <template v-else>
-      <UCard class="p-2">
-        <template #header>
-          <div>
-            <p class="font-semibold">แจ้งเตือนลูกค้าตามสถานะผ้า</p>
-            <p class="mt-1 text-xs text-muted">เมื่อสถานะผ้าเปลี่ยน ระบบจะส่ง LINE ให้ลูกค้าที่ผูกบัญชี LINE</p>
-          </div>
-        </template>
+      <section class="-mx-2 border border-default/30 bg-default p-4 dark:border-default/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg">
+        <div class="mb-4">
+          <p class="font-semibold text-highlighted">แจ้งเตือนลูกค้าตามสถานะผ้า</p>
+          <p class="mt-1 text-xs text-muted">เมื่อสถานะผ้าเปลี่ยน ระบบจะส่ง LINE ให้ลูกค้าที่ผูกบัญชี LINE</p>
+        </div>
 
         <div class="space-y-3">
           <div class="flex items-center justify-between">
@@ -303,13 +301,12 @@ const roleLabel = (role: "ADMIN" | "EMPLOYEE" | "USER") =>
             />
           </div>
         </div>
-      </UCard>
+      </section>
 
-      <UCard class="p-2">
-        <template #header>
-          <div class="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <section class="-mx-2 border border-default/30 bg-default p-4 dark:border-default/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg">
+        <div class="mb-4 flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div class="min-w-0">
-              <p class="font-semibold">ผู้รับการแจ้งเตือนของร้าน</p>
+              <p class="font-semibold text-highlighted">ผู้รับการแจ้งเตือนของร้าน</p>
               <p class="mt-1 text-xs text-muted">ผู้ที่จะได้รับ LINE สำหรับการแจ้งเตือนของร้าน (เฉพาะ ADMIN/EMPLOYEE)</p>
             </div>
             <div class="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center">
@@ -330,10 +327,9 @@ const roleLabel = (role: "ADMIN" | "EMPLOYEE" | "USER") =>
                 เพิ่ม
               </UButton>
             </div>
-          </div>
-        </template>
+        </div>
 
-        <div v-if="!data?.subscribers?.length" class="rounded-md border border-dashed border-default p-8 text-center text-sm text-muted">
+        <div v-if="!data?.subscribers?.length" class="rounded-lg border border-dashed border-default p-8 text-center text-sm text-muted">
           ยังไม่มีผู้รับการแจ้งเตือน
         </div>
 
@@ -341,7 +337,7 @@ const roleLabel = (role: "ADMIN" | "EMPLOYEE" | "USER") =>
           <div
             v-for="sub in data.subscribers"
             :key="sub.id"
-            class="space-y-3 rounded-md border border-default p-4"
+            class="space-y-3 rounded-lg border border-default p-4"
           >
             <div class="flex flex-wrap items-center justify-between gap-3">
               <div class="flex items-center gap-3">
@@ -394,7 +390,7 @@ const roleLabel = (role: "ADMIN" | "EMPLOYEE" | "USER") =>
             </div>
           </div>
         </div>
-      </UCard>
+      </section>
     </template>
   </div>
 </template>

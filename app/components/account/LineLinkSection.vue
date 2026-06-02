@@ -80,24 +80,22 @@ const onUnlink = async () => {
 </script>
 
 <template>
-  <USkeleton v-if="isLoading" class="h-32 w-full rounded-md" />
+  <USkeleton v-if="isLoading" class="h-32 w-full rounded-lg" />
 
-  <UCard
+  <section
     v-else
     id="line-link-section"
     :class="[
-      'p-2 transition-all duration-700',
-      isHighlighted 
-        ? 'ring-2 ring-primary ring-offset-2 ring-offset-white dark:ring-offset-slate-900 shadow-xl shadow-primary/20 scale-[1.02] border-primary z-10' 
+      '-mx-2 border border-default/30 bg-default p-4 transition-all duration-700 dark:border-default/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg',
+      isHighlighted
+        ? 'z-10 scale-[1.02] border-primary ring-2 ring-primary ring-offset-2 ring-offset-white dark:ring-offset-slate-900'
         : ''
     ]"
   >
-    <template #header>
-      <div>
-        <p class="font-semibold">บัญชี LINE</p>
-        <p class="mt-1 text-xs text-muted">ใช้สำหรับรับการแจ้งเตือนและ login ด้วย LINE</p>
-      </div>
-    </template>
+    <div class="mb-4">
+      <p class="font-semibold text-highlighted">บัญชี LINE</p>
+      <p class="mt-1 text-xs text-muted">ใช้สำหรับรับการแจ้งเตือนและ login ด้วย LINE</p>
+    </div>
 
     <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
       <div class="flex min-w-0 items-center gap-3">
@@ -134,5 +132,5 @@ const onUnlink = async () => {
         เชื่อมบัญชี
       </UButton>
     </div>
-  </UCard>
+  </section>
 </template>

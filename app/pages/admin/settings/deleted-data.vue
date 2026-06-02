@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import * as adminUi from "~~/shared/config/adminUi";
 import { formatDateTime } from "~~/shared/utils/format";
 
 definePageMeta({
@@ -37,11 +36,6 @@ type DeletedDataResponse = {
   limit: number;
   pageCount: number;
 };
-
-const adminDashboardCardClass = adminUi.adminDashboardCardClass;
-const adminFilterBarClass = adminUi.adminFilterBarClass;
-const adminMobileListCardClass = adminUi.adminMobileListCardClass;
-const adminEmptyStateClass = adminUi.adminEmptyStateClass;
 
 const notify = useNotify();
 
@@ -106,7 +100,6 @@ const { data, status, refresh } = await useFetch<DeletedDataResponse>("/api/admi
 const isLoading = computed(() => status.value === "pending");
 const items = computed(() => data.value?.items ?? []);
 const total = computed(() => data.value?.total ?? 0);
-const pageCount = computed(() => data.value?.pageCount ?? 1);
 const getRowKey = (item: DeletedDataItem) => `${item.type}:${item.id}`;
 const visibleRowKeys = computed(() => items.value.map(getRowKey));
 const selectedCount = computed(() => Object.values(selectedRows.value).filter(Boolean).length);
@@ -136,7 +129,6 @@ const hardDeleteImpact = computed(() => {
   }
   return hardDeleteTarget.value?.impact ?? [];
 });
-const restoreItemCount = computed(() => restoreTargets.value.length || (restoreTarget.value ? 1 : 0));
 const restoreTitle = computed(() => {
   if (restoreTargets.value.length) return `${restoreTargets.value.length} รายการที่เลือก`;
   return restoreTarget.value?.title ?? "";
@@ -224,8 +216,11 @@ const confirmRestore = async () => {
     clearSelection();
     resetRestoreState();
     await refresh();
-  } catch (error: any) {
-    notify.error(error?.statusMessage || "ไม่สามารถกู้คืนข้อมูลได้");
+  } catch (error: unknown) {
+    const message = error && typeof error === "object" && "statusMessage" in error
+      ? String((error as { statusMessage?: string }).statusMessage)
+      : "ไม่สามารถกู้คืนข้อมูลได้";
+    notify.error(message);
   } finally {
     restoreId.value = null;
     isBulkRestoring.value = false;
@@ -279,8 +274,11 @@ const confirmHardDelete = async () => {
     clearSelection();
     resetHardDeleteState();
     await refresh();
-  } catch (error: any) {
-    notify.error(error?.statusMessage || "ไม่สามารถลบถาวรได้");
+  } catch (error: unknown) {
+    const message = error && typeof error === "object" && "statusMessage" in error
+      ? String((error as { statusMessage?: string }).statusMessage)
+      : "ไม่สามารถลบถาวรได้";
+    notify.error(message);
   } finally {
     isHardDeleting.value = false;
   }
@@ -289,8 +287,8 @@ const confirmHardDelete = async () => {
 
 <template>
   <UDashboardPanel id="deleted-data">
-    <div class="mx-auto w-full max-w-6xl space-y-3 p-2 sm:p-6">
-      <section :class="adminDashboardCardClass">
+    <div class="mx-auto flex w-full max-w-3xl flex-col gap-3 p-2 sm:p-6">
+      <section class="-mx-2 border border-default/30 bg-default px-4 py-3 dark:border-default/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg">
         <div class="flex items-center justify-between gap-3">
           <div class="min-w-0">
             <h1 class="text-xl font-semibold text-highlighted">จัดการข้อมูลที่ถูกลบ</h1>
@@ -303,7 +301,7 @@ const confirmHardDelete = async () => {
       </section>
 
       <section class="flex flex-col gap-1">
-        <div :class="[adminFilterBarClass, 'px-3! py-3! flex flex-col gap-1.5 sm:flex-row sm:items-center']">
+        <div class="-mx-2 flex flex-col gap-1.5 border border-default/30 bg-default px-3! py-3! dark:border-default/40 dark:bg-default/80 sm:mx-0 sm:rounded-lg sm:flex-row sm:items-center">
           <div class="flex min-w-0 flex-1 items-center gap-1.5">
             <UCheckbox
               :model-value="isAllVisibleSelected"
@@ -353,32 +351,35 @@ const confirmHardDelete = async () => {
           </div>
         </div>
 
-        <div v-if="isLoading" class="space-y-1">
+        <div v-if="isLoading" class="-mx-2 space-y-1 sm:mx-0">
           <div
             v-for="i in 5"
             :key="`deleted-sk-${i}`"
-            :class="[adminMobileListCardClass, 'p-3']"
+            class="border border-default/30 bg-default p-3 dark:border-default/20 dark:bg-elevated/55 sm:rounded-lg"
           >
             <div class="flex items-center gap-3">
-              <USkeleton class="size-10 rounded-md" />
+              <USkeleton class="size-10 rounded-lg" />
               <div class="min-w-0 flex-1 space-y-2">
                 <USkeleton class="h-4 w-48 rounded" />
                 <USkeleton class="h-3 w-72 max-w-full rounded" />
               </div>
-              <USkeleton class="h-7 w-20 rounded-md" />
+              <USkeleton class="h-7 w-20 rounded-lg" />
             </div>
           </div>
         </div>
 
-        <div v-else-if="!items.length" :class="adminEmptyStateClass">
+        <div
+          v-else-if="!items.length"
+          class="flex flex-col items-center justify-center rounded-lg border border-dashed border-default/30 bg-default/55 px-3 py-5 text-center text-muted dark:border-default/20 dark:bg-elevated/30"
+        >
           ไม่พบข้อมูลที่ถูกลบ
         </div>
 
-        <div v-else class="space-y-1">
+        <div v-else class="-mx-2 space-y-1 sm:mx-0">
           <div
             v-for="item in items"
             :key="`${item.type}-${item.id}`"
-            :class="[adminMobileListCardClass, 'p-3']"
+            class="border border-default/30 bg-default p-3 transition-[background-color,border-color] duration-200 hover:border-default/45 hover:bg-default dark:border-default/20 dark:bg-elevated/55 dark:hover:bg-elevated/70 sm:rounded-lg"
           >
             <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
               <div class="flex min-w-0 gap-3">
@@ -388,7 +389,7 @@ const confirmHardDelete = async () => {
                   class="mt-2 shrink-0"
                   @update:model-value="toggleRow(item, Boolean($event))"
                 />
-                <div class="flex size-10 shrink-0 items-center justify-center rounded-md bg-elevated text-muted">
+                <div class="flex size-10 shrink-0 items-center justify-center rounded-lg bg-elevated text-muted">
                   <UIcon :name="typeIconMap[item.type]" class="size-5" />
                 </div>
                 <div class="min-w-0">
@@ -491,7 +492,7 @@ const confirmHardDelete = async () => {
                   <span class="font-semibold text-highlighted">{{ hardDeleteTitle }}</span>
                   ออกจากระบบอย่างถาวร
                 </p>
-                <div class="rounded-md border border-error/25 bg-error/5 p-3 text-xs text-error">
+                <div class="rounded-lg border border-error/25 bg-error/5 p-3 text-xs text-error">
                   <p class="font-semibold">ข้อมูลที่จะหายไปตลอดกาล:</p>
                   <ul class="mt-2 space-y-1">
                     <li v-for="impact in hardDeleteImpact" :key="impact">• {{ impact }}</li>

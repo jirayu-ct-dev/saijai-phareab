@@ -8,6 +8,13 @@ type SessionItem = {
   userAgent?: string | null;
 };
 
+type CurrentSessionRecord = {
+  session?: {
+    id?: string;
+    token?: string;
+  };
+};
+
 const notify = useNotify();
 const { session: currentSession } = useUser();
 
@@ -82,7 +89,7 @@ const detectBrowser = (ua: string | null | undefined): string => {
 };
 
 const isCurrentSession = (s: SessionItem) => {
-  const sessionRecord = currentSession.value as any;
+  const sessionRecord = currentSession.value as CurrentSessionRecord | null;
   return sessionRecord?.session?.id === s.id || sessionRecord?.session?.token === s.token;
 };
 
@@ -93,31 +100,29 @@ const formatTime = (value: string | Date) => {
 </script>
 
 <template>
-  <UCard class="p-2">
-    <template #header>
-      <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <p class="font-semibold">อุปกรณ์ที่เข้าสู่ระบบอยู่</p>
-          <p class="mt-1 text-xs text-muted">รายการ session ที่ active ของบัญชีคุณ</p>
-        </div>
-        <UButton
-          v-if="sessions.length > 1"
-          color="error"
-          variant="ghost"
-          size="sm"
-          icon="i-lucide-log-out"
-          :loading="isProcessing"
-          class="justify-center"
-          @click="onRevokeOthers"
-        >
-          ออกจากระบบอุปกรณ์อื่นทั้งหมด
-        </UButton>
+  <section class="-mx-2 border border-default/30 bg-default p-4 dark:border-default/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg">
+    <div class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div>
+        <p class="font-semibold text-highlighted">อุปกรณ์ที่เข้าสู่ระบบอยู่</p>
+        <p class="mt-1 text-xs text-muted">รายการ session ที่ active ของบัญชีคุณ</p>
       </div>
-    </template>
+      <UButton
+        v-if="sessions.length > 1"
+        color="error"
+        variant="ghost"
+        size="sm"
+        icon="i-lucide-log-out"
+        :loading="isProcessing"
+        class="justify-center"
+        @click="onRevokeOthers"
+      >
+        ออกจากระบบอุปกรณ์อื่นทั้งหมด
+      </UButton>
+    </div>
 
-    <USkeleton v-if="isLoading" class="h-32 w-full rounded-md" />
+    <USkeleton v-if="isLoading" class="h-32 w-full rounded-lg" />
 
-    <div v-else-if="!sessions.length" class="rounded-md border border-dashed border-default/30 p-6 text-center text-sm text-muted dark:border-default/20">
+    <div v-else-if="!sessions.length" class="rounded-lg border border-dashed border-default/30 p-6 text-center text-sm text-muted dark:border-default/20">
       ไม่มี session ที่ active
     </div>
 
@@ -125,7 +130,7 @@ const formatTime = (value: string | Date) => {
       <div
         v-for="s in sessions"
         :key="s.id"
-        class="flex items-center justify-between gap-3 rounded-md border border-default/30 bg-default p-2 dark:border-default/20 dark:bg-elevated/55"
+        class="flex items-center justify-between gap-3 rounded-lg border border-default/30 bg-default p-2 dark:border-default/20 dark:bg-elevated/55"
       >
         <div class="min-w-0">
           <div class="flex flex-wrap items-center gap-2">
@@ -148,5 +153,5 @@ const formatTime = (value: string | Date) => {
         />
       </div>
     </div>
-  </UCard>
+  </section>
 </template>

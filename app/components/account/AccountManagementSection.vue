@@ -18,7 +18,7 @@ const props = withDefaults(defineProps<{
 </script>
 
 <template>
-  <div class="space-y-8">
+  <div class="flex flex-col gap-3">
     <!-- ข้อมูลส่วนตัว -->
     <section class="space-y-3">
       <h2 class="px-1 text-xs font-semibold uppercase tracking-widest text-muted">

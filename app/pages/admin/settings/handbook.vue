@@ -266,16 +266,16 @@ const tocAnchors = sections.map((s) => ({ id: s.id, title: s.title, icon: s.icon
 </script>
 
 <template>
-  <div class="w-full p-6 max-w-4xl mx-auto space-y-6">
-    <div>
-      <h1 class="text-xl font-semibold">คู่มือการใช้งาน</h1>
-      <p class="text-sm text-muted mt-1">วิธีใช้งานระบบสำหรับพนักงานและผู้ดูแล</p>
-    </div>
+  <div class="mx-auto flex w-full max-w-3xl flex-col gap-3 p-2 sm:p-6">
+    <section class="-mx-2 border border-default/30 bg-default px-4 py-3 dark:border-default/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg">
+      <h1 class="text-xl font-semibold text-highlighted">คู่มือการใช้งาน</h1>
+      <p class="mt-1 text-sm text-muted">วิธีใช้งานระบบสำหรับพนักงานและผู้ดูแล</p>
+    </section>
 
-    <UCard>
-      <template #header>
-        <p class="font-semibold">สารบัญ</p>
-      </template>
+    <section class="-mx-2 border border-default/30 bg-default p-4 dark:border-default/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg">
+      <div class="mb-4">
+        <p class="font-semibold text-highlighted">สารบัญ</p>
+      </div>
       <ul class="space-y-1.5">
         <li v-for="t in tocAnchors" :key="t.id">
           <a :href="`#${t.id}`" class="flex items-center gap-2 text-sm text-primary hover:underline">
@@ -284,39 +284,40 @@ const tocAnchors = sections.map((s) => ({ id: s.id, title: s.title, icon: s.icon
           </a>
         </li>
       </ul>
-    </UCard>
+    </section>
 
     <section
       v-for="s in sections"
       :id="s.id"
       :key="s.id"
-      class="rounded-md border border-default bg-default p-6 scroll-mt-20"
+      class="-mx-2 scroll-mt-20 border border-default/30 bg-default p-4 dark:border-default/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg"
     >
-      <div class="flex items-center gap-3 mb-4">
+      <div class="mb-4 flex items-center gap-3">
         <UIcon :name="s.icon" class="size-6 text-primary" />
-        <h2 class="text-lg font-semibold">{{ s.title }}</h2>
+        <h2 class="text-lg font-semibold text-highlighted">{{ s.title }}</h2>
       </div>
 
       <div class="space-y-3 text-sm">
         <template v-for="(p, i) in s.paragraphs" :key="i">
           <p v-if="typeof p === 'string'" class="text-default">{{ p }}</p>
-          <ul v-else-if="p.type === 'list'" class="list-disc pl-5 space-y-1 text-muted">
+          <ul v-else-if="p.type === 'list'" class="list-disc space-y-1 pl-5 text-muted">
             <li v-for="(item, j) in p.items" :key="j">{{ item }}</li>
           </ul>
-          <ol v-else-if="p.type === 'step'" class="list-decimal pl-5 space-y-1 text-muted">
+          <ol v-else-if="p.type === 'step'" class="list-decimal space-y-1 pl-5 text-muted">
             <li v-for="(item, j) in p.items" :key="j">{{ item }}</li>
           </ol>
           <div
             v-else-if="p.type === 'note'"
-            class="rounded-md border border-info/30 bg-info/5 p-3 text-info text-xs"
+            class="flex items-start gap-2 rounded-lg border border-info/30 bg-info/5 p-3 text-xs text-info"
           >
-            💡 {{ p.text }}
+            <UIcon name="i-lucide-lightbulb" class="mt-0.5 size-3.5 shrink-0" />
+            <span>{{ p.text }}</span>
           </div>
         </template>
       </div>
     </section>
 
-    <div class="text-center text-xs text-muted py-4">
+    <div class="py-4 text-center text-xs text-muted">
       หากมีปัญหาหรือข้อสงสัย ติดต่อทีมพัฒนาระบบ
     </div>
   </div>

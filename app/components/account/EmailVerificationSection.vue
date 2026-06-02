@@ -43,24 +43,25 @@ const onSend = async () => {
 </script>
 
 <template>
-  <USkeleton v-if="isLoading" class="h-48 w-full rounded-md" />
+  <USkeleton v-if="isLoading" class="h-48 w-full rounded-lg" />
 
-  <UCard v-else class="p-2">
-    <template #header>
-      <div class="flex items-start justify-between gap-3">
-        <div>
-          <p class="font-semibold">การยืนยันอีเมล</p>
-          <p class="mt-1 text-xs text-muted">ยืนยันอีเมลเพื่อเพิ่มความปลอดภัยให้บัญชี</p>
-        </div>
-        <UBadge
-          :color="emailVerified ? 'success' : 'warning'"
-          variant="subtle"
-          :icon="emailVerified ? 'i-lucide-badge-check' : 'i-lucide-mail-warning'"
-        >
-          {{ emailVerified ? "ยืนยันแล้ว" : "ยังไม่ยืนยัน" }}
-        </UBadge>
+  <section
+    v-else
+    class="-mx-2 border border-default/30 bg-default p-4 dark:border-default/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg"
+  >
+    <div class="mb-4 flex items-start justify-between gap-3">
+      <div>
+        <p class="font-semibold text-highlighted">การยืนยันอีเมล</p>
+        <p class="mt-1 text-xs text-muted">ยืนยันอีเมลเพื่อเพิ่มความปลอดภัยให้บัญชี</p>
       </div>
-    </template>
+      <UBadge
+        :color="emailVerified ? 'success' : 'warning'"
+        variant="subtle"
+        :icon="emailVerified ? 'i-lucide-badge-check' : 'i-lucide-mail-warning'"
+      >
+        {{ emailVerified ? "ยืนยันแล้ว" : "ยังไม่ยืนยัน" }}
+      </UBadge>
+    </div>
 
     <div class="space-y-3">
       <div class="text-sm">
@@ -75,17 +76,15 @@ const onSend = async () => {
       <p v-else class="text-sm text-muted">กดปุ่มด้านล่างเพื่อส่งลิงก์ยืนยันไปที่อีเมลของคุณ</p>
     </div>
 
-    <template v-if="!emailVerified" #footer>
-      <div class="flex justify-end">
-        <UButton
-          :loading="isSending"
-          :disabled="!email"
-          icon="i-lucide-mail-check"
-          @click="onSend"
-        >
-          {{ sentTo ? "ส่งอีกครั้ง" : "ส่งอีเมลยืนยัน" }}
-        </UButton>
-      </div>
-    </template>
-  </UCard>
+    <div v-if="!emailVerified" class="mt-4 flex justify-end border-t border-default pt-3">
+      <UButton
+        :loading="isSending"
+        :disabled="!email"
+        icon="i-lucide-mail-check"
+        @click="onSend"
+      >
+        {{ sentTo ? "ส่งอีกครั้ง" : "ส่งอีเมลยืนยัน" }}
+      </UButton>
+    </div>
+  </section>
 </template>

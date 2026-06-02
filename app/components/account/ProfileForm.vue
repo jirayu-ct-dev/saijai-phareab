@@ -85,15 +85,16 @@ const onSubmit = async () => {
 </script>
 
 <template>
-  <USkeleton v-if="isLoading" class="h-64 w-full rounded-md" />
+  <USkeleton v-if="isLoading" class="h-64 w-full rounded-lg" />
 
-  <UCard v-else class="p-2">
-    <template #header>
-      <div>
-        <p class="font-semibold">ข้อมูลส่วนตัว</p>
-        <p class="mt-1 text-xs text-muted">ชื่อ เบอร์ และรูปโปรไฟล์ของคุณ</p>
-      </div>
-    </template>
+  <section
+    v-else
+    class="-mx-2 border border-default/30 bg-default p-4 dark:border-default/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg"
+  >
+    <div class="mb-4">
+      <p class="font-semibold text-highlighted">ข้อมูลส่วนตัว</p>
+      <p class="mt-1 text-xs text-muted">ชื่อ เบอร์ และรูปโปรไฟล์ของคุณ</p>
+    </div>
 
     <UForm :state="form" class="space-y-4" @submit="onSubmit">
       <UFormField label="รูปโปรไฟล์" name="image">
@@ -124,10 +125,8 @@ const onSubmit = async () => {
       </div>
     </UForm>
 
-    <template #footer>
-      <div class="flex justify-end">
-        <UButton :loading="isSaving" icon="i-lucide-save" @click="onSubmit">บันทึก</UButton>
-      </div>
-    </template>
-  </UCard>
+    <div class="mt-4 flex justify-end border-t border-default pt-3">
+      <UButton :loading="isSaving" icon="i-lucide-save" @click="onSubmit">บันทึก</UButton>
+    </div>
+  </section>
 </template>

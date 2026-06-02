@@ -1,6 +1,4 @@
 <script setup lang="ts">
-import { adminEmptyStateClass, adminMobileListCardClass } from "~~/shared/config/adminUi";
-
 definePageMeta({
   middleware: ["role-admin"],
   layout: "admin",
@@ -71,8 +69,11 @@ const onCreate = async () => {
     isCreateOpen.value = false;
     resetCreate();
     await refresh();
-  } catch (e: any) {
-    notify.error(e?.statusMessage || "ไม่สามารถเพิ่มพนักงานได้");
+  } catch (error: unknown) {
+    const message = error && typeof error === "object" && "statusMessage" in error
+      ? String((error as { statusMessage?: string }).statusMessage)
+      : "ไม่สามารถเพิ่มพนักงานได้";
+    notify.error(message);
   } finally {
     isCreating.value = false;
   }
@@ -113,7 +114,10 @@ const resetPromote = () => {
 };
 
 const onPromote = async () => {
-  if (!selectedUserId.value) return notify.validationError("กรุณาเลือกผู้ใช้") as unknown as void;
+  if (!selectedUserId.value) {
+    notify.validationError("กรุณาเลือกผู้ใช้");
+    return;
+  }
   isPromoting.value = true;
   try {
     await $fetch("/api/admin/employees/promote", {
@@ -124,8 +128,11 @@ const onPromote = async () => {
     isPromoteOpen.value = false;
     resetPromote();
     await refresh();
-  } catch (e: any) {
-    notify.error(e?.statusMessage || "ไม่สามารถเปลี่ยนสิทธิ์ได้");
+  } catch (error: unknown) {
+    const message = error && typeof error === "object" && "statusMessage" in error
+      ? String((error as { statusMessage?: string }).statusMessage)
+      : "ไม่สามารถเปลี่ยนสิทธิ์ได้";
+    notify.error(message);
   } finally {
     isPromoting.value = false;
   }
@@ -202,10 +209,10 @@ const onToggleActive = async (emp: Employee) => {
 </script>
 
 <template>
-  <div class="mx-auto w-full max-w-5xl space-y-3 p-2 sm:p-6">
-    <div class="flex flex-col gap-3 rounded-md border border-default/30 bg-default px-4 py-3 shadow-[0_1px_2px_rgb(15_23_42/0.04)] dark:border-default/20 dark:bg-elevated/55 sm:flex-row sm:items-center sm:justify-between">
+  <div class="mx-auto flex w-full max-w-3xl flex-col gap-3 p-2 sm:p-6">
+    <section class="-mx-2 flex flex-col gap-3 border border-default/30 bg-default px-4 py-3 dark:border-default/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg sm:flex-row sm:items-center sm:justify-between">
       <div class="min-w-0">
-        <h1 class="text-xl font-semibold">จัดการพนักงาน</h1>
+        <h1 class="text-xl font-semibold text-highlighted">จัดการพนักงาน</h1>
         <p class="mt-1 text-sm text-muted">เพิ่ม/ลบ และเปลี่ยน role ของพนักงานในร้าน</p>
       </div>
       <div class="grid grid-cols-2 gap-2 sm:flex-row sm:items-center">
@@ -222,13 +229,13 @@ const onToggleActive = async (emp: Employee) => {
           สร้างพนักงานใหม่
         </UButton>
       </div>
-    </div>
+    </section>
 
-    <div v-if="isLoading" class="space-y-1">
+    <div v-if="isLoading" class="-mx-2 space-y-1 sm:mx-0">
       <div
         v-for="i in 5"
         :key="`emp-sk-${i}`"
-        :class="[adminMobileListCardClass, 'flex items-center gap-3 p-2']"
+        class="flex items-center gap-3 border border-default/30 bg-default p-2 dark:border-default/20 dark:bg-elevated/55 sm:rounded-lg"
       >
         <USkeleton class="size-10 rounded-full shrink-0" />
         <div class="min-w-0 flex-1 space-y-1.5">
@@ -236,20 +243,23 @@ const onToggleActive = async (emp: Employee) => {
           <USkeleton class="h-2.5 w-56 rounded" />
         </div>
         <USkeleton class="h-6 w-20 rounded-full shrink-0" />
-        <USkeleton class="size-7 rounded-md shrink-0" />
+        <USkeleton class="size-7 rounded-lg shrink-0" />
       </div>
     </div>
 
     <template v-else>
-      <div v-if="!employees?.length" :class="adminEmptyStateClass">
+      <div
+        v-if="!employees?.length"
+        class="flex flex-col items-center justify-center rounded-lg border border-dashed border-default/30 bg-default/55 px-3 py-5 text-center text-muted dark:border-default/20 dark:bg-elevated/30"
+      >
         ยังไม่มีพนักงานในระบบ
       </div>
 
-      <div v-else class="space-y-1">
+      <div v-else class="-mx-2 space-y-1 sm:mx-0">
         <div
           v-for="emp in employees"
           :key="emp.id"
-          :class="[adminMobileListCardClass, 'flex flex-col gap-2 p-2 sm:flex-row sm:items-center sm:justify-between']"
+          class="flex flex-col gap-2 border border-default/30 bg-default p-2 transition-[background-color,border-color] duration-200 hover:border-default/45 hover:bg-default dark:border-default/20 dark:bg-elevated/55 dark:hover:bg-elevated/70 sm:rounded-lg sm:flex-row sm:items-center sm:justify-between"
         >
           <div class="flex min-w-0 items-center gap-3">
             <UAvatar v-bind="getAvatarProps(emp.image, emp.name, emp.email)" size="md" class="shrink-0" />
@@ -283,7 +293,7 @@ const onToggleActive = async (emp: Employee) => {
               class="w-32"
               value-key="value"
               :disabled="emp.id === actor?.id"
-              @update:model-value="(v: any) => onChangeRole(emp, v)"
+              @update:model-value="(v) => onChangeRole(emp, v as 'ADMIN' | 'EMPLOYEE')"
             />
             <UButton
               icon="i-lucide-trash-2"
