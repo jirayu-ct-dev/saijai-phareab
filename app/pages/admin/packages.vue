@@ -1,8 +1,4 @@
 <script setup lang="ts">
-definePageMeta({
-  middleware: ["role-admin"],
-});
-
 import type { TabsItem } from "@nuxt/ui";
 import type { Package } from "~~/shared/types/package";
 import type { PackageType } from "~~/shared/types/enums";
@@ -15,14 +11,11 @@ import {
   packageTypeColors,
 } from "~~/shared/config/packageConfig";
 import { formatCurrency } from "~~/shared/utils/format";
-import * as adminUi from "~~/shared/config/adminUi";
 
-const adminDashboardBodyClass =
-  adminUi.adminDashboardBodyClass
-  ?? "admin-dashboard flex flex-col gap-3 p-2 sm:p-6";
-const adminFilterBarClass =
-  adminUi.adminFilterBarClass
-  ?? "admin-dashboard-card rounded-md border border-default/30 bg-default p-2 shadow-[0_1px_2px_rgb(15_23_42/0.04)] dark:border-default/20 dark:bg-elevated/55";
+definePageMeta({
+  layout: "admin",
+  middleware: ["role-admin"],
+});
 
 const {
   loading,
@@ -116,8 +109,11 @@ const handleConfirmBulkDelete = async () => {
     ));
     await refresh();
     notify.deleted(`${targets.length} แพ็กเกจ`);
-  } catch (error: any) {
-    notify.error(error?.data?.statusMessage || "ไม่สามารถลบบางรายการได้");
+  } catch (error: unknown) {
+    const message = error && typeof error === "object" && "data" in error
+      ? ((error as { data?: { statusMessage?: string } }).data?.statusMessage || "ไม่สามารถลบบางรายการได้")
+      : "ไม่สามารถลบบางรายการได้";
+    notify.error(message);
     await refresh();
   } finally {
     isBulkDeleting.value = false;
@@ -133,6 +129,7 @@ const handleRemoveFromBulkDelete = (pkgId: string) => {
 </script>
 
 <template>
+  <div class="contents">
   <UDashboardPanel>
     <template #header>
       <UDashboardNavbar title="จัดการแพ็กเกจ" icon="i-lucide-package">
@@ -154,8 +151,8 @@ const handleRemoveFromBulkDelete = (pkgId: string) => {
     </template>
 
     <template #body>
-      <div :class="adminDashboardBodyClass">
-        <div v-if="tabItems.length > 1" :class="[adminFilterBarClass, 'px-3! py-1!']">
+      <div class="flex flex-col gap-3 p-2 sm:p-6">
+        <div v-if="tabItems.length > 1" class="-mx-2 border border-default/30 bg-default px-3! py-1! dark:border-default/40 dark:bg-default/80 sm:mx-0 sm:rounded-lg">
           <UTabs
             v-model="activeTab"
             color="neutral"
@@ -251,7 +248,7 @@ const handleRemoveFromBulkDelete = (pkgId: string) => {
           class="flex items-center gap-3"
         >
           <div
-            class="size-10 rounded-md flex items-center justify-center shrink-0"
+            class="size-10 rounded-lg flex items-center justify-center shrink-0"
             :class="pkg.packageType === 'MAIN' ? 'bg-primary/10' : 'bg-info/10'"
           >
             <UIcon
@@ -304,4 +301,5 @@ const handleRemoveFromBulkDelete = (pkgId: string) => {
       </div>
     </template>
   </UModal>
+  </div>
 </template>
