@@ -5,16 +5,14 @@ import PosCheckoutPanel from "~~/app/components/admin/pos/PosCheckoutPanel.vue";
 import type { AdminSaleItemInput, AdminSaleSlipImage, CreateAdminSaleBody } from "~~/app/composables/useAdminSales";
 import type { PackageType, PaymentMethod, PaymentStatus } from "~~/shared/types/enums";
 import { paymentStatusLabels } from "~~/shared/config/paymentConfig";
-import * as adminUi from "~~/shared/config/adminUi";
 import { formatCurrency } from "~~/shared/utils/format";
 
 const dashboardCardClass =
-  adminUi.adminDashboardCardClass
-  ?? "admin-dashboard-card rounded-md border border-default/30 bg-default p-4 shadow-[0_1px_2px_rgb(15_23_42/0.04),0_6px_18px_-10px_rgb(15_23_42/0.08)] dark:border-default/20 dark:bg-elevated/55";
+  "-mx-2 border border-default/30 bg-default p-4 dark:border-default/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg";
 const filterBarClass =
-  adminUi.adminFilterBarClass
-  ?? "admin-dashboard-card rounded-md border border-default/30 bg-default p-2 shadow-[0_1px_2px_rgb(15_23_42/0.04)] dark:border-default/20 dark:bg-elevated/55";
-const emptyStateClass = adminUi.adminEmptyStateClass;
+  "-mx-2 rounded-lg border border-default/30 bg-default p-2 dark:border-default/40 dark:bg-default/80 sm:mx-0";
+const emptyStateClass =
+  "flex flex-col items-center justify-center rounded-lg border border-dashed border-default/30 bg-default/55 px-3 py-5 text-center text-muted dark:border-default/20 dark:bg-elevated/30";
 const checkoutSectionClass = dashboardCardClass;
 
 type FormItemState = {
@@ -188,11 +186,6 @@ const decrementProduct = (productId: string) => {
   decrementItemByKey(item.key);
 };
 
-const incrementItemByKey = (key: string) => {
-  const item = form.items.find((entry) => entry.key === key);
-  if (item) item.quantity += 1;
-};
-
 const removeItem = (key: string) => {
   form.items = form.items.filter((entry) => entry.key !== key);
 };
@@ -329,9 +322,9 @@ const handleSubmit = async () => {
 
     <aside
       :class="isXl
-        ? 'space-y-3 rounded-md xl:sticky xl:top-4 xl:self-start'
+        ? 'space-y-3 rounded-lg xl:sticky xl:top-4 xl:self-start'
         : [
-            'admin-workspace fixed inset-y-0 right-0 z-50 flex w-full max-w-lg flex-col overflow-y-auto border-l border-default shadow-2xl transition-transform duration-200',
+            'admin-workspace fixed inset-y-0 right-0 z-50 flex w-full max-w-lg flex-col overflow-y-auto border-l border-default transition-transform duration-200',
             isCartOpen ? 'translate-x-0' : 'translate-x-full',
           ]"
     >
@@ -365,7 +358,7 @@ const handleSubmit = async () => {
           @reset="resetForm"
         >
           <template #cart>
-            <div class="rounded-md border border-default/30 bg-default p-2 dark:border-default/20 dark:bg-elevated/55">
+            <div class="rounded-lg border border-default/30 bg-default p-2 dark:border-default/20 dark:bg-elevated/55">
               <div class="flex items-center justify-between gap-3">
                 <p class="font-medium text-highlighted">รายการที่เลือก</p>
                 <span class="text-sm text-muted">{{ totalQuantity }} ชิ้น</span>
@@ -373,7 +366,7 @@ const handleSubmit = async () => {
 
               <div v-if="cartItems.length" class="mt-2 space-y-1">
                 <div v-for="item in cartItems" :key="item.key">
-                  <div class="flex items-center gap-1.5 rounded-md px-1.5 py-1 hover:bg-elevated/30">
+                  <div class="flex items-center gap-1.5 rounded-lg px-1.5 py-1 hover:bg-elevated/30">
                     <p class="min-w-0 flex-1 truncate text-sm text-highlighted">{{ item.name }}</p>
                     <UInputNumber
                       :model-value="item.quantity"
@@ -391,7 +384,7 @@ const handleSubmit = async () => {
                 </div>
               </div>
 
-              <div v-else class="mt-3 rounded-md border border-dashed border-default/30 p-5 text-center text-sm text-muted dark:border-default/20">
+              <div v-else class="mt-3 rounded-lg border border-dashed border-default/30 p-5 text-center text-sm text-muted dark:border-default/20">
                 ยังไม่ได้เลือกแพ็กเกจ
               </div>
             </div>
@@ -455,7 +448,7 @@ const handleSubmit = async () => {
     icon="i-lucide-shopping-cart"
     color="primary"
     size="xl"
-    class="fixed bottom-6 right-6 z-30 size-14 justify-center rounded-full shadow-lg"
+    class="fixed bottom-6 right-6 z-30 size-14 justify-center rounded-full"
     aria-label="เปิดตะกร้าแพ็กเกจ"
     @click="isCartOpen = true"
   >

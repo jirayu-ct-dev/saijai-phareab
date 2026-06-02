@@ -6,19 +6,17 @@ import PosCheckoutPanel from "~~/app/components/admin/pos/PosCheckoutPanel.vue";
 import type { Photo } from "~~/app/components/UI/PhotoUpload.vue";
 import type { AdminSaleSlipImage } from "~~/app/composables/useAdminSales";
 import type { AdminServiceOrderImage } from "~~/app/composables/useAdminServiceOrders";
-import type { PosStorefrontCatalogItem } from "~~/app/composables/useStorefrontCatalog";
 import { useBusinessSetting } from "~~/app/composables/useBusinessSetting";
-import * as adminUi from "~~/shared/config/adminUi";
 import { formatCurrency } from "~~/shared/utils/format";
 
 const dashboardCardClass =
-  adminUi.adminDashboardCardClass
-  ?? "admin-dashboard-card rounded-md border border-default/30 bg-default p-4 shadow-[0_1px_2px_rgb(15_23_42/0.04),0_6px_18px_-10px_rgb(15_23_42/0.08)] dark:border-default/20 dark:bg-elevated/55 dark:shadow-[0_1px_2px_rgb(0_0_0/0.16),0_8px_22px_-12px_rgb(0_0_0/0.26)]";
+  "-mx-2 border border-default/30 bg-default p-4 dark:border-default/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg";
 const filterBarClass =
-  adminUi.adminFilterBarClass
-  ?? "admin-dashboard-card rounded-md border border-default/30 bg-default p-2 shadow-[0_1px_2px_rgb(15_23_42/0.04)] dark:border-default/20 dark:bg-elevated/55";
-const mobileListCardClass = adminUi.adminMobileListCardClass;
-const emptyStateClass = adminUi.adminEmptyStateClass;
+  "-mx-2 rounded-lg border border-default/30 bg-default p-2 dark:border-default/40 dark:bg-default/80 sm:mx-0";
+const mobileListCardClass =
+  "border border-default/30 bg-default transition-[background-color,border-color] duration-200 hover:border-default/45 hover:bg-default dark:border-default/20 dark:bg-elevated/55 dark:hover:bg-elevated/70";
+const emptyStateClass =
+  "flex flex-col items-center justify-center rounded-lg border border-dashed border-default/30 bg-default/55 px-3 py-5 text-center text-muted dark:border-default/20 dark:bg-elevated/30";
 const checkoutSectionClass = dashboardCardClass;
 
 type FormItemState = {
@@ -81,16 +79,6 @@ const newItemModalOpen = ref(false);
 const isSavingNewItem = ref(false);
 const newItemData = ref({ name: "", categoryId: undefined as string | undefined, description: "" });
 const newItemPrices = ref<Record<string, number | string | undefined>>({});
-
-const openNewItemModal = () => {
-  newItemData.value = {
-    name: "",
-    categoryId: pricingData.value?.categories?.[0]?.id ?? undefined,
-    description: "",
-  };
-  newItemPrices.value = {};
-  newItemModalOpen.value = true;
-};
 
 const saveNewItem = async () => {
   const name = newItemData.value.name.trim();
@@ -452,18 +440,12 @@ watch(isCompact, (value) => { if (!value) isCartOpen.value = false; });
 const expandedItems = ref<Set<string>>(new Set());
 const toggleItemExpand = (key: string) => {
   const next = new Set(expandedItems.value);
-  next.has(key) ? next.delete(key) : next.add(key);
+  if (next.has(key)) {
+    next.delete(key);
+  } else {
+    next.add(key);
+  }
   expandedItems.value = next;
-};
-const decrementItemByKey = (key: string) => {
-  const item = form.items.find((entry) => entry.key === key);
-  if (!item) return;
-  if (item.quantity <= 1) { form.items = form.items.filter((entry) => entry.key !== key); return; }
-  item.quantity -= 1;
-};
-const incrementItemByKey = (key: string) => {
-  const item = form.items.find((entry) => entry.key === key);
-  if (item) item.quantity += 1;
 };
 const removeItem = (key: string) => {
   const item = form.items.find((e) => e.key === key);
@@ -655,7 +637,7 @@ const handleSubmit = async () => {
             </div>
 
             <div class="min-w-0 lg:shrink-0">
-              <div class="flex min-w-0 items-center gap-3 rounded-md border border-default px-3 py-2 lg:w-104">
+              <div class="flex min-w-0 items-center gap-3 rounded-lg border border-default px-3 py-2 lg:w-104">
                 <div class="flex min-w-0 flex-1 items-center gap-2">
                   <p class="text-sm font-medium text-highlighted">ซัก-พับ ชั่งกิโล</p>
                   <p class="min-w-0 truncate text-xs text-muted">
@@ -691,26 +673,26 @@ const handleSubmit = async () => {
         </div>
 
         <div v-if="isCatalogLoading" class="space-y-3">
-          <div class="space-y-1 md:hidden">
+          <div class="-mx-2 space-y-1 sm:mx-0 md:hidden">
             <div
               v-for="i in 5"
               :key="`mlist-${i}`"
-              :class="[mobileListCardClass, 'admin-dashboard-card rounded-md px-4 py-3']"
+              :class="[mobileListCardClass, 'px-4 py-3 sm:rounded-lg']"
               aria-hidden="true"
             >
               <div class="flex min-w-0 items-start justify-between gap-3">
                 <div class="min-w-0 flex-1 space-y-2">
-                  <USkeleton class="h-4 w-3/4 rounded-md" />
-                  <USkeleton class="h-3 w-5/6 rounded-md" />
+                  <USkeleton class="h-4 w-3/4 rounded-lg" />
+                  <USkeleton class="h-3 w-5/6 rounded-lg" />
                 </div>
-                <USkeleton class="h-4 w-16 shrink-0 rounded-md" />
+                <USkeleton class="h-4 w-16 shrink-0 rounded-lg" />
               </div>
 
               <div class="mt-3 flex items-center justify-between gap-3">
-                <USkeleton class="h-3 w-20 rounded-md" />
+                <USkeleton class="h-3 w-20 rounded-lg" />
                 <div class="flex items-center gap-1">
-                  <USkeleton class="size-7 rounded-md" />
-                  <USkeleton class="size-7 rounded-md" />
+                  <USkeleton class="size-7 rounded-lg" />
+                  <USkeleton class="size-7 rounded-lg" />
                 </div>
               </div>
             </div>
@@ -721,13 +703,13 @@ const handleSubmit = async () => {
         </div>
 
         <div v-else-if="filteredCatalog.length">
-          <div class="space-y-1 md:hidden">
+          <div class="-mx-2 space-y-1 sm:mx-0 md:hidden">
             <div
               v-for="item in filteredCatalog"
               :key="item.id"
               role="button"
               tabindex="0"
-              :class="[mobileListCardClass, 'admin-dashboard-card rounded-md px-4 py-3']"
+              :class="[mobileListCardClass, 'px-4 py-3 sm:rounded-lg']"
               @click="incrementCatalogItem(item.id)"
               @keydown.enter.prevent="incrementCatalogItem(item.id)"
               @keydown.space.prevent="incrementCatalogItem(item.id)"
@@ -808,9 +790,9 @@ const handleSubmit = async () => {
     <aside
       v-show="mounted"
       :class="!isCompact
-        ? 'space-y-3 rounded-md xl:sticky xl:top-4 xl:self-start'
+        ? 'space-y-3 rounded-lg xl:sticky xl:top-4 xl:self-start'
         : [
-            'admin-workspace fixed inset-y-0 right-0 z-50 flex w-full max-w-lg flex-col overflow-y-auto border-l border-default shadow-2xl',
+            'admin-workspace fixed inset-y-0 right-0 z-50 flex w-full max-w-lg flex-col overflow-y-auto border-l border-default',
             mounted ? 'transition-transform duration-200' : '',
             isCartOpen ? 'translate-x-0' : 'translate-x-full',
           ]"
@@ -891,7 +873,7 @@ const handleSubmit = async () => {
 
               <div class="divide-y divide-default">
                 <div v-for="item in cartItems" :key="item.key" class="py-2 first:pt-0 last:pb-0">
-                  <div class="flex cursor-pointer items-start gap-2 rounded-md py-1 hover:bg-elevated/30" @click="toggleItemExpand(item.key)">
+                  <div class="flex cursor-pointer items-start gap-2 rounded-lg py-1 hover:bg-elevated/30" @click="toggleItemExpand(item.key)">
                     <div class="min-w-0 flex-1">
                       <div class="flex min-w-0 items-start gap-2">
                         <p class="min-w-0 flex-1 truncate text-sm text-highlighted">{{ item.label }}</p>
@@ -1083,7 +1065,7 @@ const handleSubmit = async () => {
     icon="i-lucide-shopping-cart"
     color="primary"
     size="xl"
-    class="fixed bottom-6 right-6 z-30 size-14 justify-center rounded-full! shadow-lg"
+    class="fixed bottom-6 right-6 z-30 size-14 justify-center rounded-full!"
     aria-label="เปิดตะกร้ารับผ้า"
     @click="isCartOpen = true"
   >

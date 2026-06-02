@@ -1,6 +1,4 @@
 <script setup lang="ts">
-import { adminCatalogCardBaseClass } from "~~/shared/config/adminUi";
-
 defineProps<{
   title?: string;
   description?: string | null;
@@ -31,7 +29,7 @@ const defaultSelectedToneClass = {
 <template>
   <div
     v-if="loading"
-    :class="[adminCatalogCardBaseClass, 'admin-pos-catalog-card rounded-md border-default/30 bg-default dark:border-default/20 dark:bg-elevated/55']"
+    class="flex min-h-32 cursor-pointer flex-col justify-between gap-3 border border-default/30 bg-default p-3 transition-[background-color,border-color] duration-200 dark:border-default/20 dark:bg-elevated/55 sm:rounded-lg"
     aria-hidden="true"
   >
     <div class="min-w-0 space-y-2">
@@ -44,7 +42,7 @@ const defaultSelectedToneClass = {
         <USkeleton class="h-4 w-16 rounded" />
         <USkeleton class="h-3 w-24 rounded" />
       </div>
-      <USkeleton class="h-7 w-14 rounded-md" />
+      <USkeleton class="h-7 w-14 rounded-lg" />
     </div>
   </div>
 
@@ -54,8 +52,7 @@ const defaultSelectedToneClass = {
     tabindex="0"
     title="คลิกเพื่อเพิ่ม | คลิกขวาเพื่อลด"
     :class="[
-      adminCatalogCardBaseClass,
-      'admin-pos-catalog-card rounded-md',
+      'flex min-h-32 cursor-pointer flex-col justify-between gap-3 border p-3 transition-[background-color,border-color] duration-200 sm:rounded-lg',
       toneClass || (selected ? defaultSelectedToneClass[badgeColor || 'primary'] : 'border-default/30 bg-default hover:border-default/45 dark:border-default/20 dark:bg-elevated/55 dark:hover:bg-elevated/70')
     ]"
     @click="emit('increment')"
@@ -90,9 +87,3 @@ const defaultSelectedToneClass = {
     </div>
   </div>
 </template>
-
-<style scoped>
-.admin-pos-catalog-card {
-  border-radius: 0.375rem !important;
-}
-</style>

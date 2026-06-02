@@ -115,7 +115,7 @@ const performRemove = () => {
 </script>
 
 <template>
-  <div class="rounded-md border border-dashed border-default p-4">
+  <div class="rounded-lg border border-dashed border-default p-4">
     <div class="flex items-center justify-between gap-3">
       <div>
         <p class="font-medium text-highlighted">{{ label }}</p>
@@ -148,7 +148,7 @@ const performRemove = () => {
       <div
         v-for="photo in photos"
         :key="photo.key"
-        class="group relative overflow-hidden rounded-md border border-default bg-muted/30"
+        class="group relative overflow-hidden rounded-lg border border-default bg-muted/30"
       >
         <img
           :src="resolvePreviewUrl(photo)"
