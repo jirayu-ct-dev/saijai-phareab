@@ -1,25 +1,46 @@
 <script setup lang="ts">
+import { ref, watch } from 'vue'
+
+type PricingCategory = {
+  id: string
+  name: string
+  description?: string | null
+}
+type PricingService = {
+  id: string
+  name: string
+  description?: string | null
+}
+type PricingItem = {
+  id: string
+  name: string
+  categoryId?: string | null
+  description?: string | null
+}
+type PricingPrice = {
+  storefrontItemId: string
+  storefrontServiceId: string
+  price: number
+  priceMin?: number | null
+  priceMax?: number | null
+}
+type PricingResponse = {
+  items: PricingItem[]
+  services: PricingService[]
+  prices: PricingPrice[]
+  categories: PricingCategory[]
+}
+type EditableCategory = PricingCategory
+type EditableService = PricingService
+
 definePageMeta({
+  layout: 'admin',
   middleware: ['role-employee']
 })
 
-import { ref, watch } from 'vue'
-import * as adminUi from '~~/shared/config/adminUi'
-
-const adminDashboardBodyClass =
-  adminUi.adminDashboardBodyClass
-  ?? 'admin-dashboard flex flex-col gap-3 p-2 sm:p-6'
-const adminDashboardCardClass =
-  adminUi.adminDashboardCardClass
-  ?? 'admin-dashboard-card rounded-md border border-default/30 bg-default p-4 shadow-[0_1px_2px_rgb(15_23_42/0.04),0_6px_18px_-10px_rgb(15_23_42/0.08)] dark:border-default/20 dark:bg-elevated/55'
-const adminFilterBarClass =
-  adminUi.adminFilterBarClass
-  ?? 'admin-dashboard-card rounded-md border border-default/30 bg-default p-2 shadow-[0_1px_2px_rgb(15_23_42/0.04)] dark:border-default/20 dark:bg-elevated/55'
-const adminMobileListCardClass = adminUi.adminMobileListCardClass
-
 const notify = useNotify()
 
-const { data, pending, status, refresh } = useFetch<any>('/api/admin/pricing', {
+const { data, pending, status, refresh } = useFetch<PricingResponse>('/api/admin/pricing', {
   server: false,
   lazy: true,
 })
@@ -29,23 +50,23 @@ onMounted(() => { hydrated.value = true })
 const isLoading = computed(() => pending.value || status.value === 'idle')
 const showSkeleton = computed(() => !hydrated.value || isLoading.value)
 
-const mockServices = ref<any[]>([])
-const mockItems = ref<any[]>([])
-const mockPrices = ref<any[]>([])
-const mockCategories = ref<any[]>([])
+const mockServices = ref<PricingService[]>([])
+const mockItems = ref<PricingItem[]>([])
+const mockPrices = ref<PricingPrice[]>([])
+const mockCategories = ref<PricingCategory[]>([])
 
 const pageData = ref({
-  items: [] as any[],
-  services: [] as any[],
-  prices: [] as any[],
-  categories: [] as any[]
+  items: [] as PricingItem[],
+  services: [] as PricingService[],
+  prices: [] as PricingPrice[],
+  categories: [] as PricingCategory[]
 })
 
 watch(data, (newVal) => {
   if (newVal) {
     mockServices.value = newVal.services || []
     mockItems.value = newVal.items || []
-    mockPrices.value = newVal.prices ? newVal.prices.map((p: any) => ({ ...p, price: Number(p.price) })) : []
+    mockPrices.value = newVal.prices ? newVal.prices.map((p) => ({ ...p, price: Number(p.price) })) : []
     mockCategories.value = newVal.categories || []
     pageData.value = {
       items: mockItems.value,
@@ -109,7 +130,7 @@ const saveNewItem = async () => {
   if (!newItemData.value.name) return
   isSavingItem.value = true
   try {
-    const created = await $fetch<any>('/api/admin/pricing/item', {
+    const created = await $fetch<PricingItem>('/api/admin/pricing/item', {
       method: 'POST',
       body: {
         name: newItemData.value.name,
@@ -157,14 +178,14 @@ const manageTab = ref<'category' | 'service'>('category')
 const isSavingCategory = ref(false)
 const isDeletingCategoryId = ref<string | null>(null)
 const categoryForm = ref({ name: '', description: '' })
-const editingCategory = ref<any | null>(null)
+const editingCategory = ref<EditableCategory | null>(null)
 
 const openAddCategory = () => {
   editingCategory.value = null
   categoryForm.value = { name: '', description: '' }
 }
 
-const openEditCategory = (cat: any) => {
+const openEditCategory = (cat: PricingCategory) => {
   editingCategory.value = cat
   categoryForm.value = { name: cat.name, description: cat.description || '' }
 }
@@ -177,14 +198,14 @@ const saveCategory = async () => {
   isSavingCategory.value = true
   try {
     if (editingCategory.value) {
-      const updated = await $fetch<any>('/api/admin/pricing/category', {
+      const updated = await $fetch<PricingCategory>('/api/admin/pricing/category', {
         method: 'PUT',
         body: { id: editingCategory.value.id, name: categoryForm.value.name, description: categoryForm.value.description || undefined }
       })
       const idx = mockCategories.value.findIndex((c) => c.id === updated.id)
       if (idx >= 0) mockCategories.value[idx] = updated
     } else {
-      const created = await $fetch<any>('/api/admin/pricing/category', {
+      const created = await $fetch<PricingCategory>('/api/admin/pricing/category', {
         method: 'POST',
         body: { name: categoryForm.value.name, description: categoryForm.value.description || undefined }
       })
@@ -200,7 +221,7 @@ const saveCategory = async () => {
   }
 }
 
-const deleteCategory = async (cat: any) => {
+const deleteCategory = async (cat: PricingCategory) => {
   isDeletingCategoryId.value = cat.id
   try {
     await $fetch('/api/admin/pricing/category', { method: 'DELETE', body: { id: cat.id } })
@@ -219,14 +240,14 @@ const deleteCategory = async (cat: any) => {
 const isSavingService = ref(false)
 const isDeletingServiceId = ref<string | null>(null)
 const serviceForm = ref({ name: '', description: '' })
-const editingService = ref<any | null>(null)
+const editingService = ref<EditableService | null>(null)
 
 const openAddService = () => {
   editingService.value = null
   serviceForm.value = { name: '', description: '' }
 }
 
-const openEditService = (svc: any) => {
+const openEditService = (svc: PricingService) => {
   editingService.value = svc
   serviceForm.value = { name: svc.name, description: svc.description || '' }
 }
@@ -239,14 +260,14 @@ const saveService = async () => {
   isSavingService.value = true
   try {
     if (editingService.value) {
-      const updated = await $fetch<any>('/api/admin/pricing/service', {
+      const updated = await $fetch<PricingService>('/api/admin/pricing/service', {
         method: 'PUT',
         body: { id: editingService.value.id, name: serviceForm.value.name, description: serviceForm.value.description || undefined }
       })
       const idx = mockServices.value.findIndex((s) => s.id === updated.id)
       if (idx >= 0) mockServices.value[idx] = updated
     } else {
-      const created = await $fetch<any>('/api/admin/pricing/service', {
+      const created = await $fetch<PricingService>('/api/admin/pricing/service', {
         method: 'POST',
         body: { name: serviceForm.value.name, description: serviceForm.value.description || undefined }
       })
@@ -262,7 +283,7 @@ const saveService = async () => {
   }
 }
 
-const deleteService = async (svc: any) => {
+const deleteService = async (svc: PricingService) => {
   isDeletingServiceId.value = svc.id
   try {
     await $fetch('/api/admin/pricing/service', { method: 'DELETE', body: { id: svc.id } })
@@ -286,6 +307,7 @@ watch(isManageOpen, (open) => {
 </script>
 
 <template>
+  <div class="contents">
   <UDashboardPanel>
     <template #header>
       <UDashboardNavbar title="ราคาหน้าร้าน" icon="i-lucide-tags">
@@ -319,7 +341,7 @@ watch(isManageOpen, (open) => {
     </template>
 
     <template #body>
-      <div :class="adminDashboardBodyClass">
+      <div class="flex flex-col gap-3 p-2 sm:p-6">
         <AdminPricingTable
           :data="pageData"
           :loading="isLoading"
@@ -347,7 +369,7 @@ watch(isManageOpen, (open) => {
   >
     <template #body>
       <div class="flex flex-col gap-3">
-        <div :class="adminDashboardCardClass">
+        <div class="-mx-2 border border-default/30 bg-default p-4 dark:border-default/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg">
           <p class="mb-3 font-medium text-highlighted">ข้อมูลรายการ</p>
           <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <UFormField label="ชื่อรายการ" required>
@@ -369,13 +391,13 @@ watch(isManageOpen, (open) => {
           </div>
         </div>
 
-        <div :class="adminDashboardCardClass">
+        <div class="-mx-2 border border-default/30 bg-default p-4 dark:border-default/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg">
           <p class="mb-3 font-medium text-highlighted">ราคาตามบริการ</p>
           <div class="space-y-2">
             <div
               v-for="service in pageData.services"
               :key="service.id"
-              class="space-y-2 rounded-md border border-default/25 bg-elevated/30 p-3 dark:border-default/15 dark:bg-elevated/25"
+              class="space-y-2 rounded-lg border border-default/25 bg-elevated/30 p-3 dark:border-default/15 dark:bg-elevated/25"
             >
               <div class="flex items-center justify-between gap-2">
                 <span class="text-sm font-medium text-highlighted">{{ service.name }}</span>
@@ -436,20 +458,20 @@ watch(isManageOpen, (open) => {
           { label: 'ประเภทสินค้า', value: 'category', slot: 'category', icon: 'i-lucide-layers' },
           { label: 'บริการ', value: 'service', slot: 'service', icon: 'i-lucide-sparkles' }
         ]"
-        :ui="{ list: [adminFilterBarClass, 'px-3!'] }"
+        :ui="{ list: '-mx-2 border border-default/30 bg-default px-3! dark:border-default/40 dark:bg-default/80 sm:mx-0 sm:rounded-lg' }"
         class="w-full"
       >
         <!-- ── Category Tab ── -->
         <template #category>
           <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <!-- List -->
-            <div :class="[adminDashboardCardClass, 'space-y-2']">
+            <div class="-mx-2 space-y-2 border border-default/30 bg-default p-4 dark:border-default/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg">
               <p class="text-xs font-semibold uppercase tracking-wide text-muted">รายการประเภท</p>
               <div v-if="pageData.categories.length" class="space-y-1">
                 <div
                   v-for="cat in pageData.categories"
                   :key="cat.id"
-                  class="flex items-center gap-2 rounded-md border px-3 py-2 transition-colors"
+                  class="flex items-center gap-2 border px-3 py-2 transition-colors sm:rounded-lg"
                   :class="editingCategory?.id === cat.id
                     ? 'border-primary/30 bg-primary/5 dark:border-primary/25 dark:bg-elevated/65'
                     : 'border-default/25 bg-elevated/30 hover:border-default/40 hover:bg-elevated/50 dark:border-default/15 dark:bg-elevated/25 dark:hover:bg-elevated/45'"
@@ -468,13 +490,13 @@ watch(isManageOpen, (open) => {
                   />
                 </div>
               </div>
-              <p v-else class="rounded-md border border-dashed border-default/30 p-4 text-center text-sm text-muted dark:border-default/20">
+              <p v-else class="rounded-lg border border-dashed border-default/30 p-4 text-center text-sm text-muted dark:border-default/20">
                 ยังไม่มีประเภทสินค้า
               </p>
             </div>
 
             <!-- Form -->
-            <div :class="[adminDashboardCardClass, 'space-y-3']">
+            <div class="-mx-2 space-y-3 border border-default/30 bg-default p-4 dark:border-default/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg">
               <p class="text-xs font-semibold uppercase tracking-wide text-muted">
                 {{ editingCategory ? 'แก้ไขประเภท' : 'เพิ่มประเภทใหม่' }}
               </p>
@@ -510,13 +532,13 @@ watch(isManageOpen, (open) => {
         <template #service>
           <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <!-- List -->
-            <div :class="[adminDashboardCardClass, 'space-y-2']">
+            <div class="-mx-2 space-y-2 border border-default/30 bg-default p-4 dark:border-default/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg">
               <p class="text-xs font-semibold uppercase tracking-wide text-muted">รายการบริการ</p>
               <div v-if="pageData.services.length" class="space-y-1">
                 <div
                   v-for="svc in pageData.services"
                   :key="svc.id"
-                  class="flex items-center gap-2 rounded-md border px-3 py-2 transition-colors"
+                  class="flex items-center gap-2 border px-3 py-2 transition-colors sm:rounded-lg"
                   :class="editingService?.id === svc.id
                     ? 'border-info/30 bg-info/5 dark:border-info/25 dark:bg-elevated/65'
                     : 'border-default/25 bg-elevated/30 hover:border-default/40 hover:bg-elevated/50 dark:border-default/15 dark:bg-elevated/25 dark:hover:bg-elevated/45'"
@@ -535,13 +557,13 @@ watch(isManageOpen, (open) => {
                   />
                 </div>
               </div>
-              <p v-else class="rounded-md border border-dashed border-default/30 p-4 text-center text-sm text-muted dark:border-default/20">
+              <p v-else class="rounded-lg border border-dashed border-default/30 p-4 text-center text-sm text-muted dark:border-default/20">
                 ยังไม่มีบริการ
               </p>
             </div>
 
             <!-- Form -->
-            <div :class="[adminDashboardCardClass, 'space-y-3']">
+            <div class="-mx-2 space-y-3 border border-default/30 bg-default p-4 dark:border-default/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg">
               <p class="text-xs font-semibold uppercase tracking-wide text-muted">
                 {{ editingService ? 'แก้ไขบริการ' : 'เพิ่มบริการใหม่' }}
               </p>
@@ -581,4 +603,5 @@ watch(isManageOpen, (open) => {
       </div>
     </template>
   </UModal>
+  </div>
 </template>

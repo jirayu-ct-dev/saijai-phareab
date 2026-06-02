@@ -3,27 +3,63 @@ import { h, resolveComponent, ref, computed, watch } from 'vue'
 import { getPaginationRowModel } from '@tanstack/table-core'
 import type { TableColumn } from '@nuxt/ui'
 import { cycleColumnSorting } from '~~/shared/utils/table'
-import * as adminUi from '~~/shared/config/adminUi'
 
-const adminDashboardCardClass =
-  adminUi.adminDashboardCardClass
-  ?? 'admin-dashboard-card rounded-md border border-default/30 bg-default p-4 shadow-[0_1px_2px_rgb(15_23_42/0.04),0_6px_18px_-10px_rgb(15_23_42/0.08)] dark:border-default/20 dark:bg-elevated/55'
-const adminFilterBarClass =
-  adminUi.adminFilterBarClass
-  ?? 'admin-dashboard-card rounded-md border border-default/30 bg-default p-2 shadow-[0_1px_2px_rgb(15_23_42/0.04)] dark:border-default/20 dark:bg-elevated/55'
-const adminEmptyStateClass = adminUi.adminEmptyStateClass
-const adminMobileListCardClass = adminUi.adminMobileListCardClass
-const adminTableUi = adminUi.adminTableUi
+type PricingCategory = {
+  id: string
+  name: string
+  description?: string | null
+}
+type PricingService = {
+  id: string
+  name: string
+  description?: string | null
+}
+type PricingItem = {
+  id: string
+  name: string
+  categoryId?: string | null
+  description?: string | null
+}
+type PricingPrice = {
+  storefrontItemId: string
+  storefrontServiceId: string
+  price: number
+  priceMin?: number | null
+  priceMax?: number | null
+}
+type PricingTableData = {
+  items: PricingItem[]
+  services: PricingService[]
+  prices: PricingPrice[]
+  categories: PricingCategory[]
+}
+type PricingTableRow = PricingItem & {
+  index: number
+  categoryName: string
+  [key: string]: string | number | null | undefined
+}
+type PriceUpdatePayload = {
+  itemId: string
+  serviceId: string
+  price: number
+  priceMin?: number | null
+  priceMax?: number | null
+}
 
 const props = defineProps<{
-  data: any
+  data: PricingTableData
   loading: boolean
   showSkeleton?: boolean
 }>()
 
 const isSkeleton = computed(() => Boolean(props.showSkeleton))
 
-const emit = defineEmits(['refresh', 'delete-item', 'update-item', 'update-price'])
+const emit = defineEmits<{
+  refresh: []
+  'delete-item': [id: string]
+  'update-item': [item: PricingItem]
+  'update-price': [payload: PriceUpdatePayload]
+}>()
 
 const UBadge = resolveComponent('UBadge')
 const UButton = resolveComponent('UButton')
@@ -34,9 +70,9 @@ const notify = useNotify()
 
 type TableRow<T> = { original: T; toggleSelected: (value: boolean) => void }
 type TableApi = {
-  getFilteredSelectedRowModel: () => { rows: TableRow<any>[] }
-  getFilteredRowModel: () => { rows: TableRow<any>[] }
-  getRowModel: () => { rows: TableRow<any>[] }
+  getFilteredSelectedRowModel: () => { rows: TableRow<PricingTableRow>[] }
+  getFilteredRowModel: () => { rows: TableRow<PricingTableRow>[] }
+  getRowModel: () => { rows: TableRow<PricingTableRow>[] }
   resetRowSelection: () => void
   getState: () => { pagination: { pageIndex: number; pageSize: number } }
   setPageIndex: (pageIndex: number) => void
@@ -58,15 +94,15 @@ const categoryOptions = computed(() => [
 ])
 
 const getPrice = (itemId: string, serviceId: string) =>
-  props.data?.prices?.find((p: any) => p.storefrontItemId === itemId && p.storefrontServiceId === serviceId)
+  props.data?.prices?.find((p) => p.storefrontItemId === itemId && p.storefrontServiceId === serviceId)
 
-const tableData = computed(() => {
+const tableData = computed<PricingTableRow[]>(() => {
   if (!props.data?.items) return []
 
-  let result = props.data.items.map((item: any, index: number) => {
-    const category = props.data?.categories?.find((c: any) => c.id === item.categoryId)
-    const row: any = { ...item, index: index + 1, categoryName: category?.name ?? '-' }
-    props.data.services?.forEach((service: any) => {
+  let result = props.data.items.map<PricingTableRow>((item, index) => {
+    const category = props.data?.categories?.find((c) => c.id === item.categoryId)
+    const row: PricingTableRow = { ...item, index: index + 1, categoryName: category?.name ?? '-' }
+    props.data.services?.forEach((service) => {
       const priceObj = getPrice(item.id, service.id)
       row[`service_${service.id}`] = priceObj ? Number(priceObj.price) : null
       row[`service_${service.id}_min`] = priceObj?.priceMin != null ? Number(priceObj.priceMin) : null
@@ -76,8 +112,8 @@ const tableData = computed(() => {
   })
 
   const q = search.value.trim().toLowerCase()
-  if (q) result = result.filter((r: any) => r.name.toLowerCase().includes(q))
-  if (filterCategory.value !== 'all') result = result.filter((r: any) => r.categoryId === filterCategory.value)
+  if (q) result = result.filter((r) => r.name.toLowerCase().includes(q))
+  if (filterCategory.value !== 'all') result = result.filter((r) => r.categoryId === filterCategory.value)
 
   return result
 })
@@ -87,7 +123,7 @@ watch([search, filterCategory, () => props.data], () => {
   pagination.value.pageIndex = 0
 })
 
-const selectedRows = computed<TableRow<any>[]>(
+const selectedRows = computed<TableRow<PricingTableRow>[]>(
   () => table.value?.tableApi?.getFilteredSelectedRowModel().rows ?? []
 )
 const selectedItems = computed(() => selectedRows.value.map((r) => r.original))
@@ -109,13 +145,12 @@ const setMobileRowSelected = (index: number | string, value: boolean | 'indeterm
     [rowId]: !!value
   }
   if (!value) {
-    const next = { ...rowSelection.value }
-    delete next[rowId]
+    const { [rowId]: _removedRow, ...next } = rowSelection.value
     rowSelection.value = next
   }
 }
 
-const formatPriceText = (item: any, service: any) => {
+const formatPriceText = (item: PricingTableRow, service: PricingService) => {
   const price = item[`service_${service.id}`]
   if (price === null || price === undefined) return '-'
 
@@ -131,7 +166,7 @@ watch(selectedCount, (count) => {
   if (!count) showBulkDeleteModal.value = false
 })
 
-const handleItemDeselected = (item: any) => {
+const handleItemDeselected = (item: PricingTableRow) => {
   const rows = table.value?.tableApi?.getRowModel().rows ?? []
   const row = rows.find((r) => r.original.id === item.id)
   row?.toggleSelected(false)
@@ -142,13 +177,13 @@ const handleItemDeselected = (item: any) => {
 const editItemModal = ref(false)
 const deleteItemModal = ref(false)
 const isProcessingItem = ref(false)
-const activeItem = ref<any>({ id: '', name: '', categoryId: '', description: '' })
+const activeItem = ref<PricingItem>({ id: '', name: '', categoryId: '', description: '' })
 const activeItemPrices = ref<Record<string, number | string | undefined>>({})
 const activeItemPricesMin = ref<Record<string, number | string | undefined>>({})
 const activeItemPricesMax = ref<Record<string, number | string | undefined>>({})
 const activeItemRangeEnabled = ref<Record<string, boolean>>({})
 
-const openEditItem = (itemRow: any) => {
+const openEditItem = (itemRow: PricingTableRow) => {
   activeItem.value = {
     id: itemRow.id,
     name: itemRow.name,
@@ -159,7 +194,7 @@ const openEditItem = (itemRow: any) => {
   activeItemPricesMin.value = {}
   activeItemPricesMax.value = {}
   activeItemRangeEnabled.value = {}
-  props.data?.services?.forEach((s: any) => {
+  props.data?.services?.forEach((s) => {
     const priceObj = getPrice(itemRow.id, s.id)
     activeItemPrices.value[s.id] = itemRow[`service_${s.id}`] ?? undefined
     const hasMin = priceObj?.priceMin != null
@@ -171,7 +206,7 @@ const openEditItem = (itemRow: any) => {
   editItemModal.value = true
 }
 
-const openDeleteItem = (itemRow: any) => {
+const openDeleteItem = (itemRow: PricingTableRow) => {
   activeItem.value = { id: itemRow.id, name: itemRow.name }
   deleteItemModal.value = true
 }
@@ -249,10 +284,10 @@ const handleBulkDelete = async () => {
 
 // ── Columns ──────────────────────────────────────────────────────────────────
 
-const columns = computed<TableColumn<any>[]>(() => {
-  const serviceColumns: TableColumn<any>[] = (props.data?.services ?? []).map((service: any) => ({
+const columns = computed<TableColumn<PricingTableRow>[]>(() => {
+  const serviceColumns: TableColumn<PricingTableRow>[] = (props.data?.services ?? []).map((service) => ({
     accessorKey: `service_${service.id}`,
-    header: ({ column }: any) => {
+    header: ({ column }) => {
       const isSorted = column.getIsSorted()
       const icon = !isSorted ? 'i-lucide-arrow-up-down' : isSorted === 'asc' ? 'i-lucide-arrow-up-narrow-wide' : 'i-lucide-arrow-down-wide-narrow'
       return h(UButton, {
@@ -264,7 +299,7 @@ const columns = computed<TableColumn<any>[]>(() => {
         onClick: () => cycleColumnSorting(column)
       })
     },
-    cell: ({ row }: any) => {
+    cell: ({ row }) => {
       const price = row.getValue(`service_${service.id}`)
       if (price === null || price === undefined) return h('span', { class: 'text-muted' }, '-')
       const min = row.original[`service_${service.id}_min`]
@@ -279,13 +314,13 @@ const columns = computed<TableColumn<any>[]>(() => {
   return [
     {
       id: 'select',
-      header: ({ table }: any) =>
+      header: ({ table }) =>
         h('div', h(UCheckbox, {
           modelValue: table.getIsSomePageRowsSelected() ? 'indeterminate' : table.getIsAllPageRowsSelected(),
           'onUpdate:modelValue': (value: boolean | 'indeterminate') => table.toggleAllPageRowsSelected(!!value),
           ariaLabel: 'เลือกทั้งหมด'
         })),
-      cell: ({ row }: any) =>
+      cell: ({ row }) =>
         h('div', h(UCheckbox, {
           modelValue: row.getIsSelected(),
           'onUpdate:modelValue': (value: boolean | 'indeterminate') => row.toggleSelected(!!value),
@@ -294,7 +329,7 @@ const columns = computed<TableColumn<any>[]>(() => {
     },
     {
       accessorKey: 'name',
-      header: ({ column }: any) => {
+      header: ({ column }) => {
         const isSorted = column.getIsSorted()
         const icon = !isSorted ? 'i-lucide-arrow-up-down' : isSorted === 'asc' ? 'i-lucide-arrow-up-narrow-wide' : 'i-lucide-arrow-down-wide-narrow'
         return h(UButton, {
@@ -306,7 +341,7 @@ const columns = computed<TableColumn<any>[]>(() => {
           onClick: () => cycleColumnSorting(column)
         })
       },
-      cell: ({ row }: any) =>
+      cell: ({ row }) =>
         h('div', { class: 'flex items-center gap-2 px-2 py-1.5' }, [
           h(UIcon, { name: 'i-lucide-shirt', class: 'size-4 text-primary shrink-0 opacity-70' }),
           h('span', { class: 'font-medium text-highlighted truncate max-w-48' }, row.getValue('name'))
@@ -315,14 +350,14 @@ const columns = computed<TableColumn<any>[]>(() => {
     {
       accessorKey: 'categoryName',
       header: 'ประเภท',
-      cell: ({ row }: any) =>
+      cell: ({ row }) =>
         h(UBadge, { variant: 'subtle', color: 'primary' }, () => row.getValue('categoryName'))
     },
     ...serviceColumns,
     {
       accessorKey: 'description',
       header: 'หมายเหตุ',
-      cell: ({ row }: any) => {
+      cell: ({ row }) => {
         const desc = row.getValue('description')
         return h('span', { class: 'text-muted truncate block max-w-44', title: desc ?? '' }, desc || '-')
       }
@@ -330,7 +365,7 @@ const columns = computed<TableColumn<any>[]>(() => {
     {
       id: 'actions',
       header: '',
-      cell: ({ row }: any) =>
+      cell: ({ row }) =>
         h('div', { class: 'flex items-center justify-end gap-1' }, [
           h(UButton, {
             icon: 'i-lucide-pencil',
@@ -356,34 +391,53 @@ const columns = computed<TableColumn<any>[]>(() => {
 
 <template>
   <section class="flex flex-col gap-1">
-    <div :class="[adminFilterBarClass, 'px-3! px-y! flex items-center gap-1.5']">
-      <UInput
-        v-model="search"
-        class="min-w-0 flex-1"
-        icon="i-lucide-search"
-        placeholder="ค้นหารายการ..."
-      />
-      <USelect
-        v-model="filterCategory"
-        :items="categoryOptions"
-        label-key="name"
-        value-key="id"
-        class="w-28 shrink-0 sm:w-40"
-      />
-      <UButton
-        v-if="selectedCount"
-        color="error"
-        variant="subtle"
-        icon="i-lucide-trash"
-        class="shrink-0 rounded-md!"
-        :aria-label="`ลบ ${selectedCount} รายการ`"
-        @click="showBulkDeleteModal = true"
-      >
-        <template #trailing>
-          <UKbd class="hidden sm:inline-flex">{{ selectedCount }}</UKbd>
-        </template>
-      </UButton>
-      <UIButtonRefresh class="shrink-0" :loading="loading" @refresh="emit('refresh')" />
+    <div class="-mx-2 border border-default/30 bg-default p-2 px-3! py-3! dark:border-default/40 dark:bg-default/80 space-y-2 sm:mx-0 sm:rounded-lg md:flex md:items-center md:justify-between md:gap-3 md:space-y-0">
+      <div class="flex min-w-0 items-center gap-2 md:flex-1 md:max-w-sm">
+        <UInput
+          v-model="search"
+          class="min-w-0 flex-1"
+          icon="i-lucide-search"
+          placeholder="ค้นหารายการ..."
+        />
+        <UButton
+          v-if="selectedCount"
+          color="error"
+          variant="subtle"
+          icon="i-lucide-trash"
+          class="shrink-0 md:hidden"
+          :aria-label="`ลบ ${selectedCount} รายการ`"
+          @click="showBulkDeleteModal = true"
+        >
+          <template #trailing>
+            <UKbd class="hidden sm:inline-flex">{{ selectedCount }}</UKbd>
+          </template>
+        </UButton>
+        <UIButtonRefresh class="shrink-0 md:hidden" :loading="loading" @refresh="emit('refresh')" />
+      </div>
+
+      <div class="grid grid-cols-1 gap-2 sm:flex sm:flex-wrap sm:items-center md:justify-end">
+        <USelect
+          v-model="filterCategory"
+          :items="categoryOptions"
+          label-key="name"
+          value-key="id"
+          class="min-w-0 sm:w-40"
+        />
+        <UButton
+          v-if="selectedCount"
+          color="error"
+          variant="subtle"
+          icon="i-lucide-trash"
+          class="hidden shrink-0 md:inline-flex"
+          :aria-label="`ลบ ${selectedCount} รายการ`"
+          @click="showBulkDeleteModal = true"
+        >
+          <template #trailing>
+            <UKbd class="hidden sm:inline-flex">{{ selectedCount }}</UKbd>
+          </template>
+        </UButton>
+        <UIButtonRefresh class="hidden shrink-0 md:inline-flex" :loading="loading" @refresh="emit('refresh')" />
+      </div>
     </div>
 
     <!-- Bulk delete modal -->
@@ -432,59 +486,59 @@ const columns = computed<TableColumn<any>[]>(() => {
     </UModal>
 
     <template v-if="isSkeleton">
-      <div class="space-y-1 md:hidden">
+      <div class="-mx-2 space-y-1 sm:mx-0 md:hidden">
         <div
           v-for="i in 5"
           :key="`pr-mob-sk-${i}`"
-          :class="[adminMobileListCardClass, 'admin-dashboard-card rounded-md']"
+          class="overflow-hidden border border-default/30 bg-default transition-[background-color,border-color] duration-200 hover:border-default/45 hover:bg-default dark:border-default/20 dark:bg-elevated/55 dark:hover:bg-elevated/70"
         >
           <div class="flex items-center gap-2 p-2">
-            <USkeleton class="size-4 rounded shrink-0" />
-            <USkeleton class="size-4 rounded shrink-0" />
+            <USkeleton class="size-4 rounded-lg shrink-0" />
+            <USkeleton class="size-4 rounded-lg shrink-0" />
             <div class="min-w-0 flex-1 space-y-1.5">
               <div class="flex items-start justify-between gap-2">
                 <div class="min-w-0 flex-1 space-y-1">
-                  <USkeleton class="h-3.5 w-36 rounded" />
-                  <USkeleton class="h-2.5 w-28 rounded" />
+                  <USkeleton class="h-3.5 w-36 rounded-lg" />
+                  <USkeleton class="h-2.5 w-28 rounded-lg" />
                 </div>
                 <USkeleton class="h-4 w-16 rounded-full" />
               </div>
               <div class="flex flex-wrap gap-2">
-                <USkeleton class="h-2.5 w-20 rounded" />
-                <USkeleton class="h-2.5 w-20 rounded" />
-                <USkeleton class="h-2.5 w-20 rounded" />
+                <USkeleton class="h-2.5 w-20 rounded-lg" />
+                <USkeleton class="h-2.5 w-20 rounded-lg" />
+                <USkeleton class="h-2.5 w-20 rounded-lg" />
               </div>
               <div class="flex items-center justify-end gap-1">
-                <USkeleton class="size-5 rounded" />
-                <USkeleton class="size-5 rounded" />
+                <USkeleton class="size-5 rounded-lg" />
+                <USkeleton class="size-5 rounded-lg" />
               </div>
             </div>
           </div>
         </div>
       </div>
-      <div :class="[adminDashboardCardClass, 'hidden p-0! md:block']">
+      <div class="hidden rounded-lg border border-default/30 bg-default p-4 p-0! dark:border-default/20 dark:bg-elevated/55 md:block">
         <div class="space-y-2 p-3">
-          <USkeleton v-for="i in 8" :key="`pr-dt-sk-${i}`" class="h-12 w-full rounded-md" />
+          <USkeleton v-for="i in 8" :key="`pr-dt-sk-${i}`" class="h-12 w-full rounded-lg" />
         </div>
       </div>
     </template>
 
     <template v-else>
     <div class="md:hidden">
-      <div v-if="loading" class="space-y-1">
-        <USkeleton v-for="i in 5" :key="i" class="h-24 w-full rounded-md" />
+      <div v-if="loading" class="-mx-2 space-y-1 sm:mx-0">
+        <USkeleton v-for="i in 5" :key="i" class="h-24 w-full rounded-lg" />
       </div>
 
-      <div v-else-if="!paginatedTableData.length" :class="adminEmptyStateClass">
+      <div v-else-if="!paginatedTableData.length" class="flex flex-col items-center justify-center rounded-lg border border-dashed border-default/30 bg-default/55 px-3 py-5 text-center text-muted dark:border-default/20 dark:bg-elevated/30">
         <UIcon name="i-lucide-list-x" class="mb-3 size-10 opacity-60" />
         <p>{{ search ? 'ไม่พบรายการที่ค้นหา' : 'ยังไม่มีรายการ' }}</p>
       </div>
 
-      <div v-else class="space-y-1">
+      <div v-else class="-mx-2 space-y-1 sm:mx-0">
         <div
           v-for="(item, index) in paginatedTableData"
           :key="item.id"
-          :class="[adminMobileListCardClass, 'admin-dashboard-card rounded-md']"
+          class="overflow-hidden border border-default/30 bg-default transition-[background-color,border-color] duration-200 hover:border-default/45 hover:bg-default dark:border-default/20 dark:bg-elevated/55 dark:hover:bg-elevated/70"
         >
           <div class="flex items-center gap-2 p-2">
             <UCheckbox
@@ -519,9 +573,14 @@ const columns = computed<TableColumn<any>[]>(() => {
                 </span>
               </div>
 
-              <div class="mt-1 flex items-center justify-end gap-1">
-                <UButton icon="i-lucide-pencil" size="xs" color="neutral" variant="ghost" aria-label="แก้ไขรายการ" @click="openEditItem(item)" />
-                <UButton icon="i-lucide-trash-2" size="xs" color="error" variant="ghost" aria-label="ลบรายการ" @click="openDeleteItem(item)" />
+              <div class="mt-1 flex items-center justify-between gap-2">
+                <div class="min-w-0 truncate text-[11px] text-muted">
+                  {{ item.categoryName }}
+                </div>
+                <div class="flex shrink-0 items-center justify-end gap-1">
+                  <UButton icon="i-lucide-pencil" size="xs" color="neutral" variant="ghost" aria-label="แก้ไขรายการ" @click="openEditItem(item)" />
+                  <UButton icon="i-lucide-trash-2" size="xs" color="error" variant="ghost" aria-label="ลบรายการ" @click="openDeleteItem(item)" />
+                </div>
               </div>
             </div>
           </div>
@@ -529,7 +588,7 @@ const columns = computed<TableColumn<any>[]>(() => {
       </div>
     </div>
 
-    <div :class="[adminDashboardCardClass, 'hidden shrink-0 overflow-hidden p-0! md:block']">
+    <div class="hidden shrink-0 overflow-hidden rounded-lg border border-default/30 bg-default p-4 p-0! dark:border-default/20 dark:bg-elevated/55 md:block">
       <UTable
         ref="table"
         v-model:column-visibility="columnVisibility"
@@ -539,13 +598,21 @@ const columns = computed<TableColumn<any>[]>(() => {
         :data="tableData"
         :columns="columns"
         :loading="loading"
-        :ui="adminTableUi"
+        :ui="{
+          root: 'relative overflow-x-auto',
+          base: 'table-fixed border-separate border-spacing-0',
+          thead: 'sticky top-0 z-1 [&>tr]:bg-default dark:[&>tr]:bg-default/80 [&>tr]:after:content-none',
+          tbody: '[&>tr]:last:[&>td]:border-b-0 [&>tr:hover>td]:bg-primary/5 dark:[&>tr:hover>td]:bg-elevated/45',
+          th: 'border-b border-default bg-default py-2.5 text-xs font-semibold uppercase tracking-wide text-toned dark:border-default/40 dark:bg-default/80',
+          td: 'border-b border-default py-2.5 transition-colors dark:border-default/25',
+          separator: 'h-0',
+        }"
       >
         <template #empty>
           <div v-if="loading" class="space-y-2 p-3">
-            <USkeleton v-for="i in 6" :key="`pr-tbl-${i}`" class="h-12 w-full rounded-md" />
+            <USkeleton v-for="i in 6" :key="`pr-tbl-${i}`" class="h-12 w-full rounded-lg" />
           </div>
-          <div v-else :class="adminEmptyStateClass">
+          <div v-else class="flex flex-col items-center justify-center rounded-lg border border-dashed border-default/30 bg-default/55 px-3 py-5 text-center text-muted dark:border-default/20 dark:bg-elevated/30">
             <UIcon name="i-lucide-list-x" class="mb-3 size-10 opacity-60" />
             <p>{{ search ? 'ไม่พบรายการที่ค้นหา' : 'ยังไม่มีรายการ' }}</p>
           </div>
@@ -590,7 +657,7 @@ const columns = computed<TableColumn<any>[]>(() => {
   >
     <template #body>
       <div class="flex flex-col gap-3 sm:gap-4">
-        <div :class="adminDashboardCardClass">
+        <div class="-mx-2 border border-default/30 bg-default p-4 dark:border-default/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg">
           <p class="mb-3 font-medium text-highlighted">ข้อมูลรายการ</p>
           <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <UFormField label="ชื่อรายการ" required>
@@ -615,13 +682,13 @@ const columns = computed<TableColumn<any>[]>(() => {
           </div>
         </div>
 
-        <div :class="adminDashboardCardClass">
+        <div class="-mx-2 border border-default/30 bg-default p-4 dark:border-default/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg">
           <p class="mb-3 font-medium text-highlighted">ราคาตามบริการ</p>
           <div class="space-y-2">
             <div
               v-for="service in data?.services"
               :key="service.id"
-              class="space-y-2 rounded-md border border-default/25 bg-elevated/30 p-3 dark:border-default/15 dark:bg-elevated/25"
+              class="space-y-2 rounded-lg border border-default/25 bg-elevated/30 p-3 dark:border-default/15 dark:bg-elevated/25"
             >
               <div class="flex items-center justify-between gap-2">
                 <span class="text-sm font-medium text-highlighted">{{ service.name }}</span>
