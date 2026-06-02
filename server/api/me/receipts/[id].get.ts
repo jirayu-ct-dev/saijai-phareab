@@ -16,7 +16,6 @@ export default defineEventHandler(async (event) => {
       id,
       userId: user.id,
       deletedAt: null,
-      status: "PAID",
     },
     include: {
       user: {
