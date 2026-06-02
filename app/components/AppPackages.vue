@@ -67,7 +67,7 @@ const packageTypeLabel = (packageType: string) =>
             </span>
           </div>
 
-          <UDivider class="my-6" />
+          <USeparator class="my-6" />
 
           <ul class="space-y-4 mb-8">
             <li v-for="(feature, fIndex) in pkg.features" :key="fIndex" class="flex items-start gap-3">

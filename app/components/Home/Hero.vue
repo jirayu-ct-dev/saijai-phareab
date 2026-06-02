@@ -53,22 +53,29 @@ onUnmounted(() => {
         <div class="flex flex-col">
 
           <!-- Status badge -->
-          <div class="flex items-center gap-2 mb-6">
-            <div class="inline-flex items-center gap-2 rounded-full border px-3.5 py-1.5 text-xs font-medium"
-              :class="isOpen
-                ? 'border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-400'
-                : 'border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950/50 text-red-600 dark:text-red-400'"
-            >
-              <span class="w-1.5 h-1.5 rounded-full animate-pulse"
-                :class="isOpen ? 'bg-emerald-500' : 'bg-red-500'" />
-              {{ isOpen ? 'เปิดให้บริการอยู่' : 'ปิดให้บริการ' }} · 14:00 – 19:30
+          <ClientOnly>
+            <div class="flex items-center gap-2 mb-6">
+              <div class="inline-flex items-center gap-2 rounded-full border px-3.5 py-1.5 text-xs font-medium"
+                :class="isOpen
+                  ? 'border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-400'
+                  : 'border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950/50 text-red-600 dark:text-red-400'"
+              >
+                <span class="w-1.5 h-1.5 rounded-full animate-pulse"
+                  :class="isOpen ? 'bg-emerald-500' : 'bg-red-500'" />
+                {{ isOpen ? 'เปิดให้บริการอยู่' : 'ปิดให้บริการ' }} · 14:00 – 19:30
+              </div>
             </div>
-          </div>
+            <template #fallback>
+              <div class="flex items-center gap-2 mb-6">
+                <div class="h-7 w-48 rounded-full bg-gray-100 dark:bg-gray-800 animate-pulse" />
+              </div>
+            </template>
+          </ClientOnly>
 
           <!-- Headline -->
           <h1 class="text-[42px] md:text-[52px] lg:text-[60px] font-bold text-gray-900 dark:text-white leading-[1.08] tracking-tight mb-5">
-            ซัก-อบ-รีด<br />
-            ด้วยความ<span class="text-primary-600 dark:text-primary-400"> ใส่ใจ</span><br />
+            ซัก-อบ-รีด<br>
+            ด้วยความ<span class="text-primary-600 dark:text-primary-400"> ใส่ใจ</span><br>
             ทุกผืนผ้า
           </h1>
 
@@ -87,10 +94,7 @@ onUnmounted(() => {
               <UIcon name="i-lucide-check" class="w-3.5 h-3.5 text-primary-600 dark:text-primary-400" />
               รับ-ส่งถึงบ้าน
             </span>
-            <span class="inline-flex items-center gap-1.5 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-full px-3 py-1.5 text-[13px] font-medium">
-              <UIcon name="i-lucide-check" class="w-3.5 h-3.5 text-primary-600 dark:text-primary-400" />
-              ส่งคืนใน 48 ชม.
-            </span>
+
           </div>
 
           <!-- CTAs -->
@@ -99,7 +103,7 @@ onUnmounted(() => {
               <UButton
                 size="xl"
                 color="primary"
-                class="px-7 font-bold rounded-xl transition-all hover:scale-[1.02] shadow-lg shadow-primary-500/20"
+                class="px-7 font-bold rounded-md transition-all hover:scale-[1.02] shadow-lg shadow-primary-500/20"
                 to="#per-item-pricing"
               >
                 ดูราคาบริการ
@@ -111,7 +115,7 @@ onUnmounted(() => {
                 size="xl"
                 variant="outline"
                 color="neutral"
-                class="px-7 font-bold rounded-xl"
+                class="px-7 font-bold rounded-md"
                 to="#contact"
               >
                 ติดต่อเรา
@@ -121,7 +125,7 @@ onUnmounted(() => {
               <UButton
                 size="xl"
                 color="primary"
-                class="px-7 font-bold rounded-xl transition-all hover:scale-[1.02]"
+                class="px-7 font-bold rounded-md transition-all hover:scale-[1.02]"
                 to="/me"
               >
                 ดูคำสั่งของฉัน
@@ -140,11 +144,6 @@ onUnmounted(() => {
             </div>
             <div class="w-px h-10 bg-gray-200 dark:bg-gray-800" />
             <div>
-              <p class="text-2xl font-bold text-gray-900 dark:text-white">48<span class="text-sm font-medium text-gray-500"> ชม.</span></p>
-              <p class="text-xs text-gray-500 mt-0.5">ส่งคืนไว</p>
-            </div>
-            <div class="w-px h-10 bg-gray-200 dark:bg-gray-800" />
-            <div>
               <p class="text-2xl font-bold text-gray-900 dark:text-white">6<span class="text-sm font-medium text-gray-500"> วัน</span></p>
               <p class="text-xs text-gray-500 mt-0.5">หยุดอาทิตย์</p>
             </div>
@@ -155,10 +154,10 @@ onUnmounted(() => {
         <div class="relative hidden lg:block">
 
           <!-- Floating glow behind card -->
-          <div class="absolute inset-0 bg-gradient-to-br from-primary-200/30 to-blue-200/20 dark:from-primary-900/20 dark:to-blue-900/10 rounded-3xl blur-2xl scale-110 pointer-events-none" />
+          <div class="absolute inset-0 bg-gradient-to-br from-primary-200/30 to-blue-200/20 dark:from-primary-900/20 dark:to-blue-900/10 rounded-md blur-2xl scale-110 pointer-events-none" />
 
           <!-- Main chat card -->
-          <div class="relative bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-3xl shadow-2xl overflow-hidden">
+          <div class="relative bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-md shadow-2xl overflow-hidden">
 
             <!-- Browser bar -->
             <div class="flex items-center gap-2 px-4 py-3 border-b border-gray-100 dark:border-gray-800 bg-gray-50/80 dark:bg-gray-950/80">
@@ -191,7 +190,7 @@ onUnmounted(() => {
               </div>
 
               <!-- Message 1: Receipt -->
-              <div class="bg-gray-50 dark:bg-gray-800/60 border border-gray-100 dark:border-gray-700 rounded-2xl rounded-tl-sm p-3.5 mb-3 max-w-[92%] animate-[fade-in_0.4s_ease-out]">
+              <div class="bg-gray-50 dark:bg-gray-800/60 border border-gray-100 dark:border-gray-700 rounded-md rounded-tl-sm p-3.5 mb-3 max-w-[92%] animate-[fade-in_0.4s_ease-out]">
                 <div class="font-semibold flex items-center gap-2 mb-2.5 text-gray-900 dark:text-white text-[13px]">
                   <span class="w-2 h-2 rounded-full bg-emerald-500" />
                   รับผ้าเรียบร้อย ✓
@@ -217,7 +216,7 @@ onUnmounted(() => {
               </div>
 
               <!-- Message 2: Ready -->
-              <div class="bg-gray-50 dark:bg-gray-800/60 border border-gray-100 dark:border-gray-700 rounded-2xl rounded-tl-sm p-3.5 max-w-[92%] opacity-0 animate-[fade-in_0.4s_ease-out_1s_forwards]">
+              <div class="bg-gray-50 dark:bg-gray-800/60 border border-gray-100 dark:border-gray-700 rounded-md rounded-tl-sm p-3.5 max-w-[92%] opacity-0 animate-[fade-in_0.4s_ease-out_1s_forwards]">
                 <div class="font-semibold flex items-center gap-2 mb-2.5 text-gray-900 dark:text-white text-[13px]">
                   <span class="w-2 h-2 rounded-full bg-emerald-500" />
                   ผ้าพร้อมส่งคืนแล้ว

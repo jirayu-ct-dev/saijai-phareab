@@ -17,7 +17,7 @@ const washFoldPrice = computed(() => shopSettings.value?.washFoldPricePerKg ?? 6
       </div>
 
       <!-- Kilo Service Headline -->
-      <div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-3xl p-6 md:p-8 mb-8 flex flex-col md:flex-row md:items-center justify-between gap-6 shadow-sm">
+      <div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-md p-6 md:p-8 mb-8 flex flex-col md:flex-row md:items-center justify-between gap-6 shadow-sm">
         <div>
           <div class="text-xs tracking-widest uppercase text-gray-500 dark:text-gray-400 mb-1.5 font-semibold">บริการชั่งกิโล</div>
           <div class="flex items-baseline gap-2 text-3xl md:text-4xl font-bold tracking-tight text-gray-900 dark:text-white leading-none">
@@ -30,7 +30,7 @@ const washFoldPrice = computed(() => shopSettings.value?.washFoldPricePerKg ?? 6
         <UButton
           size="xl"
           color="primary"
-          class="font-bold rounded-xl px-8 flex-shrink-0"
+          class="font-bold rounded-md px-8 flex-shrink-0"
           to="#contact"
         >
           สอบถามเพิ่มเติม
@@ -41,7 +41,7 @@ const washFoldPrice = computed(() => shopSettings.value?.washFoldPricePerKg ?? 6
       </div>
 
       <!-- Pricing Table Container -->
-      <div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-3xl overflow-hidden mb-6 shadow-sm">
+      <div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-md overflow-hidden mb-6 shadow-sm">
         <div class="p-5 md:p-6 border-b border-gray-200 dark:border-gray-800 flex flex-wrap items-center justify-between gap-3 bg-gray-50/50 dark:bg-gray-800/50">
           <div>
             <h3 class="m-0 text-base font-semibold text-gray-900 dark:text-white">ราคาคิดเป็นชิ้น — ตามประเภทผ้า</h3>
@@ -56,7 +56,7 @@ const washFoldPrice = computed(() => shopSettings.value?.washFoldPricePerKg ?? 6
       </div>
 
       <!-- Notice List -->
-      <div class="mt-8 border border-gray-200 dark:border-gray-800 rounded-3xl overflow-hidden shadow-sm">
+      <div class="mt-8 border border-gray-200 dark:border-gray-800 rounded-md overflow-hidden shadow-sm">
         <div class="p-4 md:p-5 flex items-center gap-2.5 font-semibold text-[15px] text-gray-900 dark:text-white bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800">
           <div class="w-6 h-6 rounded-md bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-500 border border-amber-200 dark:border-amber-800/50 flex items-center justify-center">
             <UIcon name="i-lucide-alert-triangle" class="w-4 h-4" />

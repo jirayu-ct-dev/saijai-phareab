@@ -4,57 +4,81 @@ import { prisma } from "~~/server/utils/prisma";
 export default defineEventHandler(async (event) => {
   const user = requireUser(event);
 
-  const query = getQuery(event);
-  const page = Math.max(1, Number(query.page) || 1);
-  const pageSize = Math.min(50, Math.max(1, Number(query.pageSize) || 10));
-  const skip = (page - 1) * pageSize;
-
-  const where = {
-    userId: user.id,
-    deletedAt: null,
-    status: "PAID" as const,
-  };
-
   try {
-    const total = await prisma.paymentRecord.count({ where });
-    const receipts = await prisma.paymentRecord.findMany({
-      where,
+    const rows = await prisma.paymentRecord.findMany({
+      where: { userId: user.id, deletedAt: null },
       include: {
-        serviceOrder: { select: { orderNo: true } },
-        packageSale: { select: { id: true, items: { include: { product: { select: { name: true } } } } } },
+        user: {
+          select: { id: true, name: true, email: true, phoneNumber: true, image: true },
+        },
+        memberEntitlement: {
+          select: { id: true, product: { select: { id: true, name: true, packageType: true, credits: true, validityDays: true } } },
+        },
+        packageSale: {
+          select: {
+            id: true, note: true,
+            items: {
+              orderBy: [{ createdAt: "asc" }],
+              select: {
+                id: true, itemType: true, qty: true, totalPrice: true,
+                product: { select: { id: true, name: true, packageType: true, credits: true, validityDays: true } },
+              },
+            },
+          },
+        },
+        serviceOrder: {
+          select: {
+            id: true, orderNo: true, quotationNo: true, isWalkIn: true, walkInName: true, walkInPhone: true, creditUsed: true, memberEntitlementId: true,
+            memberEntitlement: { select: { id: true, product: { select: { id: true, name: true } } } },
+            serviceOrderItems: { where: { deletedAt: null }, select: { id: true } },
+          },
+        },
+        slipImage: {
+          select: { id: true, secureUrl: true, url: true },
+        },
       },
       orderBy: { createdAt: "desc" },
-      skip,
-      take: pageSize,
     });
 
+    const items = rows.map((row) => {
+      const customerName = row.user.name;
+      const customerEmail = row.user.email;
+      const customerPhoneNumber = row.user.phoneNumber;
 
-    const items = receipts.map((receipt) => {
-      let type = "อื่นๆ";
-      let detail = "";
-
-      if (receipt.serviceOrderId) {
-        type = "บริการซักผ้า";
-        detail = receipt.serviceOrder?.orderNo || "";
-      } else if (receipt.packageSaleId) {
-        type = "ซื้อแพ็กเกจ";
-        const products = receipt.packageSale?.items.map((i) => i.product.name).join(", ");
-        detail = products || "แพ็กเกจ";
-      }
+      const saleMainItem = row.packageSale?.items[0] ?? null;
+      const packageProduct = row.memberEntitlement?.product ?? saleMainItem?.product ?? null;
+      const packageSaleItems = (row.packageSale?.items ?? []).map((item) => ({
+        id: item.id, productId: item.product.id, productName: item.product.name,
+        packageType: item.product.packageType, quantity: item.qty, totalPrice: Number(item.totalPrice),
+      }));
 
       return {
-        id: receipt.id,
-        paymentNo: receipt.paymentNo,
-        receiptNo: receipt.receiptNo,
-        method: receipt.method,
-        type,
-        detail,
-        amount: Number(receipt.amount),
-        paidAt: receipt.paidAt?.toISOString() || receipt.createdAt.toISOString(),
+        id: row.id, paymentNo: row.paymentNo, receiptNo: row.receiptNo, amount: Number(row.amount),
+        status: row.status, method: row.method, isVerified: row.status === "PAID",
+        note: row.note ?? row.packageSale?.note ?? null, createdAt: row.createdAt, updatedAt: row.updatedAt,
+        paidAt: row.paidAt, confirmedAt: row.confirmedAt, quotationNo: row.serviceOrder?.quotationNo ?? null,
+        metadata: row.metadata,
+        customer: {
+          id: row.user.id, name: customerName, email: customerEmail, phoneNumber: customerPhoneNumber, image: row.user.image,
+        },
+        packageSale: {
+          memberEntitlementId: row.memberEntitlement?.id ?? null, packageSaleId: row.packageSale?.id ?? null,
+          productId: packageProduct?.id ?? null, productName: packageProduct?.name ?? null,
+          packageType: packageProduct?.packageType ?? null, credits: packageProduct?.credits ?? null,
+          validityDays: packageProduct?.validityDays ?? null, items: packageSaleItems,
+        },
+        serviceOrder: row.serviceOrder ? {
+          id: row.serviceOrder.id, orderNo: row.serviceOrder.orderNo, isWalkIn: row.serviceOrder.isWalkIn,
+          walkInName: row.serviceOrder.walkInName, walkInPhone: row.serviceOrder.walkInPhone,
+          itemCount: row.serviceOrder.serviceOrderItems.length, creditUsed: row.serviceOrder.creditUsed ?? 0,
+          memberEntitlementId: row.serviceOrder.memberEntitlementId ?? null,
+          memberProductName: row.serviceOrder.memberEntitlement?.product.name ?? null,
+        } : null,
+        slipImage: row.slipImage ? { id: row.slipImage.id, secureUrl: row.slipImage.secureUrl, url: row.slipImage.url } : null,
       };
     });
 
-    return { items, total, page, pageSize };
+    return { items, total: items.length }; // We return {items, total} to maintain some compatibility with `useMyReceipts` if it expects `items`.
   } catch (error) {
     console.error("[GET /api/me/receipts]", error);
     throw createError({ statusCode: 500, statusMessage: "ไม่สามารถโหลดใบเสร็จได้" });

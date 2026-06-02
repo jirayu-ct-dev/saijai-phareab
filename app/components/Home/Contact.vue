@@ -18,9 +18,9 @@
         <a
           href="https://line.me/R/ti/p/@883vmdct"
           target="_blank"
-          class="group flex flex-col items-center text-center bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 hover:border-[#06C755]/50 dark:hover:border-[#06C755]/50 rounded-2xl p-8 shadow-sm hover:shadow-md transition-all duration-300"
+          class="group flex flex-col items-center text-center bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 hover:border-[#06C755]/50 dark:hover:border-[#06C755]/50 rounded-md p-8 shadow-sm hover:shadow-md transition-all duration-300"
         >
-          <div class="w-14 h-14 rounded-2xl bg-[#06C755]/10 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+          <div class="w-14 h-14 rounded-md bg-[#06C755]/10 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
             <UIcon name="i-simple-icons-line" class="w-7 h-7 text-[#06C755]" />
           </div>
           <p class="text-[11px] font-bold tracking-widest uppercase text-gray-500 dark:text-gray-400 mb-1">LINE Official</p>
@@ -35,9 +35,9 @@
         <!-- Phone Card -->
         <a
           href="tel:0860222196"
-          class="group flex flex-col items-center text-center bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 hover:border-primary-400/50 rounded-2xl p-8 shadow-sm hover:shadow-md transition-all duration-300"
+          class="group flex flex-col items-center text-center bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 hover:border-primary-400/50 rounded-md p-8 shadow-sm hover:shadow-md transition-all duration-300"
         >
-          <div class="w-14 h-14 rounded-2xl bg-primary-50 dark:bg-primary-900/30 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+          <div class="w-14 h-14 rounded-md bg-primary-50 dark:bg-primary-900/30 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
             <UIcon name="i-lucide-phone" class="w-7 h-7 text-primary-600 dark:text-primary-400" />
           </div>
           <p class="text-[11px] font-bold tracking-widest uppercase text-gray-500 dark:text-gray-400 mb-1">โทรศัพท์</p>
@@ -53,9 +53,9 @@
         <a
           href="https://www.facebook.com/saijaiburiram/?rdid=amPWW1eNJg7Yb6OB"
           target="_blank"
-          class="group flex flex-col items-center text-center bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 hover:border-[#4267B2]/50 rounded-2xl p-8 shadow-sm hover:shadow-md transition-all duration-300"
+          class="group flex flex-col items-center text-center bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 hover:border-[#4267B2]/50 rounded-md p-8 shadow-sm hover:shadow-md transition-all duration-300"
         >
-          <div class="w-14 h-14 rounded-2xl bg-[#4267B2]/10 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+          <div class="w-14 h-14 rounded-md bg-[#4267B2]/10 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
             <UIcon name="i-simple-icons-facebook" class="w-7 h-7 text-[#4267B2]" />
           </div>
           <p class="text-[11px] font-bold tracking-widest uppercase text-gray-500 dark:text-gray-400 mb-1">Facebook</p>
@@ -69,7 +69,7 @@
       </div>
 
       <!-- Maps & Location Section -->
-      <div class="mt-12 overflow-hidden border border-gray-200 dark:border-gray-800 rounded-3xl shadow-sm bg-white dark:bg-gray-900">
+      <div class="mt-12 overflow-hidden border border-gray-200 dark:border-gray-800 rounded-md shadow-sm bg-white dark:bg-gray-900">
         <div class="p-6 md:p-8 flex flex-col lg:flex-row gap-8">
           <!-- Info Side -->
           <div class="lg:w-1/3 flex flex-col justify-between">
@@ -80,7 +80,7 @@
               </div>
               <h3 class="text-xl font-bold text-gray-900 dark:text-white mb-3">แวะมาหาเราได้ที่ร้าน</h3>
               <p class="text-gray-500 dark:text-gray-400 text-sm leading-relaxed mb-6">
-                ใส่ใจ ผ้าเรียบ - บริการ ซัก อบ รีด คุ้มค่า สะดวกสบาย <br/>
+                ใส่ใจ ผ้าเรียบ - บริการ ซัก อบ รีด คุ้มค่า สะดวกสบาย <br>
                 อำเภอเมือง จังหวัดบุรีรัมย์
               </p>
               
@@ -101,7 +101,7 @@
             <div class="mt-8">
               <UButton
                 size="xl"
-                class="bg-[#06C755] hover:bg-[#05B04C] text-white font-bold rounded-xl px-8 w-full justify-center"
+                class="bg-[#06C755] hover:bg-[#05B04C] text-white font-bold rounded-md px-8 w-full justify-center"
                 to="https://line.me/R/ti/p/@883vmdct"
                 target="_blank"
               >
@@ -112,18 +112,18 @@
           </div>
 
           <!-- Map Side -->
-          <div class="lg:w-2/3 h-[300px] lg:h-[400px] rounded-2xl overflow-hidden border border-gray-100 dark:border-gray-800 relative group">
+          <div class="lg:w-2/3 h-[300px] lg:h-[400px] rounded-md overflow-hidden border border-gray-100 dark:border-gray-800 relative group">
             <iframe
               src="https://www.google.com/maps/embed?pb=!1m14!1m8!1m3!1d3854.0986966515134!2d103.0807595!3d14.9872255!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x31199506b4a82a99%3A0xf5206a7506c788e3!2z4LmD4Liq4LmI4LmD4LiI4Lic4LmJ4Liy4LmA4Lij4Li14Lii4LiaIC0g4LiL4Lix4LiBIOC4reC4miDguKPguLXguJQg4Lia4Li44Lij4Li14Lij4Lix4Lih4Lii4LmM!5e0!3m2!1sth!2sth!4v1778601481868!5m2!1sth!2sth"
               width="100%"
               height="100%"
               style="border:0;"
-              allowfullscreen=""
+              allowfullscreen
               loading="lazy"
               referrerpolicy="no-referrer-when-downgrade"
               class="filter grayscale-[0.2] contrast-[1.1] hover:grayscale-0 transition-all duration-500"
             ></iframe>
-            <div class="absolute inset-0 pointer-events-none border border-black/5 dark:border-white/5 rounded-2xl"></div>
+            <div class="absolute inset-0 pointer-events-none border border-black/5 dark:border-white/5 rounded-md"></div>
           </div>
         </div>
       </div>

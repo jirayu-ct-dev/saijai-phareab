@@ -5,6 +5,16 @@ const { addLineFriend } = useLiffAuth()
 const { logout, user, session, userAvatar } = useUser()
 const open = ref(false)
 
+const colorMode = useColorMode()
+const isDark = computed({
+    get() {
+        return colorMode.value === 'dark'
+    },
+    set() {
+        colorMode.preference = colorMode.value === 'dark' ? 'light' : 'dark'
+    }
+})
+
 const menu = computed<NavigationMenuItem[]>(() => [
     {
         label: 'ซักอบรีดรายชิ้น',
@@ -68,7 +78,7 @@ const itemsDropdown = computed<DropdownMenuItem[][]>(() => {
             {
                 label: 'Settings',
                 icon: 'i-lucide-cog',
-                to: '/settings'
+                to: '/me/settings'
             }
         ],
         roleLinks,
@@ -105,7 +115,7 @@ const itemsDropdown = computed<DropdownMenuItem[][]>(() => {
         <UNavigationMenu :items="menu" />
 
         <!-- Logo & Brand -->
-        <template #title>
+        <template #left>
             <AppLogo label="LAUNDRY SERVICE" to="/" />
         </template>
 
@@ -115,7 +125,14 @@ const itemsDropdown = computed<DropdownMenuItem[][]>(() => {
 
 
                 <UIButtonAddFriendLine :addLineFriend="addLineFriend" />
-                <UColorModeButton />
+                <UButton
+                    :icon="isDark ? 'i-lucide-moon' : 'i-lucide-sun'"
+                    color="neutral"
+                    variant="ghost"
+                    aria-label="เปลี่ยนธีม"
+                    class="cursor-pointer"
+                    @click="isDark = !isDark"
+                />
                 <div v-if="!session" class="hidden md:inline-flex">
                     <UButton color="neutral" variant="ghost" class="p-2" to="/auth/login" label="ลงชื่อเข้าใช้" />
                     <UButton color="primary" variant="solid" class="p-2" to="/auth/register" label="สมัครสมาชิก" />
@@ -137,6 +154,17 @@ const itemsDropdown = computed<DropdownMenuItem[][]>(() => {
             <UNavigationMenu :items="menu" orientation="vertical" class="-mx-2.5" />
             <USeparator class="my-4" />
             <UIButtonAddFriendLine :addLineFriend="addLineFriend" class="w-full" />
+            <div class="flex items-center justify-between mt-4">
+                <span class="text-sm font-medium text-gray-700 dark:text-gray-300">เปลี่ยนธีม</span>
+                <UButton
+                    :icon="isDark ? 'i-lucide-moon' : 'i-lucide-sun'"
+                    color="neutral"
+                    variant="ghost"
+                    aria-label="เปลี่ยนธีม"
+                    class="cursor-pointer"
+                    @click="isDark = !isDark"
+                />
+            </div>
             <div v-if="!session" class="mt-4 flex flex-col gap-2">
                 <UButton block color="neutral" variant="outline" to="/auth/login" label="ลงชื่อเข้าใช้" />
                 <UButton block color="primary" variant="solid" to="/auth/register" label="สมัครสมาชิก" />

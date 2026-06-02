@@ -13,7 +13,7 @@
 
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <!-- Service 1: Wash -->
-        <UCard class="bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-800 rounded-2xl hover:border-gray-300 dark:hover:border-gray-700 hover:shadow-md transition-all group">
+        <UCard class="bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-800 rounded-md hover:border-gray-300 dark:hover:border-gray-700 hover:shadow-md transition-all group">
           <div class="w-10 h-10 rounded-lg bg-primary-50 dark:bg-primary-900/30 text-primary-600 dark:text-primary-400 flex items-center justify-center mb-4">
             <UIcon name="i-lucide-droplets" class="w-5 h-5" />
           </div>
@@ -25,7 +25,7 @@
         </UCard>
 
         <!-- Service 2: Dry -->
-        <UCard class="bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-800 rounded-2xl hover:border-gray-300 dark:hover:border-gray-700 hover:shadow-md transition-all group">
+        <UCard class="bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-800 rounded-md hover:border-gray-300 dark:hover:border-gray-700 hover:shadow-md transition-all group">
           <div class="w-10 h-10 rounded-lg bg-primary-50 dark:bg-primary-900/30 text-primary-600 dark:text-primary-400 flex items-center justify-center mb-4">
             <UIcon name="i-lucide-wind" class="w-5 h-5" />
           </div>
@@ -37,7 +37,7 @@
         </UCard>
 
         <!-- Service 3: Dry Clean -->
-        <UCard class="bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-800 rounded-2xl hover:border-gray-300 dark:hover:border-gray-700 hover:shadow-md transition-all group">
+        <UCard class="bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-800 rounded-md hover:border-gray-300 dark:hover:border-gray-700 hover:shadow-md transition-all group">
           <div class="w-10 h-10 rounded-lg bg-primary-50 dark:bg-primary-900/30 text-primary-600 dark:text-primary-400 flex items-center justify-center mb-4">
             <UIcon name="i-lucide-shirt" class="w-5 h-5" />
           </div>
@@ -49,7 +49,7 @@
         </UCard>
 
         <!-- Service 4: Press/Iron -->
-        <UCard class="bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-800 rounded-2xl hover:border-gray-300 dark:hover:border-gray-700 hover:shadow-md transition-all group">
+        <UCard class="bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-800 rounded-md hover:border-gray-300 dark:hover:border-gray-700 hover:shadow-md transition-all group">
           <div class="w-10 h-10 rounded-lg bg-primary-50 dark:bg-primary-900/30 text-primary-600 dark:text-primary-400 flex items-center justify-center mb-4">
             <UIcon name="i-lucide-sparkles" class="w-5 h-5" />
           </div>

@@ -28,7 +28,7 @@ const items = [
         <div class="lg:col-span-5 lg:sticky lg:top-24">
           <span class="inline-block text-primary-600 dark:text-primary-400 font-semibold text-[13px] tracking-wide mb-2">คำถามที่พบบ่อย</span>
           <h2 class="text-[26px] md:text-[38px] font-bold text-gray-900 dark:text-white leading-[1.15] tracking-tight mb-4">
-            ข้อสงสัยที่ลูกค้า<br class="hidden lg:block"/>มักจะถามเราบ่อยๆ
+            ข้อสงสัยที่ลูกค้า<br class="hidden lg:block">มักจะถามเราบ่อยๆ
           </h2>
           <p class="text-gray-500 dark:text-gray-400 text-base leading-relaxed mb-8">
             หากมีคำถามอื่นๆ ที่ไม่พบในนี้ สามารถสอบถามทีมงานของเราได้ทาง LINE เลยครับ ยินดีให้บริการ
@@ -37,7 +37,7 @@ const items = [
             size="xl" 
             color="primary" 
             variant="outline" 
-            class="font-bold rounded-xl px-8 bg-white dark:bg-gray-900"
+          class="font-bold rounded-md px-8 bg-white dark:bg-gray-900"
             to="#contact"
           >
             สอบถามเพิ่มเติม
@@ -46,7 +46,7 @@ const items = [
 
         <!-- Right Column - Accordion -->
         <div class="lg:col-span-7">
-          <div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-3xl p-2 sm:p-4 shadow-sm">
+          <div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-md p-2 sm:p-4 shadow-sm">
             <UAccordion 
               :items="items" 
               multiple
@@ -54,22 +54,11 @@ const items = [
               size="xl"
               class="w-full"
             >
-              <template #default="{ item, index, open }">
-                <UButton
-                  color="neutral"
-                  variant="ghost"
-                  class="w-full justify-between py-5 px-4 text-left border-b border-gray-100 dark:border-gray-800 last:border-0 transition-colors rounded-none"
-                  :class="[open ? 'text-primary-600 dark:text-primary-400' : 'text-gray-900 dark:text-white hover:bg-gray-50 dark:hover:bg-gray-800/50']"
-                >
-                  <span class="text-base font-semibold">{{ item.label }}</span>
-                  <template #trailing>
-                    <UIcon
-                      name="i-lucide-chevron-down"
-                      class="w-5 h-5 ms-auto transform transition-transform duration-200"
-                      :class="[open ? 'rotate-180' : '']"
-                    />
-                  </template>
-                </UButton>
+              <template #trailing="{ open }">
+                <UIcon 
+                  :name="open ? 'i-lucide-chevron-up' : 'i-lucide-chevron-down'" 
+                  class="w-5 h-5 text-gray-500 transition-transform duration-200" 
+                />
               </template>
             </UAccordion>
           </div>

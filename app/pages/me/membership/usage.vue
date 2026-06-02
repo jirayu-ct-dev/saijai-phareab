@@ -45,21 +45,25 @@ const statusLabels: Record<string, string> = {
 </script>
 
 <template>
-  <UDashboardPage>
+  <div class="flex-1 flex flex-col min-h-0">
     <UDashboardPanel grow>
-      <UDashboardNavbar title="ประวัติการใช้เครดิต">
-        <template #leading>
-          <UDashboardSidebarCollapse />
-        </template>
-        <template #right>
-          <div class="flex items-center gap-2">
-            <UButton icon="i-lucide-refresh-cw" :loading="pending" variant="ghost" color="neutral" @click="() => refresh()" />
-            <UButton color="neutral" variant="ghost" to="/me/membership" icon="i-lucide-arrow-left">กลับ</UButton>
-          </div>
-        </template>
-      </UDashboardNavbar>
+      <template #header>
+        <UDashboardNavbar title="ประวัติการใช้เครดิต">
+          <template #leading>
+            <UDashboardSidebarCollapse />
+          </template>
+          <template #right>
+            <div class="flex items-center gap-2">
+              <UButton icon="i-lucide-refresh-cw" :loading="pending" variant="ghost" color="neutral" @click="() => refresh()" />
+              <UButton color="neutral" variant="ghost" to="/me/membership" icon="i-lucide-arrow-left">กลับ</UButton>
+            </div>
+          </template>
+        </UDashboardNavbar>
+      </template>
 
-      <div class="p-6 space-y-6">
+      <template #body>
+        <div :class="adminUi.adminDashboardBodyClass">
+          <section class="flex flex-col gap-3">
         <div class="flex items-center gap-4">
           <span class="text-sm font-medium text-muted">เลือกแพ็กเกจ:</span>
           <USelectMenu
@@ -117,7 +121,7 @@ const statusLabels: Record<string, string> = {
               <div class="text-sm text-muted">
                 <p>วันที่: {{ formatDateTime(usage.receivedAt) }}</p>
                 <p>ออเดอร์: 
-                  <NuxtLink :to="`/me/orders/${usage.orderId}`" class="text-primary hover:underline">
+                  <NuxtLink :to="`/me/service-orders/${usage.orderId}`" class="text-primary hover:underline">
                     {{ usage.orderNo || '-' }}
                   </NuxtLink>
                 </p>
@@ -145,7 +149,7 @@ const statusLabels: Record<string, string> = {
             </template>
             
             <template #orderNo-cell="{ row }">
-              <NuxtLink :to="`/me/orders/${row.original.orderId}`" class="text-primary hover:underline font-medium">
+              <NuxtLink :to="`/me/service-orders/${row.original.orderId}`" class="text-primary hover:underline font-medium">
                 {{ row.original.orderNo || '-' }}
               </NuxtLink>
             </template>
@@ -165,7 +169,9 @@ const statusLabels: Record<string, string> = {
             </template>
           </UTable>
         </div>
-      </div>
+      </section>
+    </div>
+  </template>
     </UDashboardPanel>
-  </UDashboardPage>
+  </div>
 </template>

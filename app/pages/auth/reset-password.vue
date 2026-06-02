@@ -85,7 +85,7 @@ onMounted(() => {
           ACCOUNT RECOVERY
         </div>
         <h2 class="text-4xl xl:text-5xl font-bold leading-[1.15] mb-5">
-          กู้คืนการเข้าถึง<br />บัญชีของคุณ
+          กู้คืนการเข้าถึง<br>บัญชีของคุณ
         </h2>
         <p class="text-blue-100 text-sm xl:text-base max-w-sm mb-10 leading-relaxed">
           ลืมรหัสผ่านไม่ใช่ปัญหา เราจะช่วยตั้งรหัสใหม่ให้คุณ ใช้เวลาไม่ถึง 2 นาที

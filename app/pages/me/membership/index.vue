@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { formatDateTime } from "~~/shared/utils/format";
+import * as adminUi from "~~/shared/config/adminUi";
+const adminDashboardBodyClass = adminUi.adminDashboardBodyClass;
 
 definePageMeta({
   layout: "user",
@@ -30,20 +32,24 @@ const items = [
 </script>
 
 <template>
-  <UDashboardPage>
+  <div class="flex-1 flex flex-col min-h-0">
     <UDashboardPanel grow>
-      <UDashboardNavbar title="แพ็กเกจของฉัน">
-        <template #leading>
-          <UDashboardSidebarCollapse />
-        </template>
-      </UDashboardNavbar>
+      <template #header>
+        <UDashboardNavbar title="แพ็กเกจของฉัน">
+          <template #leading>
+            <UDashboardSidebarCollapse />
+          </template>
+        </UDashboardNavbar>
+      </template>
 
-      <div v-if="pending" class="p-6">
-        <USkeleton class="h-64 w-full rounded-md" />
-      </div>
+      <template #body>
+        <div :class="adminDashboardBodyClass || 'flex flex-col gap-3 p-2 sm:p-6'">
+          <div v-if="pending">
+            <USkeleton class="h-64 w-full rounded-md" />
+          </div>
 
-      <div v-else class="p-6">
-        <UTabs :items="items" class="w-full">
+          <div v-else>
+            <UTabs :items="items" class="w-full">
           <template #content="{ item }">
             <div v-if="item.key === 'active'" class="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
               <div v-if="activeEntitlements.length === 0" class="col-span-full py-12 text-center border border-dashed border-default rounded-md bg-elevated">
@@ -130,7 +136,9 @@ const items = [
             </div>
           </template>
         </UTabs>
-      </div>
+          </div>
+        </div>
+      </template>
     </UDashboardPanel>
-  </UDashboardPage>
+  </div>
 </template>
