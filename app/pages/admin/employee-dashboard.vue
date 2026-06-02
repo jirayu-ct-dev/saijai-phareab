@@ -2,7 +2,6 @@
 import { sub } from "date-fns";
 import type { DropdownMenuItem } from "@nuxt/ui";
 import type { Period, Range } from "~~/shared/types/dashboard";
-import { adminDashboardBodyClass, adminMetricCardClass } from "~~/shared/config/adminUi";
 
 definePageMeta({
   middleware: ["role-employee"],
@@ -92,12 +91,6 @@ const statCards = computed(() => [
   },
 ]);
 
-const cardUi = {
-  container: "gap-y-1.5",
-  wrapper: "items-start",
-  leading: "p-2.5 rounded-full bg-default/80 ring ring-inset ring-default/70 dark:bg-elevated/70 dark:ring-default/45 flex-col",
-  title: "font-normal text-muted text-xs truncate",
-};
 </script>
 
 <template>
@@ -110,55 +103,52 @@ const cardUi = {
         <template #right>
           <UIButtonRefresh :loading="isRefreshing" @click="refresh" />
           <UDropdownMenu :items="items">
-            <UButton icon="i-lucide-plus" size="md" class="rounded-full" />
+            <UButton icon="i-lucide-plus" size="md" />
           </UDropdownMenu>
         </template>
       </UDashboardNavbar>
     </template>
 
     <template #body>
-      <div :class="adminDashboardBodyClass">
+      <div class="flex flex-col gap-3 p-2 sm:p-6">
 
         <!-- Stats -->
-        <UPageGrid class="grid-cols-2 gap-1 sm:gap-1.5 lg:grid-cols-4">
+        <div class="-mx-2 grid grid-cols-2 gap-2 sm:mx-0 sm:gap-3 lg:grid-cols-4">
           <template v-if="showStatsSkeleton">
-            <UPageCard
+            <div
               v-for="i in 4"
               :key="`stat-sk-${i}`"
-              variant="subtle"
-              :ui="cardUi"
-              :class="adminMetricCardClass"
+              class="min-h-28 border border-default/30 bg-default p-3 dark:border-default/20 dark:bg-elevated/55 sm:rounded-lg"
             >
-              <template #leading>
-                <USkeleton class="size-10 rounded-full" />
-              </template>
-              <template #title>
-                <USkeleton class="h-3 w-16 rounded" />
-              </template>
+              <USkeleton class="size-10 rounded-full" />
+              <USkeleton class="mt-3 h-3 w-16 rounded" />
               <USkeleton class="mt-1 h-7 w-20 rounded" />
-            </UPageCard>
+            </div>
           </template>
           <template v-else>
-            <UPageCard
+            <NuxtLink
               v-for="card in statCards"
               :key="card.title"
-              :icon="card.icon"
-              :title="card.title"
               :to="card.to"
-              variant="subtle"
-              :ui="cardUi"
-              :class="[adminMetricCardClass, 'hover:z-1']"
+              class="min-h-28 border border-default/30 bg-default p-3 transition-[background-color,border-color] duration-200 hover:border-default/45 hover:bg-default dark:border-default/20 dark:bg-elevated/55 dark:hover:bg-elevated/70 sm:rounded-lg"
             >
+              <div class="flex size-10 items-center justify-center rounded-full bg-default/80 text-highlighted ring ring-inset ring-default/70 dark:bg-elevated/70 dark:ring-default/45">
+                <UIcon :name="card.icon" class="size-5" />
+              </div>
+              <p class="mt-3 truncate text-xs font-normal text-muted">{{ card.title }}</p>
               <span class="wrap-break-word text-lg font-semibold leading-tight text-highlighted sm:text-2xl">{{ card.value }}</span>
-            </UPageCard>
+            </NuxtLink>
           </template>
-        </UPageGrid>
+        </div>
 
         <!-- Recent Orders -->
-        <div v-if="showRecentSkeleton" class="rounded-md border border-default bg-default p-4 space-y-2">
+        <section
+          v-if="showRecentSkeleton"
+          class="-mx-2 space-y-2 border border-default/30 bg-default p-4 dark:border-default/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg"
+        >
           <USkeleton class="h-5 w-40 rounded" />
-          <USkeleton v-for="i in 4" :key="`recent-sk-${i}`" class="h-12 w-full rounded-md" />
-        </div>
+          <USkeleton v-for="i in 4" :key="`recent-sk-${i}`" class="h-12 w-full rounded-lg" />
+        </section>
         <AdminDashboardSales v-else :period="period" :range="range" />
 
       </div>
