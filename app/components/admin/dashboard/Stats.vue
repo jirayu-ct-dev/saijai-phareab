@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import type { Period, Range } from '~~/shared/types/dashboard'
 import { formatCurrency, formatNumber } from '~~/shared/utils/format'
-import { adminMetricCardClass } from '~~/shared/config/adminUi'
 
 const props = defineProps<{
   period: Period
@@ -59,47 +58,35 @@ const displayStats = computed<DisplayStat[]>(() => {
   ]
 })
 
-const cardUi = {
-  container: 'gap-y-1.5',
-  wrapper: 'items-start',
-  leading: 'p-2.5 rounded-full bg-primary/10 ring ring-inset ring-primary/25 flex-col',
-  title: 'font-normal text-muted text-xs truncate',
-}
 </script>
 
 <template>
-  <UPageGrid class="grid-cols-2 gap-2 lg:grid-cols-4">
+  <div class="-mx-2 grid grid-cols-2 gap-2 sm:mx-0 sm:gap-3 lg:grid-cols-4">
     <!-- Skeleton while loading -->
     <template v-if="isPending">
-      <UPageCard
+      <div
         v-for="i in 4"
         :key="`sk-${i}`"
-        variant="subtle"
-        :ui="cardUi"
-        :class="[adminMetricCardClass, 'admin-dashboard-card']"
+        class="min-h-28 border border-default/30 bg-default p-3 dark:border-default/20 dark:bg-elevated/55 sm:rounded-lg"
       >
-        <template #leading>
-          <div class="p-2.5 rounded-full bg-elevated animate-pulse size-10" />
-        </template>
-        <template #title>
-          <div class="h-3 w-16 rounded bg-elevated animate-pulse" />
-        </template>
-        <div class="h-7 w-full max-w-28 rounded bg-elevated animate-pulse mt-1" />
-      </UPageCard>
+        <div class="size-10 rounded-full bg-elevated animate-pulse" />
+        <div class="mt-3 h-3 w-16 rounded bg-elevated animate-pulse" />
+        <div class="mt-2 h-7 w-full max-w-28 rounded bg-elevated animate-pulse" />
+      </div>
     </template>
 
     <!-- Stats cards -->
     <template v-else>
-      <UPageCard
+      <NuxtLink
         v-for="(stat, index) in displayStats"
         :key="index"
-        :icon="stat.icon"
-        :title="stat.title"
         :to="stat.to"
-        variant="subtle"
-        :ui="cardUi"
-        :class="[adminMetricCardClass, 'admin-dashboard-card hover:z-1']"
+        class="min-h-28 border border-default/30 bg-default p-3 transition-[background-color,border-color] duration-200 hover:border-default/45 hover:bg-default dark:border-default/20 dark:bg-elevated/55 dark:hover:bg-elevated/70 sm:rounded-lg"
       >
+        <div class="flex size-10 items-center justify-center rounded-full bg-primary/10 text-primary ring ring-inset ring-primary/25">
+          <UIcon :name="stat.icon" class="size-5" />
+        </div>
+        <p class="mt-3 truncate text-xs font-normal text-muted">{{ stat.title }}</p>
         <div class="flex min-w-0 flex-col items-start gap-1 sm:flex-row sm:items-center sm:gap-2">
           <span class="min-w-0 wrap-break-word text-lg font-semibold leading-tight text-highlighted sm:text-2xl">
             {{ stat.isCurrency ? formatCurrency(stat.value) : formatNumber(stat.value) }}
@@ -113,7 +100,7 @@ const cardUi = {
             {{ stat.variation > 0 ? '+' : '' }}{{ stat.variation }}%
           </UBadge>
         </div>
-      </UPageCard>
+      </NuxtLink>
     </template>
-  </UPageGrid>
+  </div>
 </template>

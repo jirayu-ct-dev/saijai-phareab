@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { Period, Range } from '~~/shared/types/dashboard'
-import { eachDayOfInterval, eachWeekOfInterval, eachMonthOfInterval, startOfWeek, startOfMonth, format } from 'date-fns'
+import { startOfWeek, startOfMonth, format } from 'date-fns'
 import { VisXYContainer, VisLine, VisAxis, VisArea, VisCrosshair, VisTooltip } from '@unovis/vue'
 import { formatCurrency } from '~~/shared/utils/format'
 import { useElementSize } from '@vueuse/core'
@@ -78,24 +78,18 @@ const template = (d: DataRecord) => `${formatLabel(d.date)}: ${formatCurrency(d.
 </script>
 
 <template>
-  <UCard
+  <section
     ref="cardRef"
-    :ui="{
-      root: 'overflow-visible',
-      header: '!px-4 sm:!px-5',
-      body: 'px-3! !pt-2 !pb-4 sm:!px-4 sm:!pt-3 sm:!pb-5'
-    }"
+    class="-mx-2 overflow-visible border border-default/30 bg-default dark:border-default/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg"
   >
-    <template #header>
-      <div class="py-3">
-        <p class="mb-1.5 text-xs text-muted">รายได้รวม</p>
-        <p class="wrap-break-word text-2xl font-semibold text-highlighted sm:text-3xl">
-          {{ isLoading ? '...' : formatCurrency(total) }}
-        </p>
-      </div>
-    </template>
+    <div class="px-4 py-3 sm:px-5">
+      <p class="mb-1.5 text-xs text-muted">รายได้รวม</p>
+      <p class="wrap-break-word text-2xl font-semibold text-highlighted sm:text-3xl">
+        {{ isLoading ? '...' : formatCurrency(total) }}
+      </p>
+    </div>
 
-    <div class="relative h-72 sm:h-96">
+    <div class="relative h-72 px-3 pb-4 pt-2 sm:h-96 sm:px-4 sm:pb-5 sm:pt-3">
       <div v-if="isLoading" class="pointer-events-none absolute inset-0 z-10 flex items-center justify-center">
         <UIcon name="i-lucide-loader-2" class="size-8 animate-spin text-primary" />
       </div>
@@ -107,7 +101,7 @@ const template = (d: DataRecord) => `${formatLabel(d.date)}: ${formatCurrency(d.
         <VisTooltip />
       </VisXYContainer>
     </div>
-  </UCard>
+  </section>
 </template>
 
 <style scoped>
