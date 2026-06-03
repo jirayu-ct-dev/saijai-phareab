@@ -1,220 +1,338 @@
 <script setup lang="ts">
 import { formatCurrency } from "~~/shared/utils/format";
-import * as adminUi from "~~/shared/config/adminUi";
+import { packageTypeColors, packageTypeLabels } from "~~/shared/config/packageConfig";
+import type { PackageType } from "~~/shared/types/enums";
 
-const adminDashboardCardClass = adminUi.adminDashboardCardClass;
+type PublicPackage = {
+  id: string;
+  name: string;
+  description: string | null;
+  packageType: PackageType;
+  price: number;
+  credits: number;
+  validityDays: number | null;
+  features: string[];
+};
 
 definePageMeta({
   layout: "user",
   middleware: ["role-user"],
 });
 
-const { data: packages, pending } = useFetch("/api/public/packages");
-const { settings: shopSettings } = useShopSettings();
+const { data: packages, pending, status, error, refresh } = useFetch<PublicPackage[]>("/api/public/packages", {
+  default: () => [],
+  server: false,
+  lazy: true,
+});
+const hydrated = ref(false);
 
-const mainPackages = computed(() => packages.value?.filter((p: any) => p.packageType === 'MAIN') || []);
-const addonPackages = computed(() => packages.value?.filter((p: any) => p.packageType === 'ADDON') || []);
+onMounted(() => {
+  hydrated.value = true;
+});
 
-const getPackageLabel = (index: number) => {
-  const labels = ['SMALL', 'MEDIUM', 'LARGE'];
-  return labels[index] || '';
+const isLoading = computed(() => pending.value || status.value === "idle");
+const showSkeleton = computed(() => !hydrated.value || isLoading.value);
+
+const mainPackages = computed(() => packages.value.filter((pkg) => pkg.packageType === "MAIN"));
+const addonPackages = computed(() => packages.value.filter((pkg) => pkg.packageType === "ADDON"));
+
+const lineUrl = "https://line.me/R/ti/p/@883vmdct";
+
+const getAveragePrice = (pkg: PublicPackage) => {
+  if (!pkg.credits) return "-";
+  return `${Math.round(pkg.price / pkg.credits).toLocaleString("th-TH")} บาท / ชิ้น`;
 };
+
+const getValidityText = (pkg: PublicPackage) => pkg.validityDays ? `${pkg.validityDays} วัน` : "ตามเงื่อนไขร้าน";
 </script>
 
 <template>
-  <div class="flex-1 flex flex-col min-h-0">
+  <div class="flex min-h-0 flex-1 flex-col">
     <UDashboardPanel grow>
       <template #header>
-        <UDashboardNavbar title="แพ็กเกจบริการ">
+        <UDashboardNavbar title="แพ็กเกจบริการ" icon="i-lucide-package">
           <template #leading>
             <UDashboardSidebarCollapse />
+          </template>
+          <template #right>
+            <UIButtonRefresh
+              class="shrink-0 border-default/40 bg-elevated/60 text-toned hover:bg-elevated"
+              :loading="isLoading"
+              @refresh="refresh"
+            />
           </template>
         </UDashboardNavbar>
       </template>
 
       <template #body>
-        <div :class="adminUi.adminDashboardBodyClass">
+        <div class="flex flex-col gap-3 p-2 sm:p-6">
+          <section class="-mx-2 border border-default/30 bg-default p-4 dark:border-default/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg">
+            <div class="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
+              <div class="min-w-0">
+                <p class="text-base font-semibold text-highlighted">เลือกแพ็กเกจที่เหมาะกับการใช้งานของคุณ</p>
+                <p class="mt-1 text-sm text-muted">
+                  แพ็กเกจใช้สำหรับรายการที่อยู่ในสิทธิ์แพ็กเกจเท่านั้น รายการนอกสิทธิ์จะคิดตามราคาหน้าร้าน
+                </p>
+              </div>
+              <UButton
+                label="เพิ่มเพื่อน LINE"
+                icon="i-simple-icons-line"
+                color="primary"
+                variant="soft"
+                :to="lineUrl"
+                target="_blank"
+                class="shrink-0 justify-center"
+              />
+            </div>
+          </section>
 
-          <ClientOnly>
-            <!-- Loading State Redesign -->
-            <div v-if="pending" class="space-y-12">
-              <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <UCard v-for="i in 3" :key="i">
-                  <template #header>
-                    <USkeleton class="h-6 w-1/2 mb-2" />
-                    <USkeleton class="h-4 w-full" />
-                  </template>
-                  <USkeleton class="h-8 w-1/3 mb-6" />
-                  <div class="space-y-4">
-                    <div v-for="j in 3" :key="j" class="flex items-center gap-3">
-                      <USkeleton class="w-4 h-4 rounded-full" />
-                      <USkeleton class="h-4 w-3/4" />
+          <template v-if="showSkeleton">
+            <section class="flex flex-col gap-1">
+              <div class="-mx-2 border border-default/30 bg-default p-4 dark:border-default/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg">
+                <div class="flex items-center gap-2">
+                  <USkeleton class="size-8 rounded-lg" />
+                  <div class="min-w-0 flex-1 space-y-1.5">
+                    <USkeleton class="h-4 w-40 rounded-lg" />
+                    <USkeleton class="h-3 w-64 max-w-full rounded-lg" />
+                  </div>
+                </div>
+              </div>
+              <div class="-mx-2 grid grid-cols-1 gap-1 sm:mx-0 md:grid-cols-2 lg:grid-cols-3">
+                <div
+                  v-for="i in 3"
+                  :key="`main-package-skeleton-${i}`"
+                  class="border border-default/30 bg-default p-4 dark:border-default/20 dark:bg-elevated/55 sm:rounded-lg"
+                >
+                  <div class="space-y-3">
+                    <div class="flex items-start justify-between gap-3">
+                      <div class="min-w-0 flex-1 space-y-1.5">
+                        <USkeleton class="h-5 w-32 rounded-lg" />
+                        <USkeleton class="h-3 w-24 rounded-lg" />
+                      </div>
+                      <USkeleton class="h-5 w-20 rounded-full" />
+                    </div>
+                    <USkeleton class="h-8 w-28 rounded-lg" />
+                    <div class="space-y-2 border-t border-default/30 pt-3 dark:border-default/20">
+                      <USkeleton v-for="j in 4" :key="`main-package-skeleton-line-${i}-${j}`" class="h-4 w-full rounded-lg" />
                     </div>
                   </div>
-                </UCard>
-              </div>
-            </div>
-
-            <!-- Content Grid -->
-            <div v-else class="space-y-10">
-              <!-- Line Contact Box -->
-              <div class="p-4 sm:p-5 rounded-lg bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <div>
-                  <div class="flex items-center gap-2 mb-1">
-                    <UIcon name="i-lucide-info" class="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
-                    <h3 class="text-lg font-bold text-emerald-800 dark:text-emerald-200">สนใจสั่งซื้อแพ็กเกจ?</h3>
-                  </div>
-                  <p class="text-emerald-700/80 dark:text-emerald-300/80 text-sm">หากต้องการซื้อแพ็กเกจใดก็ตาม โปรดติดต่อพูดคุยรายละเอียดและสั่งซื้อผ่านทาง LINE ได้เลยครับ</p>
                 </div>
-                <div class="shrink-0">
+              </div>
+            </section>
+
+            <section class="flex flex-col gap-1">
+              <div class="-mx-2 border border-default/30 bg-default p-4 dark:border-default/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg">
+                <div class="flex items-center gap-2">
+                  <USkeleton class="size-8 rounded-lg" />
+                  <div class="min-w-0 flex-1 space-y-1.5">
+                    <USkeleton class="h-4 w-32 rounded-lg" />
+                    <USkeleton class="h-3 w-72 max-w-full rounded-lg" />
+                  </div>
+                </div>
+              </div>
+              <div class="-mx-2 grid grid-cols-1 gap-1 sm:mx-0 md:grid-cols-2 lg:grid-cols-3">
+                <div
+                  v-for="i in 2"
+                  :key="`addon-package-skeleton-${i}`"
+                  class="border border-default/30 bg-default p-4 dark:border-default/20 dark:bg-elevated/55 sm:rounded-lg"
+                >
+                  <div class="space-y-3">
+                    <div class="flex items-start justify-between gap-3">
+                      <div class="min-w-0 flex-1 space-y-1.5">
+                        <USkeleton class="h-5 w-40 rounded-lg" />
+                        <USkeleton class="h-3 w-48 rounded-lg" />
+                      </div>
+                      <USkeleton class="h-5 w-20 rounded-full" />
+                    </div>
+                    <USkeleton class="h-8 w-28 rounded-lg" />
+                    <div class="grid grid-cols-2 gap-2">
+                      <USkeleton class="h-16 rounded-lg" />
+                      <USkeleton class="h-16 rounded-lg" />
+                    </div>
+                    <div class="space-y-2 border-t border-default/30 pt-3 dark:border-default/20">
+                      <USkeleton v-for="j in 3" :key="`addon-package-skeleton-line-${i}-${j}`" class="h-4 w-full rounded-lg" />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </section>
+          </template>
+
+          <template v-else-if="error">
+            <section class="-mx-2 flex flex-col items-center justify-center border border-dashed border-default/30 bg-default/55 px-3 py-8 text-center text-muted dark:border-default/20 dark:bg-elevated/30 sm:mx-0 sm:rounded-lg">
+              <UIcon name="i-lucide-alert-circle" class="mb-3 size-10 opacity-60" />
+              <p class="text-sm">เกิดข้อผิดพลาดในการโหลดข้อมูลแพ็กเกจ</p>
+              <UButton label="ลองใหม่" icon="i-lucide-refresh-cw" color="neutral" variant="outline" class="mt-3" @click="refresh()" />
+            </section>
+          </template>
+
+          <template v-else-if="!packages.length">
+            <section class="-mx-2 flex flex-col items-center justify-center border border-dashed border-default/30 bg-default/55 px-3 py-8 text-center text-muted dark:border-default/20 dark:bg-elevated/30 sm:mx-0 sm:rounded-lg">
+              <UIcon name="i-lucide-package-x" class="mb-3 size-10 opacity-60" />
+              <p class="text-sm">ยังไม่มีแพ็กเกจเปิดให้บริการในขณะนี้</p>
+            </section>
+          </template>
+
+          <template v-else>
+            <section v-if="mainPackages.length" class="flex flex-col gap-1">
+              <div class="-mx-2 border border-default/30 bg-default p-4 dark:border-default/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg">
+                <div class="flex items-center gap-2">
+                  <div class="flex size-8 shrink-0 items-center justify-center rounded-lg border border-default/30 bg-elevated/30 text-primary dark:border-default/20 dark:bg-default/80">
+                    <UIcon name="i-lucide-award" class="size-4" />
+                  </div>
+                  <div class="min-w-0">
+                    <p class="text-base font-semibold text-highlighted">แพ็กเกจรายเดือน</p>
+                    <p class="mt-0.5 text-sm text-muted">เครดิตสำหรับบริการที่อยู่ในสิทธิ์แพ็กเกจ</p>
+                  </div>
+                </div>
+              </div>
+
+              <div class="-mx-2 grid grid-cols-1 gap-1 sm:mx-0 md:grid-cols-2 lg:grid-cols-3">
+                <article
+                  v-for="pkg in mainPackages"
+                  :key="pkg.id"
+                  class="flex min-h-full flex-col border border-default/30 bg-default p-4 dark:border-default/20 dark:bg-elevated/55 sm:rounded-lg"
+                >
+                  <div class="flex items-start justify-between gap-3">
+                    <div class="min-w-0">
+                      <p class="truncate text-base font-semibold text-highlighted">{{ pkg.name }}</p>
+                      <p class="mt-1 text-sm text-muted">{{ pkg.description || "แพ็กเกจดูแลเสื้อผ้ารายเดือน" }}</p>
+                    </div>
+                    <UBadge :color="packageTypeColors[pkg.packageType]" variant="subtle" class="shrink-0">
+                      {{ packageTypeLabels[pkg.packageType] }}
+                    </UBadge>
+                  </div>
+
+                  <div class="mt-4 flex items-baseline gap-1">
+                    <span class="text-2xl font-semibold leading-none tabular-nums text-highlighted">{{ formatCurrency(pkg.price) }}</span>
+                    <span class="text-sm text-muted">/ {{ getValidityText(pkg) }}</span>
+                  </div>
+
+                  <div class="mt-4 grid grid-cols-2 gap-2">
+                    <div class="rounded-lg border border-default/25 bg-elevated/30 p-3 dark:border-default/15 dark:bg-elevated/25">
+                      <p class="text-[11px] text-muted">เครดิต</p>
+                      <p class="mt-1 text-sm font-semibold text-highlighted">{{ pkg.credits }} ชิ้น</p>
+                    </div>
+                    <div class="rounded-lg border border-default/25 bg-elevated/30 p-3 dark:border-default/15 dark:bg-elevated/25">
+                      <p class="text-[11px] text-muted">เฉลี่ย</p>
+                      <p class="mt-1 text-sm font-semibold text-highlighted">{{ getAveragePrice(pkg) }}</p>
+                    </div>
+                  </div>
+
+                  <ul class="mt-4 flex-1 space-y-2 border-t border-default/30 pt-4 dark:border-default/20">
+                    <li
+                      v-for="feature in pkg.features"
+                      :key="feature"
+                      class="flex items-start gap-2 text-sm text-muted"
+                    >
+                      <UIcon name="i-lucide-check-circle-2" class="mt-0.5 size-4 shrink-0 text-primary" />
+                      <span class="min-w-0">{{ feature }}</span>
+                    </li>
+                  </ul>
+
                   <UButton
-                    size="md"
-                    class="font-bold bg-[#06C755] hover:bg-[#04a045] text-white w-full sm:w-auto justify-center"
-                    to="https://line.me/R/ti/p/@883vmdct"
+                    label="สนใจแพ็กเกจนี้"
+                    icon="i-simple-icons-line"
+                    color="primary"
+                    variant="soft"
+                    block
+                    :to="lineUrl"
                     target="_blank"
-                  >
-                    <UIcon name="i-simple-icons-line" class="w-5 h-5 mr-1" />
-                    เพิ่มเพื่อน LINE
-                  </UButton>
-                </div>
+                    class="mt-4"
+                  />
+                </article>
               </div>
+            </section>
 
-              <!-- Main Packages -->
-              <div v-if="mainPackages.length > 0" class="space-y-4">
-                <!-- Header Card Frame -->
-                <div class="bg-white dark:bg-gray-900/60 border border-gray-100 dark:border-gray-800/80 rounded-2xl p-4 sm:p-5 shadow-sm">
-                  <h2 class="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                    <UIcon name="i-lucide-award" class="w-5 h-5 text-primary" />
-                    แพ็กเกจรายเดือนสุดคุ้ม
-                  </h2>
-                  <p class="text-sm text-gray-500 dark:text-gray-400 mt-0.5">คุ้มครองครบครัน ดูแลเสื้อผ้าได้ตลอดทั้งเดือน</p>
-                </div>
-                
-                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 items-stretch">
-                  <div
-                    v-for="(pkg, index) in mainPackages"
-                    :key="pkg.id"
-                    class="relative flex flex-col bg-white dark:bg-gray-900 border border-gray-200/80 dark:border-gray-800 rounded-3xl transition-all duration-300 shadow-md hover:shadow-xl hover:border-primary-500/50 dark:hover:border-primary-400/50 h-full overflow-hidden"
-                  >
-                    <!-- Header Gradient in System Theme -->
-                    <div class="p-6 text-white relative flex flex-col justify-end min-h-[110px] bg-gradient-to-br from-primary-500 to-primary-700">
-                      <h3 class="text-2xl font-bold">
-                        {{ pkg.name === 'S' ? 'สเปเชียล S' : pkg.name === 'M' ? 'มัลติ M' : 'ลักชูรี่ L' }}
-                      </h3>
-                      <p class="text-sm opacity-90 font-medium mt-1">
-                        {{ pkg.credits }} เครดิต
-                      </p>
-                    </div>
-
-                    <!-- Body List in System Theme -->
-                    <div class="p-6 flex-grow flex flex-col justify-between divide-y divide-gray-100 dark:divide-gray-800">
-                      <div class="py-3.5 first:pt-0">
-                        <p class="text-xs text-gray-400 dark:text-gray-500 font-medium">ค่าบริการรายเดือน</p>
-                        <p class="text-lg font-bold text-gray-900 dark:text-white mt-1">
-                          {{ formatCurrency(pkg.price) }} บาท
-                        </p>
-                      </div>
-
-                      <div class="py-3.5">
-                        <p class="text-xs text-gray-400 dark:text-gray-500 font-medium">เครดิตการบริการ</p>
-                        <p class="text-sm font-semibold text-gray-800 dark:text-gray-200 mt-1">
-                          {{ pkg.credits }} เครดิต (ชิ้น)
-                        </p>
-                      </div>
-
-                      <div class="py-3.5">
-                        <p class="text-xs text-gray-400 dark:text-gray-500 font-medium">ราคาเฉลี่ยต่อชิ้น</p>
-                        <p class="text-sm font-semibold text-gray-800 dark:text-gray-200 mt-1">
-                          {{ (pkg.price / (pkg.credits || 1)).toFixed(1) }} บาท / ชิ้น
-                        </p>
-                      </div>
-
-                      <div class="py-3.5 last:pb-0">
-                        <p class="text-xs text-gray-400 dark:text-gray-500 font-medium">ระยะเวลาการใช้งาน</p>
-                        <p class="text-sm font-semibold text-gray-800 dark:text-gray-200 mt-1">
-                          ต่ออายุทุกๆ {{ pkg.validityDays || 30 }} วัน
-                        </p>
-                      </div>
-                    </div>
+            <section v-if="addonPackages.length" class="flex flex-col gap-1">
+              <div class="-mx-2 border border-default/30 bg-default p-4 dark:border-default/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg">
+                <div class="flex items-center gap-2">
+                  <div class="flex size-8 shrink-0 items-center justify-center rounded-lg border border-default/30 bg-elevated/30 text-primary dark:border-default/20 dark:bg-default/80">
+                    <UIcon name="i-lucide-plus-circle" class="size-4" />
+                  </div>
+                  <div class="min-w-0">
+                    <p class="text-base font-semibold text-highlighted">แพ็กเกจเสริม</p>
+                    <p class="mt-0.5 text-sm text-muted">บริการเสริมที่ใช้ร่วมกับแพ็กเกจหลักหรือตามเงื่อนไขร้าน</p>
                   </div>
                 </div>
               </div>
 
-              <!-- Addon Packages -->
-              <div v-if="addonPackages.length > 0" class="space-y-4 pt-4">
-                <!-- Header Card Frame -->
-                <div class="bg-white dark:bg-gray-900/60 border border-gray-100 dark:border-gray-800/80 rounded-2xl p-4 sm:p-5 shadow-sm">
-                  <h2 class="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                    <UIcon name="i-lucide-plus-circle" class="w-5 h-5 text-primary" />
-                    แพ็กเกจเสริม
-                  </h2>
-                  <p class="text-sm text-gray-500 dark:text-gray-400 mt-0.5">ปรับแต่งเพิ่มเติมได้ตามความต้องการของคุณ</p>
-                </div>
-
-                <div class="grid grid-cols-1 gap-6 justify-center">
-                  <div
-                    v-for="pkg in addonPackages"
-                    :key="pkg.id"
-                    class="max-w-2xl mx-auto w-full bg-white dark:bg-gray-900 border border-gray-200/80 dark:border-gray-800 rounded-3xl transition-all duration-300 shadow-md hover:shadow-xl hover:border-primary-500/50 dark:hover:border-primary-400/50 overflow-hidden flex flex-col sm:flex-row"
-                  >
-                    <!-- Left side: Gradient with Icon -->
-                    <div class="sm:w-1/3 bg-gradient-to-br from-primary-500 to-primary-700 p-6 text-white flex flex-col justify-center items-center text-center shrink-0">
-                      <UIcon 
-                        :name="pkg.name.includes('รับส่ง') || pkg.name.includes('ขนส่ง') ? 'i-lucide-truck' : 'i-lucide-sparkles'" 
-                        class="w-12 h-12 mb-3 text-white/90" 
-                      />
-                      <h3 class="text-xl font-bold leading-tight">{{ pkg.name }}</h3>
-                      <p class="text-xs opacity-90 mt-1">บริการเสริมพิเศษ</p>
+              <div class="-mx-2 grid grid-cols-1 gap-1 sm:mx-0 md:grid-cols-2 lg:grid-cols-3">
+                <article
+                  v-for="pkg in addonPackages"
+                  :key="pkg.id"
+                  class="flex min-h-full flex-col border border-default/30 bg-default p-4 dark:border-default/20 dark:bg-elevated/55 sm:rounded-lg"
+                >
+                  <div class="flex items-start justify-between gap-3">
+                    <div class="min-w-0">
+                      <p class="truncate text-base font-semibold text-highlighted">{{ pkg.name }}</p>
+                      <p class="mt-1 text-sm text-muted">{{ pkg.description || "บริการอำนวยความสะดวกเพิ่มเติม" }}</p>
                     </div>
+                    <UBadge :color="packageTypeColors[pkg.packageType]" variant="subtle" class="shrink-0">
+                      {{ packageTypeLabels[pkg.packageType] }}
+                    </UBadge>
+                  </div>
 
-                    <!-- Right side: Content Details -->
-                    <div class="flex-grow p-6 flex flex-col justify-between gap-4">
-                      <div class="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
-                        <div>
-                          <p class="text-xs text-gray-400 dark:text-gray-500 font-medium">ค่าบริการเพิ่มเติม</p>
-                          <p class="text-xl font-bold text-gray-900 dark:text-white mt-1">
-                            {{ formatCurrency(pkg.price) }} บาท
-                          </p>
-                        </div>
-                        <div class="sm:text-right">
-                          <p class="text-xs text-gray-400 dark:text-gray-500 font-medium">ระยะเวลาใช้งาน</p>
-                          <p class="text-sm font-semibold text-gray-800 dark:text-gray-200 mt-1">
-                            ตามรอบบิลหลัก ({{ pkg.validityDays || 30 }} วัน)
-                          </p>
-                        </div>
-                      </div>
+                  <div class="mt-4 flex items-baseline gap-1">
+                    <span class="text-2xl font-semibold leading-none tabular-nums text-highlighted">{{ formatCurrency(pkg.price) }}</span>
+                    <span class="text-sm text-muted">/ {{ getValidityText(pkg) }}</span>
+                  </div>
 
-                      <div class="border-t border-gray-100 dark:border-gray-800 pt-4">
-                        <p class="text-xs text-gray-400 dark:text-gray-500 font-medium mb-1.5">สิทธิประโยชน์ที่ได้รับ</p>
-                        <p class="text-sm font-medium text-gray-600 dark:text-gray-300 leading-relaxed">
-                          {{ pkg.description || "บริการอำนวยความสะดวกเพิ่มเติมสำหรับคุณโดยเฉพาะ" }}
-                        </p>
-                      </div>
+                  <div class="mt-4 grid grid-cols-2 gap-2">
+                    <div class="rounded-lg border border-default/25 bg-elevated/30 p-3 dark:border-default/15 dark:bg-elevated/25">
+                      <p class="text-[11px] text-muted">ประเภท</p>
+                      <p class="mt-1 text-sm font-semibold text-highlighted">{{ packageTypeLabels[pkg.packageType] }}</p>
+                    </div>
+                    <div class="rounded-lg border border-default/25 bg-elevated/30 p-3 dark:border-default/15 dark:bg-elevated/25">
+                      <p class="text-[11px] text-muted">ระยะเวลา</p>
+                      <p class="mt-1 text-sm font-semibold text-highlighted">{{ getValidityText(pkg) }}</p>
                     </div>
                   </div>
-                </div>
+
+                  <ul class="mt-4 flex-1 space-y-2 border-t border-default/30 pt-4 dark:border-default/20">
+                    <li
+                      v-for="feature in pkg.features"
+                      :key="feature"
+                      class="flex items-start gap-2 text-sm text-muted"
+                    >
+                      <UIcon name="i-lucide-check-circle-2" class="mt-0.5 size-4 shrink-0 text-primary" />
+                      <span class="min-w-0">{{ feature }}</span>
+                    </li>
+                  </ul>
+
+                  <UButton
+                    label="สนใจแพ็กเกจนี้"
+                    icon="i-simple-icons-line"
+                    color="primary"
+                    variant="soft"
+                    block
+                    :to="lineUrl"
+                    target="_blank"
+                    class="mt-4"
+                  />
+                </article>
+              </div>
+            </section>
+          </template>
+
+          <section class="-mx-2 overflow-hidden border border-default/30 bg-default dark:border-default/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg">
+            <div class="flex items-center gap-2 border-b border-default/40 p-4 dark:border-default/20">
+              <div class="flex size-8 shrink-0 items-center justify-center rounded-lg border border-warning/25 bg-warning/10 text-warning">
+                <UIcon name="i-lucide-info" class="size-4" />
+              </div>
+              <p class="text-sm font-semibold text-highlighted">เงื่อนไขการซื้อแพ็กเกจ</p>
+            </div>
+            <div class="space-y-0">
+              <div class="flex items-start gap-3 border-b border-default/30 p-4 text-sm text-muted last:border-b-0 dark:border-default/20">
+                <span class="mt-2 size-1.5 shrink-0 rounded-full bg-muted" />
+                <span class="min-w-0">หากต้องการซื้อแพ็กเกจ กรุณาติดต่อร้านผ่าน LINE เพื่อให้พนักงานตรวจสอบและเปิดสิทธิ์ให้</span>
+              </div>
+              <div class="flex items-start gap-3 border-b border-default/30 p-4 text-sm text-muted last:border-b-0 dark:border-default/20">
+                <span class="mt-2 size-1.5 shrink-0 rounded-full bg-muted" />
+                <span class="min-w-0">แพ็กเกจใช้ได้เฉพาะรายการที่อยู่ในสิทธิ์แพ็กเกจ รายการนอกสิทธิ์จะคิดตามราคาหน้าร้าน</span>
               </div>
             </div>
-            <template #fallback>
-              <div class="space-y-12">
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  <UCard v-for="i in 3" :key="i">
-                    <template #header>
-                      <USkeleton class="h-6 w-1/2 mb-2" />
-                      <USkeleton class="h-4 w-full" />
-                    </template>
-                    <USkeleton class="h-8 w-1/3 mb-6" />
-                    <div class="space-y-4">
-                      <div v-for="j in 3" :key="j" class="flex items-center gap-3">
-                        <USkeleton class="w-4 h-4 rounded-full" />
-                        <USkeleton class="h-4 w-3/4" />
-                      </div>
-                    </div>
-                  </UCard>
-                </div>
-              </div>
-            </template>
-          </ClientOnly>
+          </section>
         </div>
       </template>
     </UDashboardPanel>
