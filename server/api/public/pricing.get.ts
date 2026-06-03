@@ -15,7 +15,10 @@ export default defineEventHandler(async () => {
         // Fetch all active items
         const items = await prisma.storefrontItem.findMany({
             where: { isActive: true, deletedAt: null },
-            orderBy: { name: 'asc' }
+            orderBy: [
+                { categoryId: 'asc' },
+                { name: 'asc' }
+            ]
         });
 
         // Fetch all active prices
@@ -23,10 +26,16 @@ export default defineEventHandler(async () => {
             where: { isActive: true, deletedAt: null }
         });
 
+        const categories = await prisma.storefrontCategory.findMany({
+            where: { isActive: true, deletedAt: null },
+            orderBy: { name: 'asc' }
+        });
+
         return {
             services,
             items,
-            prices
+            prices,
+            categories
         };
     } catch (error) {
         console.error('[GET /api/public/pricing]', error)

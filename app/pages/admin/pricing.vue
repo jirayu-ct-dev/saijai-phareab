@@ -93,7 +93,7 @@ const handleUpdatePrice = (payload: { itemId: string; serviceId: string; price: 
   pageData.value.prices = [...mockPrices.value]
 }
 
-const handleUpdateItem = (payload: { id: string; name: string; categoryId: string }) => {
+const handleUpdateItem = (payload: { id: string; name: string; categoryId?: string | null }) => {
   const item = mockItems.value.find((i) => i.id === payload.id)
   if (item) Object.assign(item, payload)
   pageData.value.items = [...mockItems.value]
@@ -378,7 +378,7 @@ watch(isManageOpen, (open) => {
             <UFormField label="ประเภท / หมวดหมู่">
               <USelect
                 v-model="newItemData.categoryId"
-                :items="pageData.categories"
+                :items="pageData.categories.map(c => ({ ...c, description: c.description ?? undefined }))"
                 label-key="name"
                 value-key="id"
                 class="w-full"

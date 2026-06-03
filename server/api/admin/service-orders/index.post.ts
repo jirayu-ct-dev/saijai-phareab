@@ -295,7 +295,7 @@ export default defineEventHandler(async (event) => {
         credits: number;
         deductOn: "CREATED" | "COMPLETED";
         appliedAt?: string;
-        deductedAt?: string | null;
+        deductedAt?: string;
       };
       const pendingAddonUsages: PendingAddonUsage[] = [];
       const storedAddonUsages: PendingAddonUsage[] = [];
@@ -322,7 +322,7 @@ export default defineEventHandler(async (event) => {
           productName: addonEnt.product.name,
           credits,
           deductOn: addonEnt.product.deductOn,
-          deductedAt: null,
+          deductedAt: undefined,
         };
         if (addonEnt.product.deductOn === "CREATED") {
           const { count } = await tx.memberEntitlement.updateMany({

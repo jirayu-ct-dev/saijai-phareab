@@ -45,6 +45,11 @@ type PriceUpdatePayload = {
   priceMin?: number | null
   priceMax?: number | null
 }
+type SelectOption = {
+  id: string
+  name: string
+  description?: string
+}
 
 const props = defineProps<{
   data: PricingTableData
@@ -86,12 +91,29 @@ const pagination = ref({ pageIndex: 0, pageSize: 10 })
 
 const search = ref('')
 const filterCategory = ref('all')
+const filterService = ref('all')
 const showBulkDeleteModal = ref(false)
 
-const categoryOptions = computed(() => [
+const categoryOptions = computed<SelectOption[]>(() => [
   { id: 'all', name: 'ทุกประเภท' },
-  ...(props.data?.categories ?? [])
+  ...(props.data?.categories ?? []).map((category) => ({
+    id: category.id,
+    name: category.name,
+    description: category.description ?? undefined
+  }))
 ])
+const serviceOptions = computed<SelectOption[]>(() => [
+  { id: 'all', name: 'ทุกบริการ' },
+  ...(props.data?.services ?? []).map((service) => ({
+    id: service.id,
+    name: service.name,
+    description: service.description ?? undefined
+  }))
+])
+const visibleServices = computed(() => {
+  if (filterService.value === 'all') return props.data?.services ?? []
+  return (props.data?.services ?? []).filter((service) => service.id === filterService.value)
+})
 
 const getPrice = (itemId: string, serviceId: string) =>
   props.data?.prices?.find((p) => p.storefrontItemId === itemId && p.storefrontServiceId === serviceId)
@@ -118,7 +140,7 @@ const tableData = computed<PricingTableRow[]>(() => {
   return result
 })
 
-watch([search, filterCategory, () => props.data], () => {
+watch([search, filterCategory, filterService, () => props.data], () => {
   table.value?.tableApi?.resetRowSelection()
   pagination.value.pageIndex = 0
 })
@@ -285,7 +307,7 @@ const handleBulkDelete = async () => {
 // ── Columns ──────────────────────────────────────────────────────────────────
 
 const columns = computed<TableColumn<PricingTableRow>[]>(() => {
-  const serviceColumns: TableColumn<PricingTableRow>[] = (props.data?.services ?? []).map((service) => ({
+  const serviceColumns: TableColumn<PricingTableRow>[] = visibleServices.value.map((service) => ({
     accessorKey: `service_${service.id}`,
     header: ({ column }) => {
       const isSorted = column.getIsSorted()
@@ -315,17 +337,17 @@ const columns = computed<TableColumn<PricingTableRow>[]>(() => {
     {
       id: 'select',
       header: ({ table }) =>
-        h('div', h(UCheckbox, {
+        h('div', {}, [h(UCheckbox, {
           modelValue: table.getIsSomePageRowsSelected() ? 'indeterminate' : table.getIsAllPageRowsSelected(),
           'onUpdate:modelValue': (value: boolean | 'indeterminate') => table.toggleAllPageRowsSelected(!!value),
           ariaLabel: 'เลือกทั้งหมด'
-        })),
+        })]),
       cell: ({ row }) =>
-        h('div', h(UCheckbox, {
+        h('div', {}, [h(UCheckbox, {
           modelValue: row.getIsSelected(),
           'onUpdate:modelValue': (value: boolean | 'indeterminate') => row.toggleSelected(!!value),
           ariaLabel: 'เลือกแถว'
-        }))
+        })])
     },
     {
       accessorKey: 'name',
@@ -358,7 +380,7 @@ const columns = computed<TableColumn<PricingTableRow>[]>(() => {
       accessorKey: 'description',
       header: 'หมายเหตุ',
       cell: ({ row }) => {
-        const desc = row.getValue('description')
+        const desc = row.getValue('description') as string | null | undefined
         return h('span', { class: 'text-muted truncate block max-w-44', title: desc ?? '' }, desc || '-')
       }
     },
@@ -415,10 +437,17 @@ const columns = computed<TableColumn<PricingTableRow>[]>(() => {
         <UIButtonRefresh class="shrink-0 md:hidden" :loading="loading" @refresh="emit('refresh')" />
       </div>
 
-      <div class="grid grid-cols-1 gap-2 sm:flex sm:flex-wrap sm:items-center md:justify-end">
+      <div class="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center md:justify-end">
         <USelect
           v-model="filterCategory"
           :items="categoryOptions"
+          label-key="name"
+          value-key="id"
+          class="min-w-0 sm:w-40"
+        />
+        <USelect
+          v-model="filterService"
+          :items="serviceOptions"
           label-key="name"
           value-key="id"
           class="min-w-0 sm:w-40"
@@ -516,7 +545,7 @@ const columns = computed<TableColumn<PricingTableRow>[]>(() => {
           </div>
         </div>
       </div>
-      <div class="hidden rounded-lg border border-default/30 bg-default p-4 p-0! dark:border-default/20 dark:bg-elevated/55 md:block">
+      <div class="hidden rounded-lg border border-default/30 bg-default p-0! dark:border-default/20 dark:bg-elevated/55 md:block">
         <div class="space-y-2 p-3">
           <USkeleton v-for="i in 8" :key="`pr-dt-sk-${i}`" class="h-12 w-full rounded-lg" />
         </div>
@@ -562,7 +591,7 @@ const columns = computed<TableColumn<PricingTableRow>[]>(() => {
 
               <div class="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-muted">
                 <span
-                  v-for="service in data?.services ?? []"
+                  v-for="service in visibleServices"
                   :key="service.id"
                 >
                   {{ service.name }}:
@@ -588,7 +617,7 @@ const columns = computed<TableColumn<PricingTableRow>[]>(() => {
       </div>
     </div>
 
-    <div class="hidden shrink-0 overflow-hidden rounded-lg border border-default/30 bg-default p-4 p-0! dark:border-default/20 dark:bg-elevated/55 md:block">
+    <div class="hidden shrink-0 overflow-hidden rounded-lg border border-default/30 bg-default p-0! dark:border-default/20 dark:bg-elevated/55 md:block">
       <UTable
         ref="table"
         v-model:column-visibility="columnVisibility"
@@ -665,18 +694,20 @@ const columns = computed<TableColumn<PricingTableRow>[]>(() => {
             </UFormField>
             <UFormField label="ประเภท / หมวดหมู่">
               <USelect
-                v-model="activeItem.categoryId"
-                :items="data?.categories ?? []"
+                :model-value="activeItem.categoryId ?? undefined"
+                :items="(data?.categories ?? []).map(c => ({ ...c, description: c.description ?? undefined }))"
                 label-key="name"
                 value-key="id"
                 class="w-full"
+                @update:model-value="activeItem.categoryId = $event"
               />
             </UFormField>
             <UFormField label="หมายเหตุ" class="sm:col-span-2">
               <UInput
-                v-model="activeItem.description"
+                :model-value="activeItem.description ?? undefined"
                 class="w-full"
                 placeholder="เช่น คิดตามขนาด, 5 บาท/ตร.ม."
+                @update:model-value="activeItem.description = $event"
               />
             </UFormField>
           </div>

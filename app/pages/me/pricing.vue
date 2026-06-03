@@ -1,104 +1,116 @@
 <script setup lang="ts">
-import * as adminUi from "~~/shared/config/adminUi";
-
 definePageMeta({
   layout: "user",
   middleware: ["role-user"],
 });
 
-const { data: shopSettings } = useFetch('/api/public/shop-settings')
-const washFoldPrice = computed(() => shopSettings.value?.washFoldPricePerKg ?? 60)
+const { data: shopSettings } = useFetch("/api/public/shop-settings");
+const washFoldPrice = computed(() => shopSettings.value?.washFoldPricePerKg ?? 60);
+
+const serviceConditions = [
+  "ราคานี้เป็นราคาหน้าร้านสำหรับลูกค้าทั่วไป และใช้กับรายการที่อยู่นอกสิทธิ์แพ็กเกจ",
+  "ลูกค้าที่สมัครแพ็กเกจจะใช้สิทธิ์ตามรายการและจำนวนเครดิตที่แพ็กเกจกำหนด",
+  "ผ้าหรือบริการที่ไม่อยู่ในรายการแพ็กเกจ จะคิดราคาตามอัตราหน้าร้านนี้",
+  "ราคาอาจมีการเปลี่ยนแปลงขึ้นอยู่กับสภาพความยากง่ายของผ้าแต่ละชิ้น (จะแจ้งให้ทราบก่อนดำเนินการ)",
+  "คราบฝังแน่นบางชนิดอาจไม่สามารถขจัดออกได้ทั้งหมด",
+  "หากผ้ามีโอกาสสีตก กรุณาแจ้งพนักงานให้ทราบล่วงหน้า",
+  "กรุณาตรวจสอบสิ่งของในกระเป๋าก่อนส่งซัก ทางร้านไม่รับผิดชอบกรณีทรัพย์สินตกค้างหรือสูญหาย",
+  "กรณีเกิดความเสียหายจากทางร้าน ทางร้านยินดีชดใช้ตามเงื่อนไข (สูงสุดไม่เกิน 10 เท่าของค่าบริการชิ้นนั้น)",
+];
 </script>
 
 <template>
-  <div class="flex-1 flex flex-col min-h-0">
+  <div class="flex min-h-0 flex-1 flex-col">
     <UDashboardPanel grow>
       <template #header>
-        <UDashboardNavbar title="อัตราค่าบริการ">
+        <UDashboardNavbar title="อัตราค่าบริการ" icon="i-lucide-tags">
           <template #leading>
             <UDashboardSidebarCollapse />
+          </template>
+          <template #right>
+            <UButton
+              label="ออเดอร์ของฉัน"
+              color="primary"
+              variant="soft"
+              to="/me/service-orders"
+              icon="i-lucide-shopping-basket"
+              class="shrink-0"
+              aria-label="ออเดอร์ของฉัน"
+              :ui="{ label: 'hidden sm:inline' }"
+            />
           </template>
         </UDashboardNavbar>
       </template>
 
       <template #body>
-        <div :class="[adminUi.adminDashboardBodyClass, 'max-w-5xl mx-auto w-full !gap-3 !p-4 sm:!p-6']">
-          <!-- Header Card Frame -->
-          <div class="bg-white dark:bg-gray-900/60 border border-gray-100 dark:border-gray-800/80 rounded-2xl p-4 sm:p-5 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div>
-              <h2 class="text-xl font-semibold text-gray-900 dark:text-white">อัตราค่าบริการของร้าน</h2>
-              <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                ตรวจสอบราคาซักอบรีดและซักแห้งตามประเภทผ้า สำหรับสมาชิกร้าน
-              </p>
+        <div class="mx-auto flex w-full max-w-5xl flex-col gap-3 p-2 sm:p-6">
+          <section class="-mx-2 border border-default/30 bg-default p-4 dark:border-default/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg">
+            <div class="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
+              <div class="min-w-0">
+                <p class="text-base font-semibold text-highlighted">อัตราค่าบริการของร้าน</p>
+                <p class="mt-1 text-sm text-muted">
+                  ราคาหน้าร้านสำหรับลูกค้าทั่วไป และรายการที่ไม่อยู่ในสิทธิ์แพ็กเกจ
+                </p>
+              </div>
             </div>
-            <UButton
-              color="primary"
-              variant="soft"
-              to="/me/service-orders"
-              icon="i-lucide-shopping-basket"
-              class="self-start sm:self-auto"
-            >
-              ออเดอร์ของฉัน
-            </UButton>
-          </div>
+          </section>
 
-          <!-- Kilo Service -->
-          <UCard :ui="{ header: 'p-4 sm:p-5', body: 'p-5 sm:p-6' }">
-            <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
-              <div class="flex items-start gap-4">
-                <div class="p-3 bg-primary-50 dark:bg-primary-900/30 rounded-lg text-primary-600 dark:text-primary-400">
-                  <UIcon name="i-lucide-scale" class="w-6 h-6" />
+          <section class="-mx-2 border border-default/30 bg-default p-4 dark:border-default/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg">
+            <div class="flex items-start justify-between gap-3">
+              <div class="flex min-w-0 items-start gap-3">
+                <div class="hidden size-11 shrink-0 items-center justify-center rounded-lg border border-default/30 bg-elevated/30 text-primary dark:border-default/20 dark:bg-default/80 sm:flex">
+                  <UIcon name="i-lucide-scale" class="size-5" />
                 </div>
-                <div>
-                  <h3 class="text-base font-medium text-gray-900 dark:text-white">บริการซักอบพับ (ชั่งกิโล)</h3>
-                  <p class="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
-                    เหมาะสำหรับเสื้อผ้าที่ใส่ในชีวิตประจำวันทั่วไป รวมซัก อบแห้ง และพับให้เรียบร้อย
+                <div class="min-w-0">
+                  <p class="text-base font-semibold text-highlighted">บริการซักพับ (ชั่งกิโล)</p>
+                  <p class="mt-1 text-sm text-muted">
+                    ราคาหน้าร้านสำหรับงานซักพับทั่วไป
                   </p>
                 </div>
               </div>
-              <div class="text-right flex items-baseline gap-1 bg-gray-50 dark:bg-gray-800/50 px-4 py-2 rounded-lg border border-gray-100 dark:border-gray-800">
-                <span class="text-2xl font-bold text-gray-900 dark:text-white">฿{{ washFoldPrice }}</span>
-                <span class="text-sm text-gray-500 dark:text-gray-400">/ กิโลกรัม</span>
+              <div class="flex shrink-0 flex-col items-end text-right sm:flex-row sm:items-baseline sm:gap-1">
+                <span class="text-xl font-semibold leading-none tabular-nums text-highlighted sm:text-2xl">฿{{ washFoldPrice }}</span>
+                <span class="mt-1 text-[11px] leading-none text-muted sm:mt-0 sm:text-sm">/ กิโลกรัม</span>
               </div>
             </div>
-          </UCard>
+          </section>
 
-          <!-- Pricing Table -->
-          <UCard :ui="{ header: 'p-4 sm:p-5', body: 'p-0 sm:p-0' }" class="overflow-hidden">
-            <template #header>
-              <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                <div>
-                  <h3 class="text-base font-medium text-gray-900 dark:text-white">ราคาบริการแบบซักแยกชิ้น</h3>
-                  <p class="text-sm text-gray-500 dark:text-gray-400 mt-0.5">ราคาแยกตามประเภทการบริการและชนิดของผ้า</p>
+          <section class="flex flex-col gap-1">
+            <div class="-mx-2 border border-default/30 bg-default p-4 dark:border-default/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg">
+              <div class="flex items-center justify-between gap-3">
+                <div class="min-w-0">
+                  <p class="text-base font-semibold text-highlighted">ราคาบริการ</p>
+                  <p class="mt-1 text-sm text-muted">ราคาแยกตามบริการและชนิดผ้า สำหรับรายการที่คิดราคาหน้าร้าน</p>
                 </div>
-                <UBadge color="neutral" variant="soft">หน่วย: บาท/ชิ้น</UBadge>
+                <div class="flex shrink-0 items-baseline gap-1 text-right">
+                  <span class="text-lg font-semibold leading-none text-highlighted">บาท</span>
+                  <span class="text-sm text-muted">/ ชิ้น</span>
+                </div>
               </div>
-            </template>
-            
-            <div class="p-0">
-              <AppPricingTable class="!rounded-none !border-0 !shadow-none !p-0" />
             </div>
-          </UCard>
+            <div>
+              <AppPricingTable embedded client-skeleton />
+            </div>
+          </section>
 
-          <!-- Conditions / Warnings -->
-          <UAlert
-            icon="i-lucide-info"
-            color="warning"
-            variant="soft"
-            title="สิ่งที่ควรทราบก่อนใช้บริการ"
-            class="border border-amber-200 dark:border-amber-800/50 shadow-sm"
-          >
-            <template #description>
-              <ul class="list-disc pl-5 mt-2 space-y-1.5 text-sm text-amber-700 dark:text-amber-400">
-                <li>ราคาอาจมีการเปลี่ยนแปลงขึ้นอยู่กับสภาพความยากง่ายของผ้าแต่ละชิ้น (จะแจ้งให้ทราบก่อนดำเนินการ)</li>
-                <li>คราบฝังแน่นบางชนิดอาจไม่สามารถขจัดออกได้ทั้งหมด</li>
-                <li>หากผ้ามีโอกาสสีตก กรุณาแจ้งพนักงานให้ทราบล่วงหน้า</li>
-                <li>กรุณาตรวจสอบสิ่งของในกระเป๋าก่อนส่งซัก ทางร้านไม่รับผิดชอบกรณีทรัพย์สินตกค้างหรือสูญหาย</li>
-                <li>กรณีเกิดความเสียหายจากทางร้าน ทางร้านยินดีชดใช้ตามเงื่อนไข (สูงสุดไม่เกิน 10 เท่าของค่าบริการชิ้นนั้น)</li>
-              </ul>
-            </template>
-          </UAlert>
-
+          <section class="-mx-2 overflow-hidden border border-default/30 bg-default dark:border-default/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg">
+            <div class="flex items-center gap-2 border-b border-default/40 p-4">
+              <div class="flex size-8 shrink-0 items-center justify-center rounded-lg border border-warning/25 bg-warning/10 text-warning">
+                <UIcon name="i-lucide-info" class="size-4" />
+              </div>
+              <p class="text-sm font-semibold text-highlighted">สิ่งที่ควรทราบก่อนใช้บริการ</p>
+            </div>
+            <ul class="space-y-0">
+              <li
+                v-for="condition in serviceConditions"
+                :key="condition"
+                class="flex items-start gap-3 border-b border-default/30 p-4 text-sm text-muted last:border-b-0 dark:border-default/20"
+              >
+                <span class="mt-2 size-1.5 shrink-0 rounded-full bg-muted" />
+                <span class="min-w-0">{{ condition }}</span>
+              </li>
+            </ul>
+          </section>
         </div>
       </template>
     </UDashboardPanel>
