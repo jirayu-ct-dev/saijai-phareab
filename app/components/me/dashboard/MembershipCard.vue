@@ -1,7 +1,15 @@
 <script setup lang="ts">
+const props = withDefaults(defineProps<{
+  refreshing?: boolean
+}>(), {
+  refreshing: false,
+})
+
 const { isMember } = useMemberStatus()
 
 const { data: dashboard, pending } = useFetch('/api/me')
+
+const isPending = computed(() => pending.value || props.refreshing)
 
 const formatDaysLeft = (endAt: string | null) => {
   if (!endAt) return null
@@ -12,31 +20,46 @@ const formatDaysLeft = (endAt: string | null) => {
 
 <template>
   <!-- Skeleton -->
-  <div v-if="pending && isMember" class="grid grid-cols-1 md:grid-cols-2 gap-4">
-    <UCard v-for="i in 2" :key="i">
+  <div v-if="isPending && isMember" class="-mx-2 grid grid-cols-1 gap-1 sm:mx-0 md:grid-cols-2">
+    <div
+      v-for="i in 2"
+      :key="i"
+      class="border border-default/30 bg-default p-4 dark:border-default/20 dark:bg-elevated/55 sm:rounded-lg"
+    >
       <div class="space-y-3">
-        <div class="h-5 w-32 rounded bg-elevated animate-pulse" />
-        <div class="h-3 w-full rounded bg-elevated animate-pulse" />
-        <div class="h-2 w-full rounded bg-elevated animate-pulse" />
-        <div class="h-3 w-24 rounded bg-elevated animate-pulse" />
+        <USkeleton class="h-5 w-32 rounded-lg" />
+        <USkeleton class="h-3 w-full rounded-lg" />
+        <USkeleton class="h-2 w-full rounded-lg" />
+        <USkeleton class="h-3 w-24 rounded-lg" />
       </div>
-    </UCard>
+    </div>
   </div>
 
   <!-- Member Package Cards -->
   <div
     v-else-if="isMember && dashboard && dashboard.activeEntitlements.length > 0"
-    class="space-y-4"
+    class="flex flex-col gap-1"
   >
-    <h2 class="text-xl font-semibold">แพ็กเกจของฉัน</h2>
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-      <UCard
+    <div class="-mx-2 border border-default/30 bg-default p-4 dark:border-default/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg">
+      <div class="flex items-center gap-2">
+        <div class="flex size-8 shrink-0 items-center justify-center rounded-lg border border-default/30 bg-elevated/30 text-primary dark:border-default/20 dark:bg-default/80">
+          <UIcon name="i-lucide-package-check" class="size-4" />
+        </div>
+        <div class="min-w-0">
+          <p class="text-base font-semibold text-highlighted">แพ็กเกจของฉัน</p>
+          <p class="mt-0.5 text-sm text-muted">สิทธิ์ที่กำลังใช้งานอยู่</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="-mx-2 grid grid-cols-1 gap-1 sm:mx-0 md:grid-cols-2">
+      <div
         v-for="ent in dashboard.activeEntitlements"
         :key="ent.id"
-        class="border-amber-200 dark:border-amber-900 bg-amber-50 dark:bg-amber-950/20"
+        class="border border-default/30 bg-default p-4 dark:border-default/20 dark:bg-elevated/55 sm:rounded-lg"
       >
-        <div class="flex justify-between items-start mb-4">
-          <h3 class="text-lg font-bold text-amber-600 dark:text-amber-400">
+        <div class="mb-4 flex items-start justify-between gap-3">
+          <h3 class="truncate text-base font-semibold text-highlighted">
             {{ ent.productName }}
           </h3>
           <UBadge color="warning" variant="subtle">กำลังใช้งาน</UBadge>
@@ -58,17 +81,17 @@ const formatDaysLeft = (endAt: string | null) => {
         <!-- Warning banner -->
         <div
           v-if="ent.endAt && (formatDaysLeft(ent.endAt) ?? 999) < 7"
-          class="mt-3 p-2 rounded-md bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900 text-red-600 dark:text-red-400 text-xs flex items-center gap-1.5"
+          class="mt-3 flex items-center gap-1.5 rounded-lg border border-error/25 bg-error/10 p-2 text-xs text-error"
         >
           <UIcon name="i-lucide-alert-triangle" class="size-4 shrink-0" />
           แพ็กเกจจะหมดอายุใน {{ formatDaysLeft(ent.endAt) }} วัน
         </div>
 
-        <div class="mt-4 flex justify-between items-center text-sm">
-          <span v-if="ent.endAt" class="text-gray-500">
+        <div class="mt-4 flex items-center justify-between gap-2 text-sm">
+          <span v-if="ent.endAt" class="text-muted">
             หมดอายุใน {{ formatDaysLeft(ent.endAt) }} วัน
           </span>
-          <span v-else class="text-gray-500">ไม่มีวันหมดอายุ</span>
+          <span v-else class="text-muted">ไม่มีวันหมดอายุ</span>
 
           <UButton
             :to="`/me/membership/usage?id=${ent.id}`"
@@ -79,7 +102,7 @@ const formatDaysLeft = (endAt: string | null) => {
             ดูประวัติการใช้งาน
           </UButton>
         </div>
-      </UCard>
+      </div>
     </div>
   </div>
 </template>

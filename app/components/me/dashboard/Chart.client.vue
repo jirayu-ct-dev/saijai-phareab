@@ -1,16 +1,21 @@
 <script setup lang="ts">
 import type { Period, Range } from '~~/shared/types/dashboard'
-import { eachDayOfInterval, eachWeekOfInterval, eachMonthOfInterval, startOfWeek, startOfMonth, format } from 'date-fns'
+import { startOfWeek, startOfMonth, format } from 'date-fns'
 import { VisXYContainer, VisLine, VisAxis, VisArea, VisCrosshair, VisTooltip } from '@unovis/vue'
 import { formatCurrency } from '~~/shared/utils/format'
 import { useElementSize } from '@vueuse/core'
 
 const cardRef = useTemplateRef<HTMLElement | null>('cardRef')
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   period: Period
   range: Range
-}>()
+  refreshing?: boolean
+  refreshKey?: number
+}>(), {
+  refreshing: false,
+  refreshKey: 0,
+})
 
 type DataRecord = { date: Date; amount: number }
 
@@ -56,12 +61,13 @@ const fetchData = async () => {
   }
 }
 
-watch([() => props.period, () => props.range], fetchData, { immediate: true })
+watch([() => props.period, () => props.range, () => props.refreshKey], fetchData, { immediate: true })
 
 const x = (_: DataRecord, i: number) => i
 const y = (d: DataRecord) => d.amount
 
 const total = computed(() => data.value.reduce((acc, d) => acc + d.amount, 0))
+const showLoading = computed(() => isLoading.value || props.refreshing)
 
 const formatLabel = (date: Date): string => {
   if (props.period === 'daily') return format(date, 'd MMM')
@@ -78,18 +84,17 @@ const template = (d: DataRecord) => `${formatLabel(d.date)}: ${formatCurrency(d.
 </script>
 
 <template>
-  <UCard ref="cardRef" :ui="{ root: 'overflow-visible', body: '!px-0 !pt-0 !pb-3' }">
-    <template #header>
-      <div>
-        <p class="text-xs text-muted mb-1.5">ยอดใช้จ่ายของฉัน</p>
-        <p class="text-3xl text-highlighted font-semibold">
-          {{ isLoading ? '...' : formatCurrency(total) }}
-        </p>
-      </div>
-    </template>
+  <section ref="cardRef" class="-mx-2 overflow-visible border border-default/30 bg-default dark:border-default/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg">
+    <div class="p-4 pb-3">
+      <p class="mb-1.5 text-xs text-muted">ยอดใช้จ่ายของฉัน</p>
+      <USkeleton v-if="showLoading" class="h-9 w-40 rounded-lg" />
+      <p v-else class="text-3xl font-semibold text-highlighted">
+        {{ formatCurrency(total) }}
+      </p>
+    </div>
 
-    <div v-if="isLoading" class="h-96 flex items-center justify-center">
-      <UIcon name="i-lucide-loader-2" class="size-8 animate-spin text-primary" />
+    <div v-if="showLoading" class="h-96 p-4 pt-0">
+      <USkeleton class="h-full w-full rounded-lg" />
     </div>
 
     <VisXYContainer v-else :data="data" :padding="{ top: 40, bottom: 32 }" class="h-96" :width="width">
@@ -99,7 +104,7 @@ const template = (d: DataRecord) => `${formatLabel(d.date)}: ${formatCurrency(d.
       <VisCrosshair :x="x" :y="y" color="var(--ui-primary)" :template="template" />
       <VisTooltip />
     </VisXYContainer>
-  </UCard>
+  </section>
 </template>
 
 <style scoped>

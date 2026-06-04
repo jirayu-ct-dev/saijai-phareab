@@ -1,12 +1,11 @@
 <script setup lang="ts">
 import { h, resolveComponent } from 'vue'
 import type { TableColumn } from '@nuxt/ui'
-import type { OrderStatus, OrderType } from '~~/shared/types/enums'
+import type { OrderStatus } from '~~/shared/types/enums'
 import {
   orderStatusLabels,
   orderStatusColors,
 } from '~~/shared/config/orderConfig'
-import { adminEmptyStateClass, adminMobileListCardClass, adminTableUi } from '~~/shared/config/adminUi'
 import { formatCurrency, formatDateTime } from '~~/shared/utils/format'
 
 const UBadge = resolveComponent('UBadge')
@@ -19,9 +18,17 @@ interface RecentOrder {
   receivedAt: string
 }
 
+const props = withDefaults(defineProps<{
+  refreshing?: boolean
+}>(), {
+  refreshing: false,
+})
+
 const router = useRouter()
 
 const { data: dashboardData, status } = useFetch('/api/me')
+
+const isPending = computed(() => status.value === 'pending' || props.refreshing)
 
 const orders = computed<RecentOrder[]>(() => {
   if (!dashboardData.value) return []
@@ -67,7 +74,7 @@ const columns: TableColumn<RecentOrder>[] = [
 
 <template>
   <section class="flex flex-col gap-1">
-    <div class="admin-dashboard-card flex items-center justify-between rounded-md border border-default/30 bg-default px-3 py-2 shadow-[0_1px_2px_rgb(15_23_42/0.04)] dark:border-default/20 dark:bg-elevated/55">
+    <div class="-mx-2 flex items-center justify-between border border-default/30 bg-default px-3 py-2 dark:border-default/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg">
       <p class="font-semibold text-highlighted">ออเดอร์ล่าสุด</p>
       <UButton
         to="/me/service-orders"
@@ -81,20 +88,32 @@ const columns: TableColumn<RecentOrder>[] = [
     </div>
 
     <div class="md:hidden">
-      <div v-if="status === 'pending'" class="space-y-1">
-        <USkeleton v-for="i in 4" :key="i" class="h-20 w-full rounded-md" />
+      <div v-if="isPending" class="-mx-2 space-y-1 sm:mx-0">
+        <div
+          v-for="i in 4"
+          :key="i"
+          class="border border-default/30 bg-default p-2 dark:border-default/20 dark:bg-elevated/55"
+        >
+          <div class="flex items-center gap-2">
+            <div class="min-w-0 flex-1 space-y-1.5">
+              <USkeleton class="h-4 w-32 rounded-lg" />
+              <USkeleton class="h-3 w-44 rounded-lg" />
+            </div>
+            <USkeleton class="h-5 w-20 rounded-lg" />
+          </div>
+        </div>
       </div>
 
-      <div v-else-if="!orders.length" :class="adminEmptyStateClass">
+      <div v-else-if="!orders.length" class="flex flex-col items-center justify-center rounded-lg border border-dashed border-default/30 bg-default/55 px-3 py-5 text-center text-muted dark:border-default/20 dark:bg-elevated/30">
         <UIcon name="i-lucide-shopping-basket" class="mb-3 size-10 opacity-50" />
         <p>ยังไม่มีออเดอร์</p>
       </div>
 
-      <div v-else class="space-y-1">
+      <div v-else class="-mx-2 space-y-1 sm:mx-0">
         <div
           v-for="order in orders"
           :key="order.id"
-          :class="[adminMobileListCardClass, 'admin-dashboard-card rounded-md cursor-pointer']"
+          class="cursor-pointer border border-default/30 bg-default transition-[background-color,border-color] duration-200 hover:border-default/45 hover:bg-default dark:border-default/20 dark:bg-elevated/55 dark:hover:bg-elevated/70"
           @click="router.push(`/me/service-orders/${order.id}`)"
         >
           <div class="flex items-center gap-2 p-2">
@@ -118,16 +137,24 @@ const columns: TableColumn<RecentOrder>[] = [
       </div>
     </div>
 
-    <div class="admin-dashboard-card hidden overflow-hidden rounded-md border border-default/30 bg-default shadow-[0_1px_2px_rgb(15_23_42/0.04)] md:block dark:border-default/20 dark:bg-elevated/55">
+    <div class="hidden overflow-hidden rounded-lg border border-default/30 bg-default dark:border-default/20 dark:bg-elevated/55 md:block">
       <UTable
         :data="orders"
         :columns="columns"
-        :loading="status === 'pending'"
-        :ui="adminTableUi"
+        :loading="isPending"
+        :ui="{
+          root: 'relative overflow-x-auto',
+          base: 'table-fixed border-separate border-spacing-0',
+          thead: 'sticky top-0 z-1 [&>tr]:bg-default dark:[&>tr]:bg-default/80 [&>tr]:after:content-none',
+          tbody: '[&>tr]:last:[&>td]:border-b-0 [&>tr:hover>td]:bg-primary/5 dark:[&>tr:hover>td]:bg-elevated/45',
+          th: 'border-b border-default bg-default py-2.5 text-xs font-semibold uppercase tracking-wide text-toned dark:border-default/40 dark:bg-default/80',
+          td: 'border-b border-default py-2.5 transition-colors dark:border-default/25',
+          separator: 'h-0',
+        }"
         @select="(_e: Event, row) => router.push(`/me/service-orders/${row.original.id}`)"
       >
         <template #empty>
-          <div :class="adminEmptyStateClass">
+          <div class="flex flex-col items-center justify-center rounded-lg border border-dashed border-default/30 bg-default/55 px-3 py-5 text-center text-muted dark:border-default/20 dark:bg-elevated/30">
             <UIcon name="i-lucide-shopping-basket" class="size-10 mb-3 opacity-50" />
             <p>ยังไม่มีออเดอร์</p>
           </div>
