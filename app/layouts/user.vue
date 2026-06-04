@@ -1,10 +1,14 @@
 <script setup lang="ts">
+import { useMediaQuery } from "@vueuse/core";
 import type { NavigationMenuItem } from "@nuxt/ui";
 import type { Session as AppSession, User as AppUser } from "~~/shared/types/auth";
 
 const open = ref(false);
 const { session } = useUser();
 const { isMember } = useMemberStatus();
+const isDesktopSidebar = useMediaQuery("(min-width: 1024px)");
+
+const sidebarCollapsed = (collapsed: boolean) => isDesktopSidebar.value ? collapsed : false;
 
 type MenuItem = NavigationMenuItem & {
   id?: string;
@@ -65,6 +69,8 @@ const menu = computed<MenuItem[][]>(() => {
     label: "ตั้งค่า",
     icon: "i-lucide-settings",
     to: "/me/settings",
+    defaultOpen: true,
+    type: "trigger",
     children: [
       {
         label: "ข้อมูลส่วนตัว",
@@ -101,28 +107,11 @@ const menu = computed<MenuItem[][]>(() => {
 });
 
 const groups = computed(() => {
-  const items = menu.value[0]?.flatMap((item) => {
-    if (item.children) {
-      return item.children.map((child) => ({
-        id: child.to,
-        label: child.label,
-        icon: child.icon,
-        to: child.to,
-      }));
-    }
-    return [{
-      id: item.to,
-      label: item.label,
-      icon: item.icon,
-      to: item.to,
-    }];
-  });
-
   return [
     {
       id: "links",
       label: "Go to",
-      items,
+      items: menu.value.flat(),
     }
   ];
 });
@@ -170,20 +159,20 @@ onBeforeUnmount(() => {
         collapsible
         resizable
         class="admin-sidebar bg-default/80 backdrop-blur-sm"
-        :ui="{ footer: 'lg:border-t lg:border-default' }"
+        :ui="{ footer: 'lg:border-t lg:border-default/60' }"
       >
         <template #header="{ collapsed }">
-          <AppLogo :collapsed="collapsed" label="SAIJAI MEMBER" to="/me" />
+          <AppLogo :collapsed="sidebarCollapsed(collapsed)" label="SAIJAI MEMBER" to="/me" />
         </template>
 
         <template #default="{ collapsed }">
-          <UDashboardSearchButton :collapsed="collapsed" class="bg-transparent ring-default" />
+          <UDashboardSearchButton :collapsed="sidebarCollapsed(collapsed)" class="bg-transparent ring-default" />
 
-          <UNavigationMenu :collapsed="collapsed" :items="menu[0]" orientation="vertical" tooltip popover />
+          <UNavigationMenu :collapsed="sidebarCollapsed(collapsed)" :items="menu[0]" orientation="vertical" tooltip popover />
         </template>
 
         <template #footer="{ collapsed }">
-          <UserMenu :collapsed="collapsed" />
+          <UserMenu :collapsed="sidebarCollapsed(collapsed)" />
         </template>
       </UDashboardSidebar>
 
