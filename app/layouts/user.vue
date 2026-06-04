@@ -103,7 +103,17 @@ const menu = computed<MenuItem[][]>(() => {
     ],
   });
 
-  return [mainGroup];
+  const helpGroup: MenuItem[] = [
+    {
+      label: "คู่มือการใช้งาน",
+      icon: "i-lucide-book",
+      to: "/me/handbook",
+      exact: true,
+      onSelect: closeSidebar,
+    },
+  ];
+
+  return [mainGroup, helpGroup];
 });
 
 const groups = computed(() => {
@@ -169,6 +179,15 @@ onBeforeUnmount(() => {
           <UDashboardSearchButton :collapsed="sidebarCollapsed(collapsed)" class="bg-transparent ring-default" />
 
           <UNavigationMenu :collapsed="sidebarCollapsed(collapsed)" :items="menu[0]" orientation="vertical" tooltip popover />
+
+          <UNavigationMenu
+            v-if="menu[1]?.length"
+            :collapsed="sidebarCollapsed(collapsed)"
+            :items="menu[1]"
+            orientation="vertical"
+            tooltip
+            class="mt-auto"
+          />
         </template>
 
         <template #footer="{ collapsed }">
