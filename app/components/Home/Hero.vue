@@ -73,26 +73,26 @@ onUnmounted(() => {
           </ClientOnly>
 
           <!-- Headline -->
-          <h1 class="text-[42px] md:text-[52px] lg:text-[60px] font-bold text-gray-900 dark:text-white leading-[1.08] tracking-tight mb-5">
-            ซัก-อบ-รีด<br>
-            ด้วยความ<span class="text-primary-600 dark:text-primary-400"> ใส่ใจ</span><br>
-            ทุกผืนผ้า
+          <h1 class="text-[38px] sm:text-[42px] md:text-[52px] lg:text-[60px] font-bold text-gray-900 dark:text-white leading-[1.06] tracking-tight mb-5 max-w-[11ch] sm:max-w-none">
+            ซัก อบ รีด
+            <span class="block text-primary-600 dark:text-primary-400">ติดตามออเดอร์</span>
+            <span class="block">ในระบบสมาชิก</span>
           </h1>
 
           <!-- Description -->
           <p class="text-[17px] md:text-lg text-gray-500 dark:text-gray-400 leading-relaxed mb-8 max-w-md">
-            บริการซักรีดครบวงจร สะอาด หอม เรียบ พร้อมบริการรับ-ส่งถึงบ้าน ราคาเริ่มต้น <strong class="text-gray-700 dark:text-gray-200 font-semibold">60 บาท/กก.</strong>
+            ดูราคาหน้าร้าน เลือกแพ็กเกจ ติดตามออเดอร์ และรับใบแจ้งราคา/ใบเสร็จผ่านระบบสมาชิก ราคาเริ่มต้น <strong class="text-gray-700 dark:text-gray-200 font-semibold">60 บาท/กก.</strong>
           </p>
 
           <!-- Feature chips -->
           <div class="flex flex-wrap gap-2 mb-8">
             <span class="inline-flex items-center gap-1.5 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-full px-3 py-1.5 text-[13px] font-medium">
               <UIcon name="i-lucide-check" class="w-3.5 h-3.5 text-primary-600 dark:text-primary-400" />
-              ซัก-อบ-รีด ครบในที่เดียว
+              ดูราคาและแพ็กเกจได้ก่อนใช้บริการ
             </span>
             <span class="inline-flex items-center gap-1.5 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-full px-3 py-1.5 text-[13px] font-medium">
               <UIcon name="i-lucide-check" class="w-3.5 h-3.5 text-primary-600 dark:text-primary-400" />
-              รับ-ส่งถึงบ้าน
+              รับแจ้งเตือนผ่าน LINE และดูเอกสารในระบบ
             </span>
 
           </div>
@@ -103,7 +103,7 @@ onUnmounted(() => {
               <UButton
                 size="xl"
                 color="primary"
-                class="px-7 font-bold rounded-md transition-all hover:scale-[1.02] shadow-lg shadow-primary-500/20"
+                class="px-7 font-bold rounded-lg transition-all hover:scale-[1.02] shadow-lg shadow-primary-500/20"
                 to="#per-item-pricing"
               >
                 ดูราคาบริการ
@@ -115,7 +115,7 @@ onUnmounted(() => {
                 size="xl"
                 variant="outline"
                 color="neutral"
-                class="px-7 font-bold rounded-md"
+                class="px-7 font-bold rounded-lg"
                 to="#contact"
               >
                 ติดต่อเรา
@@ -125,10 +125,10 @@ onUnmounted(() => {
               <UButton
                 size="xl"
                 color="primary"
-                class="px-7 font-bold rounded-md transition-all hover:scale-[1.02]"
+                class="px-7 font-bold rounded-lg transition-all hover:scale-[1.02]"
                 to="/me"
               >
-                ดูคำสั่งของฉัน
+                ดูออเดอร์ของฉัน
                 <template #trailing>
                   <UIcon name="i-lucide-arrow-right" class="w-4 h-4" />
                 </template>
@@ -145,7 +145,12 @@ onUnmounted(() => {
             <div class="w-px h-10 bg-gray-200 dark:bg-gray-800" />
             <div>
               <p class="text-2xl font-bold text-gray-900 dark:text-white">6<span class="text-sm font-medium text-gray-500"> วัน</span></p>
-              <p class="text-xs text-gray-500 mt-0.5">หยุดอาทิตย์</p>
+              <p class="text-xs text-gray-500 mt-0.5">หยุดวันอาทิตย์</p>
+            </div>
+            <div class="w-px h-10 bg-gray-200 dark:bg-gray-800" />
+            <div>
+              <p class="text-2xl font-bold text-gray-900 dark:text-white">LINE<span class="text-sm font-medium text-gray-500"> แจ้งเตือน</span></p>
+              <p class="text-xs text-gray-500 mt-0.5">ติดตามสถานะออเดอร์</p>
             </div>
           </div>
         </div>
@@ -154,10 +159,10 @@ onUnmounted(() => {
         <div class="relative hidden lg:block">
 
           <!-- Floating glow behind card -->
-          <div class="absolute inset-0 bg-gradient-to-br from-primary-200/30 to-blue-200/20 dark:from-primary-900/20 dark:to-blue-900/10 rounded-md blur-2xl scale-110 pointer-events-none" />
+          <div class="absolute inset-0 bg-gradient-to-br from-primary-200/30 to-blue-200/20 dark:from-primary-900/20 dark:to-blue-900/10 rounded-lg blur-2xl scale-110 pointer-events-none" />
 
           <!-- Main chat card -->
-          <div class="relative bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-md shadow-2xl overflow-hidden">
+          <div class="relative bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-lg shadow-2xl overflow-hidden">
 
             <!-- Browser bar -->
             <div class="flex items-center gap-2 px-4 py-3 border-b border-gray-100 dark:border-gray-800 bg-gray-50/80 dark:bg-gray-950/80">
@@ -166,7 +171,7 @@ onUnmounted(() => {
                 <span class="w-2.5 h-2.5 rounded-full bg-amber-400" />
                 <span class="w-2.5 h-2.5 rounded-full bg-green-400" />
               </div>
-              <div class="flex-1 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-md px-3 py-1 text-[11px] font-mono text-gray-400 text-center truncate">
+              <div class="flex-1 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-1 text-[11px] font-mono text-gray-400 text-center truncate">
                 line.me/R/ti/p/@saijai-laundry
               </div>
             </div>
@@ -184,21 +189,21 @@ onUnmounted(() => {
                     ใส่ใจ ผ้าเรียบ
                     <UIcon name="i-ph-check-circle-fill" class="text-[#06C755] w-4 h-4 shrink-0" />
                   </div>
-                  <div class="text-[11px] text-gray-500">LINE Official · ออนไลน์</div>
+                  <div class="text-[11px] text-gray-500">LINE แจ้งเตือน · พร้อมใช้งาน</div>
                 </div>
                 <div class="text-[11px] text-gray-400 font-mono">14:23</div>
               </div>
 
               <!-- Message 1: Receipt -->
-              <div class="bg-gray-50 dark:bg-gray-800/60 border border-gray-100 dark:border-gray-700 rounded-md rounded-tl-sm p-3.5 mb-3 max-w-[92%] animate-[fade-in_0.4s_ease-out]">
+              <div class="bg-gray-50 dark:bg-gray-800/60 border border-gray-100 dark:border-gray-700 rounded-lg rounded-tl-sm p-3.5 mb-3 max-w-[92%] animate-[fade-in_0.4s_ease-out]">
                 <div class="font-semibold flex items-center gap-2 mb-2.5 text-gray-900 dark:text-white text-[13px]">
                   <span class="w-2 h-2 rounded-full bg-emerald-500" />
-                  รับผ้าเรียบร้อย ✓
+                  รับผ้าเข้าระบบแล้ว
                 </div>
                 <div class="space-y-1.5 text-[12.5px] text-gray-600 dark:text-gray-400">
                   <div class="flex justify-between gap-4">
-                    <span>ใบเสร็จ</span>
-                    <span class="font-mono text-gray-900 dark:text-gray-200">#SJ-2604-018</span>
+                    <span>ออเดอร์</span>
+                    <span class="font-mono text-gray-900 dark:text-gray-200">#SO-2604-018</span>
                   </div>
                   <div class="flex justify-between gap-4">
                     <span>น้ำหนัก</span>
@@ -206,33 +211,33 @@ onUnmounted(() => {
                   </div>
                   <div class="flex justify-between gap-4">
                     <span>บริการ</span>
-                    <span class="font-semibold text-gray-900 dark:text-gray-200">ซัก-อบ-รีด</span>
+                    <span class="font-semibold text-gray-900 dark:text-gray-200">ซัก อบ รีด</span>
                   </div>
                   <div class="flex justify-between gap-4 pt-1.5 border-t border-gray-200 dark:border-gray-700">
-                    <span class="font-semibold text-gray-700 dark:text-gray-300">ยอดชำระ</span>
-                    <span class="font-bold text-primary-600 dark:text-primary-400">฿320</span>
+                    <span class="font-semibold text-gray-700 dark:text-gray-300">ยอดประเมิน</span>
+                    <span class="font-bold text-primary-600 dark:text-primary-400">320 บาท</span>
                   </div>
                 </div>
               </div>
 
               <!-- Message 2: Ready -->
-              <div class="bg-gray-50 dark:bg-gray-800/60 border border-gray-100 dark:border-gray-700 rounded-md rounded-tl-sm p-3.5 max-w-[92%] opacity-0 animate-[fade-in_0.4s_ease-out_1s_forwards]">
+              <div class="bg-gray-50 dark:bg-gray-800/60 border border-gray-100 dark:border-gray-700 rounded-lg rounded-tl-sm p-3.5 max-w-[92%] opacity-0 animate-[fade-in_0.4s_ease-out_1s_forwards]">
                 <div class="font-semibold flex items-center gap-2 mb-2.5 text-gray-900 dark:text-white text-[13px]">
                   <span class="w-2 h-2 rounded-full bg-emerald-500" />
-                  ผ้าพร้อมส่งคืนแล้ว
+                  สถานะอัปเดต: งานเสร็จแล้ว
                 </div>
                 <div class="space-y-1.5 text-[12.5px] text-gray-600 dark:text-gray-400">
                   <div class="flex justify-between gap-4">
                     <span>ออเดอร์</span>
-                    <span class="font-mono text-gray-900 dark:text-gray-200">#SJ-2604-018</span>
+                    <span class="font-mono text-gray-900 dark:text-gray-200">#SO-2604-018</span>
                   </div>
                   <div class="flex justify-between gap-4">
-                    <span>นัดส่ง</span>
-                    <span class="font-semibold text-gray-900 dark:text-gray-200">วันนี้ 14:00–18:00</span>
+                    <span>การรับคืน</span>
+                    <span class="font-semibold text-gray-900 dark:text-gray-200">รับคืนที่ร้าน หรือใช้แพ็กเกจรับส่ง</span>
                   </div>
                   <div class="flex justify-between gap-4 pt-1.5 border-t border-gray-200 dark:border-gray-700">
                     <span class="font-semibold text-gray-700 dark:text-gray-300">สถานะ</span>
-                    <span class="font-bold text-emerald-600 dark:text-emerald-400">กำลังจัดส่ง</span>
+                    <span class="font-bold text-emerald-600 dark:text-emerald-400">รอรับคืน</span>
                   </div>
                 </div>
               </div>
