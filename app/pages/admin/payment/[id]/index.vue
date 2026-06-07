@@ -248,6 +248,17 @@ const itemSectionDescription = computed(() => `${isPackagePayment.value ? paymen
 const paymentManagerDescription = "จัดการหมายเหตุและหลักฐานการชำระเงิน";
 const paymentDocumentLabel = computed(() => paymentStatus.value === "PAID" ? "ดูใบเสร็จ" : "ดูใบแจ้งราคา");
 const paymentDocumentIcon = computed(() => paymentStatus.value === "PAID" ? "i-lucide-receipt" : "i-lucide-file-text");
+const serviceEntitlementLabel = computed(() => {
+  const serviceOrder = payment.value?.serviceOrder;
+  if (!serviceOrder?.memberEntitlement) return "-";
+
+  const labels = [
+    serviceOrder.memberEntitlement.product.name,
+    ...(serviceOrder.addonUsages ?? []).map((usage) => usage.productName).filter((name): name is string => Boolean(name?.trim())),
+  ].filter((value, index, array) => Boolean(value?.trim()) && array.indexOf(value) === index);
+
+  return labels.length ? labels.join(", ") : "-";
+});
 const openPaymentDocument = () => {
   if (!payment.value) return;
   const target = paymentStatus.value === "PAID" ? "receipt" : "quotation";
@@ -282,7 +293,7 @@ const purchaseInfoRows = computed<InfoRow[]>(() => {
     { label: "วันที่รับงาน", value: payment.value.serviceOrder?.receivedAt ? formatDateTime(payment.value.serviceOrder.receivedAt) : "-" },
     { label: "วันนัดรับ", value: payment.value.serviceOrder?.dueAt ? formatDateTime(payment.value.serviceOrder.dueAt) : "-" },
     { label: "ผู้รับงาน", value: payment.value.serviceOrder?.employee?.name || payment.value.serviceOrder?.employee?.email || "-" },
-    { label: "ใช้สิทธิ์แพ็กเกจ", value: payment.value.serviceOrder?.memberEntitlement?.product.name || "-" },
+    { label: "ใช้สิทธิ์แพ็กเกจ", value: serviceEntitlementLabel.value },
     { label: "หมายเหตุงาน", value: payment.value.serviceOrder?.note || "-", valueClass: "whitespace-pre-line" },
   ];
 });
@@ -351,13 +362,6 @@ const detailItems = computed<DetailItem[]>(() => {
     ).map((p) => ({ id: p.id, isDamaged: "isDamaged" in p ? p.isDamaged : false, url: p.url, secureUrl: p.secureUrl })),
   }));
 });
-
-const addonUsageRows = computed<InfoRow[]>(() => (
-  payment.value?.serviceOrder?.addonUsages ?? []
-).map((usage) => ({
-  label: usage.productName,
-  value: `${usage.credits} เครดิต · ${usage.deductedAt ? "หักเครดิตแล้ว" : usage.deductOn === "COMPLETED" ? "รอหักเมื่อเสร็จสิ้น" : "รอหักเครดิต"}`,
-})));
 
 const previewOpen = ref(false);
 const previewUrl = ref("");
@@ -435,7 +439,7 @@ const savePaymentChanges = async () => {
   <div class="contents">
   <UDashboardPanel id="payment-detail">
     <template #header>
-      <UDashboardNavbar :title="payment?.receiptNo || payment?.paymentNo || 'รายละเอียดการชำระเงิน'" icon="i-lucide-badge-info">
+      <UDashboardNavbar :title="payment?.receiptNo || payment?.paymentNo || 'รายละเอียดประวัติการชำระเงิน'" icon="i-lucide-badge-info">
         <template #leading>
           <UDashboardSidebarCollapse class="hidden lg:inline-flex" />
         </template>
@@ -655,16 +659,6 @@ const savePaymentChanges = async () => {
                 </section>
                 </div>
               </template>
-          </section>
-
-          <section v-if="addonUsageRows.length" class="-mx-2 border border-default/30 bg-default p-4 dark:border-default/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg">
-            <p class="text-sm font-semibold text-highlighted">แพ็กเกจเสริม</p>
-            <div class="mt-3 grid gap-x-6 gap-y-3 text-sm lg:grid-cols-2 lg:[&>*:nth-child(odd)]:pr-4 lg:[&>*:nth-child(even)]:border-l lg:[&>*:nth-child(even)]:border-dashed lg:[&>*:nth-child(even)]:border-default lg:[&>*:nth-child(even)]:pl-4">
-              <div v-for="row in addonUsageRows" :key="row.label" class="flex min-w-0 items-start justify-between gap-3">
-                <span class="min-w-0 wrap-break-word text-muted">{{ row.label }}</span>
-                <span class="min-w-0 max-w-[62%] wrap-break-word text-right text-highlighted">{{ row.value }}</span>
-              </div>
-            </div>
           </section>
 
           <section class="-mx-2 overflow-hidden border border-default/30 bg-default p-4 dark:border-default/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg">

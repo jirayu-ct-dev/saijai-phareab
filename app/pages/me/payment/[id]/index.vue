@@ -153,6 +153,17 @@ const itemSectionTitle = computed(() => (isPackagePayment.value ? "รายก�
 const itemSectionDescription = computed(() => `${isPackagePayment.value ? payment.value?.packageSale?.items.length ?? 0 : payment.value?.serviceOrder?.items.length ?? 0} รายการ`);
 const paymentDocumentLabel = computed(() => paymentStatus.value === "PAID" ? "ดูใบเสร็จ" : "ดูใบแจ้งราคา");
 const paymentDocumentIcon = computed(() => paymentStatus.value === "PAID" ? "i-lucide-receipt" : "i-lucide-file-text");
+const serviceEntitlementLabel = computed(() => {
+  const serviceOrder = payment.value?.serviceOrder;
+  if (!serviceOrder?.memberEntitlement) return "-";
+
+  const labels = [
+    serviceOrder.memberEntitlement.productName,
+    ...(serviceOrder.addonUsages ?? []).map((usage) => usage.productName).filter((name): name is string => Boolean(name?.trim())),
+  ].filter((value, index, array) => Boolean(value?.trim()) && array.indexOf(value) === index);
+
+  return labels.length ? labels.join(", ") : "-";
+});
 
 const copyPaymentNo = async () => {
   const text = payment.value?.paymentNo;
@@ -191,7 +202,7 @@ const purchaseInfoRows = computed<InfoRow[]>(() => {
     { label: "วันที่รับงาน", value: payment.value.serviceOrder?.receivedAt ? formatDateTime(payment.value.serviceOrder.receivedAt) : "-" },
     { label: "วันนัดรับ", value: payment.value.serviceOrder?.dueAt ? formatDateTime(payment.value.serviceOrder.dueAt) : "-" },
     { label: "ผู้รับงาน", value: payment.value.serviceOrder?.employee?.name || payment.value.serviceOrder?.employee?.email || "-" },
-    { label: "ใช้สิทธิ์แพ็กเกจ", value: payment.value.serviceOrder?.memberEntitlement?.productName || "-" },
+    { label: "ใช้สิทธิ์แพ็กเกจ", value: serviceEntitlementLabel.value },
     { label: "หมายเหตุงาน", value: payment.value.serviceOrder?.note || "-", valueClass: "whitespace-pre-line" },
   ];
 });
@@ -261,13 +272,6 @@ const detailItems = computed<DetailItem[]>(() => {
   }));
 });
 
-const addonUsageRows = computed<InfoRow[]>(() => (
-  payment.value?.serviceOrder?.addonUsages ?? []
-).map((usage) => ({
-  label: usage.productName,
-  value: `${usage.credits} เครดิต · ${usage.deductedAt ? "หักเครดิตแล้ว" : usage.deductOn === "COMPLETED" ? "รอหักเมื่อเสร็จสิ้น" : "รอหักเครดิต"}`,
-})));
-
 const previewOpen = ref(false);
 const previewUrl = ref("");
 const previewTitle = ref("ดูรูป");
@@ -290,7 +294,7 @@ const entitlementRows = computed<InfoRow[]>(() => payment.value?.serviceOrder?.m
   <div class="contents">
   <UDashboardPanel id="my-payment-detail">
     <template #header>
-      <UDashboardNavbar :title="payment?.receiptNo || payment?.paymentNo || 'รายละเอียดการชำระเงิน'" icon="i-lucide-badge-info">
+      <UDashboardNavbar :title="payment?.receiptNo || payment?.paymentNo || 'รายละเอียดประวัติการชำระเงิน'" icon="i-lucide-badge-info">
         <template #right>
           <div class="flex flex-wrap items-center gap-2">
             <UButton
@@ -467,16 +471,6 @@ const entitlementRows = computed<InfoRow[]>(() => payment.value?.serviceOrder?.m
                     </div>
                   </div>
                 </section>
-              </div>
-            </section>
-
-            <section v-if="addonUsageRows.length" class="-mx-2 border border-default/30 bg-default p-4 dark:border-default/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg">
-              <p class="text-sm font-semibold text-highlighted">แพ็กเกจเสริม</p>
-              <div class="mt-3 grid gap-x-6 gap-y-3 text-sm lg:grid-cols-2 lg:[&>*:nth-child(odd)]:pr-4 lg:[&>*:nth-child(even)]:border-l lg:[&>*:nth-child(even)]:border-dashed lg:[&>*:nth-child(even)]:border-default lg:[&>*:nth-child(even)]:pl-4">
-                <div v-for="row in addonUsageRows" :key="row.label" class="flex min-w-0 items-start justify-between gap-3">
-                  <span class="min-w-0 wrap-break-word text-muted">{{ row.label }}</span>
-                  <span class="min-w-0 max-w-[62%] wrap-break-word text-right text-highlighted">{{ row.value }}</span>
-                </div>
               </div>
             </section>
 

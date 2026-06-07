@@ -15,28 +15,35 @@ const reports = [
   {
     key: "sales",
     label: "รายงานยอดขาย",
-    description: "ทุก PaymentRecord ในช่วงเวลา (เลขที่บิล, ลูกค้า, ยอด, วิธีชำระเงิน)",
+    description: "ประวัติการชำระเงินทั้งหมดในช่วงเวลา (เลขที่บิล, ลูกค้า, ยอด, วิธีชำระเงิน)",
     icon: "i-lucide-receipt",
     endpoint: "/api/admin/exports/sales",
   },
   {
     key: "orders",
     label: "รายงานออเดอร์",
-    description: "ServiceOrder ทุกใบ (เลขรับ, ลูกค้า, จำนวน, สถานะ, ยอด, พนักงาน)",
+    description: "ServiceOrder ทุกใบ (เลขรับ, ลูกค้า, สถานะ, ยอด, แพ็กเกจหลักและแพ็กเกจเสริม)",
     icon: "i-lucide-shirt",
     endpoint: "/api/admin/exports/orders",
   },
   {
+    key: "addon-usages",
+    label: "รายงานแพ็กเกจเสริม",
+    description: "การใช้แพ็กเกจเสริมใน service_order_addon_usage (เลขรับ, ลูกค้า, เครดิตที่ใช้, วันที่หัก)",
+    icon: "i-lucide-package-plus",
+    endpoint: "/api/admin/exports/addon-usages",
+  },
+  {
     key: "members",
     label: "รายงานสมาชิก",
-    description: "MemberEntitlement (ลูกค้า, แพ็กเกจ, เครดิต, วันเริ่ม/หมดอายุ)",
+    description: "ประวัติ MemberEntitlement (ลูกค้า, แพ็กเกจ, เครดิต, วันเริ่ม/หมดอายุ)",
     icon: "i-lucide-crown",
     endpoint: "/api/admin/exports/members",
   },
   {
     key: "employee-performance",
     label: "รายงานพนักงาน",
-    description: "สรุปออเดอร์ที่แต่ละคนรับ + ยอดรวม สำหรับคำนวณค่าคอมมิชชั่น",
+    description: "สรุปออเดอร์ที่แต่ละคนรับและยอดรวม สำหรับคำนวณค่าคอมมิชชั่น",
     icon: "i-lucide-users",
     endpoint: "/api/admin/exports/employee-performance",
   },
@@ -78,14 +85,14 @@ const setPreset = (preset: "this-month" | "last-month" | "last-30-days" | "this-
 <template>
   <div class="mx-auto flex w-full max-w-3xl flex-col gap-3 p-2 sm:p-6">
     <section class="-mx-2 border border-default/30 bg-default px-4 py-3 dark:border-default/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg">
-      <h1 class="text-xl font-semibold text-highlighted">Export ข้อมูล</h1>
-      <p class="mt-1 text-sm text-muted">ดาวน์โหลดรายงานเป็นไฟล์ CSV สำหรับทำบัญชี</p>
+      <h1 class="text-xl font-semibold text-highlighted">สำรองข้อมูล</h1>
+      <p class="mt-1 text-sm text-muted">ดาวน์โหลดรายงานเป็นไฟล์ CSV ให้ตรงกับข้อมูลปัจจุบันของระบบ</p>
     </section>
 
     <section class="-mx-2 border border-default/30 bg-default p-4 dark:border-default/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg">
       <div class="mb-4">
         <p class="font-semibold text-highlighted">เลือกช่วงเวลา</p>
-        <p class="mt-1 text-xs text-muted">รายงานจะรวมเฉพาะข้อมูลในช่วงเวลานี้</p>
+        <p class="mt-1 text-xs text-muted">รายงานจะรวมเฉพาะข้อมูลในช่วงเวลาที่เลือก</p>
       </div>
 
       <div class="mb-3 grid grid-cols-1 gap-3 md:grid-cols-2">

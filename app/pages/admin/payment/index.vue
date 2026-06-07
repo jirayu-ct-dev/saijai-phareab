@@ -266,7 +266,7 @@ const confirmBulkDelete = async () => {
       $fetch(`/api/admin/payments/${payment.id}`, { method: "DELETE" }),
     ));
     await refresh();
-    notify.deleted(`${targets.length} รายการชำระเงิน`);
+    notify.deleted(`${targets.length} ประวัติการชำระเงิน`);
     table.value?.tableApi?.resetRowSelection();
     isBulkDeleteOpen.value = false;
   } catch (error: unknown) {
@@ -455,7 +455,7 @@ const columns: TableColumn<AdminPaymentRecord>[] = [
         size: "xs",
         color: "neutral",
         variant: "ghost",
-        title: "ดูรายละเอียดการชำระเงิน",
+        title: "ดูรายละเอียดประวัติการชำระเงิน",
         onClick: (e: MouseEvent) => {
           e.stopPropagation();
           openPaymentDetail(row.original);
@@ -501,7 +501,7 @@ const columns: TableColumn<AdminPaymentRecord>[] = [
   <div class="contents">
   <UDashboardPanel id="payments">
     <template #header>
-      <UDashboardNavbar title="รายการชำระเงิน" icon="i-lucide-receipt">
+      <UDashboardNavbar title="ประวัติการชำระเงิน" icon="i-lucide-receipt">
         <template #leading>
           <UDashboardSidebarCollapse class="hidden lg:inline-flex" />
         </template>
@@ -628,7 +628,7 @@ const columns: TableColumn<AdminPaymentRecord>[] = [
 
             <div v-else-if="!paginatedPayments.length" class="flex flex-col items-center justify-center rounded-lg border border-dashed border-default/30 bg-default/55 px-3 py-5 text-center text-muted dark:border-default/20 dark:bg-elevated/30">
               <UIcon name="i-lucide-receipt" class="mb-3 size-10 opacity-60" />
-              <p>ไม่พบรายการชำระเงิน</p>
+              <p>ไม่พบประวัติการชำระเงิน</p>
             </div>
 
             <div v-else class="-mx-2 space-y-1 sm:mx-0">
@@ -750,7 +750,7 @@ const columns: TableColumn<AdminPaymentRecord>[] = [
                 </div>
                 <div v-else class="flex flex-col items-center justify-center rounded-lg border border-dashed border-default/30 bg-default/55 px-3 py-5 text-center text-muted dark:border-default/20 dark:bg-elevated/30">
                   <UIcon name="i-lucide-receipt" class="mb-3 size-10 opacity-60" />
-                  <p>ไม่พบรายการชำระเงิน</p>
+                  <p>ไม่พบประวัติการชำระเงิน</p>
                 </div>
               </template>
             </UTable>
@@ -786,7 +786,7 @@ const columns: TableColumn<AdminPaymentRecord>[] = [
     <UModal
       v-if="isAdmin"
       v-model:open="isBulkDeleteOpen"
-      title="ลบรายการชำระเงินที่เลือก"
+      title="ลบประวัติการชำระเงินที่เลือก"
       :description="`ยืนยันการลบ ${selectedRowsCount} รายการ`"
     >
       <template #body>
@@ -830,8 +830,8 @@ const columns: TableColumn<AdminPaymentRecord>[] = [
     <UIConfirmModal
       v-if="isAdmin"
       v-model:open="isDeleteOpen"
-      title="ลบรายการชำระเงิน"
-      description="ยืนยันการลบรายการชำระเงินนี้ออกจากระบบ"
+      title="ลบประวัติการชำระเงิน"
+      description="ยืนยันการลบประวัติการชำระเงินนี้ออกจากระบบ"
       icon="i-lucide-trash-2"
       icon-color="error"
       confirm-label="ลบรายการ"

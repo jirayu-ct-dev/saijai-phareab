@@ -390,7 +390,7 @@ const columns: TableColumn<MyReceiptRecord>[] = [
 <template>
   <UDashboardPanel id="my-payments">
     <template #header>
-      <UDashboardNavbar title="รายการชำระเงิน" icon="i-lucide-receipt">
+      <UDashboardNavbar title="ประวัติการชำระเงิน" icon="i-lucide-receipt">
         <template #leading>
           <UDashboardSidebarCollapse class="hidden lg:inline-flex" />
         </template>
@@ -466,7 +466,7 @@ const columns: TableColumn<MyReceiptRecord>[] = [
             <div class="md:hidden">
               <div v-if="!paginatedPayments.length" class="flex flex-col items-center justify-center rounded-lg border border-dashed border-default/30 bg-default/55 px-3 py-5 text-center text-muted dark:border-default/20 dark:bg-elevated/30">
                 <UIcon name="i-lucide-receipt" class="mb-3 size-10 opacity-60" />
-                <p>ไม่พบรายการชำระเงิน</p>
+                <p>ไม่พบประวัติการชำระเงิน</p>
               </div>
 
               <div v-else class="-mx-2 space-y-1 sm:mx-0">
@@ -564,7 +564,7 @@ const columns: TableColumn<MyReceiptRecord>[] = [
                   </div>
                   <div v-else class="flex flex-col items-center justify-center rounded-lg border border-dashed border-default/30 bg-default/55 px-3 py-5 text-center text-muted dark:border-default/20 dark:bg-elevated/30">
                     <UIcon name="i-lucide-receipt" class="mb-3 size-10 opacity-60" />
-                    <p>ไม่พบรายการชำระเงิน</p>
+                    <p>ไม่พบประวัติการชำระเงิน</p>
                   </div>
                 </template>
               </UTable>

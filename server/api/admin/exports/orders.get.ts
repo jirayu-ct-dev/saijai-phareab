@@ -37,6 +37,15 @@ export default defineEventHandler(async (event) => {
       employee: { select: { name: true } },
       memberEntitlement: { select: { product: { select: { name: true } } } },
       weightKg: true,
+      addonUsageRecords: {
+        select: {
+          productName: true,
+          credits: true,
+          deductOn: true,
+          deductedAt: true,
+          refundedAt: true,
+        },
+      },
       _count: { select: { serviceOrderItems: { where: { deletedAt: null } } } },
       serviceOrderItems: {
         where: { deletedAt: null },
@@ -49,6 +58,8 @@ export default defineEventHandler(async (event) => {
     const isWashFold = o.weightKg != null;
     const totalQty = o.serviceOrderItems.reduce((s, it) => s + it.quantity, 0);
     const hanger = (o.hangerCharge ?? null) as { count?: number; total?: number } | null;
+    const addonNames = o.addonUsageRecords.map((usage) => usage.productName || "แพ็กเกจเสริม").filter(Boolean);
+    const addonCredits = o.addonUsageRecords.reduce((sum, usage) => sum + Number(usage.credits ?? 0), 0);
     return {
       "เลขรับผ้า": o.orderNo ?? o.id,
       "วันที่รับผ้า": formatBangkokDateTime(o.receivedAt),
@@ -60,6 +71,8 @@ export default defineEventHandler(async (event) => {
       "เบอร์": o.isWalkIn ? "" : (o.customer.phoneNumber ?? ""),
       "รูปแบบ": isWashFold ? "ซัก-พับ ชั่งกิโล" : (o.memberEntitlement ? "แพ็กเกจรายเดือน" : "ราคาหน้าร้าน"),
       "แพ็กเกจ": o.memberEntitlement?.product.name ?? "",
+      "แพ็กเกจเสริม": addonNames.join(", "),
+      "เครดิตแพ็กเกจเสริม": addonCredits,
       "จำนวนชิ้น": totalQty,
       "น้ำหนัก (กก.)": isWashFold ? Number(o.weightKg) : 0,
       "ใช้เครดิต": o.creditUsed ?? 0,
@@ -75,7 +88,7 @@ export default defineEventHandler(async (event) => {
   const headers = [
     "เลขรับผ้า", "วันที่รับผ้า", "นัดรับ", "วันที่ส่ง", "สถานะ",
     "ลูกค้า", "อีเมล", "เบอร์",
-    "รูปแบบ", "แพ็กเกจ",
+    "รูปแบบ", "แพ็กเกจ", "แพ็กเกจเสริม", "เครดิตแพ็กเกจเสริม",
     "จำนวนชิ้น", "น้ำหนัก (กก.)", "ใช้เครดิต",
     "ราคารวม", "ส่วนลด", "ค่าไม้แขวน", "จำนวนไม้แขวน", "ยอดสุทธิ",
     "พนักงาน",

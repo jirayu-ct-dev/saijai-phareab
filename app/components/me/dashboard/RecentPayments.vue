@@ -66,7 +66,7 @@ const columns: TableColumn<RecentPayment>[] = [
 <template>
   <section class="flex flex-col gap-1">
     <div class="-mx-2 flex items-center justify-between border border-default/30 bg-default px-3 py-2 dark:border-default/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg">
-      <p class="font-semibold text-highlighted">ชำระเงินล่าสุด</p>
+      <p class="font-semibold text-highlighted">ประวัติการชำระเงินล่าสุด</p>
       <UButton
         to="/me/payment"
         variant="link"
@@ -97,7 +97,7 @@ const columns: TableColumn<RecentPayment>[] = [
 
       <div v-else-if="!data?.length" class="flex flex-col items-center justify-center rounded-lg border border-dashed border-default/30 bg-default/55 px-3 py-5 text-center text-muted dark:border-default/20 dark:bg-elevated/30">
         <UIcon name="i-lucide-receipt" class="mb-3 size-10 opacity-50" />
-        <p>ยังไม่มีรายการชำระเงิน</p>
+        <p>ยังไม่มีประวัติการชำระเงิน</p>
       </div>
 
       <div v-else class="-mx-2 space-y-1 sm:mx-0">
@@ -121,7 +121,7 @@ const columns: TableColumn<RecentPayment>[] = [
             </div>
             <span class="shrink-0 text-sm font-semibold text-primary">{{ formatCurrency(payment.amount) }}</span>
             <div class="flex shrink-0 items-center">
-              <UButton icon="i-lucide-eye" size="xs" color="neutral" variant="ghost" aria-label="ดูรายการชำระเงิน" @click.stop="router.push(`/me/payment/${payment.id}`)" />
+              <UButton icon="i-lucide-eye" size="xs" color="neutral" variant="ghost" aria-label="ดูประวัติการชำระเงิน" @click.stop="router.push(`/me/payment/${payment.id}`)" />
             </div>
           </div>
         </div>
@@ -147,7 +147,7 @@ const columns: TableColumn<RecentPayment>[] = [
         <template #empty>
           <div class="flex flex-col items-center justify-center rounded-lg border border-dashed border-default/30 bg-default/55 px-3 py-5 text-center text-muted dark:border-default/20 dark:bg-elevated/30">
             <UIcon name="i-lucide-receipt" class="size-10 mb-3 opacity-50" />
-            <p>ยังไม่มีรายการชำระเงิน</p>
+            <p>ยังไม่มีประวัติการชำระเงิน</p>
           </div>
         </template>
       </UTable>

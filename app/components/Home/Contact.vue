@@ -115,7 +115,7 @@
           </div>
 
           <!-- Map Side -->
-          <div class="lg:w-2/3 h-[300px] lg:h-[400px] rounded-lg overflow-hidden border border-gray-100 dark:border-gray-800 relative group">
+          <div class="lg:w-2/3 h-75 lg:h-100 rounded-lg overflow-hidden border border-gray-100 dark:border-gray-800 relative group">
             <iframe
               src="https://www.google.com/maps/embed?pb=!1m14!1m8!1m3!1d3854.0986966515134!2d103.0807595!3d14.9872255!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x31199506b4a82a99%3A0xf5206a7506c788e3!2z4LmD4Liq4LmI4LmD4LiI4Lic4LmJ4Liy4LmA4Lij4Li14Lii4LiaIC0g4LiL4Lix4LiBIOC4reC4miDguKPguLXguJQg4Lia4Li44Lij4Li14Lij4Lix4Lih4Lii4LmM!5e0!3m2!1sth!2sth!4v1778601481868!5m2!1sth!2sth"
               width="100%"

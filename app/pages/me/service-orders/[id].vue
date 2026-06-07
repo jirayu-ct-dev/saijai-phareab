@@ -175,7 +175,7 @@ const totalRows = computed<InfoRow[]>(() => {
 });
 
 const latestPaymentStatusLabel = computed(() =>
-  latestPayment.value ? paymentStatusLabels[latestPayment.value.status] : "ยังไม่มีรายการชำระเงิน",
+  latestPayment.value ? paymentStatusLabels[latestPayment.value.status] : "ยังไม่มีประวัติการชำระเงิน",
 );
 const latestPaymentStatusColor = computed(() =>
   latestPayment.value ? paymentStatusColors[latestPayment.value.status] : "neutral",
@@ -186,7 +186,7 @@ const latestPaymentMethodLabel = computed(() =>
 const paymentRows = computed<InfoRow[]>(() => {
   if (!latestPayment.value) {
     return [
-      { label: "สถานะชำระเงิน", value: "ยังไม่มีรายการชำระเงิน" },
+      { label: "สถานะชำระเงิน", value: "ยังไม่มีประวัติการชำระเงิน" },
       { label: "วิธีชำระ", value: "-" },
       { label: "ยอดชำระ", value: "-" },
     ];

@@ -106,10 +106,10 @@ export const useAdminPayments = (options: UseAdminPaymentsOptions = {}) => {
     try {
       await $fetch(`/api/admin/payments/${id}`, { method: "PUT", body });
       if (refreshAfterMutation) await refresh();
-      notify.updated("รายการชำระเงิน");
+      notify.updated("ประวัติการชำระเงิน");
       return true;
     } catch (error: unknown) {
-      notify.error(getErrorMessage(error, "ไม่สามารถอัปเดตรายการชำระเงินได้"));
+      notify.error(getErrorMessage(error, "ไม่สามารถอัปเดตประวัติการชำระเงินได้"));
       return false;
     }
   };
@@ -130,10 +130,10 @@ export const useAdminPayments = (options: UseAdminPaymentsOptions = {}) => {
     try {
       await $fetch(`/api/admin/payments/${id}`, { method: "DELETE" });
       if (refreshAfterMutation) await refresh();
-      notify.deleted("รายการชำระเงิน");
+      notify.deleted("ประวัติการชำระเงิน");
       return true;
     } catch (error: unknown) {
-      notify.error(getErrorMessage(error, "ไม่สามารถลบรายการชำระเงินได้"));
+      notify.error(getErrorMessage(error, "ไม่สามารถลบประวัติการชำระเงินได้"));
       return false;
     }
   };

@@ -36,7 +36,7 @@ const menu = computed<MenuItem[][]>(() => {
       onSelect: closeSidebar,
     },
     {
-      label: "รายการชำระเงิน",
+      label: "ประวัติการชำระเงิน",
       icon: "i-lucide-receipt",
       to: "/me/payment",
       onSelect: closeSidebar,

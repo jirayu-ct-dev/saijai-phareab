@@ -20,7 +20,7 @@ const items = [[
     to: "/admin/sales",
   },
   {
-    label: "ดูรายการชำระเงิน",
+    label: "ดูประวัติการชำระเงิน",
     icon: "i-lucide-receipt",
     to: "/admin/payment",
   },

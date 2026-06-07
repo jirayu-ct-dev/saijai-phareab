@@ -35,15 +35,15 @@ const adminMenu = [
       onSelect: closeSidebar,
     },
     {
-      label: "รายการชำระเงิน",
-      icon: "i-lucide-receipt",
-      to: "/admin/payment",
-      onSelect: closeSidebar,
-    },
-    {
       label: "รายการรับผ้า",
       icon: "i-lucide-shopping-basket",
       to: "/admin/service-orders",
+      onSelect: closeSidebar,
+    },
+    {
+      label: "ประวัติการชำระเงิน",
+      icon: "i-lucide-receipt",
+      to: "/admin/payment",
       onSelect: closeSidebar,
     },
     {
@@ -99,13 +99,13 @@ const adminMenu = [
           exact: true,
           onSelect: closeSidebar,
         },
-        {
-          label: "จัดการ Rich Menu",
-          icon: "i-lucide-menu",
-          to: "/admin/settings/richmenu",
-          exact: true,
-          onSelect: closeSidebar,
-        },
+        // {
+        //   label: "จัดการ Rich Menu",
+        //   icon: "i-lucide-menu",
+        //   to: "/admin/settings/richmenu",
+        //   exact: true,
+        //   onSelect: closeSidebar,
+        // },
         {
           label: "การแจ้งเตือน",
           icon: "i-lucide-bell",
@@ -164,7 +164,7 @@ const employeeMenu = [
       onSelect: closeSidebar,
     },
     {
-      label: "รายการชำระเงิน",
+      label: "ประวัติการชำระเงิน",
       icon: "i-lucide-receipt",
       to: "/admin/payment",
       onSelect: closeSidebar,
