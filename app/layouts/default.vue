@@ -47,11 +47,21 @@ const itemsDropdown = computed<DropdownMenuItem[][]>(() => {
             icon: 'i-lucide-shield',
             to: '/admin'
         })
+        roleLinks.push({
+            label: 'แดชบอร์ดเมมเบอร์',
+            icon: 'i-lucide-layout-dashboard',
+            to: '/me'
+        })
     } else if (user.value?.role === 'EMPLOYEE') {
         roleLinks.push({
             label: 'หน้าหลักพนักงาน',
             icon: 'i-lucide-briefcase',
             to: '/admin/employee-dashboard'
+        })
+        roleLinks.push({
+            label: 'แดชบอร์ดเมมเบอร์',
+            icon: 'i-lucide-layout-dashboard',
+            to: '/me'
         })
     } else {
         roleLinks.push({

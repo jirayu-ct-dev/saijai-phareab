@@ -11,11 +11,9 @@ export default defineNuxtRouteMiddleware(async () => {
   const user = session.user;
   const role = user.role;
 
-  if ((role === "ADMIN" || role === "EMPLOYEE") && user.isActive !== false) {
-    return navigateTo("/admin");
-  }
-
-  if ((role === "ADMIN" || role === "EMPLOYEE") && user.isActive === false) {
+  // ADMIN / EMPLOYEE can access /me for their own laundry
+  // (active or inactive — inactive still blocked from /admin by role-admin.ts)
+  if (role === "ADMIN" || role === "EMPLOYEE") {
     return;
   }
 
