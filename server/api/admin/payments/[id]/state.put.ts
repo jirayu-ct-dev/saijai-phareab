@@ -1,7 +1,9 @@
+import { addDays } from "date-fns";
 import { requireRole } from "~~/server/utils/auth";
 import { prisma } from "~~/server/utils/prisma";
 import { createReceiptNo } from "~~/server/utils/receiptNo";
 import { notifyReceipt } from "~~/server/utils/notify";
+import { syncUserRichMenu } from "~~/server/utils/line-messaging";
 import {
   applyPaymentStateTransition,
   canTransitionPaymentStatus,
@@ -47,6 +49,34 @@ export default defineEventHandler(async (event) => {
       receiptNo: true,
       packageSaleId: true,
       slipImageId: true,
+      packageSale: {
+        select: {
+          customerId: true,
+          items: {
+            select: {
+              id: true,
+              memberEntitlements: {
+                where: { deletedAt: null },
+                select: {
+                  id: true,
+                  status: true,
+                  creditInitial: true,
+                  product: { select: { credits: true, validityDays: true } },
+                  serviceOrders: { where: { deletedAt: null }, select: { id: true }, take: 1 },
+                  serviceOrderAddonUsages: {
+                    where: {
+                      refundedAt: null,
+                      serviceOrder: { deletedAt: null },
+                    },
+                    select: { id: true },
+                    take: 1,
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
     },
   });
 
@@ -62,6 +92,17 @@ export default defineEventHandler(async (event) => {
 
   if (!canTransitionPaymentStatus(existing.status, nextStatus)) {
     throw createError({ statusCode: 409, statusMessage: "ไม่สามารถเปลี่ยนสถานะการชำระเงินนี้ได้" });
+  }
+
+  const packageEntitlements = existing.packageSale?.items.flatMap((item) => item.memberEntitlements) ?? [];
+  const hasUsedPackageEntitlement = packageEntitlements.some(
+    (entitlement) => entitlement.serviceOrders.length > 0 || entitlement.serviceOrderAddonUsages.length > 0,
+  );
+  if (nextStatus === "CANCELLED" && hasUsedPackageEntitlement) {
+    throw createError({
+      statusCode: 409,
+      statusMessage: "ไม่สามารถยกเลิกการชำระเงินของแพ็กเกจที่ถูกใช้งานแล้ว",
+    });
   }
 
   const slipProvided = Object.prototype.hasOwnProperty.call(body, "slipImageId");
@@ -91,11 +132,46 @@ export default defineEventHandler(async (event) => {
       now,
       createReceiptNo: (date, receiptTx) => createReceiptNo(date, receiptTx as never),
     });
+
+    if (nextStatus === "CANCELLED" && packageEntitlements.length > 0) {
+      await tx.memberEntitlement.updateMany({
+        where: {
+          id: { in: packageEntitlements.map((entitlement) => entitlement.id) },
+          deletedAt: null,
+        },
+        data: { status: "CANCELLED" },
+      });
+    }
+
+    if (nextStatus === "PAID" && packageEntitlements.length > 0) {
+      for (const entitlement of packageEntitlements) {
+        if (entitlement.status === "ACTIVE") continue;
+        const startAt = now;
+        await tx.memberEntitlement.update({
+          where: { id: entitlement.id },
+          data: {
+            status: "ACTIVE",
+            startAt,
+            endAt: entitlement.product.validityDays ? addDays(startAt, entitlement.product.validityDays) : null,
+            activatedAt: startAt,
+            suspendedAt: null,
+            creditInitial: entitlement.product.credits ?? entitlement.creditInitial ?? 0,
+            creditRemaining: entitlement.product.credits ?? entitlement.creditInitial ?? 0,
+          },
+        });
+      }
+    }
   });
 
   if (nextStatus === "PAID") {
     void notifyReceipt({ paymentId }).catch((err) => {
       console.error("[state.put] notifyReceipt failed", err);
+    });
+  }
+
+  if (existing.packageSale?.customerId) {
+    void syncUserRichMenu(existing.packageSale.customerId).catch((err) => {
+      console.error("[state.put] syncUserRichMenu failed", err);
     });
   }
 

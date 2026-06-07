@@ -61,6 +61,7 @@ export default defineEventHandler(async (event) => {
           },
         },
         addonUsageRecords: {
+          where: { refundedAt: null },
           orderBy: { createdAt: "asc" },
         },
         serviceOrderItems: {

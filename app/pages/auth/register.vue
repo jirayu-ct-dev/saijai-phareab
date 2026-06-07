@@ -1,10 +1,9 @@
 <script setup lang="ts">
-import { authClient } from "~/utils/auth-client";
 const notify = useNotify();
 
 definePageMeta({ layout: false });
 
-const { register, redirectByRole, loginWithLine } = useUser();
+const { register, redirectByRole, loginWithLine, session } = useUser();
 
 async function handleLineLogin() {
     loading.value = true;
@@ -15,10 +14,6 @@ async function handleLineLogin() {
         loading.value = false;
     }
 }
-
-const sessionRef = authClient.useSession();
-const session = computed(() => sessionRef.value.data);
-const isPending = computed(() => sessionRef.value.isPending);
 
 // Form state
 const loading = ref(false);
@@ -65,7 +60,7 @@ async function handleSignUp() {
 // Redirect to home if already logged in, using redirectByRole to prevent flickering
 watch(session, async (newSession) => {
     if (newSession?.user) {
-        await redirectByRole((newSession.user as any).role);
+        await redirectByRole(newSession.user.role);
     }
 }, { immediate: true });
 
@@ -77,7 +72,7 @@ watch(session, async (newSession) => {
     <!-- LEFT PANEL: Brand & Illustration -->
     <div class="hidden lg:flex lg:w-[45%] xl:w-1/2 bg-[#1b4e85] text-white flex-col justify-between p-10 xl:p-16 relative overflow-hidden">
       <!-- Background details -->
-      <div class="absolute top-[-10%] right-[-10%] w-[500px] h-[500px] bg-white/5 rounded-full blur-[100px] pointer-events-none"></div>
+      <div class="absolute -top-[10%] -right-[10%] w-125 h-125 bg-white/5 rounded-full blur-[100px] pointer-events-none"></div>
       
       <!-- Top: Logo -->
       <div class="relative z-10 flex items-center gap-3">
@@ -160,12 +155,7 @@ watch(session, async (newSession) => {
       <!-- Form Container -->
       <div class="flex-1 flex items-center justify-center p-6 sm:p-12 overflow-y-auto">
         <ClientOnly>
-          <div v-if="isPending" class="text-center text-gray-500">
-              <UIcon name="i-lucide-loader-2" class="w-8 h-8 animate-spin mx-auto mb-2" />
-              <p>กำลังโหลด...</p>
-          </div>
-          
-          <div v-else class="w-full max-w-[400px] py-12 lg:py-0">
+          <div class="w-full max-w-100 py-12 lg:py-0">
             
             <div class="mb-8 text-center lg:text-left">
               <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-2">สมัครสมาชิก</h1>
@@ -175,11 +165,11 @@ watch(session, async (newSession) => {
             <!-- Mobile benefit summary -->
             <div class="lg:hidden mb-6 p-4 bg-blue-50 dark:bg-blue-950/30 rounded-md border border-blue-200 dark:border-blue-800">
               <div class="flex items-center gap-2 text-sm font-medium text-blue-800 dark:text-blue-200">
-                <UIcon name="i-lucide-package" class="w-4 h-4 text-primary flex-shrink-0" />
+                <UIcon name="i-lucide-package" class="w-4 h-4 text-primary shrink-0" />
                 จัดการแพ็กเกจและประวัติการใช้งาน
               </div>
               <div class="flex items-center gap-2 text-sm font-medium text-blue-800 dark:text-blue-200 mt-2">
-                <UIcon name="i-lucide-bell" class="w-4 h-4 text-emerald-500 flex-shrink-0" />
+                <UIcon name="i-lucide-bell" class="w-4 h-4 text-emerald-500 shrink-0" />
                 แจ้งเตือนสถานะผ้าแบบเรียลไทม์ผ่าน LINE
               </div>
             </div>
@@ -324,7 +314,7 @@ watch(session, async (newSession) => {
 
           </div>
           <template #fallback>
-            <div class="w-full max-w-[400px] flex flex-col items-center justify-center py-12">
+            <div class="w-full max-w-100 flex flex-col items-center justify-center py-12">
               <UIcon name="i-lucide-loader-2" class="w-8 h-8 animate-spin text-primary mb-2" />
               <p class="text-gray-500 text-sm">กำลังโหลดระบบสมัครสมาชิก...</p>
             </div>

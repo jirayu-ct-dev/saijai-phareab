@@ -4,6 +4,7 @@ import { createPaymentNo } from "~~/server/utils/paymentNo";
 import { prisma } from "~~/server/utils/prisma";
 import { getBusinessSetting } from "~~/server/utils/businessSetting";
 import { computeVat } from "~~/server/utils/vat";
+import { syncUserRichMenu } from "~~/server/utils/line-messaging";
 
 type UpdatePackageSaleBody = {
   customerId: string;
@@ -72,6 +73,7 @@ export default defineEventHandler(async (event) => {
       where: { id, deletedAt: null },
       select: {
         id: true,
+        customerId: true,
         items: {
           select: {
             id: true,
@@ -81,6 +83,14 @@ export default defineEventHandler(async (event) => {
                 id: true,
                 serviceOrders: {
                   where: { deletedAt: null },
+                  select: { id: true },
+                  take: 1,
+                },
+                serviceOrderAddonUsages: {
+                  where: {
+                    refundedAt: null,
+                    serviceOrder: { deletedAt: null },
+                  },
                   select: { id: true },
                   take: 1,
                 },
@@ -101,7 +111,9 @@ export default defineEventHandler(async (event) => {
     }
 
     const hasUsedEntitlement = existingSale.items.some((item) =>
-      item.memberEntitlements.some((entitlement) => entitlement.serviceOrders.length > 0),
+      item.memberEntitlements.some((entitlement) =>
+        entitlement.serviceOrders.length > 0 || entitlement.serviceOrderAddonUsages.length > 0,
+      ),
     );
 
     if (hasUsedEntitlement) {
@@ -212,11 +224,9 @@ export default defineEventHandler(async (event) => {
         });
       }
 
-      let primaryEntitlementId: string | null = null;
-
       for (const saleItem of createdItems) {
         for (let count = 0; count < saleItem.qty; count += 1) {
-          const createdEntitlement = await tx.memberEntitlement.create({
+          await tx.memberEntitlement.create({
             data: {
               customerId: body.customerId,
               sourceSaleItemId: saleItem.id,
@@ -224,10 +234,6 @@ export default defineEventHandler(async (event) => {
               ...buildEntitlementState(saleItem.product.validityDays, saleItem.product.credits),
             },
           });
-
-          if (!primaryEntitlementId) {
-            primaryEntitlementId = createdEntitlement.id;
-          }
         }
       }
 
@@ -238,7 +244,7 @@ export default defineEventHandler(async (event) => {
           },
           data: {
             userId: body.customerId,
-            memberEntitlementId: primaryEntitlementId,
+            memberEntitlementId: null,
             amount: totalAmount,
             slipImageId: body.slipImageId ?? null,
             note: body.note?.trim() || null,
@@ -262,7 +268,6 @@ export default defineEventHandler(async (event) => {
           data: {
             paymentNo: await createPaymentNo(),
             userId: body.customerId,
-            memberEntitlementId: primaryEntitlementId,
             packageSaleId: id,
             amount: totalAmount,
             slipImageId: body.slipImageId ?? null,
@@ -284,6 +289,13 @@ export default defineEventHandler(async (event) => {
         });
       }
     });
+
+    const syncIds = new Set([existingSale.customerId, body.customerId]);
+    for (const customerId of syncIds) {
+      void syncUserRichMenu(customerId).catch((err) => {
+        console.error("[PUT /api/admin/package-sales/:id] syncUserRichMenu failed", err);
+      });
+    }
 
     return { success: true };
   } catch (error) {

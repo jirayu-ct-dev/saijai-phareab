@@ -6,20 +6,13 @@ type MemberState = {
   checkedAt: number | null;
 };
 
-type SessionUserWithRole = {
-  id?: string;
-  role?: Role;
-  isActive?: boolean;
-};
-
 const MEMBER_STATUS_TTL_MS = 60_000;
 const ALLOWED_ROLES: Role[] = ["USER", "EMPLOYEE", "ADMIN"];
 const PRIVILEGED_ROLES: Role[] = ["EMPLOYEE", "ADMIN"];
 
 export default defineNuxtRouteMiddleware(async () => {
   const authSession = useState<unknown | null>("auth:session", () => null);
-  const headers = import.meta.server ? useRequestHeaders(["cookie"]) : undefined;
-  const session = await $fetch<any>("/api/auth/session-status", { headers });
+  const session = await fetchSessionStatus();
 
   if (!session?.user) {
     authSession.value = null;
@@ -27,7 +20,7 @@ export default defineNuxtRouteMiddleware(async () => {
   }
 
   authSession.value = session;
-  const user = session.user as SessionUserWithRole;
+  const user = session.user;
   if (!user.id || !user.role) {
     return navigateTo("/auth/login");
   }

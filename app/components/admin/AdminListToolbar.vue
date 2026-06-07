@@ -62,7 +62,7 @@ const setFilterValue = (filter: AdminListToolbarFilter, value: string | number |
 </script>
 
 <template>
-  <div :class="[adminFilterBarClass, '!px-3 !py-3 flex flex-col gap-1.5']">
+  <div :class="[adminFilterBarClass, 'px-3! py-3! flex flex-col gap-1.5']">
     <div class="flex flex-wrap items-center gap-1.5">
       <UInput
         v-model="search"
@@ -98,7 +98,7 @@ const setFilterValue = (filter: AdminListToolbarFilter, value: string | number |
         :label="filter.label"
       >
         <USelect
-          :model-value="getFilterValue(filter)"
+          :model-value="getFilterValue(filter) as string | number | boolean | null | undefined"
           :items="filter.options"
           value-key="value"
           class="min-w-0 w-full"

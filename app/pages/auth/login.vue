@@ -1,15 +1,9 @@
 <script setup lang="ts">
-import { authClient } from "~/utils/auth-client";
-
 definePageMeta({ layout: false });
 
 const notify = useNotify();
 
-const { login, loginWithLine, redirectByRole } = useUser();
-
-const sessionRef = authClient.useSession();
-const session = computed(() => sessionRef.value.data);
-const isPending = computed(() => sessionRef.value.isPending);
+const { login, loginWithLine, redirectByRole, session, user } = useUser();
 
 // ดึง Logic ของ LIFF มาจาก Composable
 const { handleLiffAutoLogin } = useLiffAuth();
@@ -29,8 +23,8 @@ async function handleSignIn() {
 
     try {
         await login(form.email, form.password, rememberMe.value);
-    } catch (error: any) {
-        notify.error(error.message || "เข้าสู่ระบบไม่สำเร็จ");
+    } catch {
+        // useUser().login แสดง error notification เองแล้ว
     } finally {
         loading.value = false;
     }
@@ -48,7 +42,7 @@ async function handleLineLogin() {
 
 watch(session, async (newSession) => {
     if (newSession?.user) {
-        await redirectByRole((newSession.user as any).role);
+        await redirectByRole(newSession.user.role);
     }
 }, { immediate: false });
 
@@ -59,11 +53,14 @@ onMounted(async () => {
         reason.value = null;
         return;
     }
-    if (session.value) {
-        await redirectByRole((session.value.user as any)?.role);
+    if (session.value?.user) {
+        await redirectByRole(session.value.user.role);
         return;
     }
-    await handleLiffAutoLogin();
+    const liffResult = await handleLiffAutoLogin();
+    if (liffResult === "logged-in") {
+        await redirectByRole(user.value?.role);
+    }
 })
 </script>
 

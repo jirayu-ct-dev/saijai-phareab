@@ -116,12 +116,18 @@ export const getDeletedDataImpact = async (
   }
 
   if (type === "member_entitlement") {
-    const [payments, orders, notifications] = await Promise.all([
+    const [payments, orders, addonUsages, notifications] = await Promise.all([
       prisma.paymentRecord.count({ where: { memberEntitlementId: id } }),
       prisma.serviceOrder.count({ where: { memberEntitlementId: id } }),
+      prisma.serviceOrderAddonUsage.count({ where: { memberEntitlementId: id } }),
       prisma.packageExpiryNotification.count({ where: { entitlementId: id } }),
     ]);
-    return [`${payments} การชำระเงิน`, `${orders} ออเดอร์ที่อ้างอิง`, `${notifications} ประวัติแจ้งเตือนหมดอายุ`];
+    return [
+      `${payments} การชำระเงิน`,
+      `${orders} ออเดอร์ที่ใช้แพ็กเกจหลัก`,
+      `${addonUsages} ออเดอร์ที่ใช้แพ็กเกจเสริม`,
+      `${notifications} ประวัติแจ้งเตือนหมดอายุ`,
+    ];
   }
 
   const orderItems = await prisma.serviceOrderItem.count({ where: { storefrontPriceId: id } });
@@ -454,6 +460,10 @@ const hardDeleteMemberEntitlements = async (tx: Tx, ids: string[]) => {
     select: { id: true },
   });
   await tx.serviceOrder.updateMany({
+    where: { memberEntitlementId: inIds(ids) },
+    data: { memberEntitlementId: null },
+  });
+  await tx.serviceOrderAddonUsage.updateMany({
     where: { memberEntitlementId: inIds(ids) },
     data: { memberEntitlementId: null },
   });

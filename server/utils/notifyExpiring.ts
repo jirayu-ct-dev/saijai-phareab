@@ -64,7 +64,7 @@ const buildFlex = (
       ? "แพ็กเกจของคุณหมดอายุวันนี้"
       : `แพ็กเกจของคุณกำลังจะหมดอายุในอีก ${daysBefore} วัน`;
   const expiryText = formatBangkokDate(e.endAt);
-  const url = `${getBaseUrl()}/packages`;
+  const url = `${getBaseUrl()}/me/packages`;
 
   const bodyContents: Record<string, unknown>[] = [
     {

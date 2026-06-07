@@ -1,6 +1,6 @@
 import { requireRole } from "~~/server/utils/auth";
 import { prisma } from "~~/server/utils/prisma";
-import { refundAddonUsages, refundPrimaryCredit } from "~~/server/utils/serviceOrderCredits";
+import { refundAddonUsages, refundPrimaryCredit, voidPendingAddonUsageRecords } from "~~/server/utils/serviceOrderCredits";
 
 export default defineEventHandler(async (event) => {
   const actor = requireRole(event, ["EMPLOYEE", "ADMIN"]);
@@ -36,6 +36,7 @@ export default defineEventHandler(async (event) => {
         creditUsed: existing.creditUsed,
       });
       await refundAddonUsages(tx, existing.id, existing.addonUsages);
+      await voidPendingAddonUsageRecords(tx, existing.id);
 
       await tx.serviceOrder.update({
         where: { id },

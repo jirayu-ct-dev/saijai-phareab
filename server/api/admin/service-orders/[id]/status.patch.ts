@@ -2,7 +2,7 @@ import type { ServiceOrderStatus } from "~~/shared/types/enums";
 import { requireRole } from "~~/server/utils/auth";
 import { notifyServiceOrderStatusChanged } from "~~/server/utils/notify";
 import { prisma } from "~~/server/utils/prisma";
-import { deductAddonUsageRecords, parseAddonUsages, refundAddonUsages, refundPrimaryCredit } from "~~/server/utils/serviceOrderCredits";
+import { deductAddonUsageRecords, parseAddonUsages, refundAddonUsages, refundPrimaryCredit, voidPendingAddonUsageRecords } from "~~/server/utils/serviceOrderCredits";
 import { canTransitionServiceOrderStatus, isServiceOrderStatus } from "~~/server/utils/serviceOrderStatusTransition";
 
 type UpdateServiceOrderStatusBody = {
@@ -65,6 +65,7 @@ export default defineEventHandler(async (event) => {
           creditUsed: existing.creditUsed,
         });
         await refundAddonUsages(tx, existing.id, existing.addonUsages);
+        await voidPendingAddonUsageRecords(tx, existing.id);
       }
 
       if (shouldDeductCompletedAddons) {

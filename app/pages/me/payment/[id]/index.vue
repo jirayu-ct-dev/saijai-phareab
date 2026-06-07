@@ -79,6 +79,7 @@ type PaymentDetailResponse = {
       creditRemaining: number;
       endAt: string | null;
     } | null;
+    addonUsages: Array<{ id: string; productName: string; credits: number; deductOn: "CREATED" | "COMPLETED"; deductedAt: string | null; refundedAt: string | null }>;
     items: Array<{
       id: string;
       name: string;
@@ -259,6 +260,13 @@ const detailItems = computed<DetailItem[]>(() => {
     ).map((photo) => ({ id: photo.id, isDamaged: "isDamaged" in photo ? photo.isDamaged : false, url: photo.url, secureUrl: photo.secureUrl })),
   }));
 });
+
+const addonUsageRows = computed<InfoRow[]>(() => (
+  payment.value?.serviceOrder?.addonUsages ?? []
+).map((usage) => ({
+  label: usage.productName,
+  value: `${usage.credits} เครดิต · ${usage.deductedAt ? "หักเครดิตแล้ว" : usage.deductOn === "COMPLETED" ? "รอหักเมื่อเสร็จสิ้น" : "รอหักเครดิต"}`,
+})));
 
 const previewOpen = ref(false);
 const previewUrl = ref("");
@@ -459,6 +467,16 @@ const entitlementRows = computed<InfoRow[]>(() => payment.value?.serviceOrder?.m
                     </div>
                   </div>
                 </section>
+              </div>
+            </section>
+
+            <section v-if="addonUsageRows.length" class="-mx-2 border border-default/30 bg-default p-4 dark:border-default/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg">
+              <p class="text-sm font-semibold text-highlighted">แพ็กเกจเสริม</p>
+              <div class="mt-3 grid gap-x-6 gap-y-3 text-sm lg:grid-cols-2 lg:[&>*:nth-child(odd)]:pr-4 lg:[&>*:nth-child(even)]:border-l lg:[&>*:nth-child(even)]:border-dashed lg:[&>*:nth-child(even)]:border-default lg:[&>*:nth-child(even)]:pl-4">
+                <div v-for="row in addonUsageRows" :key="row.label" class="flex min-w-0 items-start justify-between gap-3">
+                  <span class="min-w-0 wrap-break-word text-muted">{{ row.label }}</span>
+                  <span class="min-w-0 max-w-[62%] wrap-break-word text-right text-highlighted">{{ row.value }}</span>
+                </div>
               </div>
             </section>
 

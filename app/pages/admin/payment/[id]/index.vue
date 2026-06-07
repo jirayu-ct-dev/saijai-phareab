@@ -1,4 +1,4 @@
-﻿<script setup lang="ts">
+<script setup lang="ts">
 import type { EntitlementStatus, PackageSaleStatus, PaymentMethod, PaymentStatus, ServiceOrderStatus } from "~~/shared/types/enums";
 import { packageTypeColors, packageTypeLabels } from "~~/shared/config/packageConfig";
 import { paymentMethodLabels, paymentStatusColors, paymentStatusLabels } from "~~/shared/config/paymentConfig";
@@ -77,6 +77,7 @@ type PaymentDetailResponse = {
     employee: { name: string | null; email: string } | null;
     memberEntitlement: { product: { name: string } } | null;
     hangerCharge: { count: number; total: number } | null;
+    addonUsages: Array<{ id: string; productName: string; credits: number; deductOn: "CREATED" | "COMPLETED"; deductedAt: string | null; refundedAt: string | null }>;
     items: Array<{ id: string; label: string; quantity: number; unitPrice: number; totalPrice: number; notes: string | null; isPackageIncluded: boolean; service: { name: string }; image: { id: string; url: string | null; secureUrl: string | null } | null; photos: Array<{ id: string; imageId: string; isDamaged: boolean; sortOrder: number; url: string | null; secureUrl: string | null }> }>;
   } | null;
 };
@@ -351,6 +352,13 @@ const detailItems = computed<DetailItem[]>(() => {
   }));
 });
 
+const addonUsageRows = computed<InfoRow[]>(() => (
+  payment.value?.serviceOrder?.addonUsages ?? []
+).map((usage) => ({
+  label: usage.productName,
+  value: `${usage.credits} เครดิต · ${usage.deductedAt ? "หักเครดิตแล้ว" : usage.deductOn === "COMPLETED" ? "รอหักเมื่อเสร็จสิ้น" : "รอหักเครดิต"}`,
+})));
+
 const previewOpen = ref(false);
 const previewUrl = ref("");
 const previewTitle = ref("ดูรูป");
@@ -493,7 +501,7 @@ const savePaymentChanges = async () => {
       <div class="flex flex-col gap-3 p-2 sm:p-6">
       <div v-if="isLoading" class="grid min-w-0 gap-3 xl:grid-cols-[minmax(0,1fr)_360px]">
         <div class="min-w-0 space-y-3">
-          <div class="-mx-2 border border-default/30 bg-default p-4 p-5! dark:border-default/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg">
+          <div class="-mx-2 border border-default/30 bg-default p-5! dark:border-default/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg">
             <div class="flex items-start gap-3">
               <USkeleton class="size-12 rounded-full" />
               <div class="flex-1 space-y-2">
@@ -535,7 +543,7 @@ const savePaymentChanges = async () => {
         </div>
 
         <div class="min-w-0 space-y-3 xl:sticky xl:top-4 xl:self-start">
-          <div class="-mx-2 space-y-3 border border-default/30 bg-default p-4 p-5! dark:border-default/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg">
+          <div class="-mx-2 space-y-3 border border-default/30 bg-default p-5! dark:border-default/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg">
             <USkeleton class="h-5 w-36 rounded-lg" />
             <USkeleton class="h-3 w-48 rounded-lg" />
             <div class="mt-3 space-y-2">
@@ -545,7 +553,7 @@ const savePaymentChanges = async () => {
               </div>
             </div>
           </div>
-          <div class="-mx-2 space-y-3 border border-default/30 bg-default p-4 p-5! dark:border-default/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg">
+          <div class="-mx-2 space-y-3 border border-default/30 bg-default p-5! dark:border-default/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg">
             <USkeleton class="h-5 w-32 rounded-lg" />
             <div class="space-y-2">
               <div v-for="i in 6" :key="`pi-${i}`" class="flex justify-between gap-3">
@@ -562,7 +570,7 @@ const savePaymentChanges = async () => {
         </div>
       </div>
 
-      <div v-else-if="error || !payment" class="-mx-2 border border-default/30 bg-default p-4 p-6! dark:border-default/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg">
+      <div v-else-if="error || !payment" class="-mx-2 border border-default/30 bg-default p-6! dark:border-default/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg">
         <p class="text-base font-semibold text-highlighted">ไม่พบข้อมูลการชำระเงิน</p>
         <p class="mt-2 text-sm text-muted">รายการนี้อาจถูกลบหรือคุณไม่มีสิทธิ์เข้าถึง</p>
       </div>
@@ -647,6 +655,16 @@ const savePaymentChanges = async () => {
                 </section>
                 </div>
               </template>
+          </section>
+
+          <section v-if="addonUsageRows.length" class="-mx-2 border border-default/30 bg-default p-4 dark:border-default/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg">
+            <p class="text-sm font-semibold text-highlighted">แพ็กเกจเสริม</p>
+            <div class="mt-3 grid gap-x-6 gap-y-3 text-sm lg:grid-cols-2 lg:[&>*:nth-child(odd)]:pr-4 lg:[&>*:nth-child(even)]:border-l lg:[&>*:nth-child(even)]:border-dashed lg:[&>*:nth-child(even)]:border-default lg:[&>*:nth-child(even)]:pl-4">
+              <div v-for="row in addonUsageRows" :key="row.label" class="flex min-w-0 items-start justify-between gap-3">
+                <span class="min-w-0 wrap-break-word text-muted">{{ row.label }}</span>
+                <span class="min-w-0 max-w-[62%] wrap-break-word text-right text-highlighted">{{ row.value }}</span>
+              </div>
+            </div>
           </section>
 
           <section class="-mx-2 overflow-hidden border border-default/30 bg-default p-4 dark:border-default/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg">

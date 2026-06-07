@@ -1,6 +1,12 @@
 <script setup lang="ts">
 const { session } = useUser();
-const { addLineFriend } = useLiffAuth();
+
+type ShopSettings = {
+  washFoldPricePerKg?: number | null;
+};
+
+const { data: shopSettings } = await useFetch<ShopSettings>("/api/public/shop-settings");
+const washFoldPrice = computed(() => shopSettings.value?.washFoldPricePerKg ?? 60);
 
 const isOpen = ref(false);
 let timer: ReturnType<typeof setInterval>;
@@ -43,8 +49,8 @@ onUnmounted(() => {
       style="background-image: linear-gradient(to right, rgba(255,255,255,0.04) 1px, transparent 1px), linear-gradient(to bottom, rgba(255,255,255,0.04) 1px, transparent 1px); background-size: 56px 56px; mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, black 30%, transparent 80%); -webkit-mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, black 30%, transparent 80%);" />
 
     <!-- Glow accents -->
-    <div class="absolute top-0 left-1/4 w-[600px] h-[400px] bg-primary-400/8 dark:bg-primary-500/10 rounded-full blur-[120px] pointer-events-none -translate-x-1/2 -translate-y-1/2" />
-    <div class="absolute top-1/3 right-0 w-[400px] h-[400px] bg-blue-400/8 dark:bg-blue-500/10 rounded-full blur-[100px] pointer-events-none translate-x-1/2" />
+    <div class="absolute top-0 left-1/4 w-150 h-100 bg-primary-400/8 dark:bg-primary-500/10 rounded-full blur-[120px] pointer-events-none -translate-x-1/2 -translate-y-1/2" />
+    <div class="absolute top-1/3 right-0 w-100 h-100 bg-blue-400/8 dark:bg-blue-500/10 rounded-full blur-[100px] pointer-events-none translate-x-1/2" />
 
     <UContainer class="relative z-10">
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-20 items-center">
@@ -81,7 +87,7 @@ onUnmounted(() => {
 
           <!-- Description -->
           <p class="text-[17px] md:text-lg text-gray-500 dark:text-gray-400 leading-relaxed mb-8 max-w-md">
-            ดูราคาหน้าร้าน เลือกแพ็กเกจ ติดตามออเดอร์ และรับใบแจ้งราคา/ใบเสร็จผ่านระบบสมาชิก ราคาเริ่มต้น <strong class="text-gray-700 dark:text-gray-200 font-semibold">60 บาท/กก.</strong>
+            ดูราคาหน้าร้าน เลือกแพ็กเกจ ติดตามออเดอร์ และรับใบแจ้งราคา/ใบเสร็จผ่านระบบสมาชิก ราคาเริ่มต้น <strong class="text-gray-700 dark:text-gray-200 font-semibold">{{ washFoldPrice }} บาท/กก.</strong>
           </p>
 
           <!-- Feature chips -->
@@ -139,7 +145,7 @@ onUnmounted(() => {
           <!-- Stats row -->
           <div class="flex items-center gap-8 pt-8 border-t border-gray-200 dark:border-gray-800">
             <div>
-              <p class="text-2xl font-bold text-gray-900 dark:text-white">฿60<span class="text-sm font-medium text-gray-500">/กก.</span></p>
+              <p class="text-2xl font-bold text-gray-900 dark:text-white">฿{{ washFoldPrice }}<span class="text-sm font-medium text-gray-500">/กก.</span></p>
               <p class="text-xs text-gray-500 mt-0.5">ราคาเริ่มต้น</p>
             </div>
             <div class="w-px h-10 bg-gray-200 dark:bg-gray-800" />
@@ -159,7 +165,7 @@ onUnmounted(() => {
         <div class="relative hidden lg:block">
 
           <!-- Floating glow behind card -->
-          <div class="absolute inset-0 bg-gradient-to-br from-primary-200/30 to-blue-200/20 dark:from-primary-900/20 dark:to-blue-900/10 rounded-lg blur-2xl scale-110 pointer-events-none" />
+          <div class="absolute inset-0 bg-linear-to-br from-primary-200/30 to-blue-200/20 dark:from-primary-900/20 dark:to-blue-900/10 rounded-lg blur-2xl scale-110 pointer-events-none" />
 
           <!-- Main chat card -->
           <div class="relative bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-lg shadow-2xl overflow-hidden">
@@ -181,7 +187,7 @@ onUnmounted(() => {
             <div class="p-4">
               <!-- LINE Header -->
               <div class="flex items-center gap-3 pb-3 mb-4 border-b border-gray-100 dark:border-gray-800">
-                <div class="w-10 h-10 rounded-full bg-gradient-to-br from-[#06C755] to-[#04a045] text-white flex items-center justify-center font-bold text-sm shrink-0 shadow ring-2 ring-white dark:ring-gray-900">
+                <div class="w-10 h-10 rounded-full bg-linear-to-br from-[#06C755] to-[#04a045] text-white flex items-center justify-center font-bold text-sm shrink-0 shadow ring-2 ring-white dark:ring-gray-900">
                   ใจ
                 </div>
                 <div class="flex-1 min-w-0">

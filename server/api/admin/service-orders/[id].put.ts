@@ -6,7 +6,8 @@ import { requireRole } from "~~/server/utils/auth";
 import { createPaymentNo } from "~~/server/utils/paymentNo";
 import { prisma } from "~~/server/utils/prisma";
 import { ensureWalkInCustomer } from "~~/server/utils/walkInCustomer";
-import { createAddonUsageRecords, refundAddonUsages } from "~~/server/utils/serviceOrderCredits";
+import { createAddonUsageRecords, refundAddonUsages, voidPendingAddonUsageRecords } from "~~/server/utils/serviceOrderCredits";
+import { isServiceOrderStatus } from "~~/server/utils/serviceOrderStatusTransition";
 
 type UpdateServiceOrderBody = {
   customerId?: string | null;
@@ -52,6 +53,9 @@ export default defineEventHandler(async (event) => {
   const orderImageId = body.orderImageId?.trim() || null;
   const deliveryImageId = body.deliveryImageId === null ? null : body.deliveryImageId?.trim() || undefined;
   const shouldReplaceAddonUsages = Array.isArray(body.addonEntitlements);
+  if (body.serviceOrderStatus !== undefined && !isServiceOrderStatus(body.serviceOrderStatus)) {
+    throw createError({ statusCode: 400, statusMessage: "สถานะรายการรับผ้าไม่ถูกต้อง" });
+  }
 
   if (!isWalkIn && !customerId) {
     throw createError({ statusCode: 400, statusMessage: "กรุณาเลือกลูกค้า" });
@@ -294,6 +298,7 @@ export default defineEventHandler(async (event) => {
 
       if (shouldReplaceAddonUsages) {
         await refundAddonUsages(tx, existing.id, existing.addonUsages);
+        await voidPendingAddonUsageRecords(tx, existing.id);
       }
 
       let nextEntitlementId: string | null = null;
@@ -513,7 +518,7 @@ export default defineEventHandler(async (event) => {
           where: { id: existing.payments[0].id },
           data: {
             userId: paymentUserId!,
-            memberEntitlementId: nextEntitlementId,
+            memberEntitlementId: null,
             amount: payableAmount,
             slipImageId: slipImageId ?? null,
             note: body.note?.trim() || null,
@@ -546,7 +551,6 @@ export default defineEventHandler(async (event) => {
           data: {
             paymentNo: await createPaymentNo(),
             userId: paymentUserId!,
-            memberEntitlementId: nextEntitlementId,
             serviceOrderId: id,
             amount: payableAmount,
             slipImageId: slipImageId ?? null,

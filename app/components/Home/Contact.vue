@@ -18,6 +18,7 @@
         <a
           href="https://line.me/R/ti/p/@883vmdct"
           target="_blank"
+          rel="noopener noreferrer"
           class="group flex flex-col items-center text-center bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 hover:border-[#06C755]/50 dark:hover:border-[#06C755]/50 rounded-lg p-8 shadow-sm hover:shadow-md transition-all duration-300"
         >
           <div class="w-14 h-14 rounded-lg bg-[#06C755]/10 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
@@ -53,6 +54,7 @@
         <a
           href="https://www.facebook.com/saijaiburiram/?rdid=amPWW1eNJg7Yb6OB"
           target="_blank"
+          rel="noopener noreferrer"
           class="group flex flex-col items-center text-center bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 hover:border-[#4267B2]/50 rounded-lg p-8 shadow-sm hover:shadow-md transition-all duration-300"
         >
           <div class="w-14 h-14 rounded-lg bg-[#4267B2]/10 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
@@ -104,6 +106,7 @@
                 class="bg-[#06C755] hover:bg-[#05B04C] text-white font-bold rounded-lg px-8 w-full justify-center"
                 to="https://line.me/R/ti/p/@883vmdct"
                 target="_blank"
+                rel="noopener noreferrer"
               >
                 <UIcon name="i-simple-icons-line" class="w-5 h-5 mr-2" />
                 ติดต่อผ่าน LINE

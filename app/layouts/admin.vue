@@ -1,10 +1,9 @@
 <script setup lang="ts">
 import { useMediaQuery } from "@vueuse/core";
 import type { NavigationMenuItem } from "@nuxt/ui";
-import type { Session as AppSession, User as AppUser } from "~~/shared/types/auth";
 import type { Role } from "~~/shared/types/enums";
 
-type SessionWithUser = (AppSession & { user?: AppUser }) | null;
+const SESSION_CHECK_INTERVAL_MS = 60_000;
 
 const open = ref(false);
 const { user, session } = useUser();
@@ -223,7 +222,7 @@ const groups = computed(() => [
 const checkAdminSession = async () => {
   if (import.meta.server) return;
   try {
-    const currentSession = await $fetch<SessionWithUser>("/api/auth/session-status");
+    const currentSession = await fetchSessionStatus();
     if (!currentSession?.user) {
       session.value = null;
       await navigateTo("/auth/login");
@@ -245,7 +244,7 @@ onMounted(() => {
   void checkAdminSession();
   sessionCheckTimer = setInterval(() => {
     void checkAdminSession();
-  }, 5000);
+  }, SESSION_CHECK_INTERVAL_MS);
   window.addEventListener("focus", checkAdminSession);
 });
 onBeforeUnmount(() => {

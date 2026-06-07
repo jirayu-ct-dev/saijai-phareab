@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { useMediaQuery } from "@vueuse/core";
 import type { NavigationMenuItem } from "@nuxt/ui";
-import type { Session as AppSession, User as AppUser } from "~~/shared/types/auth";
 
+const SESSION_CHECK_INTERVAL_MS = 60_000;
 const open = ref(false);
 const { session } = useUser();
 const { isMember } = useMemberStatus();
@@ -15,7 +15,6 @@ type MenuItem = NavigationMenuItem & {
   to?: string;
   children?: MenuItem[];
 };
-type SessionWithUser = (AppSession & { user?: AppUser }) | null;
 
 const closeSidebar = () => {
   open.value = false;
@@ -129,7 +128,7 @@ const groups = computed(() => {
 const checkUserSession = async () => {
   if (import.meta.server) return;
   try {
-    const currentSession = await $fetch<SessionWithUser>("/api/auth/session-status");
+    const currentSession = await fetchSessionStatus();
     if (!currentSession?.user) {
       session.value = null;
       await navigateTo("/auth/login");
@@ -137,10 +136,6 @@ const checkUserSession = async () => {
     }
 
     session.value = currentSession;
-    if (currentSession.user.isActive === false) {
-      session.value = null;
-      await navigateTo("/auth/login");
-    }
   } catch {
     session.value = null;
     await navigateTo("/auth/login");
@@ -152,7 +147,7 @@ onMounted(() => {
   void checkUserSession();
   sessionCheckTimer = setInterval(() => {
     void checkUserSession();
-  }, 5000);
+  }, SESSION_CHECK_INTERVAL_MS);
   window.addEventListener("focus", checkUserSession);
 });
 onBeforeUnmount(() => {

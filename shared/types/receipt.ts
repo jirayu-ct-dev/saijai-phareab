@@ -74,6 +74,14 @@ export type ReceiptPayload = {
       isWashFold?: boolean;
       weightKg?: number | null;
     }>;
+    addonUsages: Array<{
+      id: string;
+      productName: string;
+      credits: number;
+      deductOn: "CREATED" | "COMPLETED";
+      deductedAt: string | null;
+      refundedAt: string | null;
+    }>;
     creditUsed: number;
     usageHistory: Array<{
       sessionIndex: number;

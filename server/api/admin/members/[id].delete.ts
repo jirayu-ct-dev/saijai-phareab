@@ -16,6 +16,14 @@ export default defineEventHandler(async (event) => {
         select: {
           id: true,
           serviceOrders: { where: { deletedAt: null }, select: { id: true }, take: 1 },
+          serviceOrderAddonUsages: {
+            where: {
+              refundedAt: null,
+              serviceOrder: { deletedAt: null },
+            },
+            select: { id: true },
+            take: 1,
+          },
         },
       },
     },
@@ -25,7 +33,9 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, statusMessage: "ห้ามลบลูกค้าหน้าร้าน" });
   }
 
-  const hasUsedEntitlement = target.memberEntitlements.some((e) => e.serviceOrders.length > 0);
+  const hasUsedEntitlement = target.memberEntitlements.some(
+    (e) => e.serviceOrders.length > 0 || e.serviceOrderAddonUsages.length > 0,
+  );
   if (hasUsedEntitlement) {
     throw createError({
       statusCode: 409,

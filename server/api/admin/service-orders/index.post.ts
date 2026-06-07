@@ -3,12 +3,14 @@ import { getBusinessSetting } from "~~/server/utils/businessSetting";
 import { computeVat } from "~~/server/utils/vat";
 import { requireRole } from "~~/server/utils/auth";
 import { createPaymentNo } from "~~/server/utils/paymentNo";
+import { createReceiptNo } from "~~/server/utils/receiptNo";
 import { createQuotationNo } from "~~/server/utils/quotationNo";
 import { prisma } from "~~/server/utils/prisma";
 import { createServiceOrderNo } from "~~/server/utils/serviceOrderNo";
 import { ensureWalkInCustomer } from "~~/server/utils/walkInCustomer";
-import { notifyServiceOrderCreated, notifyServiceOrderStatusChanged } from "~~/server/utils/notify";
+import { notifyQuotationCreated, notifyServiceOrderCreated, notifyServiceOrderStatusChanged } from "~~/server/utils/notify";
 import { createAddonUsageRecords } from "~~/server/utils/serviceOrderCredits";
+import { isServiceOrderStatus } from "~~/server/utils/serviceOrderStatusTransition";
 
 type CreateServiceOrderBody = {
   customerId?: string | null;
@@ -115,6 +117,9 @@ export default defineEventHandler(async (event) => {
   }
 
   const serviceOrderStatus: ServiceOrderStatus = body.serviceOrderStatus ?? "RECEIVED";
+  if (!isServiceOrderStatus(serviceOrderStatus)) {
+    throw createError({ statusCode: 400, statusMessage: "สถานะรายการรับผ้าไม่ถูกต้อง" });
+  }
   const receivedAt = new Date();
   const dueAt = body.dueAt ? new Date(body.dueAt) : null;
 
@@ -269,6 +274,7 @@ export default defineEventHandler(async (event) => {
       const beforeVat = subtotalAmount - discountAmount + hangerCharge.total;
       const vat = computeVat({ amount: beforeVat, rate: business.vatRate, included: business.vatIncluded });
       const payableAmount = vat.totalAmount;
+      const isPackageFullyCovered = Boolean(memberEntitlement && creditUsed > 0 && payableAmount === 0);
 
       if (memberEntitlement && creditUsed > 0) {
         const { count } = await tx.memberEntitlement.updateMany({
@@ -324,7 +330,8 @@ export default defineEventHandler(async (event) => {
           deductOn: addonEnt.product.deductOn,
           deductedAt: undefined,
         };
-        if (addonEnt.product.deductOn === "CREATED") {
+        const shouldDeductNow = addonEnt.product.deductOn === "CREATED" || serviceOrderStatus === "COMPLETED";
+        if (shouldDeductNow) {
           const { count } = await tx.memberEntitlement.updateMany({
             where: {
               id: addonEnt.id,
@@ -418,15 +425,17 @@ export default defineEventHandler(async (event) => {
       const payment = await tx.paymentRecord.create({
         data: {
           paymentNo: await createPaymentNo(),
+          receiptNo: isPackageFullyCovered ? await createReceiptNo(receivedAt, tx) : null,
           userId: paymentUserId!,
-          memberEntitlementId: memberEntitlement?.id ?? null,
           serviceOrderId: serviceOrder.id,
           amount: payableAmount,
-          status: "UNPAID",
+          status: isPackageFullyCovered ? "PAID" : "UNPAID",
           method: null,
           slipImageId: null,
           note: body.note?.trim() || null,
-          paidAt: null,
+          paidAt: isPackageFullyCovered ? receivedAt : null,
+          confirmedAt: isPackageFullyCovered ? receivedAt : null,
+          confirmedById: isPackageFullyCovered ? actor.id : null,
           metadata: {
             createdByAdminId: actor.id,
             source: "admin-service-orders",
@@ -456,12 +465,13 @@ export default defineEventHandler(async (event) => {
       await tx.paymentAuditLog.create({
         data: {
           paymentId: payment.id,
-          action: "CREATED",
+          action: isPackageFullyCovered ? "CONFIRMED" : "CREATED",
           actorId: actor.id,
           afterJson: {
-            status: "UNPAID",
+            status: isPackageFullyCovered ? "PAID" : "UNPAID",
             amount: payableAmount,
             quotationNo: serviceOrder.quotationNo,
+            receiptNo: payment.receiptNo,
           },
         },
       });
@@ -476,6 +486,7 @@ export default defineEventHandler(async (event) => {
     if (serviceOrderStatus === "RECEIVED") {
       // Send RECEIVED notification first, then transition to PROCESSING
       await notifyServiceOrderCreated({ serviceOrderId: created.id });
+      await notifyQuotationCreated({ serviceOrderId: created.id });
       await prisma.serviceOrder.update({
         where: { id: created.id },
         data: { status: "PROCESSING" },
@@ -486,7 +497,8 @@ export default defineEventHandler(async (event) => {
         toStatus: "PROCESSING",
       });
     } else {
-      void notifyServiceOrderCreated({ serviceOrderId: created.id });
+      await notifyServiceOrderCreated({ serviceOrderId: created.id, status: serviceOrderStatus });
+      await notifyQuotationCreated({ serviceOrderId: created.id });
     }
 
     return created;

@@ -1,5 +1,7 @@
 import type { Liff } from '@line/liff'
 
+type LiffAutoLoginResult = 'logged-in' | 'redirecting' | 'skipped' | 'failed'
+
 export const useLiffAuth = () => {
     const { $liff } = useNuxtApp()
     const notify = useNotify()
@@ -21,7 +23,7 @@ export const useLiffAuth = () => {
         return /\bLine\/|\bLIFF\b/i.test(userAgent)
     }
 
-    const runLiffAutoLogin = async (silent = false): Promise<'logged-in' | 'redirecting' | 'skipped' | 'failed'> => {
+    const runLiffAutoLogin = async (silent = false): Promise<LiffAutoLoginResult> => {
         if (isAutoLoginProcessing.value || session.value?.user) {
             return 'skipped'
         }
@@ -72,11 +74,16 @@ export const useLiffAuth = () => {
                 return 'failed'
             }
 
-            const profile = await liff.getProfile();
-            await loginWithLineIdToken(accessToken, idToken, profile.displayName);
+            const profile = await liff.getProfile()
+            await loginWithLineIdToken(accessToken, idToken, profile.displayName)
 
-            const isFriend = await liff.getFriendship()
-            addLineFriend.value = isFriend.friendFlag
+            try {
+                const isFriend = await liff.getFriendship()
+                addLineFriend.value = isFriend.friendFlag
+            } catch (friendshipError) {
+                console.error("[useLiffAuth] Failed to check LINE friendship:", friendshipError)
+                addLineFriend.value = false
+            }
 
             if (!silent) {
                 notify.success(
@@ -101,13 +108,10 @@ export const useLiffAuth = () => {
     }
 
     const handleLiffAutoLogin = async () => {
-        await runLiffAutoLogin(false)
+        return await runLiffAutoLogin(false)
     }
 
-    const ensureLiffSession = async (): Promise<boolean> => {
-        const result = await runLiffAutoLogin(true)
-        return result === 'logged-in' || result === 'redirecting'
-    }
+    const ensureLiffSession = () => runLiffAutoLogin(true)
 
     return {
         addLineFriend,

@@ -82,6 +82,7 @@ const noteText = computed(
 );
 const memberEntitlement = computed(() => props.data.serviceOrder?.memberEntitlement ?? null);
 const isMemberOrder = computed(() => Boolean(memberEntitlement.value));
+const addonUsages = computed(() => props.data.serviceOrder?.addonUsages ?? []);
 
 const infoRows = computed(() => {
   const d = props.data;
@@ -190,6 +191,17 @@ const infoRows = computed(() => {
         <p class="mt-1 wrap-break-word">{{ noteText }}</p>
       </div>
     </section>
+
+    <template v-if="addonUsages.length">
+      <div class="thermal-dash mt-3" />
+      <section class="mt-3 space-y-1 text-[22px]">
+        <p class="text-center text-[24px] font-bold">แพ็กเกจเสริม</p>
+        <div v-for="usage in addonUsages" :key="usage.id" class="summary-row">
+          <span class="wrap-break-word">{{ usage.productName }}</span>
+          <span>{{ usage.credits }} เครดิต</span>
+        </div>
+      </section>
+    </template>
 
     <div class="thermal-rule mt-4" />
 

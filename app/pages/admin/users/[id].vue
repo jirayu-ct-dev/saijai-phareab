@@ -307,7 +307,7 @@ const orderItemCount = (order: UserDetailResponse['recentServiceOrders'][number]
     <template #body>
       <!-- Loading Skeleton -->
       <div v-if="showSkeleton" class="flex flex-col gap-3 p-2 sm:p-6">
-        <div class="-mx-2 border border-default/30 bg-default p-4 p-5! dark:border-default/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg">
+        <div class="-mx-2 border border-default/30 bg-default p-5! dark:border-default/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg">
         <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div class="flex items-center gap-3">
             <USkeleton class="size-16 rounded-full" />
@@ -328,7 +328,7 @@ const orderItemCount = (order: UserDetailResponse['recentServiceOrders'][number]
         </div>
 
         <div class="grid gap-3 lg:grid-cols-2">
-          <div v-for="i in 4" :key="`u-card-${i}`" class="-mx-2 space-y-3 border border-default/30 bg-default p-4 p-5! dark:border-default/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg">
+          <div v-for="i in 4" :key="`u-card-${i}`" class="-mx-2 space-y-3 border border-default/30 bg-default p-5! dark:border-default/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg">
             <USkeleton class="h-5 w-40 rounded-lg" />
             <div class="space-y-2">
               <USkeleton v-for="j in 3" :key="`u-card-${i}-${j}`" class="h-10 w-full rounded-lg" />
@@ -339,14 +339,14 @@ const orderItemCount = (order: UserDetailResponse['recentServiceOrders'][number]
 
       <!-- Error State -->
       <div v-else-if="error" class="flex flex-col gap-3 p-2 sm:p-6">
-        <div class="-mx-2 border border-error/40 bg-error/5 p-4 p-6! text-error sm:mx-0 sm:rounded-lg">
+        <div class="-mx-2 border border-error/40 bg-error/5 p-6! text-error sm:mx-0 sm:rounded-lg">
           {{ error.statusMessage || 'ไม่สามารถโหลดรายละเอียดลูกค้าได้' }}
         </div>
       </div>
 
       <!-- Not Found -->
       <div v-else-if="!user || !stats" class="flex flex-col gap-3 p-2 sm:p-6">
-        <div class="-mx-2 border border-default/30 bg-default p-4 p-6! dark:border-default/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg">
+        <div class="-mx-2 border border-default/30 bg-default p-6! dark:border-default/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg">
           <p class="text-base font-semibold text-highlighted">ไม่พบข้อมูลลูกค้า</p>
           <p class="mt-2 text-sm text-muted">ลูกค้านี้อาจถูกลบหรือคุณไม่มีสิทธิ์เข้าถึง</p>
         </div>
@@ -397,7 +397,7 @@ const orderItemCount = (order: UserDetailResponse['recentServiceOrders'][number]
             v-for="card in statCards"
             :key="card.title"
             :to="card.to"
-            :class="['min-h-28 bg-default p-4 p-3! dark:bg-elevated/55 sm:rounded-lg sm:border sm:border-default/30 sm:dark:border-default/20', card.to ? 'cursor-pointer transition-colors hover:bg-default/70 dark:hover:bg-elevated/70' : 'pointer-events-none']"
+            :class="['min-h-28 bg-default p-3! dark:bg-elevated/55 sm:rounded-lg sm:border sm:border-default/30 sm:dark:border-default/20', card.to ? 'cursor-pointer transition-colors hover:bg-default/70 dark:hover:bg-elevated/70' : 'pointer-events-none']"
           >
             <div class="flex items-start gap-2.5">
               <div class="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">

@@ -411,7 +411,7 @@ const getItemPhotos = (item: ServiceOrderDetailItem) =>
     <template #body>
       <div class="flex flex-col gap-3 p-2 sm:p-6">
       <div v-if="showSkeleton" class="space-y-3">
-        <div class="-mx-2 border border-default/30 bg-default p-4 p-5! dark:border-default/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg">
+        <div class="-mx-2 border border-default/30 bg-default p-5! dark:border-default/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg">
           <div class="flex items-start gap-3">
             <USkeleton class="size-12 rounded-full" />
             <div class="flex-1 space-y-2">
@@ -423,7 +423,7 @@ const getItemPhotos = (item: ServiceOrderDetailItem) =>
         </div>
         <div class="grid gap-3 xl:grid-cols-[minmax(0,1.3fr)_360px]">
           <div class="space-y-3">
-            <div class="-mx-2 space-y-3 border border-default/30 bg-default p-4 p-5! dark:border-default/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg">
+            <div class="-mx-2 space-y-3 border border-default/30 bg-default p-5! dark:border-default/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg">
               <USkeleton class="h-4 w-32 rounded-lg" />
               <div class="grid gap-x-6 gap-y-2 lg:grid-cols-2">
                 <div v-for="i in 6" :key="`so-d-${i}`" class="flex justify-between gap-3">
@@ -432,7 +432,7 @@ const getItemPhotos = (item: ServiceOrderDetailItem) =>
                 </div>
               </div>
             </div>
-            <div class="-mx-2 overflow-hidden border border-default/30 bg-default p-4 p-0! dark:border-default/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg">
+            <div class="-mx-2 overflow-hidden border border-default/30 bg-default p-0! dark:border-default/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg">
               <div class="border-b border-default/40 p-3">
                 <USkeleton class="h-4 w-32 rounded-lg" />
               </div>
@@ -442,7 +442,7 @@ const getItemPhotos = (item: ServiceOrderDetailItem) =>
             </div>
           </div>
           <div class="space-y-3">
-            <div class="-mx-2 space-y-3 border border-default/30 bg-default p-4 p-5! dark:border-default/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg">
+            <div class="-mx-2 space-y-3 border border-default/30 bg-default p-5! dark:border-default/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg">
               <USkeleton class="h-5 w-36 rounded-lg" />
               <div class="space-y-2">
                 <div v-for="i in 4" :key="`so-t-${i}`" class="flex justify-between gap-3">
@@ -451,7 +451,7 @@ const getItemPhotos = (item: ServiceOrderDetailItem) =>
                 </div>
               </div>
             </div>
-            <div class="-mx-2 space-y-3 border border-default/30 bg-default p-4 p-5! dark:border-default/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg">
+            <div class="-mx-2 space-y-3 border border-default/30 bg-default p-5! dark:border-default/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg">
               <USkeleton class="h-5 w-32 rounded-lg" />
               <USkeleton class="h-32 w-full rounded-lg" />
               <USkeleton class="h-10 w-full rounded-lg" />
@@ -460,7 +460,7 @@ const getItemPhotos = (item: ServiceOrderDetailItem) =>
         </div>
       </div>
 
-      <div v-else-if="error || !order" class="-mx-2 border border-default/30 bg-default p-4 p-6! dark:border-default/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg">
+      <div v-else-if="error || !order" class="-mx-2 border border-default/30 bg-default p-6! dark:border-default/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg">
         <p class="text-base font-semibold text-highlighted">ไม่พบรายละเอียดรายการรับผ้า</p>
         <p class="mt-2 text-sm text-muted">รายการอาจถูกลบหรือยังไม่พร้อมใช้งาน</p>
         <div class="mt-4">
@@ -470,7 +470,7 @@ const getItemPhotos = (item: ServiceOrderDetailItem) =>
 
       <div v-else class="space-y-3">
         <section class="-mx-2 grid grid-cols-2 gap-2 sm:mx-0 sm:gap-3 xl:grid-cols-4">
-          <div class="min-h-28 bg-default p-4 p-3! dark:bg-elevated/55 sm:rounded-lg sm:border sm:border-default/30 sm:dark:border-default/20">
+          <div class="min-h-28 bg-default p-3! dark:bg-elevated/55 sm:rounded-lg sm:border sm:border-default/30 sm:dark:border-default/20">
             <div class="flex h-full min-w-0 items-start justify-between gap-3">
               <div class="min-w-0 space-y-1.5">
                 <p class="text-xs text-muted">สถานะล่าสุด</p>
@@ -484,7 +484,7 @@ const getItemPhotos = (item: ServiceOrderDetailItem) =>
               </div>
             </div>
           </div>
-          <div class="min-h-28 bg-default p-4 p-3! dark:bg-elevated/55 sm:rounded-lg sm:border sm:border-default/30 sm:dark:border-default/20">
+          <div class="min-h-28 bg-default p-3! dark:bg-elevated/55 sm:rounded-lg sm:border sm:border-default/30 sm:dark:border-default/20">
             <div class="flex h-full min-w-0 items-start justify-between gap-3">
               <div class="min-w-0 space-y-1">
                 <p class="text-xs text-muted">จำนวนรายการ</p>
@@ -496,7 +496,7 @@ const getItemPhotos = (item: ServiceOrderDetailItem) =>
               </div>
             </div>
           </div>
-          <div class="min-h-28 bg-default p-4 p-3! dark:bg-elevated/55 sm:rounded-lg sm:border sm:border-default/30 sm:dark:border-default/20">
+          <div class="min-h-28 bg-default p-3! dark:bg-elevated/55 sm:rounded-lg sm:border sm:border-default/30 sm:dark:border-default/20">
             <div class="flex h-full min-w-0 items-start justify-between gap-3">
               <div class="min-w-0 space-y-1">
                 <p class="text-xs text-muted">ยอดรวมสุทธิ</p>
@@ -512,7 +512,7 @@ const getItemPhotos = (item: ServiceOrderDetailItem) =>
               </div>
             </div>
           </div>
-          <div class="min-h-28 bg-default p-4 p-3! dark:bg-elevated/55 sm:rounded-lg sm:border sm:border-default/30 sm:dark:border-default/20">
+          <div class="min-h-28 bg-default p-3! dark:bg-elevated/55 sm:rounded-lg sm:border sm:border-default/30 sm:dark:border-default/20">
             <div class="flex h-full min-w-0 items-start justify-between gap-3">
               <div class="min-w-0 space-y-1.5">
                 <p class="text-xs text-muted">การชำระเงิน</p>
@@ -526,7 +526,7 @@ const getItemPhotos = (item: ServiceOrderDetailItem) =>
               </div>
             </div>
           </div>
-          <div v-if="hasMemberEntitlement" class="col-span-2 min-h-28 bg-default p-4 p-3! dark:bg-elevated/55 sm:rounded-lg sm:border sm:border-default/30 sm:dark:border-default/20 xl:col-span-4">
+          <div v-if="hasMemberEntitlement" class="col-span-2 min-h-28 bg-default p-3! dark:bg-elevated/55 sm:rounded-lg sm:border sm:border-default/30 sm:dark:border-default/20 xl:col-span-4">
             <div class="flex min-w-0 items-start justify-between gap-3">
               <div class="min-w-0 space-y-1">
                 <p class="text-xs text-muted">แพ็กเกจสมาชิก</p>

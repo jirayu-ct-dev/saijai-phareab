@@ -1,14 +1,6 @@
-import type { Role } from "~~/shared/types/enums";
-
-type SessionUserWithRole = {
-  role?: Role;
-  isActive?: boolean;
-};
-
 export default defineNuxtRouteMiddleware(async () => {
   const authSession = useState<unknown | null>("auth:session", () => null);
-  const headers = import.meta.server ? useRequestHeaders(["cookie"]) : undefined;
-  const session = await $fetch<any>("/api/auth/session-status", { headers });
+  const session = await fetchSessionStatus();
 
   if (!session?.user) {
     authSession.value = null;
@@ -16,7 +8,7 @@ export default defineNuxtRouteMiddleware(async () => {
   }
 
   authSession.value = session;
-  const user = session.user as SessionUserWithRole;
+  const user = session.user;
   if (user.isActive === false) {
     return navigateTo("/me");
   }

@@ -15,7 +15,7 @@ const emit = defineEmits<{
 </script>
 
 <template>
-  <div class="w-full max-w-[270px] bg-slate-950 ring-4 ring-slate-800/80 rounded-[34px] shadow-2xl p-2.5 pb-3.5 relative overflow-hidden mx-auto border-4 border-slate-900/90 select-none">
+  <div class="w-full max-w-67.5 bg-slate-950 ring-4 ring-slate-800/80 rounded-[34px] shadow-2xl p-2.5 pb-3.5 relative overflow-hidden mx-auto border-4 border-slate-900/90 select-none">
     
     <!-- Speaker & Camera Notch / Dynamic Island -->
     <div class="absolute top-1.5 left-1/2 -translate-x-1/2 w-24 h-3.5 bg-slate-950 rounded-full z-20 flex items-center justify-center gap-1.5 px-3">
@@ -66,7 +66,7 @@ const emit = defineEmits<{
     </div>
 
     <!-- Simulated Chat Bubble Space -->
-    <div class="p-2 space-y-1.5 bg-slate-950 flex-1 min-h-[60px] flex flex-col justify-end text-left">
+    <div class="p-2 space-y-1.5 bg-slate-950 flex-1 min-h-15 flex flex-col justify-end text-left">
       <div class="flex gap-1.5 items-start max-w-[90%]">
         <div class="w-4 h-4 rounded-full bg-primary/20 flex items-center justify-center text-primary text-[7.5px] font-bold">SJ</div>
         <div class="bg-slate-900 text-slate-200 rounded-lg rounded-tl-none p-1.5 text-[8.5px] leading-normal shadow-sm border border-slate-800/80">
@@ -76,7 +76,7 @@ const emit = defineEmits<{
     </div>
 
     <!-- Simulator Body (Image & Hotspots) -->
-    <div class="relative w-full aspect-[2500/1686] bg-slate-900 overflow-hidden select-none border-y border-slate-900">
+    <div class="relative w-full aspect-2500/1686 bg-slate-900 overflow-hidden select-none border-y border-slate-900">
       <img
         :src="selectedMenu?.imageUrl"
         class="w-full h-full object-cover"
@@ -136,7 +136,7 @@ const emit = defineEmits<{
     <div class="flex items-center justify-between py-1.5 px-3 bg-slate-900 text-slate-200 text-[9px] font-semibold select-none cursor-pointer hover:bg-slate-800 transition-colors">
       <div class="flex items-center gap-1">
         <UIcon name="i-lucide-keyboard" class="w-3 h-3 text-slate-400" />
-        <div class="w-[1px] h-2 bg-slate-800"></div>
+        <div class="w-px h-2 bg-slate-800"></div>
       </div>
       <span class="font-bold tracking-wide flex items-center gap-0.5 text-[9px]">
         {{ selectedMenuChatBarText }}

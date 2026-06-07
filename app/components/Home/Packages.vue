@@ -1,5 +1,16 @@
 <script setup lang="ts">
-const { data: packages, pending, error } = await useFetch<any[]>("/api/public/packages");
+type PublicPackage = {
+  id: string;
+  name: string;
+  description: string | null;
+  packageType: "MAIN" | "ADDON" | string;
+  price: number;
+  credits: number | null;
+  validityDays: number | null;
+  features: string[];
+};
+
+const { data: packages, pending, error } = await useFetch<PublicPackage[]>("/api/public/packages");
 
 const formatPrice = (price: number) => new Intl.NumberFormat("th-TH").format(price);
 
@@ -35,7 +46,7 @@ const getPackageLabel = (index: number) => {
 
       <!-- Main Packages Grid -->
       <div v-if="pending" class="grid grid-cols-1 md:grid-cols-3 gap-8 mb-16">
-        <UCard v-for="i in 3" :key="i" class="h-[600px] animate-pulse rounded-lg bg-gray-100 dark:bg-gray-900/50 border-gray-200 dark:border-gray-800" />
+        <UCard v-for="i in 3" :key="i" class="h-150 animate-pulse rounded-lg bg-gray-100 dark:bg-gray-900/50 border-gray-200 dark:border-gray-800" />
       </div>
 
       <div v-else-if="error" class="text-center py-12 text-red-400">
@@ -63,9 +74,9 @@ const getPackageLabel = (index: number) => {
               <span class="text-gray-500 dark:text-gray-400 text-[16px] ml-1">บาท</span>
             </div>
 
-            <p class="text-gray-500 dark:text-gray-400 text-[14px] mb-8 mt-[-20px]">ตามระยะเวลาแพ็กเกจ</p>
+            <p class="text-gray-500 dark:text-gray-400 text-[14px] mb-8 -mt-5">ตามระยะเวลาแพ็กเกจ</p>
 
-            <div class="space-y-5 mb-10 flex-grow">
+            <div class="space-y-5 mb-10 grow">
               <div v-for="(feature, fIndex) in pkg.features" :key="fIndex" class="flex items-start gap-3">
                 <UIcon name="i-lucide-check" class="w-5 h-5 text-blue-600 dark:text-blue-400 mt-0.5 shrink-0" />
                 <span class="text-[15px] text-gray-600 dark:text-gray-300 leading-snug">{{ feature }}</span>
@@ -116,7 +127,7 @@ const getPackageLabel = (index: number) => {
               <p class="text-[11px] text-gray-500 uppercase font-bold tracking-widest mb-1">อายุแพ็กเกจ</p>
               <p class="text-[20px] font-bold text-gray-900 dark:text-white">{{ addon.validityDays ? `${addon.validityDays} วัน` : 'ตามเงื่อนไข' }}</p>
             </div>
-            <div class="flex flex-col items-end min-w-[120px]">
+            <div class="flex flex-col items-end min-w-30">
               <div class="flex items-baseline gap-1 mb-2">
                 <span class="text-[26px] font-bold text-gray-900 dark:text-white">฿{{ formatPrice(addon.price) }}</span>
                 <span class="text-gray-500 text-[12px]">ตามแพ็กเกจ</span>
@@ -134,46 +145,31 @@ const getPackageLabel = (index: number) => {
         </div>
       </div>
 
-      <!-- Delivery Package Static Card (fallback หาก API ไม่มี addon) -->
-      <div v-else-if="!pending" class="bg-white dark:bg-[#0f172a] border border-gray-200 dark:border-gray-800 rounded-lg p-6 md:p-8 flex flex-col md:flex-row items-center justify-between gap-8 shadow-sm">
-        <div class="flex items-center gap-6 flex-1 w-full md:w-auto">
+      <!-- Delivery service inquiry fallback (shown only when no add-on package is configured) -->
+      <div v-else-if="!pending" class="bg-white dark:bg-[#0f172a] border border-gray-200 dark:border-gray-800 rounded-lg p-6 md:p-8 flex flex-col md:flex-row md:items-center justify-between gap-6 shadow-sm">
+        <div class="flex items-center gap-5 flex-1 w-full md:w-auto">
           <div class="w-14 h-14 bg-gray-50 dark:bg-gray-800 rounded-lg flex items-center justify-center shadow-sm shrink-0 border border-gray-100 dark:border-gray-800">
             <UIcon name="i-lucide-truck" class="w-7 h-7 text-blue-600 dark:text-blue-400" />
           </div>
           <div>
             <div class="flex items-center gap-3 mb-1">
-              <span class="text-[12px] font-bold text-blue-600 dark:text-blue-400 tracking-wider uppercase">แพ็กเกจเสริม</span>
-              <span class="text-[12px] text-gray-500 font-medium">บริการเสริม</span>
+              <span class="text-[12px] font-bold text-blue-600 dark:text-blue-400 tracking-wider uppercase">บริการรับส่ง</span>
+              <span class="text-[12px] text-gray-500 font-medium">สำหรับลูกค้าที่มีแพ็กเกจ</span>
             </div>
-            <h4 class="text-[20px] font-bold text-gray-900 dark:text-white mb-1">แพ็กเกจบริการรับส่ง</h4>
-            <p class="text-gray-500 dark:text-gray-400 text-[14px]">บริการรับส่งสำหรับลูกค้าที่สมัครแพ็กเกจนี้เท่านั้น สอบถามเครดิต พื้นที่ และรอบรับส่งผ่าน LINE</p>
+            <h4 class="text-[20px] font-bold text-gray-900 dark:text-white mb-1">สอบถามบริการรับส่ง</h4>
+            <p class="text-gray-500 dark:text-gray-400 text-[14px]">บริการรับส่งไม่ได้เปิดใช้กับทุกออเดอร์ หากต้องการใช้บริการนี้ให้สอบถามเงื่อนไข พื้นที่ และแพ็กเกจที่รองรับผ่าน LINE</p>
           </div>
         </div>
 
-        <div class="flex flex-wrap items-center justify-between md:justify-end gap-8 md:gap-12 w-full md:w-auto border-t md:border-t-0 border-gray-200 dark:border-gray-800 pt-6 md:pt-0">
-          <div class="text-center">
-            <p class="text-[11px] text-gray-500 uppercase font-bold tracking-widest mb-1">เครดิต</p>
-            <p class="text-[20px] font-bold text-gray-900 dark:text-white">สอบถาม</p>
-          </div>
-          <div class="text-center">
-            <p class="text-[11px] text-gray-500 uppercase font-bold tracking-widest mb-1">วัน</p>
-            <p class="text-[20px] font-bold text-gray-900 dark:text-white">ตามเงื่อนไข</p>
-          </div>
-          <div class="flex flex-col items-end min-w-[120px]">
-            <div class="flex items-baseline gap-1 mb-2">
-              <span class="text-[26px] font-bold text-gray-900 dark:text-white">สอบถาม</span>
-              <span class="text-gray-500 text-[12px]">ตามแพ็กเกจ</span>
-            </div>
-            <UButton
-              variant="link"
-              to="#contact"
-              class="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-bold p-0 group"
-            >
-              สอบถามเพิ่มเติม
-              <UIcon name="i-lucide-arrow-right" class="ml-1 w-4 h-4 group-hover:translate-x-1 transition-transform" />
-            </UButton>
-          </div>
-        </div>
+        <UButton
+          size="lg"
+          to="#contact"
+          variant="outline"
+          class="rounded-lg font-bold shrink-0 w-full justify-center md:w-auto"
+        >
+          สอบถามเพิ่มเติม
+          <UIcon name="i-lucide-arrow-right" class="ml-1 w-4 h-4" />
+        </UButton>
       </div>
     </UContainer>
   </section>

@@ -156,6 +156,10 @@ export default defineEventHandler(async (event) => {
             },
             orderBy: { createdAt: "asc" },
           },
+          addonUsageRecords: {
+            where: { refundedAt: null },
+            orderBy: { createdAt: "asc" },
+          },
         },
       },
     },
@@ -253,6 +257,15 @@ export default defineEventHandler(async (event) => {
       url: photo.image.url,
       secureUrl: photo.image.secureUrl,
     })),
+  })) ?? [];
+
+  const addonUsages = payment.serviceOrder?.addonUsageRecords.map((usage) => ({
+    id: usage.id,
+    productName: usage.productName || "แพ็กเกจเสริม",
+    credits: usage.credits,
+    deductOn: usage.deductOn,
+    deductedAt: usage.deductedAt?.toISOString() ?? null,
+    refundedAt: usage.refundedAt?.toISOString() ?? null,
   })) ?? [];
 
   const hangerChargeSource = (payment.serviceOrder?.hangerCharge ?? null) as
@@ -365,6 +378,7 @@ export default defineEventHandler(async (event) => {
                 total: Number(hangerChargeSource.total ?? 0),
               }
             : null,
+          addonUsages,
           items: serviceItems,
         }
       : null,

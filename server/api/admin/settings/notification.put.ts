@@ -3,6 +3,7 @@ import { prisma } from "~~/server/utils/prisma";
 import { requireRole } from "~~/server/utils/auth";
 
 const schema = z.object({
+  notifyCustomerOnQuotation: z.boolean(),
   notifyCustomerOnReceived: z.boolean(),
   notifyCustomerOnProcessing: z.boolean(),
   notifyCustomerOnDelivering: z.boolean(),
@@ -10,6 +11,7 @@ const schema = z.object({
   notifyCustomerOnCancelled: z.boolean(),
   notifyCustomerReceipt: z.boolean(),
   notifyStaffOnNewOrder: z.boolean(),
+  notifyCustomerOnPackageExpiring: z.boolean(),
 });
 
 export default defineEventHandler(async (event) => {

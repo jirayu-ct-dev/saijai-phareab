@@ -180,3 +180,14 @@ export const refundAddonUsages = async (tx: TxClient, serviceOrderId: string, ad
     });
   }
 };
+
+export const voidPendingAddonUsageRecords = async (tx: TxClient, serviceOrderId: string) => {
+  await tx.serviceOrderAddonUsage.updateMany({
+    where: {
+      serviceOrderId,
+      deductedAt: null,
+      refundedAt: null,
+    },
+    data: { refundedAt: new Date() },
+  });
+};

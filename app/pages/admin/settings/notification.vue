@@ -6,6 +6,7 @@ definePageMeta({
 
 type NotificationSetting = {
   id: string;
+  notifyCustomerOnQuotation: boolean;
   notifyCustomerOnReceived: boolean;
   notifyCustomerOnProcessing: boolean;
   notifyCustomerOnDelivering: boolean;
@@ -13,6 +14,7 @@ type NotificationSetting = {
   notifyCustomerOnCancelled: boolean;
   notifyCustomerReceipt: boolean;
   notifyStaffOnNewOrder: boolean;
+  notifyCustomerOnPackageExpiring: boolean;
   updatedAt: string;
 };
 
@@ -57,6 +59,7 @@ const { data: staffOptions } = await useFetch<StaffOption[]>("/api/admin/staff-o
 const isLoading = computed(() => status.value === "pending");
 
 const form = reactive({
+  notifyCustomerOnQuotation: true,
   notifyCustomerOnReceived: true,
   notifyCustomerOnProcessing: true,
   notifyCustomerOnDelivering: true,
@@ -64,12 +67,14 @@ const form = reactive({
   notifyCustomerOnCancelled: true,
   notifyCustomerReceipt: true,
   notifyStaffOnNewOrder: true,
+  notifyCustomerOnPackageExpiring: true,
 });
 
 watch(
   () => data.value?.setting,
   (val) => {
     if (!val) return;
+    form.notifyCustomerOnQuotation = val.notifyCustomerOnQuotation;
     form.notifyCustomerOnReceived = val.notifyCustomerOnReceived;
     form.notifyCustomerOnProcessing = val.notifyCustomerOnProcessing;
     form.notifyCustomerOnDelivering = val.notifyCustomerOnDelivering;
@@ -77,18 +82,21 @@ watch(
     form.notifyCustomerOnCancelled = val.notifyCustomerOnCancelled;
     form.notifyCustomerReceipt = val.notifyCustomerReceipt;
     form.notifyStaffOnNewOrder = val.notifyStaffOnNewOrder;
+    form.notifyCustomerOnPackageExpiring = val.notifyCustomerOnPackageExpiring;
   },
   { immediate: true },
 );
 
 type SettingKey =
+  | "notifyCustomerOnQuotation"
   | "notifyCustomerOnReceived"
   | "notifyCustomerOnProcessing"
   | "notifyCustomerOnDelivering"
   | "notifyCustomerOnCompleted"
   | "notifyCustomerOnCancelled"
   | "notifyCustomerReceipt"
-  | "notifyStaffOnNewOrder";
+  | "notifyStaffOnNewOrder"
+  | "notifyCustomerOnPackageExpiring";
 
 const pendingKeys = reactive(new Set<SettingKey>());
 const isPending = (key: SettingKey) => pendingKeys.has(key);
@@ -176,7 +184,7 @@ const roleLabel = (role: "ADMIN" | "EMPLOYEE" | "USER") =>
           <USkeleton class="h-4 w-48 rounded" />
           <USkeleton class="h-3 w-64 rounded" />
         </div>
-        <div v-for="i in 7" :key="`nt-row-${i}`" class="flex items-center justify-between gap-3">
+        <div v-for="i in 9" :key="`nt-row-${i}`" class="flex items-center justify-between gap-3">
           <div class="space-y-1">
             <USkeleton class="h-3.5 w-40 rounded" />
             <USkeleton class="h-2.5 w-56 rounded" />
@@ -216,6 +224,18 @@ const roleLabel = (role: "ADMIN" | "EMPLOYEE" | "USER") =>
         </div>
 
         <div class="space-y-3">
+          <div class="flex items-center justify-between">
+            <div>
+              <p class="text-sm font-medium">ใบแจ้งราคา</p>
+              <p class="text-xs text-muted">แจ้งลูกค้าเมื่อออกใบแจ้งราคาที่รอชำระ</p>
+            </div>
+            <USwitch
+              :model-value="form.notifyCustomerOnQuotation"
+              :loading="isPending('notifyCustomerOnQuotation')"
+              :disabled="isPending('notifyCustomerOnQuotation')"
+              @update:model-value="(v: boolean) => onToggleSetting('notifyCustomerOnQuotation', v)"
+            />
+          </div>
           <div class="flex items-center justify-between">
             <div>
               <p class="text-sm font-medium">รับผ้าแล้ว (RECEIVED)</p>
@@ -277,14 +297,27 @@ const roleLabel = (role: "ADMIN" | "EMPLOYEE" | "USER") =>
 
           <div class="flex items-center justify-between">
             <div>
-              <p class="text-sm font-medium">ส่งใบเสร็จขายแพ็กเกจให้ลูกค้า</p>
-              <p class="text-xs text-muted">เมื่อสร้างรายการขายแพ็กเกจ ระบบจะส่งใบเสร็จทาง LINE</p>
+              <p class="text-sm font-medium">ส่งใบเสร็จให้ลูกค้า</p>
+              <p class="text-xs text-muted">เมื่อชำระเงิน ระบบจะส่งใบเสร็จทาง LINE</p>
             </div>
             <USwitch
               :model-value="form.notifyCustomerReceipt"
               :loading="isPending('notifyCustomerReceipt')"
               :disabled="isPending('notifyCustomerReceipt')"
               @update:model-value="(v: boolean) => onToggleSetting('notifyCustomerReceipt', v)"
+            />
+          </div>
+
+          <div class="flex items-center justify-between">
+            <div>
+              <p class="text-sm font-medium">แจ้งเตือนแพ็กเกจใกล้หมดอายุ</p>
+              <p class="text-xs text-muted">ส่งตามรอบ cron ก่อนแพ็กเกจหมดอายุ</p>
+            </div>
+            <USwitch
+              :model-value="form.notifyCustomerOnPackageExpiring"
+              :loading="isPending('notifyCustomerOnPackageExpiring')"
+              :disabled="isPending('notifyCustomerOnPackageExpiring')"
+              @update:model-value="(v: boolean) => onToggleSetting('notifyCustomerOnPackageExpiring', v)"
             />
           </div>
 
