@@ -13,6 +13,7 @@ node_modules
 # Logs
 logs
 *.log
+saijai-phareab-log-export-*.json
 
 # Misc
 .DS_Store
@@ -42,5 +43,4 @@ docs
 
 packagesaijai.json
 pricing.json
-
 backups*

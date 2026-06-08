@@ -57,7 +57,6 @@ export const useUser = () => {
 
       await refreshSession();
       notify.success("เข้าสู่ระบบสำเร็จ");
-      console.log("user login data:", user);
 
       // Redirect based on role
       await redirectByRole(user.value?.role);

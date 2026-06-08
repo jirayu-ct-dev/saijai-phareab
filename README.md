@@ -34,3 +34,31 @@ pnpm run dev
 ```
 
 เปิดเว็บเบราว์เซอร์แล้วเข้าไปที่ `http://localhost:3000` ได้เลย! 🎉
+
+## 🚀 Deploy บน Vercel
+
+### Build command
+
+```bash
+pnpm build
+```
+
+คำสั่งนี้จะรัน `prisma generate` ก่อน `nuxt build` เพื่อให้ Vercel มี Prisma generated client สำหรับ Nitro bundle
+
+### Environment variables สำคัญ
+
+- `DATABASE_URL`: ใช้ Supabase pooler URL สำหรับ runtime เท่านั้น
+- `DIRECT_URL`: ใช้ direct database URL สำหรับ `prisma migrate deploy`
+- `PRISMA_POOL_MAX=1`: ลดการเปิด connection ต่อ serverless instance
+- `BETTER_AUTH_URL=https://saijaiphareab.shop`
+- `BETTER_AUTH_TRUSTED_ORIGINS=https://saijaiphareab.shop,https://www.saijaiphareab.shop`
+- `NUXT_PUBLIC_LIFF_ID`, `LINE_LIFF_CLIENT_ID`, `LINE_LIFF_CLIENT_SECRET`: ตั้งให้ตรงกับ LINE channel production
+
+### Production checklist
+
+```bash
+pnpm exec prisma migrate deploy
+NITRO_PRESET=vercel pnpm build
+```
+
+หลังต่อโดเมนผ่าน Cloudflare ให้เปิด WAF/rate limit สำหรับ request scan เช่น `../etc/passwd`, metadata URL, และ private localhost targets เพื่อลด serverless/DB connection spike

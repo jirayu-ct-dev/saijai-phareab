@@ -32,7 +32,7 @@ export default defineNuxtConfig({
         lang: 'th',
       },
       link: [
-        { rel: 'icon', type: 'image/png', href: '/logo-saijai-phareab.png' },
+        { rel: 'icon', type: 'image/png', href: '/favicon.ico' },
       ],
     },
   },

@@ -1,13 +1,9 @@
-// Shared Puppeteer browser for server-side rendering of /print/* routes.
-// One Chromium process per Node worker, lazily launched on first request,
-// kept alive for the process lifetime. Pages are created and closed per
-// render — never reuse pages across requests (cookies + DOM state leak).
-//
-// On serverless (Vercel/Netlify/AWS Lambda), swap `puppeteer` for
-// `puppeteer-core` + `@sparticuz/chromium` and call `launchOptions.args`
-// from that module. The rest of this file stays the same.
+// Shared browser for server-side rendering of /print/* routes.
+// One Chromium process per Node worker, lazily launched on first request.
+// Pages are created and closed per render to avoid cookie/DOM state leaks.
 
-import puppeteer, { type Browser, type PaperFormat } from "puppeteer";
+import chromium from "@sparticuz/chromium";
+import puppeteer, { type Browser, type Page, type PaperFormat } from "puppeteer-core";
 
 let _browser: Browser | null = null;
 let _launching: Promise<Browser> | null = null;
@@ -16,15 +12,28 @@ async function getBrowser(): Promise<Browser> {
   if (_browser && _browser.connected) return _browser;
   if (_launching) return _launching;
 
-  _launching = puppeteer.launch({
-    headless: true,
-    args: [
-      "--no-sandbox",
-      "--disable-setuid-sandbox",
-      "--disable-dev-shm-usage",
-      "--font-render-hinting=none",
-    ],
-  }).then((b) => {
+  _launching = (async () => {
+    chromium.setGraphicsMode = false;
+
+    const isServerless = Boolean(process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME);
+    const executablePath = process.env.CHROME_EXECUTABLE_PATH
+      || process.env.PUPPETEER_EXECUTABLE_PATH
+      || (await chromium.executablePath());
+    const args = isServerless
+      ? chromium.args
+      : [
+        "--no-sandbox",
+        "--disable-setuid-sandbox",
+        "--disable-dev-shm-usage",
+        "--font-render-hinting=none",
+      ];
+
+    return puppeteer.launch({
+      executablePath,
+      headless: isServerless ? "shell" : true,
+      args,
+    });
+  })().then((b) => {
     _browser = b;
     b.on("disconnected", () => {
       _browser = null;
@@ -64,7 +73,7 @@ export interface RenderOptions {
 // Forwarding the raw Cookie header via setExtraHTTPHeaders sidesteps the
 // validator entirely — Chromium just sends the header on outgoing requests.
 
-async function withPage<T>(opts: RenderOptions, fn: (page: import("puppeteer").Page) => Promise<T>): Promise<T> {
+async function withPage<T>(opts: RenderOptions, fn: (page: Page) => Promise<T>): Promise<T> {
   const browser = await getBrowser();
   const page = await browser.newPage();
   try {
