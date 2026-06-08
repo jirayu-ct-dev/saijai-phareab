@@ -6,6 +6,7 @@ import { prisma } from "~~/server/utils/prisma";
 import { getBusinessSetting } from "~~/server/utils/businessSetting";
 import { computeVat } from "~~/server/utils/vat";
 import { notifyReceipt } from "~~/server/utils/notify";
+import { syncUserRichMenu } from "~~/server/utils/line-messaging";
 
 type CreatePackageSaleBody = {
   customerId: string;
@@ -27,9 +28,25 @@ const packageSaleStatusByPaymentStatus = {
   CANCELLED: "CANCELLED",
 } as const;
 
-const buildEntitlementState = (validityDays: number | null | undefined, credits: number | null | undefined) => {
+const buildEntitlementState = (
+  validityDays: number | null | undefined,
+  credits: number | null | undefined,
+  active: boolean,
+) => {
   const startAt = new Date();
   const creditTotal = credits ?? 0;
+  if (!active) {
+    return {
+      status: "PENDING" as const,
+      startAt: null,
+      endAt: null,
+      activatedAt: null,
+      suspendedAt: null,
+      creditInitial: creditTotal,
+      creditRemaining: creditTotal,
+    };
+  }
+
   return {
     status: "ACTIVE" as const,
     startAt,
@@ -145,7 +162,7 @@ export default defineEventHandler(async (event) => {
               customerId: body.customerId,
               sourceSaleItemId: saleItem.id,
               productId: saleItem.product.id,
-              ...buildEntitlementState(saleItem.product.validityDays, saleItem.product.credits),
+              ...buildEntitlementState(saleItem.product.validityDays, saleItem.product.credits, isPaid),
             },
           });
         }
@@ -159,7 +176,7 @@ export default defineEventHandler(async (event) => {
       const payment = await tx.paymentRecord.create({
         data: {
           paymentNo: await createPaymentNo(),
-          receiptNo: isPaid ? await createReceiptNo(now) : null,
+          receiptNo: isPaid ? await createReceiptNo(now, tx) : null,
           userId: body.customerId,
           packageSaleId: packageSale.id,
           amount: totalAmount,
@@ -197,6 +214,9 @@ export default defineEventHandler(async (event) => {
         console.error("[package-sales] notifyReceipt failed", err);
       });
     }
+    void syncUserRichMenu(body.customerId).catch((err) => {
+      console.error("[package-sales] syncUserRichMenu failed", err);
+    });
 
     return created;
   } catch (error) {

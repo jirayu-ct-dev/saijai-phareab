@@ -90,6 +90,18 @@ export default defineEventHandler(async (event) => {
           },
         },
       },
+      auditLogs: {
+        orderBy: { createdAt: "desc" },
+        include: {
+          actor: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+            },
+          },
+        },
+      },
       serviceOrder: {
         include: {
           employee: {
@@ -110,13 +122,6 @@ export default defineEventHandler(async (event) => {
                   validityDays: true,
                 },
               },
-            },
-          },
-          basket: {
-            select: {
-              id: true,
-              label: true,
-              qrCode: true,
             },
           },
           serviceOrderItems: {
@@ -149,6 +154,10 @@ export default defineEventHandler(async (event) => {
             where: {
               deletedAt: null,
             },
+            orderBy: { createdAt: "asc" },
+          },
+          addonUsageRecords: {
+            where: { refundedAt: null },
             orderBy: { createdAt: "asc" },
           },
         },
@@ -250,6 +259,15 @@ export default defineEventHandler(async (event) => {
     })),
   })) ?? [];
 
+  const addonUsages = payment.serviceOrder?.addonUsageRecords.map((usage) => ({
+    id: usage.id,
+    productName: usage.productName || "แพ็กเกจเสริม",
+    credits: usage.credits,
+    deductOn: usage.deductOn,
+    deductedAt: usage.deductedAt?.toISOString() ?? null,
+    refundedAt: usage.refundedAt?.toISOString() ?? null,
+  })) ?? [];
+
   const hangerChargeSource = (payment.serviceOrder?.hangerCharge ?? null) as
     | { count?: number; pricePerUnit?: number; total?: number }
     | null;
@@ -268,6 +286,21 @@ export default defineEventHandler(async (event) => {
     metadata: payment.metadata,
     createdAt: payment.createdAt.toISOString(),
     updatedAt: payment.updatedAt.toISOString(),
+    auditLogs: payment.auditLogs.map((log) => ({
+      id: log.id,
+      action: log.action,
+      note: log.note,
+      beforeJson: log.beforeJson,
+      afterJson: log.afterJson,
+      createdAt: log.createdAt.toISOString(),
+      actor: log.actor
+        ? {
+            id: log.actor.id,
+            name: log.actor.name,
+            email: log.actor.email,
+          }
+        : null,
+    })),
     customer: {
       id: payment.user.id,
       name: payment.serviceOrder?.isWalkIn ? payment.serviceOrder.walkInName || "ลูกค้าหน้าร้าน" : payment.user.name,
@@ -338,13 +371,6 @@ export default defineEventHandler(async (event) => {
                 },
               }
             : null,
-          basket: payment.serviceOrder.basket
-            ? {
-                id: payment.serviceOrder.basket.id,
-                label: payment.serviceOrder.basket.label,
-                qrCode: payment.serviceOrder.basket.qrCode,
-              }
-            : null,
           hangerCharge: hangerChargeSource
             ? {
                 count: Number(hangerChargeSource.count ?? 0),
@@ -352,6 +378,7 @@ export default defineEventHandler(async (event) => {
                 total: Number(hangerChargeSource.total ?? 0),
               }
             : null,
+          addonUsages,
           items: serviceItems,
         }
       : null,

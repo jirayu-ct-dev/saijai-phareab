@@ -17,6 +17,9 @@ const isStaff = computed(() => {
 const profileRoute = computed(() => (isStaff.value ? "/admin/settings/profile" : "/me/settings/profile"));
 const settingsRoute = computed(() => (isStaff.value ? "/admin/settings/billing" : "/me/settings/notification"));
 const homeRoute = computed(() => "/");
+const adminHomeRoute = computed(() =>
+  user.value?.role === "ADMIN" ? "/admin" : "/admin/employee-dashboard",
+);
 
 const handleLogout = async (e: Event) => {
   e.preventDefault();
@@ -48,6 +51,26 @@ const items = computed<DropdownMenuItem[][]>(() => [
       to: settingsRoute.value,
     },
   ],
+  ...(isStaff.value
+    ? [
+        [
+          {
+            label: "หน้าผู้ดูแลระบบ",
+            icon: "i-lucide-shield",
+            onSelect() {
+              navigateTo(adminHomeRoute.value);
+            },
+          },
+          {
+            label: "แดชบอร์ดเมมเบอร์",
+            icon: "i-lucide-layout-dashboard",
+            onSelect() {
+              navigateTo("/me");
+            },
+          },
+        ],
+      ]
+    : []),
   [
     {
       label: "หน้าหลัก",

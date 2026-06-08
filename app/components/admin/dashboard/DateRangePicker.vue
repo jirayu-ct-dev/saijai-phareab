@@ -172,7 +172,8 @@ const formatDisplayText = computed(() => {
       <span class="hidden sm:inline truncate">{{ formatDisplayText }}</span>
 
       <template #trailing>
-        <UIcon name="i-lucide-chevron-down"
+        <UIcon
+name="i-lucide-chevron-down"
           class="shrink-0 text-dimmed size-5 group-data-[state=open]:rotate-180 transition-transform duration-200" />
       </template>
     </UButton>
@@ -184,15 +185,18 @@ const formatDisplayText = computed(() => {
         <div class="sm:hidden border-b border-default p-2">
           <p class="text-xs text-muted px-2 py-1 font-medium">ช่วงเวลา</p>
           <div class="flex gap-1 overflow-x-auto pb-2">
-            <UButton v-for="(range, index) in ranges" :key="index" :label="range.label" color="neutral" variant="ghost"
+            <UButton
+v-for="(range, index) in ranges" :key="index" :label="range.label" color="neutral" variant="ghost"
               size="xs" :class="[isRangeSelected(range) ? 'bg-elevated' : '']" @click="selectRange(range)" />
           </div>
 
           <!-- Mobile: Year & Month Selectors -->
           <div class="flex gap-2 mt-2">
-            <USelect v-model="selectedYear" :items="availableYears" value-key="value" class="flex-1" size="sm"
+            <USelect
+v-model="selectedYear" :items="availableYears" value-key="value" class="flex-1" size="sm"
               placeholder="เลือกปี" />
-            <USelect :model-value="undefined" :items="monthOptions" value-key="month" class="flex-1" size="sm"
+            <USelect
+:model-value="undefined" :items="monthOptions" value-key="month" class="flex-1" size="sm"
               placeholder="เลือกเดือน"
               @update:model-value="(val: number) => selectMonth({ month: val, year: selectedYear })" />
           </div>
@@ -203,7 +207,8 @@ const formatDisplayText = computed(() => {
           <!-- Quick Presets -->
           <div class="border-b border-default pb-2 mb-2">
             <p class="text-xs text-muted px-4 py-1 font-medium">ช่วงเวลา</p>
-            <UButton v-for="(range, index) in ranges" :key="index" :label="range.label" color="neutral" variant="ghost"
+            <UButton
+v-for="(range, index) in ranges" :key="index" :label="range.label" color="neutral" variant="ghost"
               class="rounded-none px-4 w-full justify-start"
               :class="[isRangeSelected(range) ? 'bg-elevated' : 'hover:bg-elevated/50']" truncate
               @click="selectRange(range)" />
@@ -212,7 +217,8 @@ const formatDisplayText = computed(() => {
           <!-- Year Selector -->
           <div class="border-b border-default pb-2 mb-2">
             <p class="text-xs text-muted px-4 py-1 font-medium">เลือกปี</p>
-            <USelect v-model="selectedYear" :items="availableYears" value-key="value" class="mx-2 mb-2 w-40 px-2"
+            <USelect
+v-model="selectedYear" :items="availableYears" value-key="value" class="mx-2 mb-2 w-40 px-2"
               size="sm" />
           </div>
 
@@ -221,7 +227,8 @@ const formatDisplayText = computed(() => {
             <p class="text-xs text-muted px-4 py-1 font-medium">
               เลือกเดือน ({{ selectedYear + 543 }})
             </p>
-            <UButton v-for="(option, index) in monthOptions" :key="index" :label="option.label" color="neutral"
+            <UButton
+v-for="(option, index) in monthOptions" :key="index" :label="option.label" color="neutral"
               variant="ghost" class="rounded-none px-4 w-full justify-start"
               :class="[isMonthSelected(option) ? 'bg-elevated' : 'hover:bg-elevated/50']" truncate
               @click="selectMonth(option)" />

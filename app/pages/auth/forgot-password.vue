@@ -45,7 +45,7 @@ async function handleForgotPassword() {
     <!-- LEFT PANEL: Brand & Illustration -->
     <div class="hidden lg:flex lg:w-[45%] xl:w-1/2 bg-[#1b4e85] text-white flex-col justify-between p-10 xl:p-16 relative overflow-hidden">
       <!-- Background details -->
-      <div class="absolute top-[-10%] right-[-10%] w-[500px] h-[500px] bg-white/5 rounded-full blur-[100px] pointer-events-none"></div>
+      <div class="absolute -top-[10%] -right-[10%] w-125 h-125 bg-white/5 rounded-full blur-[100px] pointer-events-none"></div>
       
       <!-- Top: Logo -->
       <div class="relative z-10 flex items-center gap-3">
@@ -64,7 +64,7 @@ async function handleForgotPassword() {
           ACCOUNT RECOVERY
         </div>
         <h2 class="text-4xl xl:text-5xl font-bold leading-[1.15] mb-5">
-          กู้คืนการเข้าถึง<br />บัญชีของคุณ
+          กู้คืนการเข้าถึง<br>บัญชีของคุณ
         </h2>
         <p class="text-blue-100 text-sm xl:text-base max-w-sm mb-10 leading-relaxed">
           ลืมรหัสผ่านไม่ใช่ปัญหา เราจะช่วยตั้งรหัสใหม่ให้คุณ ใช้เวลาไม่ถึง 2 นาที
@@ -121,7 +121,7 @@ async function handleForgotPassword() {
 
       <!-- Form Container -->
       <div class="flex-1 flex items-center justify-center p-6 sm:p-12">
-        <div class="w-full max-w-[400px]">
+        <div class="w-full max-w-100">
           
           <div v-if="sent" class="text-center">
             <div class="w-20 h-20 bg-emerald-50 dark:bg-emerald-950/30 rounded-full flex items-center justify-center mx-auto mb-6 text-emerald-500">

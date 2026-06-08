@@ -2,10 +2,13 @@
 import type { Period, Range } from '~~/shared/types/dashboard'
 import { formatCurrency, formatNumber } from '~~/shared/utils/format'
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   period: Period
   range: Range
-}>()
+  refreshing?: boolean
+}>(), {
+  refreshing: false,
+})
 
 interface StatItem {
   title: string
@@ -35,7 +38,7 @@ const { data: stats, status } = useAsyncData<StatItem[]>(
   }
 )
 
-const isPending = computed(() => status.value === 'pending')
+const isPending = computed(() => status.value === 'pending' || props.refreshing)
 
 // เพิ่มการ์ดยอดใช้จ่ายรวม (คำนวณจาก isCurrency items)
 const displayStats = computed<DisplayStat[]>(() => {
@@ -49,7 +52,7 @@ const displayStats = computed<DisplayStat[]>(() => {
     {
       title: 'ยอดใช้จ่ายรวม',
       icon: 'i-lucide-wallet',
-      to: '/me/receipts',
+      to: '/me/payment',
       value: totalSpent,
       variation: 0,
       isCurrency: true,
@@ -58,47 +61,35 @@ const displayStats = computed<DisplayStat[]>(() => {
   ]
 })
 
-const cardUi = {
-  container: 'gap-y-1.5',
-  wrapper: 'items-start',
-  leading: 'p-2.5 rounded-full bg-primary/10 ring ring-inset ring-primary/25 flex-col',
-  title: 'font-normal text-muted text-xs',
-}
 </script>
 
 <template>
-  <UPageGrid class="lg:grid-cols-4 gap-4 sm:gap-6 lg:gap-px">
-    <!-- Skeleton while loading -->
+  <section class="-mx-2 grid grid-cols-2 gap-2 sm:mx-0 sm:gap-3 xl:grid-cols-4">
     <template v-if="isPending">
-      <UPageCard
+      <div
         v-for="i in 4"
         :key="`sk-${i}`"
-        variant="subtle"
-        :ui="cardUi"
-        class="lg:rounded-none first:rounded-l-lg last:rounded-r-lg"
+        class="min-h-28 bg-default p-3 dark:bg-elevated/55 sm:rounded-lg sm:border sm:border-default/30 sm:dark:border-default/20"
       >
-        <template #leading>
-          <div class="p-2.5 rounded-full bg-elevated animate-pulse size-10" />
-        </template>
-        <template #title>
-          <div class="h-3 w-16 rounded bg-elevated animate-pulse" />
-        </template>
-        <div class="h-8 w-28 rounded bg-elevated animate-pulse mt-1" />
-      </UPageCard>
+        <div class="space-y-3">
+          <USkeleton class="size-10 rounded-full" />
+          <USkeleton class="h-3 w-16 rounded-lg" />
+          <USkeleton class="h-8 w-28 rounded-lg" />
+        </div>
+      </div>
     </template>
 
-    <!-- Stats cards -->
     <template v-else>
-      <UPageCard
+      <NuxtLink
         v-for="(stat, index) in displayStats"
         :key="index"
-        :icon="stat.icon"
-        :title="stat.title"
         :to="stat.to"
-        variant="subtle"
-        :ui="cardUi"
-        class="lg:rounded-none first:rounded-l-lg last:rounded-r-lg hover:z-1"
+        class="min-h-28 bg-default p-3 transition-[background-color,border-color] duration-200 hover:bg-default dark:bg-elevated/55 dark:hover:bg-elevated/70 sm:rounded-lg sm:border sm:border-default/30 sm:hover:border-default/45 sm:dark:border-default/20"
       >
+        <div class="flex size-10 items-center justify-center rounded-full bg-primary/10 text-primary ring ring-inset ring-primary/25">
+          <UIcon :name="stat.icon" class="size-5" />
+        </div>
+        <p class="mt-3 text-xs text-muted">{{ stat.title }}</p>
         <div class="flex items-center gap-2">
           <span class="text-2xl font-semibold text-highlighted">
             {{ stat.isCurrency ? formatCurrency(stat.value) : formatNumber(stat.value) }}
@@ -112,7 +103,7 @@ const cardUi = {
             {{ stat.variation > 0 ? '+' : '' }}{{ stat.variation }}%
           </UBadge>
         </div>
-      </UPageCard>
+      </NuxtLink>
     </template>
-  </UPageGrid>
+  </section>
 </template>

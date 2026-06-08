@@ -1,48 +1,42 @@
-import { requireRole } from "~~/server/utils/auth";
 import { prisma } from "~~/server/utils/prisma";
+import { requireRole } from "~~/server/utils/auth";
 import { deleteRichMenuAlias } from "~~/server/utils/line-messaging";
 
 export default defineEventHandler(async (event) => {
   requireRole(event, ["ADMIN"]);
 
   const query = getQuery(event);
-  const id = query.id as string;
+  const id = query.id as string | undefined;
 
   if (!id) {
-    throw createError({ statusCode: 400, statusMessage: "กรุณาระบุ ID ของ Rich Menu" });
+    throw createError({ statusCode: 400, statusMessage: "ไม่พบ id" });
   }
 
-  const richMenu = await prisma.lineRichMenu.findUnique({
-    where: { id },
-  });
-
-  if (!richMenu) {
-    throw createError({ statusCode: 404, statusMessage: "ไม่พบ Rich Menu ในระบบ" });
+  const menu = await prisma.lineRichMenu.findUnique({ where: { id } });
+  if (!menu) {
+    throw createError({ statusCode: 404, statusMessage: "ไม่พบ Rich Menu" });
   }
 
-  if (!richMenu.aliasId) {
-    return richMenu; // Already deleted
+  if (!menu.aliasId) {
+    throw createError({ statusCode: 404, statusMessage: "Rich Menu นี้ไม่มี Alias" });
   }
 
   try {
     // 1. Delete alias on LINE
-    console.log(`[LINE RichMenu] Deleting alias '${richMenu.aliasId}' for richMenuId: ${richMenu.richMenuId}`);
-    await deleteRichMenuAlias(richMenu.aliasId).catch((err) =>
-      console.warn(`[LINE RichMenu] Failed to delete alias ${richMenu.aliasId} on LINE:`, err?.message || err),
-    );
+    await deleteRichMenuAlias(menu.aliasId);
 
-    // 2. Update database
-    const updated = await prisma.lineRichMenu.update({
+    // 2. Clear aliasId in DB
+    await prisma.lineRichMenu.update({
       where: { id },
       data: { aliasId: null },
     });
 
-    return updated;
-  } catch (error: any) {
-    console.error(`[LINE RichMenu Delete Alias API] Failed:`, error);
+    return { success: true };
+  } catch (error) {
+    console.error("[DELETE /api/admin/settings/richmenu/alias]", error);
     throw createError({
       statusCode: 500,
-      statusMessage: error?.message || "เกิดข้อผิดพลาดในการลบ Rich Menu Alias",
+      statusMessage: "ไม่สามารถลบ Rich Menu Alias ได้",
     });
   }
 });

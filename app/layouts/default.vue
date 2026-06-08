@@ -5,6 +5,16 @@ const { addLineFriend } = useLiffAuth()
 const { logout, user, session, userAvatar } = useUser()
 const open = ref(false)
 
+const colorMode = useColorMode()
+const isDark = computed({
+    get() {
+        return colorMode.value === 'dark'
+    },
+    set() {
+        colorMode.preference = colorMode.value === 'dark' ? 'light' : 'dark'
+    }
+})
+
 const menu = computed<NavigationMenuItem[]>(() => [
     {
         label: 'ซักอบรีดรายชิ้น',
@@ -37,11 +47,21 @@ const itemsDropdown = computed<DropdownMenuItem[][]>(() => {
             icon: 'i-lucide-shield',
             to: '/admin'
         })
+        roleLinks.push({
+            label: 'แดชบอร์ดเมมเบอร์',
+            icon: 'i-lucide-layout-dashboard',
+            to: '/me'
+        })
     } else if (user.value?.role === 'EMPLOYEE') {
         roleLinks.push({
             label: 'หน้าหลักพนักงาน',
             icon: 'i-lucide-briefcase',
             to: '/admin/employee-dashboard'
+        })
+        roleLinks.push({
+            label: 'แดชบอร์ดเมมเบอร์',
+            icon: 'i-lucide-layout-dashboard',
+            to: '/me'
         })
     } else {
         roleLinks.push({
@@ -68,7 +88,7 @@ const itemsDropdown = computed<DropdownMenuItem[][]>(() => {
             {
                 label: 'Settings',
                 icon: 'i-lucide-cog',
-                to: '/settings'
+                to: '/me/settings'
             }
         ],
         roleLinks,
@@ -91,10 +111,21 @@ const itemsDropdown = computed<DropdownMenuItem[][]>(() => {
 <template>
     <UHeader v-model:open="open" mode="slideover">
 
+        <template #toggle>
+            <UButton
+                color="neutral"
+                variant="ghost"
+                :icon="open ? 'i-lucide-x' : 'i-lucide-menu'"
+                :aria-label="open ? 'ปิดเมนู' : 'เปิดเมนู'"
+                class="lg:hidden -me-1.5 touch-manipulation cursor-pointer"
+                @pointerup.prevent="open = !open"
+            />
+        </template>
+
         <UNavigationMenu :items="menu" />
 
         <!-- Logo & Brand -->
-        <template #title>
+        <template #left>
             <AppLogo label="LAUNDRY SERVICE" to="/" />
         </template>
 
@@ -104,7 +135,14 @@ const itemsDropdown = computed<DropdownMenuItem[][]>(() => {
 
 
                 <UIButtonAddFriendLine :addLineFriend="addLineFriend" />
-                <UColorModeButton />
+                <UButton
+                    :icon="isDark ? 'i-lucide-moon' : 'i-lucide-sun'"
+                    color="neutral"
+                    variant="ghost"
+                    aria-label="เปลี่ยนธีม"
+                    class="cursor-pointer"
+                    @click="isDark = !isDark"
+                />
                 <div v-if="!session" class="hidden md:inline-flex">
                     <UButton color="neutral" variant="ghost" class="p-2" to="/auth/login" label="ลงชื่อเข้าใช้" />
                     <UButton color="primary" variant="solid" class="p-2" to="/auth/register" label="สมัครสมาชิก" />
@@ -126,6 +164,17 @@ const itemsDropdown = computed<DropdownMenuItem[][]>(() => {
             <UNavigationMenu :items="menu" orientation="vertical" class="-mx-2.5" />
             <USeparator class="my-4" />
             <UIButtonAddFriendLine :addLineFriend="addLineFriend" class="w-full" />
+            <div class="flex items-center justify-between mt-4">
+                <span class="text-sm font-medium text-gray-700 dark:text-gray-300">เปลี่ยนธีม</span>
+                <UButton
+                    :icon="isDark ? 'i-lucide-moon' : 'i-lucide-sun'"
+                    color="neutral"
+                    variant="ghost"
+                    aria-label="เปลี่ยนธีม"
+                    class="cursor-pointer"
+                    @click="isDark = !isDark"
+                />
+            </div>
             <div v-if="!session" class="mt-4 flex flex-col gap-2">
                 <UButton block color="neutral" variant="outline" to="/auth/login" label="ลงชื่อเข้าใช้" />
                 <UButton block color="primary" variant="solid" to="/auth/register" label="สมัครสมาชิก" />
@@ -178,7 +227,7 @@ const itemsDropdown = computed<DropdownMenuItem[][]>(() => {
                     <div>
                         <h3 class="font-semibold text-sm mb-4">ติดตามเรา</h3>
                         <div class="flex gap-2">
-                            <UButton color="neutral" variant="ghost" size="sm" to="https://www.facebook.com/saijaiburiram/?rdid=amPWW1eNJg7Yb6OB" aria-label="Facebook"
+                            <UButton color="neutral" variant="ghost" size="sm" to="https://www.facebook.com/saijaiburiram/?rdid=amPWW1eNJg7Yb6OB" target="_blank" rel="noopener noreferrer" aria-label="Facebook"
                                 class="text-[#4267B2]">
                                 <UIcon name="i-simple-icons-facebook" class="size-5" />
                             </UButton>
@@ -186,7 +235,7 @@ const itemsDropdown = computed<DropdownMenuItem[][]>(() => {
                                 class="text-[#E1306C]">
                                 <UIcon name="i-simple-icons-instagram" class="size-5" />
                             </UButton> -->
-                            <UButton color="neutral" variant="ghost" size="sm" to="https://line.me/R/ti/p/@883vmdct" aria-label="LINE"
+                            <UButton color="neutral" variant="ghost" size="sm" to="https://line.me/R/ti/p/@883vmdct" target="_blank" rel="noopener noreferrer" aria-label="LINE"
                                 class="text-[#06C755]">
                                 <UIcon name="i-simple-icons-line" class="size-5" />
                             </UButton>
@@ -216,10 +265,6 @@ const itemsDropdown = computed<DropdownMenuItem[][]>(() => {
                             <li class="flex items-start gap-3">
                                 <UIcon name="i-lucide-phone" class="size-4 shrink-0 mt-0.5 text-muted" />
                                 <span>086-022-2196</span>
-                            </li>
-                            <li class="flex items-start gap-3">
-                                <UIcon name="i-lucide-mail" class="size-4 shrink-0 mt-0.5 text-muted" />
-                                <span>[EMAIL_ADDRESS]</span>
                             </li>
                         </ul>
                     </div>

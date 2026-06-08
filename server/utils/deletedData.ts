@@ -116,12 +116,18 @@ export const getDeletedDataImpact = async (
   }
 
   if (type === "member_entitlement") {
-    const [payments, orders, notifications] = await Promise.all([
+    const [payments, orders, addonUsages, notifications] = await Promise.all([
       prisma.paymentRecord.count({ where: { memberEntitlementId: id } }),
       prisma.serviceOrder.count({ where: { memberEntitlementId: id } }),
+      prisma.serviceOrderAddonUsage.count({ where: { memberEntitlementId: id } }),
       prisma.packageExpiryNotification.count({ where: { entitlementId: id } }),
     ]);
-    return [`${payments} การชำระเงิน`, `${orders} ออเดอร์ที่อ้างอิง`, `${notifications} ประวัติแจ้งเตือนหมดอายุ`];
+    return [
+      `${payments} การชำระเงิน`,
+      `${orders} ออเดอร์ที่ใช้แพ็กเกจหลัก`,
+      `${addonUsages} ออเดอร์ที่ใช้แพ็กเกจเสริม`,
+      `${notifications} ประวัติแจ้งเตือนหมดอายุ`,
+    ];
   }
 
   const orderItems = await prisma.serviceOrderItem.count({ where: { storefrontPriceId: id } });
@@ -457,6 +463,10 @@ const hardDeleteMemberEntitlements = async (tx: Tx, ids: string[]) => {
     where: { memberEntitlementId: inIds(ids) },
     data: { memberEntitlementId: null },
   });
+  await tx.serviceOrderAddonUsage.updateMany({
+    where: { memberEntitlementId: inIds(ids) },
+    data: { memberEntitlementId: null },
+  });
   await tx.packageExpiryNotification.deleteMany({ where: { entitlementId: inIds(ids) } });
   await hardDeletePayments(tx, payments.map((payment) => payment.id));
   await tx.memberEntitlement.deleteMany({ where: { id: inIds(ids) } });
@@ -526,7 +536,6 @@ const clearUserReferences = async (tx: Tx, userId: string) => {
   await tx.storefrontItem.updateMany({ where: { deletedById: userId }, data: { deletedById: null } });
   await tx.storefrontCategory.updateMany({ where: { deletedById: userId }, data: { deletedById: null } });
   await tx.storefrontPrice.updateMany({ where: { deletedById: userId }, data: { deletedById: null } });
-  await tx.basket.updateMany({ where: { deletedById: userId }, data: { deletedById: null } });
   await tx.image.updateMany({ where: { deletedById: userId }, data: { deletedById: null } });
   await tx.serviceOrder.updateMany({ where: { employeeId: userId }, data: { employeeId: null } });
   await tx.serviceOrder.updateMany({ where: { deletedById: userId }, data: { deletedById: null } });

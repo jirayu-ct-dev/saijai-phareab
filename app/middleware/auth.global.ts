@@ -1,20 +1,11 @@
-import { authClient } from "~~/app/utils/auth-client";
-
-const fetchFreshSession = async () => {
-  try {
-    const headers = import.meta.server ? useRequestHeaders(["cookie"]) : undefined;
-    return await $fetch<any>("/api/auth/session-status", { headers });
-  } catch {
-    return null;
-  }
-};
+import type { SessionUser } from "~~/app/utils/session-status";
 
 export default defineNuxtRouteMiddleware(async (to) => {
   const authSession = useState<unknown | null>("auth:session", () => null);
   const publicRoutes = ["/", "/auth/login", "/auth/register", "/auth/forgot-password", "/auth/reset-password", "/terms", "/privacy"];
 
   // Force a fresh session check first so the server can wipe a deleted user's session and set the signout-reason cookie.
-  const preflight = await fetchFreshSession();
+  const preflight = await fetchSessionStatus();
   const signoutReason = useCookie<string | null>("auth_signout_reason").value;
   if (signoutReason === "deleted" && to.path !== "/auth/login") {
     if (import.meta.client) {
@@ -35,7 +26,7 @@ export default defineNuxtRouteMiddleware(async (to) => {
   }
 
   // Also check isActive from session directly (catches cases where cookie hasn't been set yet)
-  if (preflight?.user && (preflight.user as any).isActive === false) {
+  if (preflight?.user && preflight.user.isActive === false) {
     if (to.path.startsWith("/admin")) {
       if (import.meta.client) {
         window.location.href = "/me";
@@ -56,7 +47,7 @@ export default defineNuxtRouteMiddleware(async (to) => {
     if (to.path === "/auth/login" || to.path === "/auth/register") {
       const session = preflight;
       if (session?.user) {
-        const role = (session.user as any).role;
+        const role = (session.user as SessionUser).role;
         if (role === "ADMIN") return navigateTo("/admin");
         if (role === "EMPLOYEE") return navigateTo("/admin/employee-dashboard");
         if (role === "USER") return navigateTo("/me");
@@ -75,10 +66,14 @@ export default defineNuxtRouteMiddleware(async (to) => {
 
   if (import.meta.client) {
     const { ensureLiffSession } = useLiffAuth();
-    const restored = await ensureLiffSession();
+    const liffResult = await ensureLiffSession();
 
-    if (restored) {
-      const refreshed = await fetchFreshSession();
+    if (liffResult === "redirecting") {
+      return;
+    }
+
+    if (liffResult === "logged-in") {
+      const refreshed = await fetchSessionStatus();
       if (refreshed?.user) {
         authSession.value = refreshed;
         return;

@@ -1,6 +1,9 @@
 import { prisma } from '~~/server/utils/prisma'
+import { requireRole } from '~~/server/utils/auth'
 
-export default defineEventHandler(async () => {
+export default defineEventHandler(async (event) => {
+    await requireRole(event, ['EMPLOYEE', 'ADMIN'])
+
     try {
         const items = await prisma.storefrontItem.findMany({
             where: { isActive: true, deletedAt: null },

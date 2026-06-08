@@ -14,6 +14,9 @@ const ACCESS_POLICIES: AccessPolicy[] = [
   { prefix: "/api/admin/users", roles: ["ADMIN"] },
   { prefix: "/api/admin/deleted", roles: ["ADMIN"] },
   { prefix: "/api/admin/packages", roles: ["ADMIN"] },
+  { prefix: "/api/admin/employees", roles: ["ADMIN"] },
+  { prefix: "/api/admin/members", roles: ["ADMIN"] },
+  { prefix: "/api/admin/exports", roles: ["ADMIN"] },
   { prefix: "/api/admin/customer-options", roles: ["EMPLOYEE", "ADMIN"] },
   { prefix: "/api/admin/package-catalog", roles: ["EMPLOYEE", "ADMIN"] },
   { prefix: "/api/admin/storefront-catalog", roles: ["EMPLOYEE", "ADMIN"] },
@@ -22,6 +25,9 @@ const ACCESS_POLICIES: AccessPolicy[] = [
   { prefix: "/api/admin/payments", roles: ["EMPLOYEE", "ADMIN"] },
   { prefix: "/api/admin/pricing", roles: ["EMPLOYEE", "ADMIN"] },
   { prefix: "/api/admin/storefront-prices", roles: ["EMPLOYEE", "ADMIN"] },
+  { prefix: "/api/admin/settings", roles: ["EMPLOYEE", "ADMIN"] },
+  { prefix: "/api/admin/dashboard", roles: ["EMPLOYEE", "ADMIN"] },
+  { prefix: "/api/admin/staff-options", roles: ["EMPLOYEE", "ADMIN"] },
   // Example when you add member APIs:
   // { prefix: "/api/member", roles: ["USER", "EMPLOYEE", "ADMIN"], requireMember: true },
 ];

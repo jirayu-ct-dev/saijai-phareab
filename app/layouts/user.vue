@@ -1,17 +1,27 @@
 <script setup lang="ts">
+import { useMediaQuery } from "@vueuse/core";
 import type { NavigationMenuItem } from "@nuxt/ui";
 
+const SESSION_CHECK_INTERVAL_MS = 60_000;
 const open = ref(false);
-const route = useRoute();
-const { user, session } = useUser();
+const { session } = useUser();
 const { isMember } = useMemberStatus();
+const isDesktopSidebar = useMediaQuery("(min-width: 1024px)");
+
+const sidebarCollapsed = (collapsed: boolean) => isDesktopSidebar.value ? collapsed : false;
+
+type MenuItem = NavigationMenuItem & {
+  id?: string;
+  to?: string;
+  children?: MenuItem[];
+};
 
 const closeSidebar = () => {
   open.value = false;
 };
 
-const menu = computed<any[][]>(() => {
-  const mainGroup: any[] = [
+const menu = computed<MenuItem[][]>(() => {
+  const mainGroup: MenuItem[] = [
     {
       label: "แดชบอร์ด",
       icon: "i-lucide-layout-dashboard",
@@ -22,19 +32,25 @@ const menu = computed<any[][]>(() => {
     {
       label: "รายการออเดอร์",
       icon: "i-lucide-shopping-basket",
-      to: "/me/orders",
+      to: "/me/service-orders",
       onSelect: closeSidebar,
     },
     {
-      label: "รายการใบเสร็จ",
+      label: "ประวัติการชำระเงิน",
       icon: "i-lucide-receipt",
-      to: "/me/receipts",
+      to: "/me/payment",
       onSelect: closeSidebar,
     },
     {
       label: "เลือกซื้อแพ็กเกจ",
       icon: "i-lucide-shopping-bag",
       to: "/me/packages",
+      onSelect: closeSidebar,
+    },
+    {
+      label: "ราคาหน้าร้าน",
+      icon: "i-lucide-tags",
+      to: "/me/pricing",
       onSelect: closeSidebar,
     },
   ];
@@ -52,6 +68,8 @@ const menu = computed<any[][]>(() => {
     label: "ตั้งค่า",
     icon: "i-lucide-settings",
     to: "/me/settings",
+    defaultOpen: true,
+    type: "trigger",
     children: [
       {
         label: "ข้อมูลส่วนตัว",
@@ -81,35 +99,28 @@ const menu = computed<any[][]>(() => {
         exact: true,
         onSelect: closeSidebar,
       },
-    ] as any
+    ],
   });
 
-  return [mainGroup];
+  const helpGroup: MenuItem[] = [
+    {
+      label: "คู่มือการใช้งาน",
+      icon: "i-lucide-book",
+      to: "/me/handbook",
+      exact: true,
+      onSelect: closeSidebar,
+    },
+  ];
+
+  return [mainGroup, helpGroup];
 });
 
 const groups = computed(() => {
-  const items = menu.value[0]?.flatMap((item: any) => {
-    if (item.children) {
-      return item.children.map((child: any) => ({
-        id: child.to,
-        label: child.label,
-        icon: child.icon,
-        to: child.to,
-      }));
-    }
-    return [{
-      id: item.to,
-      label: item.label,
-      icon: item.icon,
-      to: item.to,
-    }];
-  });
-
   return [
     {
       id: "links",
       label: "Go to",
-      items,
+      items: menu.value.flat(),
     }
   ];
 });
@@ -117,7 +128,7 @@ const groups = computed(() => {
 const checkUserSession = async () => {
   if (import.meta.server) return;
   try {
-    const currentSession = await $fetch<any>("/api/auth/session-status");
+    const currentSession = await fetchSessionStatus();
     if (!currentSession?.user) {
       session.value = null;
       await navigateTo("/auth/login");
@@ -125,10 +136,6 @@ const checkUserSession = async () => {
     }
 
     session.value = currentSession;
-    if (currentSession.user.isActive === false) {
-      session.value = null;
-      await navigateTo("/auth/login");
-    }
   } catch {
     session.value = null;
     await navigateTo("/auth/login");
@@ -140,7 +147,7 @@ onMounted(() => {
   void checkUserSession();
   sessionCheckTimer = setInterval(() => {
     void checkUserSession();
-  }, 5000);
+  }, SESSION_CHECK_INTERVAL_MS);
   window.addEventListener("focus", checkUserSession);
 });
 onBeforeUnmount(() => {
@@ -150,27 +157,36 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <UDashboardGroup unit="rem">
+  <UDashboardGroup unit="rem" class="admin-shell">
       <UDashboardSidebar
         id="default"
         v-model:open="open"
         collapsible
         resizable
-        class="bg-elevated/25"
-        :ui="{ footer: 'lg:border-t lg:border-default' }"
+        class="admin-sidebar bg-default/80 backdrop-blur-sm"
+        :ui="{ footer: 'lg:border-t lg:border-default/60' }"
       >
         <template #header="{ collapsed }">
-          <AppLogo :collapsed="collapsed" label="SAIJAI MEMBER" to="/me" />
+          <AppLogo :collapsed="sidebarCollapsed(collapsed)" label="SAIJAI MEMBER" to="/me" />
         </template>
 
         <template #default="{ collapsed }">
-          <UDashboardSearchButton :collapsed="collapsed" class="bg-transparent ring-default" />
+          <UDashboardSearchButton :collapsed="sidebarCollapsed(collapsed)" class="bg-transparent ring-default" />
 
-          <UNavigationMenu :collapsed="collapsed" :items="menu[0]" orientation="vertical" tooltip popover />
+          <UNavigationMenu :collapsed="sidebarCollapsed(collapsed)" :items="menu[0]" orientation="vertical" tooltip popover />
+
+          <UNavigationMenu
+            v-if="menu[1]?.length"
+            :collapsed="sidebarCollapsed(collapsed)"
+            :items="menu[1]"
+            orientation="vertical"
+            tooltip
+            class="mt-auto"
+          />
         </template>
 
         <template #footer="{ collapsed }">
-          <UserMenu :collapsed="collapsed" />
+          <UserMenu :collapsed="sidebarCollapsed(collapsed)" />
         </template>
       </UDashboardSidebar>
 
@@ -193,7 +209,7 @@ onBeforeUnmount(() => {
         </aside>
       </template>
 
-    <div class="flex min-h-0 flex-1 flex-col overflow-y-auto">
+    <div class="admin-workspace flex min-h-0 flex-1 flex-col overflow-y-auto">
       <slot />
     </div>
   </UDashboardGroup>

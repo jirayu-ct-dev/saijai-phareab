@@ -389,6 +389,23 @@ const loadServiceOrderForNotify = async (id: string) =>
           product: { select: { name: true } },
         },
       },
+      addonUsageRecords: {
+        where: { refundedAt: null },
+        orderBy: { createdAt: "asc" },
+        select: {
+          productName: true,
+          credits: true,
+          deductOn: true,
+          deductedAt: true,
+          memberEntitlement: {
+            select: {
+              creditInitial: true,
+              creditRemaining: true,
+              product: { select: { name: true } },
+            },
+          },
+        },
+      },
       serviceOrderItems: {
         where: { deletedAt: null },
         orderBy: { createdAt: "asc" },
@@ -645,6 +662,32 @@ const buildOrderBody = async (params: {
     }
   }
 
+  if (order.addonUsageRecords.length > 0) {
+    rows.push(divider());
+    rows.push(sectionHeading("แพ็กเกจเสริม"));
+    for (const usage of order.addonUsageRecords) {
+      const packageName = usage.productName || usage.memberEntitlement?.product.name || "แพ็กเกจเสริม";
+      const statusText = usage.deductedAt
+        ? "หักเครดิตแล้ว"
+        : usage.deductOn === "COMPLETED" ? "รอหักเมื่อเสร็จสิ้น" : "รอหักเครดิต";
+      const remaining = usage.memberEntitlement?.creditRemaining ?? null;
+      const initial = usage.memberEntitlement?.creditInitial ?? null;
+      const remainingAfter =
+        remaining == null
+          ? null
+          : usage.deductedAt
+            ? remaining
+            : Math.max(0, remaining - usage.credits);
+      const remainingText =
+        remainingAfter == null
+          ? null
+          : initial == null
+            ? `คงเหลือ ${remainingAfter} เครดิต`
+            : `คงเหลือ ${remainingAfter}/${initial} เครดิต`;
+      rows.push(kvRow(packageName, [`ใช้ ${usage.credits} เครดิต`, statusText, remainingText].filter(Boolean).join(" · ")));
+    }
+  }
+
   return rows;
 };
 
@@ -659,11 +702,15 @@ const collectDamagedPhotos = (order: LoadedServiceOrder): string[] => {
   return urls;
 };
 
-export const notifyServiceOrderCreated = async (params: { serviceOrderId: string }): Promise<void> => {
+export const notifyServiceOrderCreated = async (params: {
+  serviceOrderId: string;
+  status?: ServiceOrderStatus;
+}): Promise<void> => {
   try {
     const order = await loadServiceOrderForNotify(params.serviceOrderId);
     if (!order) return;
 
+    const notifyStatus = params.status ?? "RECEIVED";
     const setting = await getNotificationSetting();
     const shopName = await getShopName();
     const totalQty = order.serviceOrderItems.reduce((sum, item) => sum + item.quantity, 0);
@@ -671,12 +718,14 @@ export const notifyServiceOrderCreated = async (params: { serviceOrderId: string
     const customerName = resolved.name;
     const customerLabel = resolved.label;
     const orderUrl = `${getBaseUrl()}/admin/service-orders/${order.id}`;
-    const dueSubline = order.dueAt ? `รับผ้าได้: ${formatDateTime(order.dueAt.toISOString())}` : null;
     const hasDelivery = await customerHasDeliveryAddon(order.customerId);
+    const customerSubline = notifyStatus === "RECEIVED"
+      ? order.dueAt ? `รับผ้าได้: ${formatDateTime(order.dueAt.toISOString())}` : null
+      : customerSublineFor(notifyStatus, hasDelivery);
 
     const bodyContents = await buildOrderBody({
       order,
-      status: "RECEIVED",
+      status: notifyStatus,
       customerName,
       customerPhone: resolved.phone,
       isWalkIn: resolved.walkIn,
@@ -687,14 +736,14 @@ export const notifyServiceOrderCreated = async (params: { serviceOrderId: string
     const buildFlex = (audience: "customer" | "staff"): LineMessage =>
       buildFlexBubble({
         shopName,
-        emoji: statusEmoji.RECEIVED,
-        headline: audience === "customer" ? customerHeadlineFor("RECEIVED", hasDelivery) : staffHeadlineFor("RECEIVED", customerLabel, hasDelivery),
-        subline: audience === "customer" ? dueSubline : staffSublineFor("RECEIVED", hasDelivery),
+        emoji: statusEmoji[notifyStatus],
+        headline: audience === "customer" ? customerHeadlineFor(notifyStatus, hasDelivery) : staffHeadlineFor(notifyStatus, customerLabel, hasDelivery),
+        subline: audience === "customer" ? customerSubline : staffSublineFor(notifyStatus, hasDelivery),
         bodyContents,
         buttonLabel: "ดูรายละเอียดออเดอร์",
         buttonUrl: orderUrl,
-        color: statusColors.RECEIVED,
-        altText: `[${shopName}] รับผ้าแล้ว ${order.orderNo ?? ""}`,
+        color: statusColors[notifyStatus],
+        altText: `[${shopName}] ${serviceOrderStatusLabels[notifyStatus]} ${order.orderNo ?? ""}`,
       });
 
     const orderImageUrl = order.image?.secureUrl || order.image?.url || null;
@@ -728,7 +777,7 @@ export const notifyServiceOrderCreated = async (params: { serviceOrderId: string
       return extras;
     };
 
-    if (setting[statusToggleMap[order.status]]) {
+    if (setting[statusToggleMap[notifyStatus]]) {
       await pushToCustomer(order.customerId, [buildFlex("customer"), ...buildExtras("customer")]);
     }
     if (setting.notifyStaffOnNewOrder) {
@@ -1029,7 +1078,7 @@ export const notifyReceipt = async (params: { paymentId: string }): Promise<void
         subline: customerSubline,
         bodyContents: body,
         buttonLabel: "ดูใบเสร็จ",
-        buttonUrl: `${getBaseUrl()}/me/receipts/${payment.id}`,
+        buttonUrl: `${getBaseUrl()}/me/payment/${payment.id}`,
         color: "#16A34A",
         altText: `[${shopName}] ใบเสร็จ${saleKindLabel} ${receiptCode}`,
       });
@@ -1061,6 +1110,7 @@ export const notifyQuotationCreated = async (params: { serviceOrderId: string })
         orderNo: true,
         quotationNo: true,
         customerId: true,
+        memberEntitlementId: true,
         totalAmount: true,
         dueAt: true,
         receivedAt: true,
@@ -1077,6 +1127,7 @@ export const notifyQuotationCreated = async (params: { serviceOrderId: string })
       },
     });
     if (!order) return;
+    if (order.memberEntitlementId) return;
 
     const setting = await getNotificationSetting();
     const customerCanReceive = (setting as { notifyCustomerOnQuotation?: boolean }).notifyCustomerOnQuotation !== false;
@@ -1090,7 +1141,8 @@ export const notifyQuotationCreated = async (params: { serviceOrderId: string })
     const customerName = resolved.name;
     const code = order.quotationNo || order.orderNo || `QT-${order.id.slice(-8).toUpperCase()}`;
     const amount = Number(payment.amount ?? order.totalAmount ?? 0);
-    const url = `${getBaseUrl()}/admin/payment/${payment.id}/quotation`;
+    const customerUrl = `${getBaseUrl()}/me/payment/${payment.id}/quotation`;
+    const staffUrl = `${getBaseUrl()}/admin/payment/${payment.id}/quotation`;
 
     const body: FlexBox[] = [
       kvRow("เลขที่ใบแจ้งราคา", code),
@@ -1100,20 +1152,21 @@ export const notifyQuotationCreated = async (params: { serviceOrderId: string })
     body.push(kvRow("เบอร์โทร", resolved.phone || "ไม่ระบุ"));
     if (order.dueAt) body.push(kvRow("วันนัดรับ", formatDateTime(order.dueAt.toISOString())));
 
-    const flex = buildFlexBubble({
-      shopName,
-      emoji: "🧾",
-      headline: "ใบแจ้งราคาออกแล้ว",
-      subline: "ชำระเงินเพื่อรับใบเสร็จได้เลย",
-      bodyContents: body,
-      buttonLabel: "ดูใบแจ้งราคา",
-      buttonUrl: url,
-      color: "#0EA5E9",
-      altText: `[${shopName}] ใบแจ้งราคา ${code}`,
-    });
+    const buildFlex = (buttonUrl: string): LineMessage =>
+      buildFlexBubble({
+        shopName,
+        emoji: "🧾",
+        headline: "ใบแจ้งราคาออกแล้ว",
+        subline: "ชำระเงินเพื่อรับใบเสร็จได้เลย",
+        bodyContents: body,
+        buttonLabel: "ดูใบแจ้งราคา",
+        buttonUrl,
+        color: "#0EA5E9",
+        altText: `[${shopName}] ใบแจ้งราคา ${code}`,
+      });
 
-    await pushToCustomer(order.customerId, [flex]);
-    await pushToSubscribers("receiveNewOrder", [flex]);
+    await pushToCustomer(order.customerId, [buildFlex(customerUrl)]);
+    await pushToSubscribers("receiveNewOrder", [buildFlex(staffUrl)]);
   } catch (error) {
     console.error("[notify] notifyQuotationCreated", error);
   }

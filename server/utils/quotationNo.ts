@@ -1,5 +1,7 @@
 import { prisma } from "./prisma";
 
+type TxClient = Omit<typeof prisma, "$connect" | "$disconnect" | "$on" | "$transaction" | "$use" | "$extends">;
+
 const BANGKOK_TIMEZONE = "Asia/Bangkok";
 
 const getBangkokYear = (date = new Date()) =>
@@ -10,14 +12,15 @@ const getBangkokYear = (date = new Date()) =>
 
 const padSeq = (n: number) => n.toString().padStart(4, "0");
 
-export const createQuotationNo = async (date = new Date()) => {
+export const createQuotationNo = async (date = new Date(), quotationTxClient?: TxClient) => {
+  const db = quotationTxClient ?? prisma;
   const { getBusinessSetting } = await import("./businessSetting");
   const setting = (await getBusinessSetting()) as { quotationNoPrefix?: string };
   const prefix = setting.quotationNoPrefix || "QT-";
   const year = getBangkokYear(date);
   const yearPrefix = `${prefix}${year}-`;
 
-  const last = await prisma.serviceOrder.findFirst({
+  const last = await db.serviceOrder.findFirst({
     where: { quotationNo: { startsWith: yearPrefix } },
     orderBy: { quotationNo: "desc" },
     select: { quotationNo: true },

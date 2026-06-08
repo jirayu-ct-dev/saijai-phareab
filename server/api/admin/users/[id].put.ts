@@ -1,5 +1,7 @@
 import { Prisma } from "~~/app/generated/prisma/client";
 import { prisma } from "~~/server/utils/prisma";
+import { requireRole } from "~~/server/utils/auth";
+import { isWalkInCustomerEmail } from "~~/server/utils/walkInCustomer";
 import type { Role } from "~~/shared/types/enums";
 import { syncUserRichMenu } from "~~/server/utils/line-messaging";
 
@@ -16,6 +18,8 @@ const ALLOWED_ROLES: Role[] = ["USER", "EMPLOYEE", "ADMIN"];
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export default defineEventHandler(async (event) => {
+  await requireRole(event, ["ADMIN"]);
+
   const id = getRouterParam(event, "id");
   if (!id) {
     throw createError({ statusCode: 400, statusMessage: "Missing user id" });
@@ -65,10 +69,16 @@ export default defineEventHandler(async (event) => {
   try {
     const existing = await prisma.user.findFirst({
       where: { id, deletedAt: null },
-      select: { id: true, role: true },
+      select: { id: true, email: true, role: true },
     });
     if (!existing) {
       throw createError({ statusCode: 404, statusMessage: "User not found" });
+    }
+    if (isWalkInCustomerEmail(existing.email)) {
+      throw createError({
+        statusCode: 400,
+        statusMessage: "Cannot edit system default user",
+      });
     }
 
     const isRoleChanged = payload.role !== undefined && payload.role !== existing.role;

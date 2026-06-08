@@ -1,9 +1,15 @@
 <script setup lang="ts">
+import { useMediaQuery } from "@vueuse/core";
 import type { NavigationMenuItem } from "@nuxt/ui";
 import type { Role } from "~~/shared/types/enums";
 
+const SESSION_CHECK_INTERVAL_MS = 60_000;
+
 const open = ref(false);
 const { user, session } = useUser();
+const isDesktopSidebar = useMediaQuery("(min-width: 1024px)");
+
+const sidebarCollapsed = (collapsed: boolean) => isDesktopSidebar.value ? collapsed : false;
 
 const closeSidebar = () => {
   open.value = false;
@@ -29,23 +35,17 @@ const adminMenu = [
       onSelect: closeSidebar,
     },
     {
-      label: "รายการชำระเงิน",
-      icon: "i-lucide-receipt",
-      to: "/admin/payment",
-      onSelect: closeSidebar,
-    },
-    {
       label: "รายการรับผ้า",
       icon: "i-lucide-shopping-basket",
       to: "/admin/service-orders",
       onSelect: closeSidebar,
     },
-    // {
-    //   label: "สแกนสถานะผ้า",
-    //   icon: "i-lucide-scan-line",
-    //   to: "/admin/service-orders/scan",
-    //   onSelect: closeSidebar,
-    // },
+    {
+      label: "ประวัติการชำระเงิน",
+      icon: "i-lucide-receipt",
+      to: "/admin/payment",
+      onSelect: closeSidebar,
+    },
     {
       label: "จัดการผู้ใช้งาน",
       icon: "i-lucide-users",
@@ -79,9 +79,9 @@ const adminMenu = [
           onSelect: closeSidebar,
         },
         {
-          label: "ข้อมูลส่วนตัว",
-          icon: "i-lucide-user",
-          to: "/admin/settings/profile",
+          label: "จัดการบัญชี",
+          icon: "i-lucide-user-round-cog",
+          to: "/admin/settings/account",
           exact: true,
           onSelect: closeSidebar,
         },
@@ -99,24 +99,17 @@ const adminMenu = [
           exact: true,
           onSelect: closeSidebar,
         },
-        {
-          label: "จัดการ Rich Menu",
-          icon: "i-lucide-menu",
-          to: "/admin/settings/richmenu",
-          exact: true,
-          onSelect: closeSidebar,
-        },
+        // {
+        //   label: "จัดการ Rich Menu",
+        //   icon: "i-lucide-menu",
+        //   to: "/admin/settings/richmenu",
+        //   exact: true,
+        //   onSelect: closeSidebar,
+        // },
         {
           label: "การแจ้งเตือน",
           icon: "i-lucide-bell",
           to: "/admin/settings/notification",
-          exact: true,
-          onSelect: closeSidebar,
-        },
-        {
-          label: "ความปลอดภัย",
-          icon: "i-lucide-lock",
-          to: "/admin/settings/security",
           exact: true,
           onSelect: closeSidebar,
         },
@@ -171,7 +164,7 @@ const employeeMenu = [
       onSelect: closeSidebar,
     },
     {
-      label: "รายการชำระเงิน",
+      label: "ประวัติการชำระเงิน",
       icon: "i-lucide-receipt",
       to: "/admin/payment",
       onSelect: closeSidebar,
@@ -182,14 +175,6 @@ const employeeMenu = [
       to: "/admin/service-orders",
       onSelect: closeSidebar,
     },
-    // {
-    //   label: "สแกนสถานะผ้า",
-    //   icon: "i-lucide-scan-line",
-    //   to: "/admin/service-orders/scan",
-    //   onSelect: closeSidebar,
-    // },
-    
-    
     {
       label: "จัดการราคาหน้าร้าน",
       icon: "i-lucide-tag",
@@ -204,16 +189,9 @@ const employeeMenu = [
       type: "trigger",
       children: [
         {
-          label: "ข้อมูลส่วนตัว",
-          icon: "i-lucide-user",
-          to: "/admin/settings/profile",
-          exact: true,
-          onSelect: closeSidebar,
-        },
-        {
-          label: "ความปลอดภัย",
-          icon: "i-lucide-lock",
-          to: "/admin/settings/security",
+          label: "จัดการบัญชี",
+          icon: "i-lucide-user-round-cog",
+          to: "/admin/settings/account",
           exact: true,
           onSelect: closeSidebar,
         },
@@ -244,7 +222,7 @@ const groups = computed(() => [
 const checkAdminSession = async () => {
   if (import.meta.server) return;
   try {
-    const currentSession = await $fetch<any>("/api/auth/session-status");
+    const currentSession = await fetchSessionStatus();
     if (!currentSession?.user) {
       session.value = null;
       await navigateTo("/auth/login");
@@ -266,7 +244,7 @@ onMounted(() => {
   void checkAdminSession();
   sessionCheckTimer = setInterval(() => {
     void checkAdminSession();
-  }, 5000);
+  }, SESSION_CHECK_INTERVAL_MS);
   window.addEventListener("focus", checkAdminSession);
 });
 onBeforeUnmount(() => {
@@ -286,17 +264,17 @@ onBeforeUnmount(() => {
         :ui="{ footer: 'lg:border-t lg:border-default/60' }"
       >
         <template #header="{ collapsed }">
-          <AppLogo :collapsed="collapsed" label="ADMIN PANEL" :to="homeTarget" />
+          <AppLogo :collapsed="sidebarCollapsed(collapsed)" label="ADMIN PANEL" :to="homeTarget" />
         </template>
 
         <template #default="{ collapsed }">
-          <UDashboardSearchButton :collapsed="collapsed" class="bg-transparent ring-default" />
+          <UDashboardSearchButton :collapsed="sidebarCollapsed(collapsed)" class="bg-transparent ring-default" />
 
-          <UNavigationMenu :collapsed="collapsed" :items="menu[0]" orientation="vertical" tooltip popover />
+          <UNavigationMenu :collapsed="sidebarCollapsed(collapsed)" :items="menu[0]" orientation="vertical" tooltip popover />
 
           <UNavigationMenu
             v-if="menu[1]?.length"
-            :collapsed="collapsed"
+            :collapsed="sidebarCollapsed(collapsed)"
             :items="menu[1]"
             orientation="vertical"
             tooltip
@@ -305,7 +283,7 @@ onBeforeUnmount(() => {
         </template>
 
         <template #footer="{ collapsed }">
-          <UserMenu :collapsed="collapsed" />
+          <UserMenu :collapsed="sidebarCollapsed(collapsed)" />
         </template>
       </UDashboardSidebar>
 

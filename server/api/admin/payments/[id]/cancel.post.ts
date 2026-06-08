@@ -1,5 +1,6 @@
 import { requireRole } from "~~/server/utils/auth";
 import { prisma } from "~~/server/utils/prisma";
+import { syncUserRichMenu } from "~~/server/utils/line-messaging";
 
 type CancelPaymentBody = { note?: string | null };
 
@@ -15,7 +16,37 @@ export default defineEventHandler(async (event) => {
 
   const existing = await prisma.paymentRecord.findFirst({
     where: { id: paymentId, deletedAt: null },
-    select: { id: true, status: true, method: true, slipImageId: true },
+    select: {
+      id: true,
+      status: true,
+      method: true,
+      slipImageId: true,
+      packageSaleId: true,
+      packageSale: {
+        select: {
+          customerId: true,
+          items: {
+            select: {
+              memberEntitlements: {
+                where: { deletedAt: null },
+                select: {
+                  id: true,
+                  serviceOrders: { where: { deletedAt: null }, select: { id: true }, take: 1 },
+                  serviceOrderAddonUsages: {
+                    where: {
+                      refundedAt: null,
+                      serviceOrder: { deletedAt: null },
+                    },
+                    select: { id: true },
+                    take: 1,
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
   });
 
   if (!existing) {
@@ -28,6 +59,17 @@ export default defineEventHandler(async (event) => {
 
   if (existing.status === "CANCELLED") {
     return { id: paymentId, status: "CANCELLED" as const };
+  }
+
+  const packageEntitlements = existing.packageSale?.items.flatMap((item) => item.memberEntitlements) ?? [];
+  const hasUsedPackageEntitlement = packageEntitlements.some(
+    (entitlement) => entitlement.serviceOrders.length > 0 || entitlement.serviceOrderAddonUsages.length > 0,
+  );
+  if (hasUsedPackageEntitlement) {
+    throw createError({
+      statusCode: 409,
+      statusMessage: "ไม่สามารถยกเลิกการชำระเงินของแพ็กเกจที่ถูกใช้งานแล้ว",
+    });
   }
 
   await prisma.$transaction(async (tx) => {
@@ -45,7 +87,28 @@ export default defineEventHandler(async (event) => {
         note: body.note?.trim() || null,
       },
     });
+    if (existing.packageSaleId) {
+      await tx.packageSale.update({
+        where: { id: existing.packageSaleId },
+        data: { status: "CANCELLED" },
+      });
+    }
+    if (packageEntitlements.length > 0) {
+      await tx.memberEntitlement.updateMany({
+        where: {
+          id: { in: packageEntitlements.map((entitlement) => entitlement.id) },
+          deletedAt: null,
+        },
+        data: { status: "CANCELLED" },
+      });
+    }
   });
+
+  if (existing.packageSale?.customerId) {
+    void syncUserRichMenu(existing.packageSale.customerId).catch((err) => {
+      console.error("[cancel.post] syncUserRichMenu failed", err);
+    });
+  }
 
   return { id: paymentId, status: "CANCELLED" as const };
 });

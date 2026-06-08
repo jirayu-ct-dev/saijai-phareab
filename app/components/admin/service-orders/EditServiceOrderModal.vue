@@ -6,11 +6,8 @@ import type { AdminServiceOrder, CreateAdminServiceOrderBody } from "~~/app/comp
 import { useBusinessSetting } from "~~/app/composables/useBusinessSetting";
 import { formatCurrency } from "~~/shared/utils/format";
 import type { ServiceOrderStatus } from "~~/shared/types/enums";
-import * as adminUi from "~~/shared/config/adminUi";
 
-const adminDashboardCardClass =
-  adminUi.adminDashboardCardClass
-  ?? "admin-dashboard-card rounded-md border border-default/30 bg-default p-4 shadow-[0_1px_2px_rgb(15_23_42/0.04),0_6px_18px_-10px_rgb(15_23_42/0.08)] dark:border-default/20 dark:bg-elevated/55";
+const adminDashboardCardClass = "rounded-md border border-default/30 bg-default p-4 shadow-[0_1px_2px_rgb(15_23_42/0.04),0_6px_18px_-10px_rgb(15_23_42/0.08)] dark:border-default/20 dark:bg-elevated/55 dark:shadow-[0_1px_2px_rgb(0_0_0/0.16),0_8px_22px_-12px_rgb(0_0_0/0.26)]";
 
 type FormItemState = {
   key: string;

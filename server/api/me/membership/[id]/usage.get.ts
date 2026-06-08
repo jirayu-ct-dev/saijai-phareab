@@ -18,7 +18,7 @@ export default defineEventHandler(async (event) => {
       },
       include: {
         product: {
-          select: { name: true }
+          select: { name: true, packageType: true }
         }
       }
     });
@@ -27,42 +27,76 @@ export default defineEventHandler(async (event) => {
       throw createError({ statusCode: 404, statusMessage: "ไม่พบแพ็กเกจ" });
     }
 
-    const usages = await prisma.serviceOrder.findMany({
-      where: {
-        memberEntitlementId: entitlementId,
-        deletedAt: null,
-      },
-      select: {
-        id: true,
-        orderNo: true,
-        receivedAt: true,
-        creditUsed: true,
-        status: true,
-        _count: {
-          select: { serviceOrderItems: { where: { deletedAt: null } } }
-        }
-      },
-      orderBy: { receivedAt: 'desc' }
-    });
+    const usages = entitlement.product.packageType === "ADDON"
+      ? await prisma.serviceOrderAddonUsage.findMany({
+          where: {
+            memberEntitlementId: entitlementId,
+            refundedAt: null,
+            serviceOrder: { deletedAt: null },
+          },
+          select: {
+            id: true,
+            credits: true,
+            serviceOrder: {
+              select: {
+                id: true,
+                orderNo: true,
+                receivedAt: true,
+                status: true,
+                _count: {
+                  select: { serviceOrderItems: { where: { deletedAt: null } } },
+                },
+              },
+            },
+          },
+          orderBy: { serviceOrder: { receivedAt: "desc" } },
+        })
+      : await prisma.serviceOrder.findMany({
+          where: {
+            memberEntitlementId: entitlementId,
+            deletedAt: null,
+          },
+          select: {
+            id: true,
+            orderNo: true,
+            receivedAt: true,
+            creditUsed: true,
+            status: true,
+            _count: {
+              select: { serviceOrderItems: { where: { deletedAt: null } } }
+            }
+          },
+          orderBy: { receivedAt: 'desc' }
+        });
 
     return {
       entitlement: {
         id: entitlement.id,
         productName: entitlement.product.name,
+        packageType: entitlement.product.packageType,
         creditInitial: entitlement.creditInitial,
         creditRemaining: entitlement.creditRemaining,
         status: entitlement.status,
         startAt: entitlement.startAt?.toISOString() || null,
         endAt: entitlement.endAt?.toISOString() || null,
       },
-      usages: usages.map(usage => ({
-        orderId: usage.id,
-        orderNo: usage.orderNo,
-        receivedAt: usage.receivedAt.toISOString(),
-        creditUsed: usage.creditUsed,
-        itemCount: usage._count.serviceOrderItems,
-        status: usage.status,
-      }))
+      usages: entitlement.product.packageType === "ADDON"
+        ? usages.map(usage => ({
+            orderId: usage.serviceOrder.id,
+            orderNo: usage.serviceOrder.orderNo,
+            receivedAt: usage.serviceOrder.receivedAt.toISOString(),
+            creditUsed: usage.credits,
+            itemCount: usage.serviceOrder._count.serviceOrderItems,
+            status: usage.serviceOrder.status,
+          }))
+        : usages.map(usage => ({
+            orderId: usage.id,
+            orderNo: usage.orderNo,
+            receivedAt: usage.receivedAt.toISOString(),
+            creditUsed: usage.creditUsed,
+            itemCount: usage._count.serviceOrderItems,
+            status: usage.status,
+          }))
     };
   } catch (error) {
     console.error("[GET /api/me/membership/[id]/usage]", error);

@@ -13,16 +13,10 @@ enum Role {
   ADMIN
 }
 
-enum BasketStatus {
-  AVAILABLE
-  IN_USE
-}
-
 enum PackageType {
   MAIN
   ADDON
 }
-
 
 enum DeductOn {
   CREATED
@@ -78,21 +72,21 @@ enum PaymentAuditAction {
 }
 
 model User {
-  id            String    @id @default(cuid())
-  email         String    @unique
-  name          String?
-  emailVerified Boolean   @default(false)
-  image         String?
-  role          Role      @default(USER)
-  phoneNumber   String?
-  lineNotifyEnabled Boolean @default(true)
-  isActive      Boolean  @default(true)
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  deletedAt     DateTime?
-  deletedById   String?
-  deletedBy     User?     @relation("DeletedByUser", fields: [deletedById], references: [id])
-  deletedUsers  User[]    @relation("DeletedByUser")
+  id                String    @id @default(cuid())
+  email             String    @unique
+  name              String?
+  emailVerified     Boolean   @default(false)
+  image             String?
+  role              Role      @default(USER)
+  phoneNumber       String?
+  lineNotifyEnabled Boolean   @default(true)
+  isActive          Boolean   @default(true)
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  deletedAt         DateTime?
+  deletedById       String?
+  deletedBy         User?     @relation("DeletedByUser", fields: [deletedById], references: [id])
+  deletedUsers      User[]    @relation("DeletedByUser")
 
   sessions Session[]
   accounts Account[]
@@ -108,20 +102,19 @@ model User {
   userAddresses         UserAddress[]
   uploadedImages        Image[]             @relation("ImageOwner")
 
-  deletedPackageProducts      PackageProduct[]     @relation("PackageProductDeletedBy")
-  deletedPackageSales         PackageSale[]        @relation("PackageSaleDeletedBy")
-  deletedMemberEntitlements   MemberEntitlement[]  @relation("MemberEntitlementDeletedBy")
-  deletedStorefrontServices   StorefrontService[]  @relation("StorefrontServiceDeletedBy")
-  deletedStorefrontItems      StorefrontItem[]     @relation("StorefrontItemDeletedBy")
-  deletedStorefrontPrices     StorefrontPrice[]    @relation("StorefrontPriceDeletedBy")
-  deletedStorefrontCategories StorefrontCategory[] @relation("StorefrontCategoryDeletedBy")
-  deletedBaskets              Basket[]             @relation("BasketDeletedBy")
-  deletedImages               Image[]              @relation("ImageDeletedBy")
-  deletedServiceOrders        ServiceOrder[]       @relation("ServiceOrderDeletedBy")
-  deletedServiceOrderItems    ServiceOrderItem[]   @relation("ServiceOrderItemDeletedBy")
+  deletedPackageProducts        PackageProduct[]        @relation("PackageProductDeletedBy")
+  deletedPackageSales           PackageSale[]           @relation("PackageSaleDeletedBy")
+  deletedMemberEntitlements     MemberEntitlement[]     @relation("MemberEntitlementDeletedBy")
+  deletedStorefrontServices     StorefrontService[]     @relation("StorefrontServiceDeletedBy")
+  deletedStorefrontItems        StorefrontItem[]        @relation("StorefrontItemDeletedBy")
+  deletedStorefrontPrices       StorefrontPrice[]       @relation("StorefrontPriceDeletedBy")
+  deletedStorefrontCategories   StorefrontCategory[]    @relation("StorefrontCategoryDeletedBy")
+  deletedImages                 Image[]                 @relation("ImageDeletedBy")
+  deletedServiceOrders          ServiceOrder[]          @relation("ServiceOrderDeletedBy")
+  deletedServiceOrderItems      ServiceOrderItem[]      @relation("ServiceOrderItemDeletedBy")
   deletedServiceOrderItemImages ServiceOrderItemImage[] @relation("ServiceOrderItemImageDeletedBy")
-  deletedPaymentRecords       PaymentRecord[]      @relation("PaymentRecordDeletedBy")
-  deletedUserAddresses        UserAddress[]        @relation("UserAddressDeletedBy")
+  deletedPaymentRecords         PaymentRecord[]         @relation("PaymentRecordDeletedBy")
+  deletedUserAddresses          UserAddress[]           @relation("UserAddressDeletedBy")
 
   notificationSubscriber NotificationSubscriber?
 
@@ -177,18 +170,18 @@ model Verification {
 }
 
 model Image {
-  id          String   @id @default(cuid())
+  id          String    @id @default(cuid())
   userId      String?
-  user        User?    @relation("ImageOwner", fields: [userId], references: [id])
+  user        User?     @relation("ImageOwner", fields: [userId], references: [id])
   assetId     String?
   publicId    String?
   url         String?
   secureUrl   String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
   deletedAt   DateTime?
   deletedById String?
-  deletedBy   User?    @relation("ImageDeletedBy", fields: [deletedById], references: [id])
+  deletedBy   User?     @relation("ImageDeletedBy", fields: [deletedById], references: [id])
 
   serviceOrderItems      ServiceOrderItem[]      @relation("ServiceOrderItemImage")
   serviceOrderItemImages ServiceOrderItemImage[] @relation("ServiceOrderItemImageAsset")
@@ -240,8 +233,8 @@ model PackageSale {
   deletedById    String?
   deletedBy      User?             @relation("PackageSaleDeletedBy", fields: [deletedById], references: [id])
 
-  items          PackageSaleItem[]
-  payments       PaymentRecord[]
+  items    PackageSaleItem[]
+  payments PaymentRecord[]
 
   @@index([customerId, createdAt])
   @@index([status, createdAt])
@@ -249,17 +242,17 @@ model PackageSale {
 }
 
 model PackageSaleItem {
-  id                 String            @id @default(cuid())
-  packageSaleId      String
-  packageSale        PackageSale       @relation(fields: [packageSaleId], references: [id], onDelete: Cascade)
-  productId          String
-  product            PackageProduct    @relation(fields: [productId], references: [id])
-  itemType           PackageItemType
-  qty                Int               @default(1)
-  unitPrice          Decimal
-  totalPrice         Decimal
-  createdAt          DateTime          @default(now())
-  updatedAt          DateTime          @updatedAt
+  id            String          @id @default(cuid())
+  packageSaleId String
+  packageSale   PackageSale     @relation(fields: [packageSaleId], references: [id], onDelete: Cascade)
+  productId     String
+  product       PackageProduct  @relation(fields: [productId], references: [id])
+  itemType      PackageItemType
+  qty           Int             @default(1)
+  unitPrice     Decimal
+  totalPrice    Decimal
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
 
   memberEntitlements MemberEntitlement[]
 
@@ -269,31 +262,33 @@ model PackageSaleItem {
 }
 
 model MemberEntitlement {
-  id                String            @id @default(cuid())
-  customerId        String
-  customer          User              @relation("MemberEntitlementOwner", fields: [customerId], references: [id])
-  sourceSaleItemId  String?
-  sourceSaleItem    PackageSaleItem?  @relation(fields: [sourceSaleItemId], references: [id])
-  productId         String
-  product           PackageProduct    @relation(fields: [productId], references: [id])
-  status            EntitlementStatus @default(PENDING)
-  creditInitial     Int?
-  creditRemaining   Int?
-  startAt           DateTime?
-  endAt             DateTime?
-  activatedAt       DateTime?
-  suspendedAt       DateTime?
-  createdAt         DateTime          @default(now())
-  updatedAt         DateTime          @updatedAt
-  deletedAt         DateTime?
-  deletedById       String?
-  deletedBy         User?             @relation("MemberEntitlementDeletedBy", fields: [deletedById], references: [id])
+  id               String            @id @default(cuid())
+  customerId       String
+  customer         User              @relation("MemberEntitlementOwner", fields: [customerId], references: [id])
+  sourceSaleItemId String?
+  sourceSaleItem   PackageSaleItem?  @relation(fields: [sourceSaleItemId], references: [id])
+  productId        String
+  product          PackageProduct    @relation(fields: [productId], references: [id])
+  status           EntitlementStatus @default(PENDING)
+  creditInitial    Int?
+  creditRemaining  Int?
+  startAt          DateTime?
+  endAt            DateTime?
+  activatedAt      DateTime?
+  suspendedAt      DateTime?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  deletedAt        DateTime?
+  deletedById      String?
+  deletedBy        User?             @relation("MemberEntitlementDeletedBy", fields: [deletedById], references: [id])
 
-  serviceOrders         ServiceOrder[]
-  payments              PaymentRecord[]
-  expiryNotifications   PackageExpiryNotification[]
+  serviceOrders           ServiceOrder[]
+  payments                PaymentRecord[]
+  serviceOrderAddonUsages ServiceOrderAddonUsage[]
+  expiryNotifications     PackageExpiryNotification[]
 
   @@index([customerId])
+  @@index([customerId, status])
   @@index([productId])
   @@index([sourceSaleItemId])
   @@index([status, endAt])
@@ -372,95 +367,79 @@ model StorefrontPrice {
   @@map("storefront_price")
 }
 
-model Basket {
-  id          String       @id @default(cuid())
-  qrCode      String?
-  label       String?
-  status      BasketStatus @default(AVAILABLE)
-  isActivated Boolean      @default(true)
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
-  deletedAt   DateTime?
-  deletedById String?
-  deletedBy   User?        @relation("BasketDeletedBy", fields: [deletedById], references: [id])
-
-  serviceOrders ServiceOrder[]
-
-  @@map("basket")
-}
-
 model ServiceOrder {
-    id                   String             @id @default(cuid())
-    orderNo              String?            @unique
-    quotationNo          String?            @unique
-    customerId           String
-    customer             User               @relation("ServiceOrderCustomer", fields: [customerId], references: [id])
-    employeeId           String?
-    employee             User?              @relation("ServiceOrderEmployee", fields: [employeeId], references: [id])
-    status               ServiceOrderStatus @default(RECEIVED)
-  isWalkIn             Boolean            @default(false)
-  walkInName           String?
-  walkInPhone          String?
-    memberEntitlementId  String?
-    memberEntitlement    MemberEntitlement? @relation(fields: [memberEntitlementId], references: [id])
-    creditUsed           Int?
-    hangerCharge         Json?
-    receivedAt           DateTime           @default(now())
-    dueAt                DateTime?
-    subtotalAmount       Decimal            @default(0)
-    discountAmount       Decimal            @default(0)
-    totalAmount          Decimal?
-    weightKg                    Decimal?
-    washFoldPricePerKgSnapshot  Decimal?
-    basketId             String?
-    basket               Basket?            @relation(fields: [basketId], references: [id])
-  note                 String?
-  usedBonuses          Json?
-  addonUsages          Json?
-  deliveryAddressSnapshot Json?
-  imageId              String?
-  image                Image?             @relation("ServiceOrderImage", fields: [imageId], references: [id])
-  deliveryImageId      String?
-  deliveryImage        Image?             @relation("ServiceOrderDeliveryImage", fields: [deliveryImageId], references: [id])
-  createdAt            DateTime           @default(now())
-  updatedAt            DateTime           @updatedAt
-  deletedAt            DateTime?
-  deletedById          String?
-  deletedBy            User?              @relation("ServiceOrderDeletedBy", fields: [deletedById], references: [id])
+  id                         String             @id @default(cuid())
+  orderNo                    String?            @unique
+  quotationNo                String?            @unique
+  customerId                 String
+  customer                   User               @relation("ServiceOrderCustomer", fields: [customerId], references: [id])
+  employeeId                 String?
+  employee                   User?              @relation("ServiceOrderEmployee", fields: [employeeId], references: [id])
+  status                     ServiceOrderStatus @default(RECEIVED)
+  isWalkIn                   Boolean            @default(false)
+  walkInName                 String?
+  walkInPhone                String?
+  memberEntitlementId        String?
+  memberEntitlement          MemberEntitlement? @relation(fields: [memberEntitlementId], references: [id])
+  creditUsed                 Int?
+  hangerCharge               Json?
+  receivedAt                 DateTime           @default(now())
+  dueAt                      DateTime?
+  subtotalAmount             Decimal            @default(0)
+  discountAmount             Decimal            @default(0)
+  totalAmount                Decimal?
+  weightKg                   Decimal?
+  washFoldPricePerKgSnapshot Decimal?
+  note                       String?
+  usedBonuses                Json?
+  addonUsages                Json?
+  deliveryAddressSnapshot    Json?
+  imageId                    String?
+  image                      Image?             @relation("ServiceOrderImage", fields: [imageId], references: [id])
+  deliveryImageId            String?
+  deliveryImage              Image?             @relation("ServiceOrderDeliveryImage", fields: [deliveryImageId], references: [id])
+  createdAt                  DateTime           @default(now())
+  updatedAt                  DateTime           @updatedAt
+  deletedAt                  DateTime?
+  deletedById                String?
+  deletedBy                  User?              @relation("ServiceOrderDeletedBy", fields: [deletedById], references: [id])
 
   serviceOrderItems ServiceOrderItem[]
+  addonUsageRecords ServiceOrderAddonUsage[]
   payments          PaymentRecord[]
 
-    @@index([customerId])
-    @@index([employeeId])
-    @@index([memberEntitlementId])
-    @@index([orderNo])
-    @@index([status, createdAt])
-    @@map("service_order")
-  }
+  @@index([customerId])
+  @@index([employeeId])
+  @@index([memberEntitlementId])
+  @@index([orderNo])
+  @@index([quotationNo])
+  @@index([status, createdAt])
+  @@index([status, deletedAt, createdAt])
+  @@map("service_order")
+}
 
 model ServiceOrderItem {
-  id                String          @id @default(cuid())
+  id                String           @id @default(cuid())
   serviceOrderId    String
-  serviceOrder      ServiceOrder    @relation(fields: [serviceOrderId], references: [id], onDelete: Cascade)
+  serviceOrder      ServiceOrder     @relation(fields: [serviceOrderId], references: [id], onDelete: Cascade)
   storefrontPriceId String?
   storefrontPrice   StorefrontPrice? @relation(fields: [storefrontPriceId], references: [id])
   weightKg          Decimal?
   weightLabel       String?
-  isPackageIncluded Boolean         @default(false)
+  isPackageIncluded Boolean          @default(false)
   quantity          Int
   unitPrice         Decimal
   totalPrice        Decimal
   imageId           String?
-  image             Image?          @relation("ServiceOrderItemImage", fields: [imageId], references: [id])
+  image             Image?           @relation("ServiceOrderItemImage", fields: [imageId], references: [id])
   notes             String?
-  createdAt         DateTime        @default(now())
-  updatedAt         DateTime        @updatedAt
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
   deletedAt         DateTime?
   deletedById       String?
-  deletedBy         User?           @relation("ServiceOrderItemDeletedBy", fields: [deletedById], references: [id])
+  deletedBy         User?            @relation("ServiceOrderItemDeletedBy", fields: [deletedById], references: [id])
 
-  photos            ServiceOrderItemImage[]
+  photos ServiceOrderItemImage[]
 
   @@index([serviceOrderId])
   @@index([storefrontPriceId])
@@ -484,6 +463,28 @@ model ServiceOrderItemImage {
   @@index([serviceOrderItemId])
   @@index([imageId])
   @@map("service_order_item_image")
+}
+
+model ServiceOrderAddonUsage {
+  id                  String             @id @default(cuid())
+  serviceOrderId      String
+  serviceOrder        ServiceOrder       @relation(fields: [serviceOrderId], references: [id], onDelete: Cascade)
+  memberEntitlementId String?
+  memberEntitlement   MemberEntitlement? @relation(fields: [memberEntitlementId], references: [id], onDelete: SetNull)
+  productId           String?
+  productName         String?
+  credits             Int
+  deductOn            DeductOn           @default(CREATED)
+  deductedAt          DateTime?
+  refundedAt          DateTime?
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+
+  @@index([serviceOrderId])
+  @@index([memberEntitlementId])
+  @@index([deductOn, deductedAt])
+  @@index([refundedAt])
+  @@map("service_order_addon_usage")
 }
 
 model PaymentRecord {
@@ -515,7 +516,7 @@ model PaymentRecord {
   deletedById         String?
   deletedBy           User?              @relation("PaymentRecordDeletedBy", fields: [deletedById], references: [id])
 
-  auditLogs           PaymentAuditLog[]
+  auditLogs PaymentAuditLog[]
 
   @@index([userId, createdAt])
   @@index([memberEntitlementId])
@@ -528,16 +529,16 @@ model PaymentRecord {
 }
 
 model PaymentAuditLog {
-  id          String             @id @default(cuid())
-  paymentId   String
-  payment     PaymentRecord      @relation(fields: [paymentId], references: [id], onDelete: Cascade)
-  action      PaymentAuditAction
-  actorId     String?
-  actor       User?              @relation("PaymentAuditActor", fields: [actorId], references: [id])
-  beforeJson  Json?
-  afterJson   Json?
-  note        String?
-  createdAt   DateTime           @default(now())
+  id         String             @id @default(cuid())
+  paymentId  String
+  payment    PaymentRecord      @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  action     PaymentAuditAction
+  actorId    String?
+  actor      User?              @relation("PaymentAuditActor", fields: [actorId], references: [id])
+  beforeJson Json?
+  afterJson  Json?
+  note       String?
+  createdAt  DateTime           @default(now())
 
   @@index([paymentId, createdAt])
   @@index([actorId])
@@ -568,10 +569,10 @@ model UserAddress {
 }
 
 model ShopSetting {
-  id        String   @id @default("singleton")
-  name      String   @default("")
-  phone     String   @default("")
-  address   String   @default("")
+  id             String   @id @default("singleton")
+  name           String   @default("")
+  phone          String   @default("")
+  address        String   @default("")
   logoUrl        String?
   lineQrImageUrl String?
   updatedAt      DateTime @updatedAt
@@ -580,35 +581,35 @@ model ShopSetting {
 }
 
 model BusinessSetting {
-  id                  String   @id @default("singleton")
-  hangerPricePerUnit  Decimal  @default(10)
-  washFoldPricePerKg  Decimal  @default(60)
-  washFoldMinKg       Decimal  @default(0)
-  vatRate             Decimal  @default(0)
-  vatIncluded         Boolean  @default(false)
-  paymentNoPrefix     String   @default("PAY-")
-  orderNoPrefix       String   @default("ORD-")
-  quotationNoPrefix   String   @default("QT-")
-  receiptNoPrefix     String   @default("RC-")
-  minimumOrderAmount  Decimal  @default(0)
-  packageRefundDays   Int      @default(7)
-  updatedAt           DateTime @updatedAt
+  id                 String   @id @default("singleton")
+  hangerPricePerUnit Decimal  @default(10)
+  washFoldPricePerKg Decimal  @default(60)
+  washFoldMinKg      Decimal  @default(0)
+  vatRate            Decimal  @default(0)
+  vatIncluded        Boolean  @default(false)
+  paymentNoPrefix    String   @default("PAY-")
+  orderNoPrefix      String   @default("ORD-")
+  quotationNoPrefix  String   @default("QT-")
+  receiptNoPrefix    String   @default("RC-")
+  minimumOrderAmount Decimal  @default(0)
+  packageRefundDays  Int      @default(7)
+  updatedAt          DateTime @updatedAt
 
   @@map("business_setting")
 }
 
 model NotificationSetting {
-  id                          String   @id @default("singleton")
-  notifyCustomerOnQuotation   Boolean  @default(true)
-  notifyCustomerOnReceived    Boolean  @default(true)
-  notifyCustomerOnProcessing  Boolean  @default(true)
-  notifyCustomerOnDelivering  Boolean  @default(true)
-  notifyCustomerOnCompleted   Boolean  @default(true)
-  notifyCustomerOnCancelled   Boolean  @default(true)
-  notifyCustomerReceipt       Boolean  @default(true)
-  notifyStaffOnNewOrder       Boolean  @default(true)
-  notifyCustomerOnPackageExpiring Boolean @default(true)
-  updatedAt                   DateTime @updatedAt
+  id                              String   @id @default("singleton")
+  notifyCustomerOnQuotation       Boolean  @default(true)
+  notifyCustomerOnReceived        Boolean  @default(true)
+  notifyCustomerOnProcessing      Boolean  @default(true)
+  notifyCustomerOnDelivering      Boolean  @default(true)
+  notifyCustomerOnCompleted       Boolean  @default(true)
+  notifyCustomerOnCancelled       Boolean  @default(true)
+  notifyCustomerReceipt           Boolean  @default(true)
+  notifyStaffOnNewOrder           Boolean  @default(true)
+  notifyCustomerOnPackageExpiring Boolean  @default(true)
+  updatedAt                       DateTime @updatedAt
 
   @@map("notification_setting")
 }
@@ -621,7 +622,7 @@ model PackageExpiryNotification {
   endAtSnapshot DateTime
   sentAt        DateTime          @default(now())
 
-  @@unique([entitlementId, daysBefore])
+  @@unique([entitlementId, daysBefore, endAtSnapshot])
   @@index([sentAt])
   @@map("package_expiry_notification")
 }

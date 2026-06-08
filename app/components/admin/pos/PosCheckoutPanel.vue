@@ -62,7 +62,6 @@ const getAvatarProps = (customer?: CustomerOption | null) => ({
   loading: "lazy" as const,
 });
 
-const slipFileInputRef = ref<HTMLInputElement | null>(null);
 const slipObjectUrl = ref<string>("");
 const slipPreviewOpen = ref(false);
 const slipRemoveOpen = ref(false);
@@ -82,24 +81,6 @@ onBeforeUnmount(() => {
 const slipDisplayUrl = computed(() => props.uploadedSlipUrl || slipObjectUrl.value || "");
 const slipLabel = "หลักฐานการชำระเงิน";
 
-const openSlipPicker = () => {
-  if (props.isSubmitting) return;
-  slipFileInputRef.value?.click();
-};
-const onSlipFileSelected = (event: Event) => {
-  const input = event.target as HTMLInputElement | null;
-  const file = input?.files?.[0] ?? null;
-  if (!file) return;
-  emit("update:slipFile", file);
-  if (input) input.value = "";
-};
-const openSlipPreview = () => {
-  if (!slipDisplayUrl.value) return;
-  slipPreviewOpen.value = true;
-};
-const requestRemoveSlip = () => {
-  slipRemoveOpen.value = true;
-};
 const performRemoveSlip = () => {
   emit("remove-slip");
   slipRemoveOpen.value = false;
@@ -108,12 +89,13 @@ const performRemoveSlip = () => {
 const panelClass = computed(() =>
   props.flat
     ? "space-y-2"
-    : "admin-dashboard-card admin-pos-checkout-card rounded-md border border-default/30 bg-default p-4 shadow-[0_1px_2px_rgb(15_23_42/0.04),0_6px_18px_-10px_rgb(15_23_42/0.08)] dark:border-default/20 dark:bg-elevated/55 dark:shadow-[0_1px_2px_rgb(0_0_0/0.16),0_8px_22px_-12px_rgb(0_0_0/0.26)] sm:p-5",
+    :
+    "-mx-2 border border-default/30 bg-default p-4 dark:border-default/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg sm:p-5",
 );
 const panelContentClass = computed(() => props.flat ? "space-y-2" : "mt-5 space-y-4");
 const panelSectionClass = computed(() =>
   props.sectionClass
-  ?? "admin-dashboard-card admin-pos-checkout-card rounded-md border border-default/30 bg-default p-2 shadow-[0_1px_2px_rgb(15_23_42/0.04)] dark:border-default/20 dark:bg-elevated/55",
+  ?? "-mx-2 border border-default/30 bg-default p-2 dark:border-default/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg",
 );
 </script>
 
@@ -196,7 +178,7 @@ const panelSectionClass = computed(() =>
       <slot name="summary" />
 
       <!-- comment ไว้ก่อน ไม่ต้องมาลบ -->
-      <!-- <div v-if="!props.hidePaymentFields" class="rounded-md border border-dashed border-default p-4">
+      <!-- <div v-if="!props.hidePaymentFields" class="rounded-lg border border-dashed border-default p-4">
         <div class="flex items-center justify-between gap-3">
           <div>
             <p class="font-medium text-highlighted">{{ slipLabel }}</p>
@@ -221,7 +203,7 @@ const panelSectionClass = computed(() =>
           @change="onSlipFileSelected"
         >
         <div v-if="slipDisplayUrl" class="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
-          <div class="group relative overflow-hidden rounded-md border border-default bg-muted/30">
+          <div class="group relative overflow-hidden rounded-lg border border-default bg-muted/30">
             <img
               :src="slipDisplayUrl"
               :alt="slipLabel"
@@ -262,7 +244,7 @@ const panelSectionClass = computed(() =>
 
       <div
         v-if="props.hidePaymentFields"
-        :class="props.flat ? [panelSectionClass, 'text-sm'] : 'rounded-md border border-default/35 bg-elevated/70 p-3 text-sm dark:border-default/25 dark:bg-elevated/45'"
+        :class="props.flat ? [panelSectionClass, 'text-sm'] : 'rounded-lg border border-default/35 bg-elevated/70 p-3 text-sm dark:border-default/25 dark:bg-elevated/45'"
       >
         <p class="font-medium text-success">ใช้สิทธิ์แพ็กเกจรายเดือน</p>
         <p class="text-muted">ไม่ต้องชำระเงินเพิ่ม ระบบจะตัดเครดิตให้อัตโนมัติ</p>
@@ -282,7 +264,7 @@ const panelSectionClass = computed(() =>
 
       <slot name="discount" />
 
-      <div :class="props.flat ? [panelSectionClass, 'text-default'] : 'rounded-md bg-elevated/35 p-4 text-default dark:bg-elevated/25'">
+      <div :class="props.flat ? [panelSectionClass, 'text-default'] : 'rounded-lg bg-elevated/35 p-4 text-default dark:bg-elevated/25'">
         <div class="flex items-center justify-between gap-3">
           <div>
             <p class="text-sm/5 text-muted">{{ props.totalLabel }}</p>
@@ -301,9 +283,3 @@ const panelSectionClass = computed(() =>
     </div>
   </section>
 </template>
-
-<style scoped>
-.admin-pos-checkout-card {
-  border-radius: 0.375rem !important;
-}
-</style>

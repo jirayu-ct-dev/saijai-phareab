@@ -7,11 +7,22 @@ export type PosCustomerOption = {
   image?: string | null;
   activeMemberEntitlement?: {
     id: string;
+    productId: string;
     productName: string;
     creditInitial: number | null;
     creditRemaining: number | null;
     endAt: string | null;
   } | null;
+  addonEntitlements?: Array<{
+    id: string;
+    productId: string;
+    productName: string;
+    creditInitial: number | null;
+    creditRemaining: number | null;
+    endAt: string | null;
+    deductOn: "CREATED" | "COMPLETED";
+    isDelivery: boolean;
+  }>;
 };
 
 export const useAdminCustomerOptions = () => {

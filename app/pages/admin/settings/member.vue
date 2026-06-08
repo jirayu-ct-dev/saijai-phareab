@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { parseDate, type CalendarDate } from "@internationalized/date";
-import { adminEmptyStateClass, adminFilterBarClass, adminMobileListCardClass } from "~~/shared/config/adminUi";
 
 definePageMeta({
   middleware: ["role-admin"],
@@ -163,24 +162,15 @@ const onSaveEnt = async () => {
     notify.updated();
     isEntOpen.value = false;
     await refresh();
-  } catch (e: any) {
-    notify.error(e?.statusMessage || "ไม่สามารถแก้ไขแพ็กเกจได้");
+  } catch (error: unknown) {
+    const message = error && typeof error === "object" && "statusMessage" in error
+      ? String((error as { statusMessage?: string }).statusMessage)
+      : "ไม่สามารถแก้ไขแพ็กเกจได้";
+    notify.error(message);
   } finally {
     isEntSaving.value = false;
   }
 };
-
-const setStartToday = () => {
-  const d = new Date();
-  startDate.value = parseDate(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`);
-};
-const extendEndDays = (days: number) => {
-  const base = startDate.value ? new Date(`${startDate.value.year}-${String(startDate.value.month).padStart(2, "0")}-${String(startDate.value.day).padStart(2, "0")}T00:00:00`) : new Date();
-  const t = new Date(base.getTime() + days * 86400000);
-  endDate.value = parseDate(`${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, "0")}-${String(t.getDate()).padStart(2, "0")}`);
-};
-const clearStartDate = () => { startDate.value = null; };
-const clearEndDate = () => { endDate.value = null; };
 
 const isEntDeleteOpen = ref(false);
 const isEntDeleting = ref(false);
@@ -198,8 +188,11 @@ const onConfirmEntDelete = async () => {
     notify.deleted();
     isEntDeleteOpen.value = false;
     await refresh();
-  } catch (e: any) {
-    notify.error(e?.statusMessage || "ไม่สามารถลบแพ็กเกจได้");
+  } catch (error: unknown) {
+    const message = error && typeof error === "object" && "statusMessage" in error
+      ? String((error as { statusMessage?: string }).statusMessage)
+      : "ไม่สามารถลบแพ็กเกจได้";
+    notify.error(message);
   } finally {
     isEntDeleting.value = false;
   }
@@ -222,8 +215,11 @@ const onConfirmDelete = async () => {
     notify.deleted();
     isDeleteOpen.value = false;
     await refresh();
-  } catch (e: any) {
-    notify.error(e?.statusMessage || "ไม่สามารถลบลูกค้าได้");
+  } catch (error: unknown) {
+    const message = error && typeof error === "object" && "statusMessage" in error
+      ? String((error as { statusMessage?: string }).statusMessage)
+      : "ไม่สามารถลบลูกค้าได้";
+    notify.error(message);
   } finally {
     isDeleting.value = false;
   }
@@ -252,14 +248,14 @@ const isExpiringSoon = (s: string | null) => {
 </script>
 
 <template>
-  <div class="mx-auto w-full max-w-6xl space-y-3 p-2 sm:p-6">
-    <div class="rounded-md border border-default/30 bg-default px-4 py-3 shadow-[0_1px_2px_rgb(15_23_42/0.04)] dark:border-default/20 dark:bg-elevated/55">
-      <h1 class="text-xl font-semibold">จัดการสมาชิก</h1>
+  <div class="mx-auto flex w-full max-w-3xl flex-col gap-3 p-2 sm:p-6">
+    <section class="-mx-2 border border-default/30 bg-default px-4 py-3 dark:border-default/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg">
+      <h1 class="text-xl font-semibold text-highlighted">จัดการสมาชิก</h1>
       <p class="mt-1 text-sm text-muted">ลูกค้าที่มีบัญชีและแพ็กเกจรายเดือน</p>
-    </div>
+    </section>
 
     <section class="flex flex-col gap-1">
-      <div :class="[adminFilterBarClass, 'px-3! px-y! flex flex-col gap-1.5']">
+      <div class="-mx-2 flex flex-col gap-1.5 border border-default/30 bg-default px-3! py-3! dark:border-default/40 dark:bg-default/80 sm:mx-0 sm:rounded-lg">
         <div class="flex items-center justify-between gap-1.5">
           <UInput
             v-model="search"
@@ -296,11 +292,11 @@ const isExpiringSoon = (s: string | null) => {
         </div>
       </div>
 
-      <div v-if="isLoading" class="space-y-1">
+      <div v-if="isLoading" class="-mx-2 space-y-1 sm:mx-0">
         <div
           v-for="i in 5"
           :key="`mem-sk-${i}`"
-          :class="[adminMobileListCardClass, 'p-2']"
+          class="border border-default/30 bg-default p-2 dark:border-default/20 dark:bg-elevated/55 sm:rounded-lg"
         >
           <div class="flex items-center gap-3">
             <USkeleton class="size-8 rounded-full shrink-0" />
@@ -309,20 +305,23 @@ const isExpiringSoon = (s: string | null) => {
               <USkeleton class="h-2.5 w-56 rounded" />
             </div>
             <USkeleton class="h-5 w-16 rounded-full shrink-0" />
-            <USkeleton class="size-7 rounded-md shrink-0" />
+            <USkeleton class="size-7 rounded-lg shrink-0" />
           </div>
         </div>
       </div>
 
-      <div v-else-if="!members?.length" :class="adminEmptyStateClass">
+      <div
+        v-else-if="!members?.length"
+        class="flex flex-col items-center justify-center rounded-lg border border-dashed border-default/30 bg-default/55 px-3 py-5 text-center text-muted dark:border-default/20 dark:bg-elevated/30"
+      >
         ไม่พบสมาชิกตามเงื่อนไข
       </div>
 
-      <div v-else class="space-y-1">
+      <div v-else class="-mx-2 space-y-1 sm:mx-0">
         <div
           v-for="m in members"
           :key="m.id"
-          :class="[adminMobileListCardClass, 'space-y-1.5 p-2']"
+          class="space-y-1.5 border border-default/30 bg-default p-2 transition-[background-color,border-color] duration-200 hover:border-default/45 hover:bg-default dark:border-default/20 dark:bg-elevated/55 dark:hover:bg-elevated/70 sm:rounded-lg"
         >
           <div class="grid gap-2 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
             <NuxtLink :to="`/admin/users/${m.id}`" class="flex min-w-0 items-center gap-2 transition hover:opacity-80">
@@ -420,23 +419,23 @@ const isExpiringSoon = (s: string | null) => {
             </div>
 
             <div class="grid grid-cols-4 gap-1 text-xs">
-              <div class="rounded-md bg-elevated/40 px-2 py-1.5 text-right">
+              <div class="rounded-lg bg-elevated/40 px-2 py-1.5 text-right">
                 <p class="text-muted">หลัก</p>
                 <p class="truncate font-semibold">
                   {{ m.mainCreditInitial > 0 ? `${m.mainCreditRemaining}/${m.mainCreditInitial}` : "-" }}
                 </p>
               </div>
-              <div class="rounded-md bg-elevated/40 px-2 py-1.5 text-right">
+              <div class="rounded-lg bg-elevated/40 px-2 py-1.5 text-right">
                 <p class="text-muted">เสริม</p>
                 <p class="truncate font-semibold text-info">
                   {{ m.addonCreditInitial > 0 ? `${m.addonCreditRemaining}/${m.addonCreditInitial}` : "-" }}
                 </p>
               </div>
-              <div class="rounded-md bg-elevated/40 px-2 py-1.5 text-right">
+              <div class="rounded-lg bg-elevated/40 px-2 py-1.5 text-right">
                 <p class="text-muted">หมดอายุ</p>
                 <p class="truncate font-medium">{{ formatDate(m.earliestEndAt) }}</p>
               </div>
-              <div class="rounded-md bg-elevated/40 px-2 py-1.5 text-right">
+              <div class="rounded-lg bg-elevated/40 px-2 py-1.5 text-right">
                 <p class="text-muted">ยอดรวม</p>
                 <p class="truncate font-medium">฿{{ formatCurrency(m.totalSpent) }}</p>
               </div>
@@ -448,13 +447,13 @@ const isExpiringSoon = (s: string | null) => {
               <p class="text-xs font-semibold text-muted">แพ็กเกจของสมาชิก</p>
               <span class="text-xs text-muted">{{ m.entitlements.length }} รายการ</span>
             </div>
-            <p v-if="!m.entitlements.length" class="rounded-md border border-dashed border-default py-2 text-center text-xs text-muted">
+            <p v-if="!m.entitlements.length" class="rounded-lg border border-dashed border-default py-2 text-center text-xs text-muted">
               ลูกค้าคนนี้ยังไม่มีแพ็กเกจ
             </p>
             <div
               v-for="ent in m.entitlements"
               :key="ent.id"
-              class="grid gap-1.5 rounded-md bg-elevated/40 px-2 py-1.5 sm:grid-cols-[minmax(0,1fr)_auto_auto] sm:items-center"
+              class="grid gap-1.5 rounded-lg bg-elevated/40 px-2 py-1.5 sm:grid-cols-[minmax(0,1fr)_auto_auto] sm:items-center"
             >
               <div class="flex min-w-0 items-center gap-1.5">
                 <UBadge :color="ent.product.packageType === 'MAIN' ? 'primary' : 'info'" variant="subtle" size="xs">
@@ -574,7 +573,7 @@ const isExpiringSoon = (s: string | null) => {
             <span class="font-semibold">{{ deletingEnt?.entitlement.product.name }}</span>
             ของลูกค้านี้ใช่หรือไม่?
           </p>
-          <div class="flex items-start gap-2 rounded-md border border-warning/30 bg-warning/5 p-3 text-xs text-warning">
+          <div class="flex items-start gap-2 rounded-lg border border-warning/30 bg-warning/5 p-3 text-xs text-warning">
             <UIcon name="i-lucide-triangle-alert" class="mt-0.5 size-3.5 shrink-0" />
             <span>การลบจะตั้งสถานะเป็น CANCELLED และไม่ส่งผลต่อประวัติการใช้งานเดิม</span>
           </div>
@@ -596,7 +595,7 @@ const isExpiringSoon = (s: string | null) => {
       <template #body>
         <div class="space-y-3 text-sm">
           <p>คุณต้องการลบลูกค้า <span class="font-semibold">{{ deletingMember?.name || deletingMember?.email }}</span> ใช่หรือไม่?</p>
-          <div class="flex items-start gap-2 rounded-md border border-warning/30 bg-warning/5 p-3 text-xs text-warning">
+          <div class="flex items-start gap-2 rounded-lg border border-warning/30 bg-warning/5 p-3 text-xs text-warning">
             <UIcon name="i-lucide-triangle-alert" class="mt-0.5 size-3.5 shrink-0" />
             <span>ลูกค้าที่มีการใช้สิทธิ์แพ็กเกจไปแล้วจะลบไม่ได้ แพ็กเกจที่ยังไม่ถูกใช้จะถูกยกเลิกอัตโนมัติ</span>
           </div>

@@ -1,52 +1,51 @@
-import { z } from "zod/v4";
-import { requireRole } from "~~/server/utils/auth";
 import { prisma } from "~~/server/utils/prisma";
-import { createRichMenuAlias, deleteRichMenuAlias } from "~~/server/utils/line-messaging";
-
-const schema = z.object({
-  id: z.string(),
-  aliasId: z.string().min(1).max(30),
-});
+import { requireRole } from "~~/server/utils/auth";
+import {
+  createRichMenuAlias,
+  deleteRichMenuAlias,
+} from "~~/server/utils/line-messaging";
 
 export default defineEventHandler(async (event) => {
   requireRole(event, ["ADMIN"]);
 
-  const body = await readValidatedBody(event, schema.parse);
-  const { id, aliasId } = body;
+  const body = await readBody<{ id: string; aliasId: string }>(event);
 
-  const richMenu = await prisma.lineRichMenu.findUnique({
-    where: { id },
-  });
+  if (!body?.id) {
+    throw createError({ statusCode: 400, statusMessage: "ไม่พบ id" });
+  }
 
-  if (!richMenu) {
-    throw createError({ statusCode: 404, statusMessage: "ไม่พบ Rich Menu ในระบบ" });
+  if (!body?.aliasId?.trim()) {
+    throw createError({ statusCode: 400, statusMessage: "กรุณาระบุ aliasId" });
+  }
+
+  const menu = await prisma.lineRichMenu.findUnique({ where: { id: body.id } });
+  if (!menu) {
+    throw createError({ statusCode: 404, statusMessage: "ไม่พบ Rich Menu" });
   }
 
   try {
-    // 1. If this exact alias was already registered elsewhere on LINE, delete it first to avoid conflicts
-    await deleteRichMenuAlias(aliasId).catch(() => {});
-
-    // 2. If this menu had a different aliasId previously, delete that one too
-    if (richMenu.aliasId && richMenu.aliasId !== aliasId) {
-      await deleteRichMenuAlias(richMenu.aliasId).catch(() => {});
+    // 1. Delete old alias on LINE if the menu already has one
+    if (menu.aliasId) {
+      await deleteRichMenuAlias(menu.aliasId).catch((err) => {
+        console.warn("[alias.post] Failed to delete old alias:", err?.message || err);
+      });
     }
 
-    // 3. Register the new alias on LINE
-    console.log(`[LINE RichMenu] Creating alias '${aliasId}' for richMenuId: ${richMenu.richMenuId}`);
-    await createRichMenuAlias(aliasId, richMenu.richMenuId);
+    // 2. Create the new alias on LINE
+    await createRichMenuAlias(body.aliasId.trim(), menu.richMenuId);
 
-    // 4. Update aliasId in local database
-    const updated = await prisma.lineRichMenu.update({
-      where: { id },
-      data: { aliasId },
+    // 3. Save to DB
+    await prisma.lineRichMenu.update({
+      where: { id: body.id },
+      data: { aliasId: body.aliasId.trim() },
     });
 
-    return updated;
-  } catch (error: any) {
-    console.error(`[LINE RichMenu Alias API] Failed:`, error);
+    return { success: true };
+  } catch (error) {
+    console.error("[POST /api/admin/settings/richmenu/alias]", error);
     throw createError({
       statusCode: 500,
-      statusMessage: error?.message || "เกิดข้อผิดพลาดในการสร้าง Rich Menu Alias บน LINE",
+      statusMessage: "ไม่สามารถสร้าง Rich Menu Alias ได้",
     });
   }
 });

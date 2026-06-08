@@ -1,93 +1,75 @@
-import { z } from "zod/v4";
-import { requireRole } from "~~/server/utils/auth";
 import { prisma } from "~~/server/utils/prisma";
-import { setDefaultRichMenu, cancelDefaultRichMenu, syncUserRichMenu } from "~~/server/utils/line-messaging";
-
-const schema = z.object({
-  id: z.string(),
-  targetRole: z.enum(["USER", "MEMBER", "EMPLOYEE", "ADMIN"]).nullable().optional(),
-  isDefault: z.boolean().optional(),
-});
+import { requireRole } from "~~/server/utils/auth";
+import {
+  setDefaultRichMenu,
+  cancelDefaultRichMenu,
+  syncUserRichMenu,
+} from "~~/server/utils/line-messaging";
 
 export default defineEventHandler(async (event) => {
   requireRole(event, ["ADMIN"]);
 
-  const body = await readValidatedBody(event, schema.parse);
-  const { id, targetRole, isDefault } = body;
+  const body = await readBody<{
+    id: string;
+    targetRole: string | null;
+    isDefault: boolean;
+  }>(event);
 
-  const richMenu = await prisma.lineRichMenu.findUnique({
-    where: { id },
-  });
+  if (!body?.id) {
+    throw createError({ statusCode: 400, statusMessage: "ไม่พบ id" });
+  }
 
-  if (!richMenu) {
-    throw createError({ statusCode: 404, statusMessage: "ไม่พบ Rich Menu ในระบบ" });
+  const menu = await prisma.lineRichMenu.findUnique({ where: { id: body.id } });
+  if (!menu) {
+    throw createError({ statusCode: 404, statusMessage: "ไม่พบ Rich Menu" });
   }
 
   try {
-    const updated = await prisma.$transaction(async (tx) => {
-      // 1. Handle default changes
-      if (isDefault !== undefined) {
-        if (isDefault) {
-          // Reset default status of other rich menus
-          await tx.lineRichMenu.updateMany({
-            data: { isDefault: false },
-          });
-        }
-      }
+    const wasDefault = menu.isDefault;
 
-      // 2. Handle role mapping changes
-      if (targetRole !== undefined && targetRole !== null) {
-        // Reset role mapping of other rich menus for this specific role
-        await tx.lineRichMenu.updateMany({
-          where: { targetRole },
-          data: { targetRole: null },
-        });
-      }
-
-      return await tx.lineRichMenu.update({
-        where: { id },
-        data: {
-          ...(targetRole !== undefined ? { targetRole } : {}),
-          ...(isDefault !== undefined ? { isDefault } : {}),
-        },
+    // 1. If setting as default, clear all others in DB first
+    if (body.isDefault) {
+      await prisma.lineRichMenu.updateMany({
+        where: { id: { not: body.id } },
+        data: { isDefault: false },
       });
-    });
-
-    // Apply default changes on LINE Messaging API
-    if (isDefault !== undefined) {
-      if (isDefault) {
-        await setDefaultRichMenu(richMenu.richMenuId);
-      } else if (richMenu.isDefault) {
-        await cancelDefaultRichMenu().catch(() => {});
-      }
     }
 
-    // Mass sync all users in background
-    void (async () => {
-      try {
-        console.log(`[LINE RichMenu] Mass syncing users after re-assignment...`);
-        // We sync ALL active users to make sure everyone is on their correct menu
-        const users = await prisma.user.findMany({
-          where: { deletedAt: null, isActive: true },
-          select: { id: true },
-        });
+    // 2. Update the menu
+    await prisma.lineRichMenu.update({
+      where: { id: body.id },
+      data: {
+        targetRole: body.targetRole ?? null,
+        isDefault: body.isDefault,
+      },
+    });
 
-        console.log(`[LINE RichMenu] Syncing ${users.length} users...`);
-        for (const user of users) {
-          await syncUserRichMenu(user.id);
+    // 3. Sync LINE default state
+    if (body.isDefault) {
+      await setDefaultRichMenu(menu.richMenuId);
+    } else if (wasDefault && !body.isDefault) {
+      await cancelDefaultRichMenu();
+    }
+
+    // 4. Background sync all LINE-linked users
+    prisma.account
+      .findMany({
+        where: { providerId: "line" },
+        select: { userId: true },
+      })
+      .then((accounts) => {
+        for (const acc of accounts) {
+          syncUserRichMenu(acc.userId).catch(() => {});
         }
-        console.log(`[LINE RichMenu] Re-assignment sync complete!`);
-      } catch (err) {
-        console.error(`[LINE RichMenu] Mass sync error:`, err);
-      }
-    })();
+      })
+      .catch(() => {});
 
-    return updated;
-  } catch (error: any) {
-    console.error(`[LINE RichMenu Assign API] Failed:`, error);
+    return { success: true };
+  } catch (error) {
+    console.error("[POST /api/admin/settings/richmenu/assign]", error);
     throw createError({
       statusCode: 500,
-      statusMessage: error?.message || "เกิดข้อผิดพลาดในการกำหนดบทบาทของ Rich Menu",
+      statusMessage: "ไม่สามารถกำหนดการตั้งค่า Rich Menu ได้",
     });
   }
 });

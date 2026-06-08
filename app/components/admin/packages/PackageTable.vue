@@ -17,17 +17,6 @@ import {
   formatDateTime,
 } from "~~/shared/utils/format";
 import { cycleColumnSorting } from "~~/shared/utils/table";
-import * as adminUi from "~~/shared/config/adminUi";
-
-const adminDashboardCardClass =
-  adminUi.adminDashboardCardClass
-  ?? "admin-dashboard-card rounded-md border border-default/30 bg-default p-4 shadow-[0_1px_2px_rgb(15_23_42/0.04),0_6px_18px_-10px_rgb(15_23_42/0.08)] dark:border-default/20 dark:bg-elevated/55";
-const adminFilterBarClass =
-  adminUi.adminFilterBarClass
-  ?? "admin-dashboard-card rounded-md border border-default/30 bg-default p-2 shadow-[0_1px_2px_rgb(15_23_42/0.04)] dark:border-default/20 dark:bg-elevated/55";
-const adminEmptyStateClass = adminUi.adminEmptyStateClass;
-const adminMobileListCardClass = adminUi.adminMobileListCardClass;
-const adminTableUi = adminUi.adminTableUi;
 
 const props = defineProps<{
   packages: Package[];
@@ -50,7 +39,15 @@ const UButton = resolveComponent("UButton");
 const UCheckbox = resolveComponent("UCheckbox");
 const UIcon = resolveComponent("UIcon");
 
-const table = useTemplateRef<any>("table");
+type TableRow<T> = { original: T };
+type TableApi = {
+  getFilteredSelectedRowModel: () => { rows: TableRow<Package>[] };
+  getFilteredRowModel: () => { rows: TableRow<Package>[] };
+  resetRowSelection: () => void;
+};
+type TableInstance = { tableApi?: TableApi };
+
+const table = useTemplateRef<TableInstance>("table");
 const columnVisibility = ref<Record<string, boolean>>({});
 const rowSelection = ref<Record<string, boolean>>({});
 const expanded = ref<Record<string, boolean>>({});
@@ -92,7 +89,7 @@ watch([searchQuery, statusFilter, () => props.packages], () => {
   pagination.value.pageIndex = 0;
 });
 
-const selectedRows = computed<any[]>(
+const selectedRows = computed<TableRow<Package>[]>(
   () => table.value?.tableApi?.getFilteredSelectedRowModel().rows ?? [],
 );
 const selectedPackages = computed<Package[]>(() =>
@@ -116,8 +113,7 @@ const setMobileRowSelected = (index: number, value: boolean | "indeterminate") =
     [rowId]: !!value,
   };
   if (!value) {
-    const next = { ...rowSelection.value };
-    delete next[rowId];
+    const { [rowId]: _removedRow, ...next } = rowSelection.value;
     rowSelection.value = next;
   }
 };
@@ -187,7 +183,7 @@ const columns: TableColumn<Package>[] = [
           "div",
           {
             class: [
-              "size-10 rounded-md flex items-center justify-center shrink-0",
+              "size-10 rounded-lg flex items-center justify-center shrink-0",
               pkg.packageType === "MAIN" ? "bg-primary/10" : "bg-info/10",
             ],
           },
@@ -325,79 +321,98 @@ const columns: TableColumn<Package>[] = [
 
 <template>
   <section class="flex flex-col gap-1">
-    <div :class="[adminFilterBarClass, 'px-3! px-y! flex items-center gap-1.5']">
-      <UInput
-        v-model="searchQuery"
-        class="min-w-0 flex-1"
-        icon="i-lucide-search"
-        placeholder="ค้นหาชื่อหรือรายละเอียด..."
-      />
-      <USelect
-        v-model="statusFilter"
-        :items="STATUS_OPTIONS"
-        value-key="value"
-        class="w-28 shrink-0 sm:w-40"
-      />
-      <UButton
-        v-if="selectedRowsCount > 0"
-        color="error"
-        variant="subtle"
-        icon="i-lucide-trash"
-        class="shrink-0 rounded-md!"
-        :aria-label="`ลบ ${selectedRowsCount} รายการ`"
-        @click="handleBulkDelete"
-      >
-        <template #trailing>
-          <UKbd class="hidden sm:inline-flex">{{ selectedRowsCount }}</UKbd>
-        </template>
-      </UButton>
-      <UIButtonRefresh class="shrink-0" :loading="loading" @refresh="emit('refresh')" />
+    <div class="-mx-2 border border-default/30 bg-default p-2 px-3! py-3! dark:border-default/40 dark:bg-default/80 space-y-2 sm:mx-0 sm:rounded-lg md:flex md:items-center md:justify-between md:gap-3 md:space-y-0">
+      <div class="flex min-w-0 items-center gap-2 md:flex-1 md:max-w-sm">
+        <UInput
+          v-model="searchQuery"
+          class="min-w-0 flex-1"
+          icon="i-lucide-search"
+          placeholder="ค้นหาชื่อหรือรายละเอียด..."
+        />
+        <UButton
+          v-if="selectedRowsCount > 0"
+          color="error"
+          variant="subtle"
+          icon="i-lucide-trash"
+          class="shrink-0 md:hidden"
+          :aria-label="`ลบ ${selectedRowsCount} รายการ`"
+          @click="handleBulkDelete"
+        >
+          <template #trailing>
+            <UKbd class="hidden sm:inline-flex">{{ selectedRowsCount }}</UKbd>
+          </template>
+        </UButton>
+        <UIButtonRefresh class="shrink-0 md:hidden" :loading="loading" @refresh="emit('refresh')" />
+      </div>
+
+      <div class="grid grid-cols-1 gap-2 sm:flex sm:flex-wrap sm:items-center md:justify-end">
+        <USelect
+          v-model="statusFilter"
+          :items="STATUS_OPTIONS"
+          value-key="value"
+          class="min-w-0 sm:w-40"
+        />
+        <UButton
+          v-if="selectedRowsCount > 0"
+          color="error"
+          variant="subtle"
+          icon="i-lucide-trash"
+          class="hidden shrink-0 md:inline-flex"
+          :aria-label="`ลบ ${selectedRowsCount} รายการ`"
+          @click="handleBulkDelete"
+        >
+          <template #trailing>
+            <UKbd class="hidden sm:inline-flex">{{ selectedRowsCount }}</UKbd>
+          </template>
+        </UButton>
+        <UIButtonRefresh class="hidden shrink-0 md:inline-flex" :loading="loading" @refresh="emit('refresh')" />
+      </div>
     </div>
 
     <template v-if="showSkeleton">
-      <div class="space-y-1 md:hidden">
+      <div class="-mx-2 space-y-1 sm:mx-0 md:hidden">
         <div
           v-for="i in 5"
           :key="`pk-mob-sk-${i}`"
-          :class="[adminMobileListCardClass, 'admin-dashboard-card rounded-md']"
+          class="overflow-hidden border border-default/30 bg-default transition-[background-color,border-color] duration-200 hover:border-default/45 hover:bg-default dark:border-default/20 dark:bg-elevated/55 dark:hover:bg-elevated/70"
         >
           <div class="flex items-center gap-2 p-2">
-            <USkeleton class="size-4 rounded shrink-0" />
-            <USkeleton class="size-9 rounded-md shrink-0" />
+            <USkeleton class="size-4 rounded-lg shrink-0" />
+            <USkeleton class="size-9 rounded-lg shrink-0" />
             <div class="min-w-0 flex-1 space-y-1.5">
               <div class="flex items-start justify-between gap-2">
                 <div class="min-w-0 flex-1 space-y-1">
-                  <USkeleton class="h-3.5 w-40 rounded" />
-                  <USkeleton class="h-2.5 w-32 rounded" />
+                  <USkeleton class="h-3.5 w-40 rounded-lg" />
+                  <USkeleton class="h-2.5 w-32 rounded-lg" />
                 </div>
                 <USkeleton class="h-4 w-14 rounded-full" />
               </div>
               <div class="flex flex-wrap gap-2">
-                <USkeleton class="h-2.5 w-20 rounded" />
-                <USkeleton class="h-2.5 w-16 rounded" />
+                <USkeleton class="h-2.5 w-20 rounded-lg" />
+                <USkeleton class="h-2.5 w-16 rounded-lg" />
               </div>
               <div class="flex items-center justify-end gap-1">
-                <USkeleton class="size-5 rounded" />
-                <USkeleton class="size-5 rounded" />
+                <USkeleton class="size-5 rounded-lg" />
+                <USkeleton class="size-5 rounded-lg" />
               </div>
             </div>
           </div>
         </div>
       </div>
-      <div :class="[adminDashboardCardClass, 'hidden p-0! md:block']">
+      <div class="hidden rounded-lg border border-default/30 bg-default p-0! dark:border-default/20 dark:bg-elevated/55 md:block">
         <div class="space-y-2 p-3">
-          <USkeleton v-for="i in 8" :key="`pk-dt-sk-${i}`" class="h-12 w-full rounded-md" />
+          <USkeleton v-for="i in 8" :key="`pk-dt-sk-${i}`" class="h-12 w-full rounded-lg" />
         </div>
       </div>
     </template>
 
     <template v-else>
     <div class="md:hidden">
-      <div v-if="loading" class="space-y-1">
-        <USkeleton v-for="i in 5" :key="i" class="h-24 w-full rounded-md" />
+      <div v-if="loading" class="-mx-2 space-y-1 sm:mx-0">
+        <USkeleton v-for="i in 5" :key="i" class="h-24 w-full rounded-lg" />
       </div>
 
-      <div v-else-if="!paginatedPackages.length" :class="adminEmptyStateClass">
+      <div v-else-if="!paginatedPackages.length" class="flex flex-col items-center justify-center rounded-lg border border-dashed border-default/30 bg-default/55 px-3 py-5 text-center text-muted dark:border-default/20 dark:bg-elevated/30">
         <UIcon name="i-lucide-package-x" class="mb-3 size-10 opacity-60" />
         <p class="font-medium">ไม่พบแพ็กเกจ</p>
         <p class="mt-1 text-sm">
@@ -405,11 +420,11 @@ const columns: TableColumn<Package>[] = [
         </p>
       </div>
 
-      <div v-else class="space-y-1">
+      <div v-else class="-mx-2 space-y-1 sm:mx-0">
         <div
           v-for="(pkg, index) in paginatedPackages"
           :key="pkg.id"
-          :class="[adminMobileListCardClass, 'admin-dashboard-card rounded-md']"
+          class="overflow-hidden border border-default/30 bg-default transition-[background-color,border-color] duration-200 hover:border-default/45 hover:bg-default dark:border-default/20 dark:bg-elevated/55 dark:hover:bg-elevated/70"
         >
           <div class="flex items-center gap-2 p-2">
             <UCheckbox
@@ -419,7 +434,7 @@ const columns: TableColumn<Package>[] = [
               @update:model-value="setMobileRowSelected(index, $event)"
             />
             <div
-              class="flex size-9 shrink-0 items-center justify-center rounded-md"
+              class="flex size-9 shrink-0 items-center justify-center rounded-lg"
               :class="pkg.packageType === 'MAIN' ? 'bg-primary/10' : 'bg-info/10'"
             >
               <UIcon
@@ -459,9 +474,14 @@ const columns: TableColumn<Package>[] = [
                 <span v-if="pkg.packageType === 'ADDON'">หัก: {{ getDeductOnLabel(pkg) }}</span>
               </div>
 
-              <div class="mt-1 flex items-center justify-end gap-1">
-                <UButton icon="i-lucide-pencil" size="xs" color="neutral" variant="ghost" aria-label="แก้ไขแพ็กเกจ" @click="emit('edit', pkg)" />
-                <UButton icon="i-lucide-trash-2" size="xs" color="error" variant="ghost" aria-label="ลบแพ็กเกจ" @click="emit('delete', pkg)" />
+              <div class="mt-1 flex items-center justify-between gap-2">
+                <div class="min-w-0 truncate text-[11px] text-muted">
+                  สร้าง {{ formatDateTime(pkg.createdAt) }}
+                </div>
+                <div class="flex shrink-0 items-center justify-end gap-1">
+                  <UButton icon="i-lucide-pencil" size="xs" color="neutral" variant="ghost" aria-label="แก้ไขแพ็กเกจ" @click="emit('edit', pkg)" />
+                  <UButton icon="i-lucide-trash-2" size="xs" color="error" variant="ghost" aria-label="ลบแพ็กเกจ" @click="emit('delete', pkg)" />
+                </div>
               </div>
             </div>
           </div>
@@ -469,7 +489,7 @@ const columns: TableColumn<Package>[] = [
       </div>
     </div>
 
-    <div :class="[adminDashboardCardClass, 'hidden shrink-0 overflow-hidden p-0! md:block']">
+    <div class="hidden shrink-0 overflow-hidden rounded-lg border border-default/30 bg-default p-0! dark:border-default/20 dark:bg-elevated/55 md:block">
     <UTable
       ref="table"
       v-model:column-visibility="columnVisibility"
@@ -480,13 +500,21 @@ const columns: TableColumn<Package>[] = [
       :data="filteredPackages"
       :columns="columns"
       :loading="loading"
-      :ui="adminTableUi"
+      :ui="{
+        root: 'relative overflow-x-auto',
+        base: 'table-fixed border-separate border-spacing-0',
+        thead: 'sticky top-0 z-1 [&>tr]:bg-default dark:[&>tr]:bg-default/80 [&>tr]:after:content-none',
+        tbody: '[&>tr]:last:[&>td]:border-b-0 [&>tr:hover>td]:bg-primary/5 dark:[&>tr:hover>td]:bg-elevated/45',
+        th: 'border-b border-default bg-default py-2.5 text-xs font-semibold uppercase tracking-wide text-toned dark:border-default/40 dark:bg-default/80',
+        td: 'border-b border-default py-2.5 transition-colors dark:border-default/25',
+        separator: 'h-0',
+      }"
     >
       <template #empty>
         <div v-if="loading" class="space-y-2 p-3">
-          <USkeleton v-for="i in 6" :key="`pk-tbl-${i}`" class="h-12 w-full rounded-md" />
+          <USkeleton v-for="i in 6" :key="`pk-tbl-${i}`" class="h-12 w-full rounded-lg" />
         </div>
-        <div v-else :class="adminEmptyStateClass">
+        <div v-else class="flex flex-col items-center justify-center rounded-lg border border-dashed border-default/30 bg-default/55 px-3 py-5 text-center text-muted dark:border-default/20 dark:bg-elevated/30">
           <UIcon name="i-lucide-package-x" class="size-10 mb-3 opacity-60" />
           <p class="font-medium">ไม่พบแพ็กเกจ</p>
           <p class="text-sm mt-1">
@@ -496,7 +524,7 @@ const columns: TableColumn<Package>[] = [
       </template>
 
       <template #expanded="{ row }">
-        <div class="px-4 py-4 bg-elevated/40 border-t border-default">
+        <div class="border-t border-default bg-default px-4 py-4 dark:bg-elevated/45">
           <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div class="space-y-3 min-w-0">
               <p class="text-xs font-semibold text-muted uppercase tracking-wide">ข้อมูลทั่วไป</p>
@@ -565,7 +593,7 @@ const columns: TableColumn<Package>[] = [
 
     </template>
 
-    <div class="flex items-center justify-between gap-3 border-t border-default pt-4 mt-auto flex-wrap">
+    <div class="mt-auto flex flex-wrap items-center justify-between gap-3 border-t border-default pt-4">
       <div class="text-sm text-muted">
         <template v-if="showSkeleton">
           <span class="inline-flex items-center gap-2">

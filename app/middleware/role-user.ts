@@ -1,14 +1,6 @@
-import type { Role } from "~~/shared/types/enums";
-
-type SessionUserWithRole = {
-  role?: Role;
-  isActive?: boolean;
-};
-
 export default defineNuxtRouteMiddleware(async () => {
   const authSession = useState<unknown | null>("auth:session", () => null);
-  const headers = import.meta.server ? useRequestHeaders(["cookie"]) : undefined;
-  const session = await $fetch<any>("/api/auth/session-status", { headers });
+  const session = await fetchSessionStatus();
 
   if (!session?.user) {
     authSession.value = null;
@@ -16,14 +8,12 @@ export default defineNuxtRouteMiddleware(async () => {
   }
 
   authSession.value = session;
-  const user = session.user as SessionUserWithRole;
+  const user = session.user;
   const role = user.role;
 
-  if ((role === "ADMIN" || role === "EMPLOYEE") && user.isActive !== false) {
-    return navigateTo("/admin");
-  }
-
-  if ((role === "ADMIN" || role === "EMPLOYEE") && user.isActive === false) {
+  // ADMIN / EMPLOYEE can access /me for their own laundry
+  // (active or inactive — inactive still blocked from /admin by role-admin.ts)
+  if (role === "ADMIN" || role === "EMPLOYEE") {
     return;
   }
 

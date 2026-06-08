@@ -17,7 +17,7 @@ const sections: Section[] = [
     title: "การรับผ้าหน้าร้าน",
     icon: "i-lucide-shirt",
     paragraphs: [
-      "หน้า POS รับผ้าใช้ที่เมนู 'รับผ้า → หน้าร้าน'",
+      "หน้า POS รับผ้าใช้ที่เมนู 'รับผ้า → หน้าร้าน' และเป็นจุดเริ่มต้นของ flow งานซักรีดทั้งหมด",
       {
         type: "step",
         items: [
@@ -26,13 +26,14 @@ const sections: Section[] = [
           "ถ่ายรูปผ้า — ถ้ามีผ้าชำรุดติ๊ก 'ผ้าชำรุด' ในรูปนั้น",
           "ระบุจำนวนไม้แขวนที่ขาด (ถ้ามี — โหมดชั่งกิโลไม่นับไม้แขวน)",
           "ระบุวันนัดรับผ้า (ปุ่มลัด พุธ/เสาร์ หรือไม่ระบุ)",
-          "ถ้าลูกค้าเป็นสมาชิกแพ็กเกจ ระบบจะ toggle ให้ใช้เครดิตอัตโนมัติ",
-          "กดบันทึก — ระบบบันทึกออเดอร์ ส่งแจ้งเตือน LINE 'รายการนับผ้า' แล้วเปลี่ยนสถานะเป็น 'กำลังดำเนินการ' ต่อทันที",
+          "ถ้าลูกค้าเป็นสมาชิกแพ็กเกจ ระบบจะใช้เครดิตแพ็กเกจหลักอัตโนมัติตามสิทธิ์ที่ยังเหลือ",
+          "ถ้ามีแพ็กเกจเสริม ระบบจะหักเครดิตตามเงื่อนไขของแพ็กเกจนั้น และแสดงรายละเอียดไว้ในข้อมูลการชำระเงิน",
+          "กดบันทึก — ระบบสร้างรายการรับผ้า, อัปเดตสถานะเป็น 'รับผ้าแล้ว', ส่งแจ้งเตือน LINE และถ้ายอดชำระเป็น 0 จะตั้งสถานะชำระเงินเป็น 'ชำระแล้ว' ให้อัตโนมัติ",
         ],
       },
       {
         type: "note",
-        text: "ลูกค้าที่ผูก LINE จะได้รับแจ้งเตือน 2 ข้อความต่อเนื่อง: รายการนับผ้า → กำลังดำเนินการ",
+        text: "ถ้ามีค่าใช้จ่ายเพิ่ม เช่น ค่าไม้แขวน หรือยอดเกินสิทธิ์ ระบบจะยังคงสร้างประวัติการชำระเงินและใบแจ้งราคาเพื่อให้ลูกค้าชำระส่วนต่าง",
       },
     ],
   },
@@ -90,7 +91,7 @@ const sections: Section[] = [
         type: "list",
         items: [
           "แพ็กเกจหลัก (MAIN) — เครดิตสำหรับบริการซักทั่วไป หักเครดิตตอนรับผ้า",
-          "แพ็กเกจเสริม (ADDON) — บริการพิเศษ เช่น จัดส่งถึงบ้าน หักเครดิตตอนที่ตั้งค่าไว้ (รับผ้า หรือ จัดส่งสำเร็จ)",
+          "แพ็กเกจเสริม (ADDON) — บริการพิเศษ เช่น จัดส่งถึงบ้าน หักเครดิตตอนที่ตั้งค่าไว้ (รับผ้า หรือจัดส่งสำเร็จ)",
         ],
       },
       {
@@ -103,7 +104,57 @@ const sections: Section[] = [
       },
       {
         type: "note",
-        text: "ลูกค้าจะได้รับ flex message ใบเสร็จ + รายละเอียดเครดิต/วันเริ่ม/วันหมดอายุทาง LINE",
+        text: "ลูกค้าจะได้รับใบเสร็จและรายละเอียดเครดิต/วันเริ่ม/วันหมดอายุทาง LINE",
+      },
+    ],
+  },
+  {
+    id: "addon-usage",
+    title: "การใช้แพ็กเกจเสริมในออเดอร์",
+    icon: "i-lucide-plus-circle",
+    paragraphs: [
+      "การใช้แพ็กเกจเสริมถูกบันทึกแยกใน `service_order_addon_usage` และจะแสดงผลรวมไว้ในข้อมูลการชำระเงินของออเดอร์",
+      {
+        type: "step",
+        items: [
+          "เลือกลูกค้าในหน้า POS รับผ้า",
+          "เลือกแพ็กเกจเสริมที่ต้องการใช้ ระบบจะแสดงชื่อ เครดิตคงเหลือ และจังหวะการหักเครดิต",
+          "บันทึกออเดอร์ ระบบจะเก็บประวัติการใช้เครดิตไว้กับออเดอร์และใช้ประกอบการออกเอกสารชำระเงิน",
+        ],
+      },
+      {
+        type: "list",
+        items: [
+          "หักเมื่อรับผ้า (CREATED) — เครดิตถูกหักทันทีตอนบันทึกออเดอร์",
+          "หักเมื่อเสร็จสิ้น (COMPLETED) — ระบบจองรายการใช้ไว้ก่อน และหักเครดิตตอนเปลี่ยนสถานะเป็นเสร็จสิ้น",
+          "ยกเลิกหรือลบออเดอร์ — ระบบคืนเฉพาะเครดิตเสริมที่เคยถูกหักแล้ว",
+          "ถ้าต้องแก้จำนวนเครดิตเสริมหลังบันทึกออเดอร์ ให้ตรวจสอบเครดิตที่ถูกหักแล้วก่อนยกเลิกหรือแก้ไขรายการ",
+        ],
+      },
+      {
+        type: "note",
+        text: "แพ็กเกจเสริมใช้กับลูกค้าที่มีบัญชีเท่านั้น ลูกค้าหน้าร้านแบบ walk-in ใช้เครดิตแพ็กเกจไม่ได้",
+      },
+    ],
+  },
+  {
+    id: "payment-history",
+    title: "ประวัติการชำระเงิน",
+    icon: "i-lucide-receipt",
+    paragraphs: [
+      "เมนู 'ประวัติการชำระเงิน' ใช้ดูรายการขายทั้งหมด ทั้งออเดอร์ซักรีดและการขายแพ็กเกจ",
+      {
+        type: "list",
+        items: [
+          "เปิดรายการเพื่อดูรายละเอียดชำระเงิน, ใบแจ้งราคา, ใบเสร็จ และหมายเหตุ",
+          "ถ้าเป็นออเดอร์สมาชิก จะแสดงชื่อแพ็กเกจหลักและแพ็กเกจเสริมที่เกี่ยวข้องในบรรทัดเดียว",
+          "ถ้ายอดชำระเป็น 0 จากสิทธิ์แพ็กเกจ ระบบจะตั้งเป็นชำระแล้วอัตโนมัติ",
+          "ถ้ามีส่วนต่าง เช่น ค่าไม้แขวน ระบบจะยังคงให้ชำระส่วนต่างผ่านสถานะปกติ",
+        ],
+      },
+      {
+        type: "note",
+        text: "หน้า `/admin/payment` เป็นหน้าประวัติย้อนหลัง ไม่ใช่หน้าทำรายการหลัก",
       },
     ],
   },
@@ -112,19 +163,19 @@ const sections: Section[] = [
     title: "การอัปเดตสถานะออเดอร์",
     icon: "i-lucide-refresh-cw",
     paragraphs: [
-      "เปิดหน้ารายละเอียดออเดอร์หรือใช้ /admin/service-orders/scan เพื่อสแกน QR",
+      "เปิดหน้ารายละเอียดออเดอร์เพื่อจัดการสถานะ",
       {
         type: "list",
         items: [
           "รับผ้า (RECEIVED) → กำลังดำเนินการ (PROCESSING): ระบบเปลี่ยนอัตโนมัติหลังบันทึกออเดอร์",
           "กำลังดำเนินการ → กำลังจัดส่ง (DELIVERING): ผ้าพร้อมส่ง",
-          "กำลังจัดส่ง → เสร็จสิ้น (COMPLETED): ส่งให้ลูกค้าแล้ว ต้องอัปโหลดรูปหลักฐานการส่ง",
-          "ทุกสถานะ → ยกเลิก (CANCELLED): คืนเครดิตให้ลูกค้าอัตโนมัติถ้าใช้แพ็กเกจ",
+          "กำลังจัดส่ง → เสร็จสิ้น (COMPLETED): ส่งให้ลูกค้าแล้ว ต้องอัปโหลดรูปหลักฐานการส่ง และระบบจะหักแพ็กเกจเสริมที่ตั้งค่าให้หักตอนเสร็จสิ้น",
+          "ทุกสถานะ → ยกเลิก (CANCELLED): คืนเครดิตให้ลูกค้าอัตโนมัติถ้าใช้แพ็กเกจหลักหรือแพ็กเกจเสริมที่ถูกหักแล้ว",
         ],
       },
       {
         type: "note",
-        text: "ทุกครั้งที่เปลี่ยนสถานะ ลูกค้าจะได้รับ LINE notification ตามที่ admin ตั้งค่าไว้",
+        text: "ถ้าแพ็กเกจเสริมแบบหักตอนเสร็จสิ้นเครดิตไม่พอ ระบบจะไม่ยอมเปลี่ยนเป็นสถานะเสร็จสิ้น ต้องตรวจสอบเครดิตหรือแก้ไขออเดอร์ก่อน",
       },
     ],
   },
@@ -174,10 +225,10 @@ const sections: Section[] = [
         type: "list",
         items: [
           "ข้อมูลร้าน — ชื่อร้าน, ที่อยู่, โลโก้, QR LINE สำหรับใบเสร็จ",
-          "การแจ้งเตือน — เปิด/ปิดการแจ้งเตือนแต่ละสถานะผ่าน LINE",
+          "การแจ้งเตือน — เปิด/ปิดการแจ้งเตือนแต่ละสถานะผ่าน LINE และการแจ้งใบแจ้งราคา/แพ็กเกจใกล้หมด",
           "ตั้งค่าธุรกิจ — ค่าไม้แขวน, ราคา/กก. ซัก-พับ, VAT, prefix เลขเอกสาร",
           "ราคาหน้าร้าน — ตั้งราคาคงที่หรือช่วงราคาแต่ละรายการ",
-          "Export ข้อมูล — ดาวน์โหลดรายงานยอดขาย/ออเดอร์/สมาชิกเป็น CSV",
+          "สำรองข้อมูล — ดาวน์โหลดรายงานยอดขาย/ออเดอร์/แพ็กเกจเสริม/สมาชิกเป็น CSV",
           "จัดการพนักงาน — สร้างพนักงานใหม่ หรือเลื่อนผู้ใช้ในระบบเป็นพนักงาน/admin",
           "จัดการสมาชิก — ดูเครดิต แก้ไข ลบ สมาชิกที่มีแพ็กเกจ",
         ],
@@ -202,7 +253,12 @@ const sections: Section[] = [
       "เครดิตแพ็กเกจเสริมไม่ถูกหักหลังรับผ้า?",
       {
         type: "note",
-        text: "แพ็กเกจเสริมบางประเภทตั้งค่าให้หักเครดิตตอน 'จัดส่งสำเร็จ' ไม่ใช่ตอนรับผ้า ดูค่า 'หักเครดิตเมื่อ' ในหน้าจัดการแพ็กเกจ",
+        text: "ตรวจสอบก่อนว่าได้กรอกจำนวนเครดิตในส่วน 'แพ็กเกจเสริม' ตอนรับผ้าหรือไม่ และดูค่า 'หักเครดิตเมื่อ' ของแพ็กเกจนั้น บางแพ็กเกจจะหักตอนเปลี่ยนออเดอร์เป็นเสร็จสิ้น",
+      },
+      "เปลี่ยนสถานะเป็นเสร็จสิ้นไม่ได้เพราะเครดิตเสริมไม่พอ?",
+      {
+        type: "note",
+        text: "แพ็กเกจเสริมที่ตั้งค่าให้หักตอนเสร็จสิ้นจะตรวจเครดิตอีกครั้ง ณ ตอนเปลี่ยนสถานะ ถ้าลูกค้าใช้เครดิตไปแล้ว ให้เติม/แก้ไขสิทธิ์ หรือแก้ออเดอร์เพื่อลดจำนวนเครดิตเสริมก่อน",
       },
       "ลบออเดอร์/ใบเสร็จไม่ได้?",
       {
@@ -230,16 +286,16 @@ const tocAnchors = sections.map((s) => ({ id: s.id, title: s.title, icon: s.icon
 </script>
 
 <template>
-  <div class="w-full p-6 max-w-4xl mx-auto space-y-6">
-    <div>
-      <h1 class="text-xl font-semibold">คู่มือการใช้งาน</h1>
-      <p class="text-sm text-muted mt-1">วิธีใช้งานระบบสำหรับพนักงานและผู้ดูแล</p>
-    </div>
+  <div class="mx-auto flex w-full max-w-3xl flex-col gap-3 p-2 sm:p-6">
+    <section class="-mx-2 border border-default/30 bg-default px-4 py-3 dark:border-default/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg">
+      <h1 class="text-xl font-semibold text-highlighted">คู่มือการใช้งาน</h1>
+      <p class="mt-1 text-sm text-muted">วิธีใช้งานระบบสำหรับพนักงานและผู้ดูแล</p>
+    </section>
 
-    <UCard>
-      <template #header>
-        <p class="font-semibold">สารบัญ</p>
-      </template>
+    <section class="-mx-2 border border-default/30 bg-default p-4 dark:border-default/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg">
+      <div class="mb-4">
+        <p class="font-semibold text-highlighted">สารบัญ</p>
+      </div>
       <ul class="space-y-1.5">
         <li v-for="t in tocAnchors" :key="t.id">
           <a :href="`#${t.id}`" class="flex items-center gap-2 text-sm text-primary hover:underline">
@@ -248,39 +304,40 @@ const tocAnchors = sections.map((s) => ({ id: s.id, title: s.title, icon: s.icon
           </a>
         </li>
       </ul>
-    </UCard>
+    </section>
 
     <section
       v-for="s in sections"
       :id="s.id"
       :key="s.id"
-      class="rounded-md border border-default bg-default p-6 scroll-mt-20"
+      class="-mx-2 scroll-mt-20 border border-default/30 bg-default p-4 dark:border-default/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg"
     >
-      <div class="flex items-center gap-3 mb-4">
+      <div class="mb-4 flex items-center gap-3">
         <UIcon :name="s.icon" class="size-6 text-primary" />
-        <h2 class="text-lg font-semibold">{{ s.title }}</h2>
+        <h2 class="text-lg font-semibold text-highlighted">{{ s.title }}</h2>
       </div>
 
       <div class="space-y-3 text-sm">
         <template v-for="(p, i) in s.paragraphs" :key="i">
           <p v-if="typeof p === 'string'" class="text-default">{{ p }}</p>
-          <ul v-else-if="p.type === 'list'" class="list-disc pl-5 space-y-1 text-muted">
+          <ul v-else-if="p.type === 'list'" class="list-disc space-y-1 pl-5 text-muted">
             <li v-for="(item, j) in p.items" :key="j">{{ item }}</li>
           </ul>
-          <ol v-else-if="p.type === 'step'" class="list-decimal pl-5 space-y-1 text-muted">
+          <ol v-else-if="p.type === 'step'" class="list-decimal space-y-1 pl-5 text-muted">
             <li v-for="(item, j) in p.items" :key="j">{{ item }}</li>
           </ol>
           <div
             v-else-if="p.type === 'note'"
-            class="rounded-md border border-info/30 bg-info/5 p-3 text-info text-xs"
+            class="flex items-start gap-2 rounded-lg border border-info/30 bg-info/5 p-3 text-xs text-info"
           >
-            💡 {{ p.text }}
+            <UIcon name="i-lucide-lightbulb" class="mt-0.5 size-3.5 shrink-0" />
+            <span>{{ p.text }}</span>
           </div>
         </template>
       </div>
     </section>
 
-    <div class="text-center text-xs text-muted py-4">
+    <div class="py-4 text-center text-xs text-muted">
       หากมีปัญหาหรือข้อสงสัย ติดต่อทีมพัฒนาระบบ
     </div>
   </div>

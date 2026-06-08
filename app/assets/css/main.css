@@ -64,7 +64,8 @@ body {
 }
 
 .dark .admin-shell div.border-b.border-default.shrink-0 {
-    background-color: color-mix(in srgb, var(--ui-bg-elevated) 62%, var(--ui-bg)) !important;
+    background-color: color-mix(in srgb, var(--ui-bg) 80%, transparent) !important;
+    backdrop-filter: blur(4px);
 }
 
 @media (min-width: 640px) {

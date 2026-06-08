@@ -1,4 +1,5 @@
 import { prisma } from '~~/server/utils/prisma'
+import { requireRole } from '~~/server/utils/auth'
 
 interface CreatePackageBody {
     name: string
@@ -17,6 +18,8 @@ interface CreatePackageBody {
  * สร้างแพ็กเกจใหม่แบบเดี่ยว
  */
 export default defineEventHandler(async (event) => {
+    await requireRole(event, ['ADMIN'])
+
     const body = await readBody<CreatePackageBody>(event)
 
     // --- Validation ---

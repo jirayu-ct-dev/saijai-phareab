@@ -1,0 +1,2 @@
+-- RenameIndex
+ALTER INDEX "package_expiry_notification_entitlementId_daysBefore_endAtSnaps" RENAME TO "package_expiry_notification_entitlementId_daysBefore_endAtS_key";

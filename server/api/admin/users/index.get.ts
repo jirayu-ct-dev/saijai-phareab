@@ -1,6 +1,9 @@
 import { prisma } from "~~/server/utils/prisma";
+import { requireRole } from "~~/server/utils/auth";
 
-export default defineEventHandler(async () => {
+export default defineEventHandler(async (event) => {
+  await requireRole(event, ["ADMIN"]);
+
   try {
     const now = new Date();
     const rows = await prisma.user.findMany({
@@ -13,6 +16,7 @@ export default defineEventHandler(async () => {
         role: true,
         phoneNumber: true,
         emailVerified: true,
+        isActive: true,
         createdAt: true,
         updatedAt: true,
         memberEntitlements: {

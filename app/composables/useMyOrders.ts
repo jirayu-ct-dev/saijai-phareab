@@ -1,11 +1,11 @@
 export const useMyOrders = () => {
   const page = ref(1);
   const pageSize = ref(10);
-  const status = ref<string>("");
+  const status = ref<string>("ALL");
 
   const query = computed(() => {
     const q: any = { page: page.value, pageSize: pageSize.value };
-    if (status.value) q.status = status.value;
+    if (status.value && status.value !== "ALL") q.status = status.value;
     return q;
   });
 

@@ -6,6 +6,7 @@ export type CreateAdminServiceOrderBody = {
   walkInName?: string | null;
   walkInPhone?: string | null;
   memberEntitlementId?: string | null;
+  addonEntitlements?: Array<{ entitlementId: string; credits: number }>;
   orderImageId?: string | null;
   deliveryImageId?: string | null;
   items?: Array<{
@@ -31,6 +32,10 @@ export type CreateAdminServiceOrderBody = {
 
 export type UpdateAdminServiceOrderBody = CreateAdminServiceOrderBody;
 
+export type UpdateAdminServiceOrderStatusBody = {
+  status: ServiceOrderStatus;
+};
+
 export type CreateAdminServiceOrderResult = {
   id: string;
   orderNo: string | null;
@@ -45,6 +50,16 @@ export type AdminServiceOrder = {
   walkInName: string | null;
   walkInPhone: string | null;
   creditUsed: number | null;
+  addonUsages?: Array<{
+    id?: string;
+    entitlementId: string | null;
+    productId: string | null;
+    productName: string | null;
+    credits: number;
+    deductOn: "CREATED" | "COMPLETED";
+    deductedAt: string | null;
+    refundedAt: string | null;
+  }>;
   note: string | null;
   receivedAt: string;
   dueAt: string | null;
@@ -77,6 +92,22 @@ export type AdminServiceOrder = {
       validityDays: number | null;
     };
   } | null;
+  activeEntitlements?: Array<{
+    id: string;
+    status: string;
+    creditInitial: number | null;
+    creditRemaining: number | null;
+    endAt: string | null;
+    product: {
+      id: string;
+      name: string;
+      packageType: string;
+      credits: number | null;
+      validityDays: number | null;
+      deductOn?: "CREATED" | "COMPLETED";
+      isDelivery?: boolean;
+    };
+  }>;
   hangerCharge: {
     count: number;
     pricePerUnit: number;
@@ -193,28 +224,14 @@ export const useAdminServiceOrders = (options: UseAdminServiceOrdersOptions = {}
     }
   };
 
-  const updateServiceOrderStatus = async (
-    id: string,
-    status: ServiceOrderStatus,
-    options?: {
-      deliveryImageId?: string | null;
-      addonUsages?: Array<{ entitlementId: string; credits: number }>;
-    },
-  ): Promise<boolean> => {
+  const updateServiceOrderStatus = async (id: string, body: UpdateAdminServiceOrderStatusBody): Promise<boolean> => {
     try {
-      const body: {
-        status: ServiceOrderStatus;
-        deliveryImageId?: string | null;
-        addonUsages?: Array<{ entitlementId: string; credits: number }>;
-      } = { status };
-      if (options && "deliveryImageId" in options) body.deliveryImageId = options.deliveryImageId ?? null;
-      if (options?.addonUsages?.length) body.addonUsages = options.addonUsages;
       await $fetch(`/api/admin/service-orders/${id}/status`, { method: "PATCH", body });
       if (refreshAfterMutation) await refresh();
-      notify.updated("สถานะงาน");
+      notify.updated("สถานะรายการรับผ้า");
       return true;
     } catch (error: unknown) {
-      notify.error(getErrorMessage(error, "ไม่สามารถอัปเดตสถานะงานได้"));
+      notify.error(getErrorMessage(error, "ไม่สามารถอัปเดตสถานะรายการรับผ้าได้"));
       return false;
     }
   };

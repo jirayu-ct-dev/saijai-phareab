@@ -2,12 +2,6 @@
 import { packageTypeColors, packageTypeLabels } from '~~/shared/config/packageConfig'
 import { orderStatusLabels } from '~~/shared/config/orderConfig'
 import { formatCurrency, formatDateTime } from '~~/shared/utils/format'
-import * as adminUi from '~~/shared/config/adminUi'
-
-const adminDashboardBodyClass =
-  adminUi.adminDashboardBodyClass
-  ?? 'admin-dashboard flex flex-col gap-3 p-2 sm:p-6'
-const userDetailBodyClass = [adminDashboardBodyClass, '!gap-3'].join(' ')
 import type {
   EntitlementStatus,
   PackageSaleStatus,
@@ -208,48 +202,44 @@ const customerRows = computed<InfoRow[]>(() => {
   ]
 })
 
-const customerRowsLeft = computed(() => customerRows.value.slice(0, Math.ceil(customerRows.value.length / 2)))
-const customerRowsRight = computed(() => customerRows.value.slice(Math.ceil(customerRows.value.length / 2)))
-
 const statCards = computed(() => {
-  if (!stats.value) return []
+  if (!stats.value || !user.value) return []
 
   const s = stats.value
-  const cards = [
-    s.totalEntitlementCount > 0 && {
+  return [
+    {
       title: 'แพ็กเกจที่ใช้งานอยู่',
       icon: 'i-lucide-package-check',
       value: String(s.activeEntitlementCount),
-      hint: `สิทธิ์ทั้งหมด ${s.totalEntitlementCount}`
+      hint: s.totalEntitlementCount ? `สิทธิ์ทั้งหมด ${s.totalEntitlementCount}` : 'ยังไม่มีแพ็กเกจ'
     },
-    s.mainCreditsInitial > 0 && {
-      title: 'เครดิตหลัก',
+    {
+      title: 'เครดิตคงเหลือ',
       icon: 'i-lucide-coins',
-      value: `${s.mainCreditsRemaining}/${s.mainCreditsInitial}`,
-      hint: `ใช้ไป ${s.mainCreditsInitial - s.mainCreditsRemaining}`
+      value: String(s.totalCreditsRemaining),
+      hint: s.totalCreditsUsed ? `ใช้ไป ${s.totalCreditsUsed} เครดิต` : 'ยังไม่มีการใช้เครดิต'
     },
-    s.addonCreditsInitial > 0 && {
-      title: 'เครดิตเสริม',
-      icon: 'i-lucide-sparkles',
-      value: `${s.addonCreditsRemaining}/${s.addonCreditsInitial}`,
-      hint: `ใช้ไป ${s.addonCreditsInitial - s.addonCreditsRemaining}`
-    },
-    s.totalPayments > 0 && {
+    {
       title: 'ยอดชำระสะสม',
       icon: 'i-lucide-banknote',
       value: formatCurrency(s.totalSpent),
       hint: `${s.totalPayments} รายการชำระเงิน`,
       to: '/admin/payment'
     },
-    s.totalServiceOrders > 0 && {
+    {
       title: 'รายการผ้าทั้งหมด',
       icon: 'i-lucide-clipboard-list',
       value: String(s.totalServiceOrders),
-      hint: `${s.totalPackageSales} รายการขายแพ็กเกจ`,
+      hint: s.totalPackageSales ? `${s.totalPackageSales} รายการขายแพ็กเกจ` : 'ยังไม่มีรายการขายแพ็กเกจ',
       to: '/admin/service-orders'
+    },
+    {
+      title: 'สถานะบัญชี',
+      icon: user.value.emailVerified ? 'i-lucide-check-circle' : 'i-lucide-clock',
+      value: roleLabelMap[user.value.role],
+      hint: user.value.emailVerified ? 'ยืนยันอีเมลแล้ว' : 'รอยืนยันอีเมล'
     }
-  ]
-  return cards.filter(Boolean) as Array<{ title: string; icon: string; value: string; hint: string; to?: string }>
+  ] satisfies Array<{ title: string; icon: string; value: string; hint: string; to?: string }>
 })
 
 const paymentSummary = (payment: UserDetailResponse['recentPayments'][number]) => {
@@ -279,6 +269,7 @@ const orderItemCount = (order: UserDetailResponse['recentServiceOrders'][number]
 </script>
 
 <template>
+  <div class="contents">
   <UDashboardPanel id="user-detail">
     <template #header>
       <UDashboardNavbar :title="user?.name || user?.email || 'รายละเอียดลูกค้า'" icon="i-lucide-user-round">
@@ -315,55 +306,57 @@ const orderItemCount = (order: UserDetailResponse['recentServiceOrders'][number]
 
     <template #body>
       <!-- Loading Skeleton -->
-      <div v-if="showSkeleton" :class="userDetailBodyClass">
+      <div v-if="showSkeleton" class="flex flex-col gap-3 p-2 sm:p-6">
+        <div class="-mx-2 border border-default/30 bg-default p-5! dark:border-default/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg">
         <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div class="flex items-center gap-3">
             <USkeleton class="size-16 rounded-full" />
             <div class="space-y-2">
-              <USkeleton class="h-5 w-48 rounded" />
-              <USkeleton class="h-3 w-40 rounded" />
+              <USkeleton class="h-5 w-48 rounded-lg" />
+              <USkeleton class="h-3 w-40 rounded-lg" />
             </div>
           </div>
           <div class="flex gap-2">
-            <USkeleton class="h-9 w-24 rounded-md" />
-            <USkeleton class="h-9 w-24 rounded-md" />
+            <USkeleton class="h-9 w-24 rounded-lg" />
+            <USkeleton class="h-9 w-24 rounded-lg" />
           </div>
         </div>
+        </div>
 
-        <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <USkeleton v-for="i in 4" :key="`u-stat-${i}`" class="h-20 w-full rounded-md" />
+        <div class="-mx-2 grid grid-cols-2 gap-2 sm:mx-0 sm:gap-3 xl:grid-cols-4">
+          <USkeleton v-for="i in 4" :key="`u-stat-${i}`" class="h-20 w-full rounded-lg" />
         </div>
 
         <div class="grid gap-3 lg:grid-cols-2">
-          <div v-for="i in 4" :key="`u-card-${i}`" class="rounded-md border border-default bg-default p-5 space-y-3">
-            <USkeleton class="h-5 w-40 rounded" />
+          <div v-for="i in 4" :key="`u-card-${i}`" class="-mx-2 space-y-3 border border-default/30 bg-default p-5! dark:border-default/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg">
+            <USkeleton class="h-5 w-40 rounded-lg" />
             <div class="space-y-2">
-              <USkeleton v-for="j in 3" :key="`u-card-${i}-${j}`" class="h-10 w-full rounded-md" />
+              <USkeleton v-for="j in 3" :key="`u-card-${i}-${j}`" class="h-10 w-full rounded-lg" />
             </div>
           </div>
         </div>
       </div>
 
       <!-- Error State -->
-      <div v-else-if="error" :class="userDetailBodyClass">
-        <div class="rounded-md border border-error/40 bg-error/5 p-6 text-error">
+      <div v-else-if="error" class="flex flex-col gap-3 p-2 sm:p-6">
+        <div class="-mx-2 border border-error/40 bg-error/5 p-6! text-error sm:mx-0 sm:rounded-lg">
           {{ error.statusMessage || 'ไม่สามารถโหลดรายละเอียดลูกค้าได้' }}
         </div>
       </div>
 
       <!-- Not Found -->
-      <div v-else-if="!user || !stats" :class="userDetailBodyClass">
-        <div class="rounded-md border border-default bg-default p-6">
+      <div v-else-if="!user || !stats" class="flex flex-col gap-3 p-2 sm:p-6">
+        <div class="-mx-2 border border-default/30 bg-default p-6! dark:border-default/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg">
           <p class="text-base font-semibold text-highlighted">ไม่พบข้อมูลลูกค้า</p>
           <p class="mt-2 text-sm text-muted">ลูกค้านี้อาจถูกลบหรือคุณไม่มีสิทธิ์เข้าถึง</p>
         </div>
       </div>
 
       <!-- Main Content -->
-      <div v-else :class="userDetailBodyClass">
+      <div v-else class="flex flex-col gap-3 p-2 sm:p-6">
 
         <!-- SECTION 1: Profile Header -->
-        <UCard :ui="{ body: 'p-4! sm:p-5!' }">
+        <section class="-mx-2 space-y-3 border border-default/30 bg-default p-4 dark:border-default/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg">
           <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div class="flex items-start gap-4">
               <UAvatar v-bind="getAvatarProps(user)" size="xl" class="shrink-0 ring-2 ring-primary/15" />
@@ -372,7 +365,7 @@ const orderItemCount = (order: UserDetailResponse['recentServiceOrders'][number]
                   <h1 class="truncate text-xl font-bold text-highlighted sm:text-2xl">
                     {{ user.name || user.email || '-' }}
                   </h1>
-                  <UBadge v-if="hasMembership" color="primary" variant="subtle" size="sm" :ui="{ base: 'rounded-md!' }">
+                  <UBadge v-if="hasMembership" color="primary" variant="subtle" size="sm">
                     <UIcon name="i-lucide-crown" class="size-3 mr-1" />ลูกค้ารายเดือน
                   </UBadge>
                 </div>
@@ -385,30 +378,29 @@ const orderItemCount = (order: UserDetailResponse['recentServiceOrders'][number]
                   {{ user.phoneNumber }}
                 </p>
                 <div class="flex flex-wrap items-center gap-1.5 pt-1">
-                  <UBadge color="neutral" variant="subtle" size="sm" :ui="{ base: 'rounded-md!' }">{{ roleLabelMap[user.role] }}</UBadge>
-                  <UBadge :color="user.emailVerified ? 'success' : 'warning'" variant="subtle" size="sm" :ui="{ base: 'rounded-md!' }">
+                  <UBadge color="neutral" variant="subtle" size="sm">{{ roleLabelMap[user.role] }}</UBadge>
+                  <UBadge :color="user.emailVerified ? 'success' : 'warning'" variant="subtle" size="sm">
                     <UIcon :name="user.emailVerified ? 'i-lucide-check-circle' : 'i-lucide-clock'" class="size-3 mr-1" />
                     {{ user.emailVerified ? 'ยืนยันอีเมลแล้ว' : 'รอยืนยันอีเมล' }}
                   </UBadge>
-                  <UBadge v-if="user.lineUserId" color="success" variant="subtle" size="sm" icon="i-simple-icons-line" :ui="{ base: 'rounded-md!' }">LINE</UBadge>
+                  <UBadge v-if="user.lineUserId" color="success" variant="subtle" size="sm" icon="i-simple-icons-line">LINE</UBadge>
                 </div>
               </div>
             </div>
             <UIButtonChatLine :line-user-id="user.lineUserId" label="แชท LINE" size="sm" class="self-start shrink-0" />
           </div>
-        </UCard>
+        </section>
 
         <!-- SECTION 2: Stats Grid -->
-        <div v-if="statCards.length" class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-          <UCard
+        <section v-if="statCards.length" class="-mx-2 grid grid-cols-2 gap-2 sm:mx-0 sm:gap-3 lg:grid-cols-5">
+          <NuxtLink
             v-for="card in statCards"
             :key="card.title"
             :to="card.to"
-            :ui="{ body: 'p-3 sm:p-4' }"
-            :class="['transition', card.to ? 'hover:ring-1 hover:ring-primary/40 cursor-pointer' : '']"
+            :class="['min-h-28 bg-default p-3! dark:bg-elevated/55 sm:rounded-lg sm:border sm:border-default/30 sm:dark:border-default/20', card.to ? 'cursor-pointer transition-colors hover:bg-default/70 dark:hover:bg-elevated/70' : 'pointer-events-none']"
           >
             <div class="flex items-start gap-2.5">
-              <div class="flex size-9 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
+              <div class="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
                 <UIcon :name="card.icon" class="size-4.5" />
               </div>
               <div class="min-w-0 flex-1">
@@ -417,13 +409,13 @@ const orderItemCount = (order: UserDetailResponse['recentServiceOrders'][number]
                 <p class="text-[10px] text-muted truncate">{{ card.hint }}</p>
               </div>
             </div>
-          </UCard>
-        </div>
+          </NuxtLink>
+        </section>
 
         <!-- SECTION 3: ข้อมูลทั่วไป + แพ็กเกจ -->
         <div class="grid gap-3 lg:grid-cols-2">
           <!-- ข้อมูลทั่วไป -->
-          <UCard :ui="{ body: 'p-4! sm:p-5!' }">
+          <section class="-mx-2 space-y-3 border border-default/30 bg-default p-4 dark:border-default/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg">
             <p class="text-sm font-semibold text-highlighted mb-3">ข้อมูลทั่วไป</p>
             <dl class="space-y-2.5">
               <div v-for="row in customerRows" :key="row.label" class="flex items-baseline justify-between gap-3">
@@ -431,10 +423,10 @@ const orderItemCount = (order: UserDetailResponse['recentServiceOrders'][number]
                 <dd class="text-right text-xs text-highlighted" :class="row.valueClass">{{ row.value }}</dd>
               </div>
             </dl>
-          </UCard>
+          </section>
 
           <!-- แพ็กเกจ -->
-          <UCard id="packages" :ui="{ body: 'p-4! sm:p-5!' }">
+          <section id="packages" class="-mx-2 space-y-3 border border-default/30 bg-default p-4 dark:border-default/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg">
             <div class="flex items-center justify-between gap-2 mb-3">
               <p class="text-sm font-semibold text-highlighted">แพ็กเกจ</p>
               <UBadge color="neutral" variant="subtle" size="sm">{{ entitlements.length }} รายการ</UBadge>
@@ -449,7 +441,7 @@ const orderItemCount = (order: UserDetailResponse['recentServiceOrders'][number]
                 <div class="min-w-0 flex-1">
                   <div class="flex flex-wrap items-center gap-1">
                     <p class="text-sm text-highlighted truncate">{{ entitlement.product.name }}</p>
-                    <UBadge :color="packageTypeColors[entitlement.product.packageType]" variant="subtle" size="xs" :ui="{ base: 'rounded-md!' }">
+                    <UBadge :color="packageTypeColors[entitlement.product.packageType]" variant="subtle" size="xs">
                       {{ packageTypeLabels[entitlement.product.packageType] }}
                     </UBadge>
                   </div>
@@ -459,20 +451,20 @@ const orderItemCount = (order: UserDetailResponse['recentServiceOrders'][number]
                     <template v-if="entitlement.endAt"> · หมด {{ formatDateTime(entitlement.endAt) }}</template>
                   </p>
                 </div>
-                <UBadge :color="entitlementStatusMap[entitlement.status].color" variant="subtle" size="xs" class="shrink-0" :ui="{ base: 'rounded-md!' }">
+                <UBadge :color="entitlementStatusMap[entitlement.status].color" variant="subtle" size="xs" class="shrink-0">
                   {{ entitlementStatusMap[entitlement.status].label }}
                 </UBadge>
               </div>
             </div>
             <p v-else class="text-sm text-muted py-4 text-center">ยังไม่มีแพ็กเกจ</p>
-          </UCard>
+          </section>
         </div>
 
         <!-- SECTION 4: กิจกรรมล่าสุด -->
         <div class="grid gap-3 lg:grid-cols-3">
 
           <!-- การซื้อแพ็กเกจ -->
-          <UCard :ui="{ body: 'p-4! sm:p-5!' }">
+          <section class="-mx-2 space-y-3 border border-default/30 bg-default p-4 dark:border-default/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg">
             <div class="flex items-center justify-between gap-2 mb-3">
               <div class="flex items-center gap-1.5">
                 <p class="text-sm font-semibold text-highlighted">การซื้อแพ็กเกจ</p>
@@ -481,7 +473,7 @@ const orderItemCount = (order: UserDetailResponse['recentServiceOrders'][number]
               <UButton icon="i-lucide-arrow-up-right" color="neutral" variant="ghost" size="xs" @click="navigateTo('/admin/sales')" />
             </div>
             <div v-if="recentSales.length" class="divide-y divide-default">
-              <div v-for="sale in recentSales" :key="sale.id" class="py-2.5 first:pt-0 last:pb-0 cursor-pointer hover:bg-elevated/50 -mx-2 px-2 rounded-md transition-colors" @click="navigateTo('/admin/sales')">
+              <div v-for="sale in recentSales" :key="sale.id" class="py-2.5 first:pt-0 last:pb-0 cursor-pointer hover:bg-elevated/50 -mx-2 px-2 transition-colors sm:rounded-lg" @click="navigateTo('/admin/sales')">
                 <div class="flex items-center justify-between gap-2">
                   <p class="text-xs text-highlighted truncate">{{ saleSummary(sale) }}</p>
                   <span class="text-xs font-semibold text-highlighted shrink-0">{{ formatCurrency(sale.totalAmount) }}</span>
@@ -493,10 +485,10 @@ const orderItemCount = (order: UserDetailResponse['recentServiceOrders'][number]
               </div>
             </div>
             <p v-else class="text-xs text-muted py-4 text-center">ยังไม่มีประวัติ</p>
-          </UCard>
+          </section>
 
           <!-- รายการผ้า -->
-          <UCard :ui="{ body: 'p-4! sm:p-5!' }">
+          <section class="-mx-2 space-y-3 border border-default/30 bg-default p-4 dark:border-default/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg">
             <div class="flex items-center justify-between gap-2 mb-3">
               <div class="flex items-center gap-1.5">
                 <p class="text-sm font-semibold text-highlighted">รายการผ้า</p>
@@ -505,7 +497,7 @@ const orderItemCount = (order: UserDetailResponse['recentServiceOrders'][number]
               <UButton icon="i-lucide-arrow-up-right" color="neutral" variant="ghost" size="xs" @click="navigateTo('/admin/service-orders')" />
             </div>
             <div v-if="recentServiceOrders.length" class="divide-y divide-default">
-              <div v-for="order in recentServiceOrders" :key="order.id" class="py-2.5 first:pt-0 last:pb-0 cursor-pointer hover:bg-elevated/50 -mx-2 px-2 rounded-md transition-colors" @click="navigateTo(`/admin/service-orders/${order.id}`)">
+              <div v-for="order in recentServiceOrders" :key="order.id" class="py-2.5 first:pt-0 last:pb-0 cursor-pointer hover:bg-elevated/50 -mx-2 px-2 transition-colors sm:rounded-lg" @click="navigateTo(`/admin/service-orders/${order.id}`)">
                 <div class="flex items-center justify-between gap-2">
                   <p class="text-xs text-highlighted truncate">{{ orderItemCount(order) }} ชิ้น</p>
                   <span class="text-xs font-semibold text-highlighted shrink-0">{{ formatOrderTotal(order.totalAmount) }}</span>
@@ -517,10 +509,10 @@ const orderItemCount = (order: UserDetailResponse['recentServiceOrders'][number]
               </div>
             </div>
             <p v-else class="text-xs text-muted py-4 text-center">ยังไม่มีประวัติ</p>
-          </UCard>
+          </section>
 
           <!-- การชำระเงิน -->
-          <UCard :ui="{ body: 'p-4! sm:p-5!' }">
+          <section class="-mx-2 space-y-3 border border-default/30 bg-default p-4 dark:border-default/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg">
             <div class="flex items-center justify-between gap-2 mb-3">
               <div class="flex items-center gap-1.5">
                 <p class="text-sm font-semibold text-highlighted">การชำระเงิน</p>
@@ -529,7 +521,7 @@ const orderItemCount = (order: UserDetailResponse['recentServiceOrders'][number]
               <UButton icon="i-lucide-arrow-up-right" color="neutral" variant="ghost" size="xs" @click="navigateTo('/admin/payment')" />
             </div>
             <div v-if="recentPayments.length" class="divide-y divide-default">
-              <div v-for="payment in recentPayments" :key="payment.id" class="py-2.5 first:pt-0 last:pb-0 cursor-pointer hover:bg-elevated/50 -mx-2 px-2 rounded-md transition-colors" @click="navigateTo(`/admin/payment/${payment.id}`)">
+              <div v-for="payment in recentPayments" :key="payment.id" class="py-2.5 first:pt-0 last:pb-0 cursor-pointer hover:bg-elevated/50 -mx-2 px-2 transition-colors sm:rounded-lg" @click="navigateTo(`/admin/payment/${payment.id}`)">
                 <div class="flex items-center justify-between gap-2">
                   <p class="text-xs text-highlighted truncate">{{ paymentSummary(payment) }}</p>
                   <span class="text-xs font-semibold text-highlighted shrink-0">{{ formatCurrency(payment.amount) }}</span>
@@ -541,9 +533,10 @@ const orderItemCount = (order: UserDetailResponse['recentServiceOrders'][number]
               </div>
             </div>
             <p v-else class="text-xs text-muted py-4 text-center">ยังไม่มีประวัติ</p>
-          </UCard>
+          </section>
         </div>
       </div>
     </template>
   </UDashboardPanel>
+  </div>
 </template>

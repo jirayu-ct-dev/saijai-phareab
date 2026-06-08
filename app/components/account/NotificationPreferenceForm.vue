@@ -39,17 +39,18 @@ const onToggle = async (value: boolean) => {
 </script>
 
 <template>
-  <USkeleton v-if="isLoading" class="h-32 w-full rounded-md" />
+  <USkeleton v-if="isLoading" class="h-32 w-full rounded-lg" />
 
-  <UCard v-else class="p-2">
-    <template #header>
-      <div>
-        <p class="font-semibold">การแจ้งเตือนทาง LINE</p>
-        <p class="mt-1 text-xs text-muted">เปิด/ปิดการรับใบเสร็จและสถานะผ่าน LINE</p>
-      </div>
-    </template>
+  <section
+    v-else
+    class="-mx-2 border border-default/30 bg-default p-4 dark:border-default/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg"
+  >
+    <div class="mb-4">
+      <p class="font-semibold text-highlighted">การแจ้งเตือนทาง LINE</p>
+      <p class="mt-1 text-xs text-muted">เปิด/ปิดการรับใบเสร็จและสถานะผ่าน LINE</p>
+    </div>
 
-    <div v-if="!data?.hasLineLinked" class="mb-3 flex items-start gap-2 rounded-md border border-warning/30 bg-warning/5 p-3 text-sm text-warning">
+    <div v-if="!data?.hasLineLinked" class="mb-3 flex items-start gap-2 rounded-lg border border-warning/30 bg-warning/5 p-3 text-sm text-warning">
       <UIcon name="i-lucide-triangle-alert" class="mt-0.5 size-4 shrink-0" />
       <span>ยังไม่ได้เชื่อมบัญชี LINE เชื่อมก่อนเพื่อรับการแจ้งเตือน</span>
     </div>
@@ -65,5 +66,5 @@ const onToggle = async (value: boolean) => {
         @update:model-value="onToggle"
       />
     </div>
-  </UCard>
+  </section>
 </template>

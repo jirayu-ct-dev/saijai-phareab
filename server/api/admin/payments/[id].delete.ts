@@ -1,5 +1,6 @@
 import { requireRole } from "~~/server/utils/auth";
 import { prisma } from "~~/server/utils/prisma";
+import { syncUserRichMenu } from "~~/server/utils/line-messaging";
 
 export default defineEventHandler(async (event) => {
   const actor = requireRole(event, ["ADMIN"]);
@@ -20,11 +21,23 @@ export default defineEventHandler(async (event) => {
         packageSale: {
           select: {
             id: true,
+            customerId: true,
             items: {
               select: {
                 memberEntitlements: {
                   where: { deletedAt: null },
-                  select: { id: true },
+                  select: {
+                    id: true,
+                    serviceOrders: { where: { deletedAt: null }, select: { id: true }, take: 1 },
+                    serviceOrderAddonUsages: {
+                      where: {
+                        refundedAt: null,
+                        serviceOrder: { deletedAt: null },
+                      },
+                      select: { id: true },
+                      take: 1,
+                    },
+                  },
                 },
               },
             },
@@ -35,6 +48,17 @@ export default defineEventHandler(async (event) => {
 
     if (!existing) {
       throw createError({ statusCode: 404, statusMessage: "ไม่พบรายการชำระเงินที่ต้องการลบ" });
+    }
+
+    const packageEntitlements = existing.packageSale?.items.flatMap((item) => item.memberEntitlements) ?? [];
+    const hasUsedPackageEntitlement = packageEntitlements.some(
+      (entitlement) => entitlement.serviceOrders.length > 0 || entitlement.serviceOrderAddonUsages.length > 0,
+    );
+    if (hasUsedPackageEntitlement) {
+      throw createError({
+        statusCode: 409,
+        statusMessage: "ไม่สามารถลบการชำระเงินของแพ็กเกจที่ถูกใช้งานแล้ว",
+      });
     }
 
     await prisma.$transaction(async (tx) => {
@@ -81,6 +105,12 @@ export default defineEventHandler(async (event) => {
         });
       }
     });
+
+    if (existing.packageSale?.customerId) {
+      void syncUserRichMenu(existing.packageSale.customerId).catch((err) => {
+        console.error("[DELETE /api/admin/payments/:id] syncUserRichMenu failed", err);
+      });
+    }
 
     return { success: true };
   } catch (error) {

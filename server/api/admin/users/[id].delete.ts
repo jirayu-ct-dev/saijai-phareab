@@ -1,5 +1,6 @@
 import { prisma } from "~~/server/utils/prisma";
-import { requireUser } from "~~/server/utils/auth";
+import { requireRole } from "~~/server/utils/auth";
+import { isWalkInCustomerEmail } from "~~/server/utils/walkInCustomer";
 
 export default defineEventHandler(async (event) => {
   const id = getRouterParam(event, "id");
@@ -7,7 +8,7 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, statusMessage: "Missing user id" });
   }
 
-  const actor = requireUser(event);
+  const actor = requireRole(event, ["ADMIN"]);
   if (actor.id === id) {
     throw createError({
       statusCode: 400,
@@ -24,7 +25,7 @@ export default defineEventHandler(async (event) => {
       throw createError({ statusCode: 404, statusMessage: "User not found" });
     }
 
-    if (existing.email === "walkin@saijai.local") {
+    if (isWalkInCustomerEmail(existing.email)) {
       throw createError({
         statusCode: 400,
         statusMessage: "Cannot delete system default user",

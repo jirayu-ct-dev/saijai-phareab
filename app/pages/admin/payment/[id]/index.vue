@@ -1,29 +1,27 @@
-﻿<script setup lang="ts">
+<script setup lang="ts">
 import type { EntitlementStatus, PackageSaleStatus, PaymentMethod, PaymentStatus, ServiceOrderStatus } from "~~/shared/types/enums";
 import { packageTypeColors, packageTypeLabels } from "~~/shared/config/packageConfig";
 import { paymentMethodLabels, paymentStatusColors, paymentStatusLabels } from "~~/shared/config/paymentConfig";
-import * as adminUi from "~~/shared/config/adminUi";
 import { formatCurrency, formatDateTime } from "~~/shared/utils/format";
 import { useAdminPayments } from "~~/app/composables/useAdminPayments";
 import EditPaymentStateModal from "~~/app/components/admin/payment/EditPaymentStateModal.vue";
-
-const adminDashboardBodyClass =
-  adminUi.adminDashboardBodyClass
-  ?? "admin-dashboard flex flex-col gap-3 p-2 sm:p-6";
-const adminDashboardCardClass =
-  adminUi.adminDashboardCardClass
-  ?? "admin-dashboard-card rounded-md border border-default/30 bg-default p-4 shadow-[0_1px_2px_rgb(15_23_42/0.04),0_6px_18px_-10px_rgb(15_23_42/0.08)] dark:border-default/20 dark:bg-elevated/55";
-const adminMobileListCardClass =
-  adminUi.adminMobileListCardClass
-  ?? "overflow-hidden rounded-sm border border-default/30 bg-default transition-[background-color,border-color,box-shadow] duration-200 hover:border-default/45 hover:bg-default dark:border-default/20 dark:bg-elevated/55 dark:hover:bg-elevated/70";
-const adminEmptyStateClass =
-  adminUi.adminEmptyStateClass
-  ?? "flex flex-col items-center justify-center rounded-sm border border-dashed border-default/30 bg-default/55 px-3 py-5 text-center text-muted dark:border-default/20 dark:bg-elevated/30";
 
 type BadgeColor = "error" | "primary" | "secondary" | "success" | "info" | "warning" | "neutral";
 type InfoRow = { label: string; value: string; valueClass?: string; dividerBefore?: boolean; href?: string };
 type DetailItemPhoto = { id: string; isDamaged?: boolean; url: string | null; secureUrl: string | null };
 type DetailItem = { id: string; title: string; metaLabel?: string | null; unitPriceLabel?: string | null; quantityLabel: string; totalLabel: string; badgeLabel?: string | null; badgeColor?: BadgeColor; photos?: DetailItemPhoto[]; notes?: string | null };
+type PaymentAuditAction = "CREATED" | "CONFIRMED" | "CANCELLED" | "SLIP_UPLOADED" | "UPDATED";
+type JsonRecord = Record<string, unknown>;
+type PaymentAuditLog = {
+  id: string;
+  action: PaymentAuditAction;
+  note: string | null;
+  beforeJson: unknown;
+  afterJson: unknown;
+  createdAt: string;
+  actor: { id: string; name: string | null; email: string } | null;
+};
+type AuditChange = { label: string; before: string; after: string };
 
 type PaymentDetailResponse = {
   id: string;
@@ -38,6 +36,7 @@ type PaymentDetailResponse = {
   createdAt: string;
   updatedAt: string;
   metadata: unknown;
+  auditLogs: PaymentAuditLog[];
   customer: { id: string; name: string | null; email: string; phoneNumber: string | null; image: string | null };
   slipImage: { id: string; url: string | null; secureUrl: string | null } | null;
   memberEntitlement: {
@@ -78,6 +77,7 @@ type PaymentDetailResponse = {
     employee: { name: string | null; email: string } | null;
     memberEntitlement: { product: { name: string } } | null;
     hangerCharge: { count: number; total: number } | null;
+    addonUsages: Array<{ id: string; productName: string; credits: number; deductOn: "CREATED" | "COMPLETED"; deductedAt: string | null; refundedAt: string | null }>;
     items: Array<{ id: string; label: string; quantity: number; unitPrice: number; totalPrice: number; notes: string | null; isPackageIncluded: boolean; service: { name: string }; image: { id: string; url: string | null; secureUrl: string | null } | null; photos: Array<{ id: string; imageId: string; isDamaged: boolean; sortOrder: number; url: string | null; secureUrl: string | null }> }>;
   } | null;
 };
@@ -138,6 +138,65 @@ const serviceOrderStatusMap: Record<ServiceOrderStatus, { label: string; color: 
   CANCELLED: { label: "ยกเลิก", color: "error" },
 };
 
+const auditActionMap: Record<PaymentAuditAction, { label: string; icon: string; color: BadgeColor }> = {
+  CREATED: { label: "สร้างรายการ", icon: "i-lucide-plus-circle", color: "primary" },
+  CONFIRMED: { label: "ยืนยันชำระเงิน", icon: "i-lucide-check-circle", color: "success" },
+  CANCELLED: { label: "ยกเลิก", icon: "i-lucide-ban", color: "error" },
+  SLIP_UPLOADED: { label: "อัปโหลดสลิป", icon: "i-lucide-image-up", color: "info" },
+  UPDATED: { label: "อัปเดตข้อมูล", icon: "i-lucide-pencil", color: "warning" },
+};
+const auditFieldLabels: Record<string, string> = {
+  status: "สถานะ",
+  method: "วิธีชำระ",
+  amount: "ยอดชำระ",
+  note: "หมายเหตุ",
+  slipImageId: "หลักฐานชำระเงิน",
+  receiptNo: "เลขใบเสร็จ",
+  paidAt: "วันที่ชำระ",
+  confirmedAt: "วันที่ยืนยัน",
+  confirmedById: "ผู้ยืนยัน",
+  userId: "ลูกค้า",
+  packageSaleCustomerId: "ลูกค้าแพ็กเกจ",
+  productId: "แพ็กเกจ",
+  quotationNo: "เลขใบแจ้งราคา",
+};
+
+const isRecord = (value: unknown): value is JsonRecord => Boolean(value && typeof value === "object" && !Array.isArray(value));
+const formatAuditValue = (log: PaymentAuditLog, key: string, value: unknown): string => {
+  if (value === null || value === undefined || value === "") return "-";
+  if (key === "status" && typeof value === "string" && value in paymentStatusLabels) return paymentStatusLabels[value as PaymentStatus];
+  if (key === "method" && typeof value === "string" && value in paymentMethodLabels) return paymentMethodLabels[value as PaymentMethod];
+  if (key === "confirmedById" && typeof value === "string" && log.actor?.id === value) return getAuditActorLabel(log);
+  if (key === "amount" && typeof value === "number") return formatCurrency(value);
+  if ((key.endsWith("At") || key === "paidAt" || key === "confirmedAt") && typeof value === "string") return formatDateTime(value);
+  if (typeof value === "boolean") return value ? "ใช่" : "ไม่ใช่";
+  if (typeof value === "number") return value.toLocaleString("th-TH");
+  if (typeof value === "string") return value;
+  return JSON.stringify(value);
+};
+const getAuditChanges = (log: PaymentAuditLog): AuditChange[] => {
+  const before = isRecord(log.beforeJson) ? log.beforeJson : {};
+  const after = isRecord(log.afterJson) ? log.afterJson : {};
+  const keys = Array.from(new Set([...Object.keys(before), ...Object.keys(after)]));
+  return keys
+    .filter((key) => JSON.stringify(before[key] ?? null) !== JSON.stringify(after[key] ?? null))
+    .map((key) => ({
+      label: auditFieldLabels[key] ?? key,
+      before: formatAuditValue(log, key, before[key]),
+      after: formatAuditValue(log, key, after[key]),
+    }));
+};
+const getAuditActorLabel = (log: PaymentAuditLog) => log.actor?.name || log.actor?.email || "ระบบ";
+const getAuditActionLabel = (log: PaymentAuditLog) => {
+  if (log.action === "UPDATED") {
+    const after = isRecord(log.afterJson) ? log.afterJson : {};
+    if ("status" in after) return "เปลี่ยนสถานะการชำระเงิน";
+    if ("slipImageId" in after) return "อัปเดตหลักฐานการชำระเงิน";
+  }
+  return auditActionMap[log.action]?.label || log.action;
+};
+const auditLogs = computed(() => payment.value?.auditLogs ?? []);
+
 const paymentForm = ref({ note: "", slipImageId: null as string | null });
 const pendingSlipFile = ref<File | null>(null);
 const isUploadingSlip = ref(false);
@@ -189,6 +248,17 @@ const itemSectionDescription = computed(() => `${isPackagePayment.value ? paymen
 const paymentManagerDescription = "จัดการหมายเหตุและหลักฐานการชำระเงิน";
 const paymentDocumentLabel = computed(() => paymentStatus.value === "PAID" ? "ดูใบเสร็จ" : "ดูใบแจ้งราคา");
 const paymentDocumentIcon = computed(() => paymentStatus.value === "PAID" ? "i-lucide-receipt" : "i-lucide-file-text");
+const serviceEntitlementLabel = computed(() => {
+  const serviceOrder = payment.value?.serviceOrder;
+  if (!serviceOrder?.memberEntitlement) return "-";
+
+  const labels = [
+    serviceOrder.memberEntitlement.product.name,
+    ...(serviceOrder.addonUsages ?? []).map((usage) => usage.productName).filter((name): name is string => Boolean(name?.trim())),
+  ].filter((value, index, array) => Boolean(value?.trim()) && array.indexOf(value) === index);
+
+  return labels.length ? labels.join(", ") : "-";
+});
 const openPaymentDocument = () => {
   if (!payment.value) return;
   const target = paymentStatus.value === "PAID" ? "receipt" : "quotation";
@@ -223,7 +293,7 @@ const purchaseInfoRows = computed<InfoRow[]>(() => {
     { label: "วันที่รับงาน", value: payment.value.serviceOrder?.receivedAt ? formatDateTime(payment.value.serviceOrder.receivedAt) : "-" },
     { label: "วันนัดรับ", value: payment.value.serviceOrder?.dueAt ? formatDateTime(payment.value.serviceOrder.dueAt) : "-" },
     { label: "ผู้รับงาน", value: payment.value.serviceOrder?.employee?.name || payment.value.serviceOrder?.employee?.email || "-" },
-    { label: "ใช้สิทธิ์แพ็กเกจ", value: payment.value.serviceOrder?.memberEntitlement?.product.name || "-" },
+    { label: "ใช้สิทธิ์แพ็กเกจ", value: serviceEntitlementLabel.value },
     { label: "หมายเหตุงาน", value: payment.value.serviceOrder?.note || "-", valueClass: "whitespace-pre-line" },
   ];
 });
@@ -366,9 +436,10 @@ const savePaymentChanges = async () => {
 </script>
 
 <template>
+  <div class="contents">
   <UDashboardPanel id="payment-detail">
     <template #header>
-      <UDashboardNavbar :title="payment?.receiptNo || payment?.paymentNo || 'รายละเอียดการชำระเงิน'" icon="i-lucide-badge-info">
+      <UDashboardNavbar :title="payment?.receiptNo || payment?.paymentNo || 'รายละเอียดประวัติการชำระเงิน'" icon="i-lucide-badge-info">
         <template #leading>
           <UDashboardSidebarCollapse class="hidden lg:inline-flex" />
         </template>
@@ -431,86 +502,86 @@ const savePaymentChanges = async () => {
       </UDashboardNavbar>
     </template>
     <template #body>
-      <div :class="adminDashboardBodyClass">
+      <div class="flex flex-col gap-3 p-2 sm:p-6">
       <div v-if="isLoading" class="grid min-w-0 gap-3 xl:grid-cols-[minmax(0,1fr)_360px]">
         <div class="min-w-0 space-y-3">
-          <div class="rounded-md border border-default bg-default p-5">
+          <div class="-mx-2 border border-default/30 bg-default p-5! dark:border-default/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg">
             <div class="flex items-start gap-3">
               <USkeleton class="size-12 rounded-full" />
               <div class="flex-1 space-y-2">
-                <USkeleton class="h-4 w-48 rounded" />
-                <USkeleton class="h-3 w-32 rounded" />
+                <USkeleton class="h-4 w-48 rounded-lg" />
+                <USkeleton class="h-3 w-32 rounded-lg" />
               </div>
             </div>
             <div class="mt-5 space-y-4">
               <div>
-                <USkeleton class="h-4 w-24 rounded" />
+                <USkeleton class="h-4 w-24 rounded-lg" />
                 <div class="mt-3 grid gap-x-6 gap-y-2 lg:grid-cols-2">
                   <div v-for="i in 4" :key="`c-${i}`" class="flex items-center justify-between gap-3">
-                    <USkeleton class="h-3 w-20 rounded" />
-                    <USkeleton class="h-3 w-32 rounded" />
+                    <USkeleton class="h-3 w-20 rounded-lg" />
+                    <USkeleton class="h-3 w-32 rounded-lg" />
                   </div>
                 </div>
               </div>
               <div class="border-t border-default" />
               <div>
-                <USkeleton class="h-4 w-32 rounded" />
+                <USkeleton class="h-4 w-32 rounded-lg" />
                 <div class="mt-3 grid gap-x-6 gap-y-2 lg:grid-cols-2">
                   <div v-for="i in 6" :key="`p-${i}`" class="flex items-center justify-between gap-3">
-                    <USkeleton class="h-3 w-24 rounded" />
-                    <USkeleton class="h-3 w-28 rounded" />
+                    <USkeleton class="h-3 w-24 rounded-lg" />
+                    <USkeleton class="h-3 w-28 rounded-lg" />
                   </div>
                 </div>
               </div>
             </div>
           </div>
 
-          <div :class="[adminDashboardCardClass, 'overflow-hidden p-0!']">
-            <div class="border-b border-default/40 px-3 py-2">
-              <USkeleton class="h-4 w-36 rounded" />
+          <div class="-mx-2 overflow-hidden border border-default/30 bg-default p-4 dark:border-default/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg">
+            <div class="border-b border-default/40 pb-3">
+              <USkeleton class="h-4 w-36 rounded-lg" />
             </div>
-            <div class="space-y-2 p-3">
-              <USkeleton v-for="i in 4" :key="`row-${i}`" class="h-14 w-full rounded-md" />
+            <div class="space-y-2 pt-3">
+              <USkeleton v-for="i in 4" :key="`row-${i}`" class="h-14 w-full rounded-lg" />
             </div>
           </div>
         </div>
 
         <div class="min-w-0 space-y-3 xl:sticky xl:top-4 xl:self-start">
-          <div class="rounded-md border border-default bg-default p-5 space-y-3">
-            <USkeleton class="h-5 w-36 rounded" />
-            <USkeleton class="h-3 w-48 rounded" />
+          <div class="-mx-2 space-y-3 border border-default/30 bg-default p-5! dark:border-default/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg">
+            <USkeleton class="h-5 w-36 rounded-lg" />
+            <USkeleton class="h-3 w-48 rounded-lg" />
             <div class="mt-3 space-y-2">
               <div v-for="i in 4" :key="`t-${i}`" class="flex justify-between gap-3">
-                <USkeleton class="h-3 w-24 rounded" />
-                <USkeleton class="h-3 w-20 rounded" />
+                <USkeleton class="h-3 w-24 rounded-lg" />
+                <USkeleton class="h-3 w-20 rounded-lg" />
               </div>
             </div>
           </div>
-          <div class="rounded-md border border-default bg-default p-5 space-y-3">
-            <USkeleton class="h-5 w-32 rounded" />
+          <div class="-mx-2 space-y-3 border border-default/30 bg-default p-5! dark:border-default/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg">
+            <USkeleton class="h-5 w-32 rounded-lg" />
             <div class="space-y-2">
               <div v-for="i in 6" :key="`pi-${i}`" class="flex justify-between gap-3">
-                <USkeleton class="h-3 w-24 rounded" />
-                <USkeleton class="h-3 w-28 rounded" />
+                <USkeleton class="h-3 w-24 rounded-lg" />
+                <USkeleton class="h-3 w-28 rounded-lg" />
               </div>
             </div>
             <div class="border-t border-default pt-3 space-y-3">
-              <USkeleton class="h-20 w-full rounded-md" />
-              <USkeleton class="h-32 w-full rounded-md" />
-              <USkeleton class="h-10 w-full rounded-md" />
+              <USkeleton class="h-20 w-full rounded-lg" />
+              <USkeleton class="h-32 w-full rounded-lg" />
+              <USkeleton class="h-10 w-full rounded-lg" />
             </div>
           </div>
         </div>
       </div>
 
-      <div v-else-if="error || !payment" class="rounded-md border border-default bg-default p-6">
+      <div v-else-if="error || !payment" class="-mx-2 border border-default/30 bg-default p-6! dark:border-default/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg">
         <p class="text-base font-semibold text-highlighted">ไม่พบข้อมูลการชำระเงิน</p>
         <p class="mt-2 text-sm text-muted">รายการนี้อาจถูกลบหรือคุณไม่มีสิทธิ์เข้าถึง</p>
       </div>
 
       <div v-else class="grid min-w-0 gap-3 xl:grid-cols-[minmax(0,1fr)_360px]">
         <div class="min-w-0 space-y-3">
-          <UCard :ui="{ root: 'rounded-md border border-default shadow-none', body: 'p-5' }">
+          <section class="-mx-2 space-y-3 border border-default/30 bg-default p-4 dark:border-default/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg">
             <div class="flex flex-wrap items-start justify-between gap-3">
               <div class="flex min-w-0 items-start gap-3">
                 <UAvatar v-bind="getAvatarProps(payment.customer)" size="lg" />
@@ -534,27 +605,27 @@ const savePaymentChanges = async () => {
               </div>
             </div>
 
-            <div class="mt-3 space-y-3">
+            <div class="border-t border-default pt-5">
               <section>
-                <p class="text-sm font-medium text-highlighted">ข้อมูลลูกค้า</p>
-                <div class="mt-3 grid gap-x-6 gap-y-2 text-sm lg:grid-cols-2 lg:[&>*:nth-child(odd)]:pr-4 lg:[&>*:nth-child(even)]:border-l lg:[&>*:nth-child(even)]:border-dashed lg:[&>*:nth-child(even)]:border-default lg:[&>*:nth-child(even)]:pl-4">
+                <p class="text-sm font-semibold text-highlighted">ข้อมูลลูกค้า</p>
+                <div class="mt-3 grid gap-x-6 gap-y-3 text-sm lg:grid-cols-2 lg:[&>*:nth-child(odd)]:pr-4 lg:[&>*:nth-child(even)]:border-l lg:[&>*:nth-child(even)]:border-dashed lg:[&>*:nth-child(even)]:border-default lg:[&>*:nth-child(even)]:pl-4">
                   <div v-for="row in customerInfoRows" :key="row.label" class="flex min-w-0 items-start justify-between gap-3">
                     <span class="shrink-0 text-muted">{{ row.label }}</span>
                     <span class="min-w-0 max-w-[62%] wrap-break-word text-right text-highlighted" :class="row.valueClass">{{ row.value }}</span>
                   </div>
                 </div>
               </section>
+            </div>
 
-              <div class="border-t border-default" />
-
+            <div class="border-t border-default pt-5">
               <section>
                 <div class="flex items-start justify-between gap-3">
-                  <p class="text-sm font-medium text-highlighted">{{ purchaseSectionTitle }}</p>
+                  <p class="text-sm font-semibold text-highlighted">{{ purchaseSectionTitle }}</p>
                   <UBadge :color="payment.packageSale ? packageSaleStatusMap[payment.packageSale.status].color : serviceOrderStatusMap[payment.serviceOrder!.status].color" variant="subtle" size="sm">
                     {{ payment.packageSale ? packageSaleStatusMap[payment.packageSale.status].label : serviceOrderStatusMap[payment.serviceOrder!.status].label }}
                   </UBadge>
                 </div>
-                <div class="mt-3 grid gap-x-6 gap-y-2 text-sm lg:grid-cols-2 lg:[&>*:nth-child(odd)]:pr-4 lg:[&>*:nth-child(even)]:border-l lg:[&>*:nth-child(even)]:border-dashed lg:[&>*:nth-child(even)]:border-default lg:[&>*:nth-child(even)]:pl-4">
+                <div class="mt-3 grid gap-x-6 gap-y-3 text-sm lg:grid-cols-2 lg:[&>*:nth-child(odd)]:pr-4 lg:[&>*:nth-child(even)]:border-l lg:[&>*:nth-child(even)]:border-dashed lg:[&>*:nth-child(even)]:border-default lg:[&>*:nth-child(even)]:pl-4">
                   <div v-for="row in purchaseInfoRows" :key="row.label" class="flex min-w-0 items-start justify-between gap-3">
                     <span class="shrink-0 text-muted">{{ row.label }}</span>
                     <NuxtLink
@@ -570,40 +641,42 @@ const savePaymentChanges = async () => {
                   </div>
                 </div>
               </section>
+            </div>
 
               <template v-if="payment.memberEntitlement">
-                <div class="border-t border-default" />
+                <div class="border-t border-default pt-5">
                 <section>
                   <div class="flex items-start justify-between gap-3">
-                    <p class="text-sm font-medium text-highlighted">สิทธิ์สมาชิก</p>
+                    <p class="text-sm font-semibold text-highlighted">สิทธิ์สมาชิก</p>
                     <UBadge :color="entitlementStatusMap[payment.memberEntitlement.status].color" variant="subtle" size="sm">{{ entitlementStatusMap[payment.memberEntitlement.status].label }}</UBadge>
                   </div>
-                  <div class="mt-3 grid gap-x-6 gap-y-2 text-sm lg:grid-cols-2 lg:[&>*:nth-child(odd)]:pr-4 lg:[&>*:nth-child(even)]:border-l lg:[&>*:nth-child(even)]:border-dashed lg:[&>*:nth-child(even)]:border-default lg:[&>*:nth-child(even)]:pl-4">
+                  <div class="mt-3 grid gap-x-6 gap-y-3 text-sm lg:grid-cols-2 lg:[&>*:nth-child(odd)]:pr-4 lg:[&>*:nth-child(even)]:border-l lg:[&>*:nth-child(even)]:border-dashed lg:[&>*:nth-child(even)]:border-default lg:[&>*:nth-child(even)]:pl-4">
                     <div v-for="row in entitlementRows" :key="row.label" class="flex min-w-0 items-start justify-between gap-3">
                       <span class="shrink-0 text-muted">{{ row.label }}</span>
                       <span class="min-w-0 max-w-[62%] wrap-break-word text-right text-highlighted" :class="row.valueClass">{{ row.value }}</span>
                     </div>
                   </div>
                 </section>
+                </div>
               </template>
-            </div>
-          </UCard>
+          </section>
 
-          <section :class="[adminDashboardCardClass, 'overflow-hidden p-0!']">
-            <div class="flex flex-wrap items-center justify-between gap-2 border-b border-default/40 px-3 py-2">
+          <section class="-mx-2 overflow-hidden border border-default/30 bg-default p-4 dark:border-default/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg">
+            <div class="flex flex-wrap items-center justify-between gap-2 border-b border-default/40 pb-3">
               <div>
                 <p class="text-sm font-semibold text-highlighted">{{ itemSectionTitle }} <span class="ml-2 text-xs text-muted">{{ itemSectionDescription }}</span></p>
               </div>
             </div>
-            <div v-if="detailItems.length" class="space-y-1 p-2 md:hidden">
+            <div class="pt-3">
+            <div v-if="detailItems.length" class="space-y-1 md:hidden">
               <div
                 v-for="item in detailItems"
                 :key="item.id"
-                :class="[adminMobileListCardClass, 'admin-dashboard-card rounded-md']"
+                class="overflow-hidden border border-default/30 bg-transparent transition-[background-color,border-color] duration-200 hover:border-default/45 hover:bg-default/70 dark:border-default/20 dark:bg-transparent dark:hover:bg-elevated/45"
               >
                 <div class="flex min-w-0 items-center gap-2 p-2">
                   <div v-if="!isPackagePayment" class="shrink-0">
-                    <div class="flex size-14 items-center justify-center overflow-hidden rounded-md border border-default/30 bg-elevated/30 dark:border-default/20 dark:bg-elevated/45">
+                    <div class="flex size-14 items-center justify-center overflow-hidden rounded-lg border border-default/30 bg-elevated/30 dark:border-default/20 dark:bg-default/80">
                       <button
                         v-if="item.photos?.[0]"
                         type="button"
@@ -655,24 +728,24 @@ const savePaymentChanges = async () => {
 
             <div v-if="detailItems.length" class="hidden overflow-x-auto md:block">
               <table class="w-full min-w-160 text-sm">
-                <thead class="bg-elevated/50 text-xs text-muted dark:bg-elevated/40">
+                <thead class="bg-default text-xs text-toned dark:bg-transparent">
                   <tr>
-                    <th v-if="!isPackagePayment" class="w-20 px-5 py-2 text-left font-medium">รูป</th>
-                    <th class="px-5 py-2 text-left font-medium">รายการ</th>
-                    <th class="w-28 px-5 py-2 text-right font-medium">ราคา/หน่วย</th>
-                    <th class="w-24 px-5 py-2 text-right font-medium">จำนวน</th>
-                    <th class="w-28 px-5 py-2 text-right font-medium">รวม</th>
+                    <th v-if="!isPackagePayment" class="w-20 border-b border-default bg-default px-3 py-2.5 text-left font-semibold uppercase tracking-wide dark:border-default/20 dark:bg-transparent">รูป</th>
+                    <th class="border-b border-default bg-default px-3 py-2.5 text-left font-semibold uppercase tracking-wide dark:border-default/20 dark:bg-transparent">รายการ</th>
+                    <th class="w-28 border-b border-default bg-default px-3 py-2.5 text-right font-semibold uppercase tracking-wide dark:border-default/20 dark:bg-transparent">ราคา/หน่วย</th>
+                    <th class="w-24 border-b border-default bg-default px-3 py-2.5 text-right font-semibold uppercase tracking-wide dark:border-default/20 dark:bg-transparent">จำนวน</th>
+                    <th class="w-28 border-b border-default bg-default px-3 py-2.5 text-right font-semibold uppercase tracking-wide dark:border-default/20 dark:bg-transparent">รวม</th>
                   </tr>
                 </thead>
-                <tbody class="divide-y divide-default/40">
-                  <tr v-for="item in detailItems" :key="item.id" class="align-top transition-colors even:bg-elevated/25 hover:bg-primary/5 dark:even:bg-elevated/30">
-                    <td v-if="!isPackagePayment" class="px-3 py-2">
+                <tbody class="[&>tr:last-child>td]:border-b-0">
+                  <tr v-for="item in detailItems" :key="item.id" class="align-top transition-colors hover:bg-primary/5 dark:hover:bg-elevated/45">
+                    <td v-if="!isPackagePayment" class="border-b border-default px-3 py-2 dark:border-default/25">
                       <div class="flex flex-wrap gap-1">
                         <button
                           v-for="photo in item.photos"
                           :key="photo.id"
                           type="button"
-                          class="relative size-14 overflow-hidden rounded-md border border-default bg-muted/30"
+                          class="relative size-14 overflow-hidden rounded-lg border border-default bg-muted/30"
                           @click="openItemImagePreview(photo.secureUrl || photo.url, item.title)"
                         >
                           <NuxtImg
@@ -691,11 +764,11 @@ const savePaymentChanges = async () => {
                         </button>
                         <div
                           v-if="!item.photos?.length"
-                          class="flex size-14 items-center justify-center rounded-md border border-dashed border-default text-xs text-muted"
+                          class="flex size-14 items-center justify-center rounded-lg border border-dashed border-default text-xs text-muted"
                         >-</div>
                       </div>
                     </td>
-                    <td class="px-3 py-2">
+                    <td class="border-b border-default px-3 py-2 dark:border-default/25">
                       <div class="flex flex-wrap items-center gap-2">
                         <p class="wrap-break-word font-medium text-highlighted">{{ item.title }}</p>
                         <UBadge v-if="item.badgeLabel" :color="item.badgeColor || 'neutral'" variant="subtle" size="xs">{{ item.badgeLabel }}</UBadge>
@@ -703,19 +776,20 @@ const savePaymentChanges = async () => {
                       <p v-if="item.metaLabel" class="wrap-break-word text-xs text-muted">{{ item.metaLabel }}</p>
                       <p v-if="item.notes" class="mt-1 wrap-break-word text-xs text-muted whitespace-pre-line">{{ item.notes }}</p>
                     </td>
-                    <td class="px-3 py-2 text-right text-muted">{{ item.unitPriceLabel || "-" }}</td>
-                    <td class="px-3 py-2 text-right text-muted">{{ item.quantityLabel }}</td>
-                    <td class="px-3 py-2 text-right font-semibold text-highlighted">{{ item.totalLabel }}</td>
+                    <td class="border-b border-default px-3 py-2 text-right text-muted dark:border-default/25">{{ item.unitPriceLabel || "-" }}</td>
+                    <td class="border-b border-default px-3 py-2 text-right text-muted dark:border-default/25">{{ item.quantityLabel }}</td>
+                    <td class="border-b border-default px-3 py-2 text-right font-semibold text-highlighted dark:border-default/25">{{ item.totalLabel }}</td>
                   </tr>
                 </tbody>
               </table>
             </div>
-            <div v-else :class="adminEmptyStateClass">ไม่พบรายการในบิลนี้</div>
+            <div v-else class="flex flex-col items-center justify-center rounded-lg border border-dashed border-default/30 bg-default/55 px-3 py-5 text-center text-muted dark:border-default/20 dark:bg-elevated/30">ไม่พบรายการในบิลนี้</div>
+            </div>
           </section>
         </div>
 
         <div class="min-w-0 space-y-3 xl:sticky xl:top-4 xl:self-start">
-          <UCard :ui="{ root: 'rounded-md border border-default shadow-none', body: 'p-5' }">
+          <section class="-mx-2 space-y-3 border border-default/30 bg-default p-4 dark:border-default/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg">
             <div class="flex flex-wrap items-start justify-between gap-3">
               <div>
                 <p class="text-base font-semibold text-highlighted">{{ totalsSectionTitle }}</p>
@@ -729,9 +803,9 @@ const savePaymentChanges = async () => {
                 <span class="min-w-0 max-w-[52%] wrap-break-word text-right" :class="row.valueClass || 'text-highlighted'">{{ row.value }}</span>
               </div>
             </div>
-          </UCard>
+          </section>
 
-          <UCard :ui="{ root: 'rounded-md border border-default shadow-none', body: 'p-5' }">
+          <section class="-mx-2 space-y-3 border border-default/30 bg-default p-4 dark:border-default/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg">
             <div class="flex items-start justify-between gap-3">
               <div>
                 <p class="text-base font-semibold text-highlighted">การชำระเงิน</p>
@@ -761,7 +835,7 @@ const savePaymentChanges = async () => {
                 @update:photos="onSlipPhotosUpdate"
               />
 
-              <div class="rounded-md border border-default p-4 text-sm">
+              <div class="rounded-lg border border-default p-4 text-sm">
                 <div class="flex items-start justify-between gap-3">
                   <span class="text-muted">อัปเดตล่าสุด</span>
                   <span>{{ formatDateTime(payment.updatedAt) }}</span>
@@ -770,7 +844,53 @@ const savePaymentChanges = async () => {
 
               <UButton block label="บันทึก" icon="i-lucide-check" color="primary" :loading="isSavingPayment" :disabled="isSavingPayment || isUploadingSlip" @click="handleSaveButtonClick" />
             </div>
-          </UCard>
+          </section>
+
+          <section class="-mx-2 space-y-3 border border-default/30 bg-default p-4 dark:border-default/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg">
+            <div class="flex items-start justify-between gap-3">
+              <div>
+                <p class="text-base font-semibold text-highlighted">ประวัติการชำระเงิน</p>
+                <p class="text-sm text-muted">การเปลี่ยนแปลงและผู้ดำเนินการ</p>
+              </div>
+              <UBadge color="neutral" variant="subtle">{{ auditLogs.length }} รายการ</UBadge>
+            </div>
+
+            <div v-if="auditLogs.length" class="mt-5 space-y-5">
+              <div v-for="(log, index) in auditLogs" :key="log.id" class="relative pl-9">
+                <div v-if="index < auditLogs.length - 1" class="absolute left-3 top-9 -bottom-5 w-px bg-default/70" />
+                <div class="absolute left-0 top-0 flex size-6 items-center justify-center rounded-full border border-default bg-default">
+                  <UIcon :name="auditActionMap[log.action]?.icon || 'i-lucide-history'" class="size-3.5 text-muted" />
+                </div>
+
+                <div class="min-w-0 rounded-lg border border-default/60 bg-default/45 p-3">
+                  <div class="min-w-0">
+                    <div class="flex min-w-0 flex-wrap items-center gap-2">
+                      <p class="min-w-0 wrap-break-word text-sm font-medium text-highlighted">{{ getAuditActionLabel(log) }}</p>
+                      <UBadge :color="auditActionMap[log.action]?.color || 'neutral'" variant="subtle" size="xs">
+                        {{ auditActionMap[log.action]?.label || log.action }}
+                      </UBadge>
+                    </div>
+                    <p class="mt-1 wrap-break-word text-xs text-muted">
+                      {{ getAuditActorLabel(log) }} • {{ formatDateTime(log.createdAt) }}
+                    </p>
+                  </div>
+
+                  <div v-if="getAuditChanges(log).length" class="mt-3 divide-y divide-default/50 rounded-lg bg-elevated/20 text-xs">
+                    <div v-for="change in getAuditChanges(log)" :key="`${log.id}-${change.label}`" class="flex min-w-0 items-start justify-between gap-3 px-3 py-2">
+                      <p class="shrink-0 font-medium text-muted">{{ change.label }}</p>
+                      <p class="min-w-0 wrap-break-word text-right font-medium text-highlighted">{{ change.after }}</p>
+                    </div>
+                  </div>
+
+                  <p v-if="log.note" class="mt-3 rounded-lg bg-elevated/40 p-2 text-xs text-muted whitespace-pre-line">{{ log.note }}</p>
+                </div>
+              </div>
+            </div>
+
+            <div v-else class="mt-5 rounded-lg border border-dashed border-default p-4 text-center text-sm text-muted">
+              ยังไม่มีประวัติการชำระเงิน
+            </div>
+          </section>
         </div>
       </div>
       </div>
@@ -795,4 +915,5 @@ const savePaymentChanges = async () => {
     :existing-slip="payment.slipImage ?? null"
     @updated="onPaymentStateUpdated"
   />
+  </div>
 </template>

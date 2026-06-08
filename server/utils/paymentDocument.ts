@@ -42,6 +42,10 @@ export const buildPaymentDocumentPayload = async (paymentId: string) => {
             where: { deletedAt: null },
             orderBy: { createdAt: "asc" },
           },
+          addonUsageRecords: {
+            where: { refundedAt: null },
+            orderBy: { createdAt: "asc" },
+          },
         },
       },
     },
@@ -85,6 +89,15 @@ export const buildPaymentDocumentPayload = async (paymentId: string) => {
     isPackageIncluded: item.isPackageIncluded,
     isWashFold: isWashFoldOrder,
     weightKg: null as number | null,
+  })) ?? [];
+
+  const addonUsages = payment.serviceOrder?.addonUsageRecords.map((usage) => ({
+    id: usage.id,
+    productName: usage.productName || "แพ็กเกจเสริม",
+    credits: usage.credits,
+    deductOn: usage.deductOn,
+    deductedAt: usage.deductedAt?.toISOString() ?? null,
+    refundedAt: usage.refundedAt?.toISOString() ?? null,
   })) ?? [];
 
   const hangerChargeSource = (payment.serviceOrder?.hangerCharge ?? null) as
@@ -192,6 +205,7 @@ export const buildPaymentDocumentPayload = async (paymentId: string) => {
                 endAt: payment.serviceOrder.memberEntitlement.endAt?.toISOString() ?? null,
               }
             : null,
+          addonUsages,
           items: serviceItems,
         }
       : null,

@@ -15,9 +15,12 @@ const period = ref<Period>("daily");
 
 const { user } = useUser();
 
+const showEmailBanner = ref(true);
 const isRefreshing = ref(false);
+const refreshTick = ref(0);
 const handleRefresh = async () => {
   isRefreshing.value = true;
+  refreshTick.value += 1;
   try {
     await refreshNuxtData();
   } finally {
@@ -27,8 +30,8 @@ const handleRefresh = async () => {
 </script>
 
 <template>
-  <UDashboardPage>
-    <UDashboardPanel id="me-home">
+  <div class="flex min-h-0 flex-1 flex-col">
+    <UDashboardPanel id="me-home" grow>
       <template #header>
         <UDashboardNavbar title="แดชบอร์ด" :ui="{ right: 'gap-3' }">
           <template #leading>
@@ -40,7 +43,7 @@ const handleRefresh = async () => {
               color="neutral"
               variant="outline"
               size="md"
-              class="rounded-full"
+              class="shrink-0 border-default/40 bg-elevated/60 text-toned hover:bg-elevated"
               title="รีเฟรชข้อมูล"
               aria-label="รีเฟรชข้อมูล"
               :loading="isRefreshing"
@@ -52,7 +55,7 @@ const handleRefresh = async () => {
       <UDashboardToolbar>
         <template #left>
           <ClientOnly>
-            <div class="flex flex-wrap gap-2 -ms-1">
+            <div class="-ms-1 flex flex-wrap gap-2">
               <MeDashboardDateRangePicker v-model="range" />
               <MeDashboardPeriodSelect v-model="period" :range="range" />
             </div>
@@ -62,79 +65,86 @@ const handleRefresh = async () => {
     </template>
 
       <template #body>
-        <div class="flex flex-col gap-4 p-4 sm:gap-6 sm:p-6">
+        <div class="flex flex-col gap-3 p-2 sm:p-6">
           <!-- Email Verification Banner (Phase 3) -->
-          <div v-if="user && !user.emailVerified" class="mb-4">
-            <UAlert
-              color="warning"
-              variant="subtle"
-              icon="i-lucide-mail-warning"
-              title="ยังไม่ได้ยืนยันอีเมล"
-              description="ยืนยันอีเมลของคุณเพื่อรับใบเสร็จและการแจ้งเตือนทางอีเมล"
-              :actions="[{
-                label: 'ไปยืนยันอีเมล',
-                to: '/me/settings/profile',
-                color: 'warning',
-                variant: 'solid',
-              }]"
-              close
-            />
-          </div>
+          <ClientOnly>
+            <div>
+              <UAlert
+                v-if="showEmailBanner && user && !user.emailVerified"
+                color="warning"
+                variant="subtle"
+                icon="i-lucide-mail-warning"
+                title="ยังไม่ได้ยืนยันอีเมล"
+                description="ยืนยันอีเมลของคุณเพื่อรับใบเสร็จและการแจ้งเตือนทางอีเมล"
+                :actions="[{
+                  label: 'ไปยืนยันอีเมล',
+                  to: '/me/settings/profile',
+                  color: 'warning',
+                  variant: 'solid',
+                }]"
+                close
+                @update:open="showEmailBanner = false"
+              />
+            </div>
+          </ClientOnly>
 
           <!-- Membership Card (Member เท่านั้น) -->
-          <MeDashboardMembershipCard />
+          <MeDashboardMembershipCard :refreshing="isRefreshing" />
 
           <!-- Stats Cards -->
           <ClientOnly>
-            <MeDashboardStats :period="period" :range="range" />
+            <MeDashboardStats
+              :period="period"
+              :range="range"
+              :refreshing="isRefreshing"
+            />
             <template #fallback>
-              <UPageGrid class="lg:grid-cols-4 gap-4 sm:gap-6 lg:gap-px">
-                <UPageCard
+              <div class="-mx-2 grid grid-cols-2 gap-2 sm:mx-0 sm:gap-3 xl:grid-cols-4">
+                <div
                   v-for="i in 4"
                   :key="i"
-                  variant="subtle"
-                  :ui="{
-                    container: 'gap-y-1.5',
-                    wrapper: 'items-start',
-                    leading: 'p-2.5 rounded-full bg-primary/10 ring ring-inset ring-primary/25 flex-col',
-                    title: 'font-normal text-muted text-xs',
-                  }"
-                  class="lg:rounded-none first:rounded-l-lg last:rounded-r-lg"
+                  class="min-h-28 bg-default p-3 dark:bg-elevated/55 sm:rounded-lg sm:border sm:border-default/30 sm:dark:border-default/20"
                 >
-                  <template #leading>
-                    <div class="p-2.5 rounded-full bg-elevated animate-pulse size-10" />
-                  </template>
-                  <template #title>
-                    <div class="h-3 w-16 rounded bg-elevated animate-pulse" />
-                  </template>
-                  <div class="h-8 w-28 rounded bg-elevated animate-pulse mt-1" />
-                </UPageCard>
-              </UPageGrid>
+                  <div class="space-y-3">
+                    <USkeleton class="size-10 rounded-full" />
+                    <USkeleton class="h-3 w-16 rounded-lg" />
+                    <USkeleton class="h-8 w-28 rounded-lg" />
+                  </div>
+                </div>
+              </div>
             </template>
           </ClientOnly>
 
-          <!-- Charts Grid -->
-          <div class="grid grid-cols-1 xl:grid-cols-2 gap-4">
-            <MeDashboardChart :period="period" :range="range" />
-            <MeDashboardOrderStatusChart :period="period" :range="range" />
+          <!-- Charts -->
+          <div>
+            <MeDashboardChart
+              :period="period"
+              :range="range"
+              :refreshing="isRefreshing"
+              :refresh-key="refreshTick"
+            />
           </div>
 
           <!-- Tables -->
-          <div class="flex flex-col gap-4">
+          <div class="flex flex-col gap-3">
             <ClientOnly>
-              <MeDashboardRecentPayments />
-              <MeDashboardRecentOrders />
+              <MeDashboardRecentPayments :refreshing="isRefreshing" />
+              <MeDashboardRecentOrders :refreshing="isRefreshing" />
               <template #fallback>
-                <UCard v-for="i in 2" :key="i">
-                  <div class="space-y-3">
-                    <div v-for="j in 4" :key="j" class="h-10 rounded bg-elevated animate-pulse" />
+                <div
+                  v-for="i in 2"
+                  :key="i"
+                  class="-mx-2 border border-default/30 bg-default p-3 dark:border-default/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg"
+                >
+                  <div class="space-y-2">
+                    <USkeleton v-for="j in 4" :key="j" class="h-12 w-full rounded-lg" />
                   </div>
-                </UCard>
+                </div>
               </template>
             </ClientOnly>
           </div>
         </div>
       </template>
     </UDashboardPanel>
-  </UDashboardPage>
+  </div>
 </template>

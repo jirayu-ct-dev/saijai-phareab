@@ -9,9 +9,27 @@ export default defineEventHandler(async (event) => {
 
   const ent = await prisma.memberEntitlement.findFirst({
     where: { id: entitlementId, customerId: id, deletedAt: null },
-    select: { id: true },
+    select: {
+      id: true,
+      serviceOrders: { where: { deletedAt: null }, select: { id: true }, take: 1 },
+      serviceOrderAddonUsages: {
+        where: {
+          refundedAt: null,
+          serviceOrder: { deletedAt: null },
+        },
+        select: { id: true },
+        take: 1,
+      },
+    },
   });
   if (!ent) throw createError({ statusCode: 404, statusMessage: "ไม่พบแพ็กเกจ" });
+
+  if (ent.serviceOrders.length > 0 || ent.serviceOrderAddonUsages.length > 0) {
+    throw createError({
+      statusCode: 409,
+      statusMessage: "ไม่สามารถลบแพ็กเกจที่มีการใช้งานไปแล้ว",
+    });
+  }
 
   await prisma.memberEntitlement.update({
     where: { id: entitlementId },

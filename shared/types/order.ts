@@ -1,7 +1,6 @@
 import type { ServiceOrderStatus, Timestamps, SoftDeletable } from "./enums";
 import type { User } from "./auth";
 import type { MemberEntitlement } from "./package";
-import type { Basket } from "./basket";
 import type { Image } from "./image";
 import type { StorefrontPrice } from "./storefront";
 
@@ -45,7 +44,6 @@ export interface ServiceOrder extends Timestamps, SoftDeletable {
   creditUsed: number | null;
   hangerCharge: HangerCharge | null;
   totalAmount: number | string | null;
-  basketId: string | null;
   note: string | null;
   usedBonuses: UsedBonus[] | null;
   deliveryAddressSnapshot: DeliveryAddressSnapshot | null;
@@ -54,7 +52,6 @@ export interface ServiceOrder extends Timestamps, SoftDeletable {
   customer?: User;
   employee?: User | null;
   memberEntitlement?: MemberEntitlement | null;
-  basket?: Basket | null;
   image?: Image | null;
   items?: ServiceOrderItem[];
 }

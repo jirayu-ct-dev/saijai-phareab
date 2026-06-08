@@ -1,15 +1,9 @@
 <script setup lang="ts">
-import { authClient } from "~/utils/auth-client";
-
 definePageMeta({ layout: false });
 
 const notify = useNotify();
 
-const { login, loginWithLine, redirectByRole } = useUser();
-
-const sessionRef = authClient.useSession();
-const session = computed(() => sessionRef.value.data);
-const isPending = computed(() => sessionRef.value.isPending);
+const { login, loginWithLine, redirectByRole, session, user } = useUser();
 
 // ดึง Logic ของ LIFF มาจาก Composable
 const { handleLiffAutoLogin } = useLiffAuth();
@@ -29,8 +23,8 @@ async function handleSignIn() {
 
     try {
         await login(form.email, form.password, rememberMe.value);
-    } catch (error: any) {
-        notify.error(error.message || "เข้าสู่ระบบไม่สำเร็จ");
+    } catch {
+        // useUser().login แสดง error notification เองแล้ว
     } finally {
         loading.value = false;
     }
@@ -48,7 +42,7 @@ async function handleLineLogin() {
 
 watch(session, async (newSession) => {
     if (newSession?.user) {
-        await redirectByRole((newSession.user as any).role);
+        await redirectByRole(newSession.user.role);
     }
 }, { immediate: false });
 
@@ -59,11 +53,14 @@ onMounted(async () => {
         reason.value = null;
         return;
     }
-    if (session.value) {
-        await redirectByRole((session.value.user as any)?.role);
+    if (session.value?.user) {
+        await redirectByRole(session.value.user.role);
         return;
     }
-    await handleLiffAutoLogin();
+    const liffResult = await handleLiffAutoLogin();
+    if (liffResult === "logged-in") {
+        await redirectByRole(user.value?.role);
+    }
 })
 </script>
 
@@ -77,7 +74,7 @@ onMounted(async () => {
       
       <!-- Top: Logo -->
       <div class="relative z-10 flex items-center gap-3">
-        <div class="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center border border-white/20 backdrop-blur-sm">
+        <div class="w-10 h-10 rounded-md bg-white/10 flex items-center justify-center border border-white/20 backdrop-blur-sm">
           <UIcon name="i-lucide-washing-machine" class="w-6 h-6 text-white" />
         </div>
         <div>
@@ -92,7 +89,7 @@ onMounted(async () => {
           MEMBER PORTAL
         </div>
         <h2 class="text-4xl xl:text-5xl font-bold leading-[1.15] mb-5">
-          ยินดีต้อนรับ<br />กลับมาอีกครั้ง
+          ยินดีต้อนรับ<br>กลับมาอีกครั้ง
         </h2>
         <p class="text-blue-100 text-sm xl:text-base max-w-sm mb-10 leading-relaxed">
           เข้าสู่ระบบเพื่อจัดการแพ็กเกจ ดูประวัติการซัก และติดตามสถานะผ้าของคุณแบบเรียลไทม์
@@ -100,7 +97,7 @@ onMounted(async () => {
 
         <!-- LINE Mockup -->
         <div class="relative w-full max-w-sm opacity-95">
-          <div class="relative bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl shadow-2xl overflow-hidden">
+          <div class="relative bg-white/10 backdrop-blur-md border border-white/20 rounded-md shadow-2xl overflow-hidden">
             <div class="p-4">
               <div class="flex items-center gap-3 pb-3 mb-3 border-b border-white/10">
                 <div class="w-10 h-10 rounded-full bg-gradient-to-br from-[#06C755] to-[#04a045] text-white flex items-center justify-center font-bold text-sm shrink-0 shadow ring-2 ring-white/20">
@@ -115,7 +112,7 @@ onMounted(async () => {
                 </div>
               </div>
               
-              <div class="bg-white/95 dark:bg-gray-800 rounded-xl rounded-tl-sm p-3 mb-3">
+              <div class="bg-white/95 dark:bg-gray-800 rounded-md rounded-tl-sm p-3 mb-3">
                 <div class="font-semibold flex items-center gap-1.5 mb-2 text-gray-900 dark:text-white text-[12px]">
                   <span class="w-2 h-2 rounded-full bg-amber-500" />
                   กำลังซัก...
@@ -132,7 +129,7 @@ onMounted(async () => {
                 </div>
               </div>
 
-              <div class="bg-white/95 dark:bg-gray-800 rounded-xl rounded-tl-sm p-3">
+              <div class="bg-white/95 dark:bg-gray-800 rounded-md rounded-tl-sm p-3">
                 <div class="font-semibold flex items-center gap-1.5 mb-1.5 text-gray-900 dark:text-white text-[12px]">
                   <span class="w-2 h-2 rounded-full bg-emerald-500" />
                   พร้อมส่ง 🛵
@@ -158,129 +155,112 @@ onMounted(async () => {
     <!-- RIGHT PANEL: Login Form -->
     <div class="flex-1 flex flex-col relative bg-white dark:bg-gray-900">
       
-      <!-- Top left nav -->
-      <div class="absolute top-8 left-8 sm:left-12">
-        <UButton 
-          to="/" 
-          variant="ghost" 
-          color="neutral" 
-          icon="i-lucide-arrow-left" 
-          class="text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white"
-        >
-          กลับหน้าหลัก
-        </UButton>
-      </div>
-
-      <!-- Top right nav -->
-      <div class="hidden sm:block absolute top-8 right-8 text-sm text-gray-500 dark:text-gray-400">
-        ยังไม่มีบัญชี?
-        <NuxtLink to="/auth/register" class="text-primary font-bold hover:underline ml-1">
-          สมัครสมาชิก
-        </NuxtLink>
-      </div>
-
-      <!-- Form Container -->
+      <!--      <!-- Form Container -->
       <div class="flex-1 flex items-center justify-center p-6 sm:p-12">
-        <div class="w-full max-w-[400px]">
-          
-          <div class="mb-10">
-            <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-2">เข้าสู่ระบบ</h1>
-            <p class="text-gray-500 dark:text-gray-400 text-sm">ใช้บัญชีของคุณเพื่อจัดการบริการ และดูสถานะผ้าทุกผืน</p>
-          </div>
-
-          <!-- LINE Button -->
-          <UButton 
-            block 
-            size="xl" 
-            class="mb-6 font-bold text-[15px] bg-[#00B900] hover:bg-[#009900] dark:bg-[#00B900] dark:hover:bg-[#009900] text-white transition-all shadow-sm" 
-            @click="handleLineLogin"
-          >
-            <UIcon name="i-ph-chat-circle-fill" class="w-5 h-5 mr-1" />
-            เข้าสู่ระบบด้วย LINE
-          </UButton>
-
-          <UDivider label="หรือ" class="mb-6" :ui="{ label: 'text-gray-400 dark:text-gray-500 text-xs' }" />
-
-          <UForm :state="form" class="space-y-5" @submit="handleSignIn">
+        <ClientOnly>
+          <div class="w-full max-w-[400px]">
             
-            <UFormField name="email" required>
-              <template #label>
-                <span class="text-sm font-medium text-gray-700 dark:text-gray-200">อีเมล</span>
-              </template>
-              <UInput 
-                v-model="form.email" 
-                type="email" 
-                placeholder="you@example.com" 
-                autocomplete="email" 
-                icon="i-lucide-mail" 
-                size="lg" 
-                class="w-full mt-1.5" 
-                required
-              />
-            </UFormField>
-
-            <UFormField name="password" required>
-              <template #label>
-                <div class="flex justify-between items-center w-full">
-                  <span class="text-sm font-medium text-gray-700 dark:text-gray-200">รหัสผ่าน</span>
-                  <NuxtLink to="/auth/forgot-password" class="text-xs text-primary font-semibold hover:underline">
-                    ลืมรหัสผ่าน?
-                  </NuxtLink>
-                </div>
-              </template>
-              <UInput 
-                v-model="form.password" 
-                :type="showPassword ? 'text' : 'password'" 
-                placeholder="••••••••" 
-                autocomplete="current-password" 
-                icon="i-lucide-lock" 
-                size="lg" 
-                class="w-full mt-1.5" 
-                required
-              >
-                <template #trailing>
-                  <UButton
-                    color="neutral"
-                    variant="link"
-                    :icon="showPassword ? 'i-lucide-eye' : 'i-lucide-eye-off'"
-                    :padded="false"
-                    @click="showPassword = !showPassword"
-                    class="text-gray-400"
-                  />
-                </template>
-              </UInput>
-            </UFormField>
-
-            <div class="flex items-center mt-4 mb-8">
-              <UCheckbox v-model="rememberMe" label="จดจำการเข้าสู่ระบบของฉันบนอุปกรณ์นี้" :ui="{ label: 'text-sm text-gray-600 dark:text-gray-300' }" />
+            <div class="mb-10">
+              <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-2">เข้าสู่ระบบ</h1>
+              <p class="text-gray-500 dark:text-gray-400 text-sm">ใช้บัญชีของคุณเพื่อจัดการบริการ และดูสถานะผ้าทุกผืน</p>
             </div>
 
+            <!-- LINE Button -->
             <UButton 
-              type="submit" 
               block 
-              color="primary" 
               size="xl" 
-              :loading="loading" 
-              class="font-bold text-[15px] shadow-sm"
+              class="mb-6 font-bold text-[15px] bg-[#00B900] hover:bg-[#009900] dark:bg-[#00B900] dark:hover:bg-[#009900] text-white transition-all shadow-sm" 
+              @click="handleLineLogin"
             >
-              เข้าสู่ระบบ
-              <template #trailing>
-                <UIcon name="i-lucide-arrow-right" class="w-4 h-4 ml-1" />
-              </template>
+              <UIcon name="i-simple-icons-line" class="w-5 h-5 mr-1" />
+              เข้าสู่ระบบด้วย LINE
             </UButton>
-          </UForm>
 
-          <p class="text-center text-sm text-gray-600 dark:text-gray-400 mt-8 sm:hidden">
-            ยังไม่มีบัญชี?
-            <NuxtLink to="/auth/register" class="text-primary font-bold hover:underline ml-1">
-              สมัครสมาชิกฟรี
-            </NuxtLink>
-          </p>
-          <p class="text-center text-sm text-gray-600 dark:text-gray-400 mt-8 hidden sm:block">
-            ยังไม่มีบัญชี? <NuxtLink to="/auth/register" class="text-primary font-bold hover:underline ml-1">สมัครสมาชิกฟรี</NuxtLink>
-          </p>
+            <USeparator label="หรือ" class="mb-6" :ui="{ label: 'text-gray-400 dark:text-gray-500 text-xs' }" />
 
-        </div>
+            <UForm :state="form" class="space-y-5" @submit="handleSignIn">
+              
+              <UFormField name="email" required>
+                <template #label>
+                  <span class="text-sm font-medium text-gray-700 dark:text-gray-200">อีเมล</span>
+                </template>
+                <UInput 
+                  v-model="form.email" 
+                  type="email" 
+                  placeholder="you@example.com" 
+                  autocomplete="email" 
+                  icon="i-lucide-mail" 
+                  size="lg" 
+                  class="w-full mt-1.5" 
+                  required
+                />
+              </UFormField>
+
+              <UFormField name="password" required>
+                <template #label>
+                  <span class="text-sm font-medium text-gray-700 dark:text-gray-200">รหัสผ่าน</span>
+                </template>
+                <UInput 
+                  v-model="form.password" 
+                  :type="showPassword ? 'text' : 'password'" 
+                  placeholder="••••••••" 
+                  autocomplete="current-password" 
+                  icon="i-lucide-lock" 
+                  size="lg" 
+                  class="w-full mt-1.5" 
+                  required
+                >
+                  <template #trailing>
+                    <UButton
+                      color="neutral"
+                      variant="link"
+                      :icon="showPassword ? 'i-lucide-eye' : 'i-lucide-eye-off'"
+                      :padded="false"
+                      @click="showPassword = !showPassword"
+                      class="text-gray-400"
+                    />
+                  </template>
+                </UInput>
+              </UFormField>
+
+              <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mt-4 mb-8">
+                <UCheckbox v-model="rememberMe" label="จดจำฉันบนอุปกรณ์นี้" :ui="{ label: 'text-sm text-gray-600 dark:text-gray-300' }" />
+                <NuxtLink to="/auth/forgot-password" class="text-sm text-primary font-semibold hover:underline self-start sm:self-auto">ลืมรหัสผ่าน?</NuxtLink>
+              </div>
+
+              <UButton 
+                type="submit" 
+                block 
+                color="primary" 
+                size="xl" 
+                :loading="loading" 
+                class="font-bold text-[15px] shadow-sm"
+              >
+                เข้าสู่ระบบ
+                <template #trailing>
+                  <UIcon name="i-lucide-arrow-right" class="w-4 h-4 ml-1" />
+                </template>
+              </UButton>
+            </UForm>
+
+            <p class="text-center text-sm text-gray-600 dark:text-gray-400 mt-8 sm:hidden">
+              ยังไม่มีบัญชี?
+              <NuxtLink to="/auth/register" class="text-primary font-bold hover:underline ml-1">
+                สมัครสมาชิก
+              </NuxtLink>
+            </p>
+            <p class="text-center text-sm text-gray-600 dark:text-gray-400 mt-8 hidden sm:block">
+              ยังไม่มีบัญชี? <NuxtLink to="/auth/register" class="text-primary font-bold hover:underline ml-1">สมัครสมาชิกฟรี</NuxtLink>
+            </p>
+
+          </div>
+          <template #fallback>
+            <div class="w-full max-w-[400px] flex flex-col items-center justify-center py-12">
+              <UIcon name="i-lucide-loader-2" class="w-8 h-8 animate-spin text-primary mb-2" />
+              <p class="text-gray-500 text-sm">กำลังโหลดระบบเข้าสู่ระบบ...</p>
+            </div>
+          </template>
+        </ClientOnly>
       </div>
     </div>
   </div>

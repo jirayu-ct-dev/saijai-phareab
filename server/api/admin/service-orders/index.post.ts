@@ -3,11 +3,14 @@ import { getBusinessSetting } from "~~/server/utils/businessSetting";
 import { computeVat } from "~~/server/utils/vat";
 import { requireRole } from "~~/server/utils/auth";
 import { createPaymentNo } from "~~/server/utils/paymentNo";
+import { createReceiptNo } from "~~/server/utils/receiptNo";
 import { createQuotationNo } from "~~/server/utils/quotationNo";
 import { prisma } from "~~/server/utils/prisma";
 import { createServiceOrderNo } from "~~/server/utils/serviceOrderNo";
 import { ensureWalkInCustomer } from "~~/server/utils/walkInCustomer";
-import { notifyServiceOrderCreated, notifyServiceOrderStatusChanged } from "~~/server/utils/notify";
+import { notifyQuotationCreated, notifyServiceOrderCreated, notifyServiceOrderStatusChanged } from "~~/server/utils/notify";
+import { createAddonUsageRecords } from "~~/server/utils/serviceOrderCredits";
+import { isServiceOrderStatus } from "~~/server/utils/serviceOrderStatusTransition";
 
 type CreateServiceOrderBody = {
   customerId?: string | null;
@@ -56,6 +59,10 @@ export default defineEventHandler(async (event) => {
 
   if (isWalkIn && requestedEntitlementId) {
     throw createError({ statusCode: 400, statusMessage: "ลูกค้าหน้าร้านไม่สามารถใช้เครดิตแพ็กเกจได้" });
+  }
+
+  if (isWalkIn && Array.isArray(body.addonEntitlements) && body.addonEntitlements.length > 0) {
+    throw createError({ statusCode: 400, statusMessage: "ลูกค้าหน้าร้านไม่สามารถใช้แพ็กเกจเสริมได้" });
   }
 
   const washFoldInput = body.washFold && Number.isFinite(Number(body.washFold.weightKg))
@@ -110,6 +117,9 @@ export default defineEventHandler(async (event) => {
   }
 
   const serviceOrderStatus: ServiceOrderStatus = body.serviceOrderStatus ?? "RECEIVED";
+  if (!isServiceOrderStatus(serviceOrderStatus)) {
+    throw createError({ statusCode: 400, statusMessage: "สถานะรายการรับผ้าไม่ถูกต้อง" });
+  }
   const receivedAt = new Date();
   const dueAt = body.dueAt ? new Date(body.dueAt) : null;
 
@@ -264,6 +274,7 @@ export default defineEventHandler(async (event) => {
       const beforeVat = subtotalAmount - discountAmount + hangerCharge.total;
       const vat = computeVat({ amount: beforeVat, rate: business.vatRate, included: business.vatIncluded });
       const payableAmount = vat.totalAmount;
+      const isPackageFullyCovered = Boolean(memberEntitlement && creditUsed > 0 && payableAmount === 0);
 
       if (memberEntitlement && creditUsed > 0) {
         const { count } = await tx.memberEntitlement.updateMany({
@@ -283,46 +294,68 @@ export default defineEventHandler(async (event) => {
         }
       }
 
-      // Deduct CREATED add-on entitlements
-      type StoredAddonUsage = { entitlementId: string; productId: string; productName: string; credits: number; appliedAt: string };
-      const storedAddonUsages: StoredAddonUsage[] = [];
+      type PendingAddonUsage = {
+        entitlementId: string;
+        productId: string;
+        productName: string;
+        credits: number;
+        deductOn: "CREATED" | "COMPLETED";
+        appliedAt?: string;
+        deductedAt?: string;
+      };
+      const pendingAddonUsages: PendingAddonUsage[] = [];
+      const storedAddonUsages: PendingAddonUsage[] = [];
       const rawAddonEntitlements = Array.isArray(body.addonEntitlements) ? body.addonEntitlements : [];
       for (const entry of rawAddonEntitlements) {
-        if (!entry.entitlementId || entry.credits <= 0) continue;
+        const credits = Math.floor(Number(entry.credits ?? 0));
+        if (!entry.entitlementId || credits <= 0) continue;
         const addonEnt = await tx.memberEntitlement.findFirst({
           where: {
             id: entry.entitlementId,
             customerId: customerId!,
             status: "ACTIVE",
             deletedAt: null,
-            product: { packageType: "ADDON", deductOn: "CREATED" },
+            product: { packageType: "ADDON" },
           },
           include: { product: { select: { id: true, name: true, deductOn: true } } },
         });
         if (!addonEnt) {
           throw createError({ statusCode: 400, statusMessage: `ไม่พบสิทธิ์แพ็กเกจเสริม (${entry.entitlementId})` });
         }
-        const remaining = addonEnt.creditRemaining ?? 0;
-        if (remaining < entry.credits) {
-          throw createError({ statusCode: 400, statusMessage: `เครดิตของ "${addonEnt.product.name}" ไม่พอ (มี ${remaining})` });
-        }
-        await tx.memberEntitlement.update({
-          where: { id: addonEnt.id },
-          data: { creditRemaining: remaining - entry.credits },
-        });
-        storedAddonUsages.push({
+        const usage: PendingAddonUsage = {
           entitlementId: addonEnt.id,
           productId: addonEnt.product.id,
           productName: addonEnt.product.name,
-          credits: entry.credits,
-          appliedAt: new Date().toISOString(),
-        });
+          credits,
+          deductOn: addonEnt.product.deductOn,
+          deductedAt: undefined,
+        };
+        const shouldDeductNow = addonEnt.product.deductOn === "CREATED" || serviceOrderStatus === "COMPLETED";
+        if (shouldDeductNow) {
+          const { count } = await tx.memberEntitlement.updateMany({
+            where: {
+              id: addonEnt.id,
+              creditRemaining: { gte: credits },
+              status: "ACTIVE",
+              deletedAt: null,
+            },
+            data: { creditRemaining: { decrement: credits } },
+          });
+          if (count === 0) {
+            throw createError({ statusCode: 400, statusMessage: `เครดิตของ "${addonEnt.product.name}" ไม่พอ` });
+          }
+          const deductedAt = new Date().toISOString();
+          usage.appliedAt = deductedAt;
+          usage.deductedAt = deductedAt;
+          storedAddonUsages.push(usage);
+        }
+        pendingAddonUsages.push(usage);
       }
 
       const serviceOrder = await tx.serviceOrder.create({
         data: {
           orderNo: await createServiceOrderNo(receivedAt),
-          quotationNo: await createQuotationNo(receivedAt),
+          quotationNo: await createQuotationNo(receivedAt, tx),
           customerId: paymentUserId!,
           employeeId: actor.id,
           status: serviceOrderStatus,
@@ -344,6 +377,8 @@ export default defineEventHandler(async (event) => {
           addonUsages: storedAddonUsages.length ? storedAddonUsages : undefined,
         },
       });
+
+      await createAddonUsageRecords(tx, serviceOrder.id, pendingAddonUsages);
 
       for (const item of allocatedItems) {
         const rows: Array<{ qty: number; isPackage: boolean; totalPrice: number; attachPhotos: boolean }> = [];
@@ -390,15 +425,17 @@ export default defineEventHandler(async (event) => {
       const payment = await tx.paymentRecord.create({
         data: {
           paymentNo: await createPaymentNo(),
+          receiptNo: isPackageFullyCovered ? await createReceiptNo(receivedAt, tx) : null,
           userId: paymentUserId!,
-          memberEntitlementId: memberEntitlement?.id ?? null,
           serviceOrderId: serviceOrder.id,
           amount: payableAmount,
-          status: "UNPAID",
+          status: isPackageFullyCovered ? "PAID" : "UNPAID",
           method: null,
           slipImageId: null,
           note: body.note?.trim() || null,
-          paidAt: null,
+          paidAt: isPackageFullyCovered ? receivedAt : null,
+          confirmedAt: isPackageFullyCovered ? receivedAt : null,
+          confirmedById: isPackageFullyCovered ? actor.id : null,
           metadata: {
             createdByAdminId: actor.id,
             source: "admin-service-orders",
@@ -428,12 +465,13 @@ export default defineEventHandler(async (event) => {
       await tx.paymentAuditLog.create({
         data: {
           paymentId: payment.id,
-          action: "CREATED",
+          action: isPackageFullyCovered ? "CONFIRMED" : "CREATED",
           actorId: actor.id,
           afterJson: {
-            status: "UNPAID",
+            status: isPackageFullyCovered ? "PAID" : "UNPAID",
             amount: payableAmount,
             quotationNo: serviceOrder.quotationNo,
+            receiptNo: payment.receiptNo,
           },
         },
       });
@@ -448,6 +486,7 @@ export default defineEventHandler(async (event) => {
     if (serviceOrderStatus === "RECEIVED") {
       // Send RECEIVED notification first, then transition to PROCESSING
       await notifyServiceOrderCreated({ serviceOrderId: created.id });
+      await notifyQuotationCreated({ serviceOrderId: created.id });
       await prisma.serviceOrder.update({
         where: { id: created.id },
         data: { status: "PROCESSING" },
@@ -458,7 +497,8 @@ export default defineEventHandler(async (event) => {
         toStatus: "PROCESSING",
       });
     } else {
-      void notifyServiceOrderCreated({ serviceOrderId: created.id });
+      await notifyServiceOrderCreated({ serviceOrderId: created.id, status: serviceOrderStatus });
+      await notifyQuotationCreated({ serviceOrderId: created.id });
     }
 
     return created;

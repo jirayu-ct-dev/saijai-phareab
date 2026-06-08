@@ -1,10 +1,13 @@
 import { prisma } from '~~/server/utils/prisma'
+import { requireRole } from '~~/server/utils/auth'
 
 /**
  * GET /api/admin/packages
  * ดึงแพ็กเกจทั้งหมด (ไม่รวมที่ถูก soft-delete) พร้อม bundle relations
  */
-export default defineEventHandler(async () => {
+export default defineEventHandler(async (event) => {
+    await requireRole(event, ['ADMIN'])
+
     try {
         const packages = await prisma.packageProduct.findMany({
             where: { deletedAt: null },

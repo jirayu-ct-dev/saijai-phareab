@@ -19,6 +19,7 @@ export type AdminUser = {
   role: Role;
   phoneNumber: string | null;
   emailVerified: boolean;
+  isActive: boolean;
   createdAt: string | Date;
   updatedAt: string | Date;
   memberEntitlement: AdminUserMemberEntitlement | null;
@@ -102,6 +103,25 @@ export const useAdminUsers = () => {
     }
   };
 
+  const toggleActive = async (user: AdminUser): Promise<boolean> => {
+    const next = !user.isActive;
+    try {
+      const response = await $fetch<{ sessionsRevoked?: number }>(`/api/admin/users/${user.id}`, {
+        method: "PUT",
+        body: { isActive: next },
+      });
+      await refresh();
+      notify.success(next ? `${user.name || user.email} กลับมาใช้งานแล้ว` : `${user.name || user.email} ถูกพักการใช้งานแล้ว`);
+      if ((response.sessionsRevoked ?? 0) > 0) {
+        notify.info("ระบบได้ยกเลิกเซสชันของผู้ใช้งานแล้ว");
+      }
+      return true;
+    } catch (error: unknown) {
+      notify.error(getErrorMessage(error, "ไม่สามารถเปลี่ยนสถานะผู้ใช้งานได้"));
+      return false;
+    }
+  };
+
   return {
     users,
     isLoading,
@@ -109,5 +129,6 @@ export const useAdminUsers = () => {
     createUser,
     updateUser,
     deleteUser,
+    toggleActive,
   };
 };
