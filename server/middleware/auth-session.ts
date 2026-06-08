@@ -1,8 +1,10 @@
 import { auth } from "~~/app/utils/auth";
 import { prisma } from "~~/server/utils/prisma";
 import { requireMember, requireRole } from "~~/server/utils/auth";
-import type { User } from "~~/shared/types/auth";
+import type { Session, User } from "~~/shared/types/auth";
 import type { Role } from "~~/shared/types/enums";
+
+type SessionWithUser = (Session & { user?: User }) | null;
 
 type AccessPolicy = {
   prefix: string;
@@ -48,7 +50,7 @@ const getAccessPolicy = (pathname: string): AccessPolicy | null => {
 
 export default defineEventHandler(async (event) => {
   try {
-    const context = event.context as typeof event.context & { user?: User };
+    const context = event.context as typeof event.context & { user?: User; session?: SessionWithUser };
     const headers: Record<string, string> = {};
     for (const [key, value] of Object.entries(event.node.req.headers)) {
       if (value === undefined) continue;
@@ -58,6 +60,10 @@ export default defineEventHandler(async (event) => {
     const session = await auth.api.getSession({
       headers,
     });
+
+    if (!session?.user) {
+      context.session = null;
+    }
 
     if (session?.user) {
       const sessionUser = session.user as User & { deletedAt?: Date | string | null; isActive?: boolean };
@@ -80,6 +86,7 @@ export default defineEventHandler(async (event) => {
         await prisma.session.deleteMany({ where: { userId: u.id } });
         deleteCookie(event, "better-auth.session_token");
         deleteCookie(event, "__Secure-better-auth.session_token");
+        context.session = null;
         setCookie(event, "auth_signout_reason", "deleted", {
           path: "/",
           maxAge: 60,
@@ -106,9 +113,11 @@ export default defineEventHandler(async (event) => {
           // but admin middleware will reject them
         } else {
           context.user = u;
+          context.session = { ...session, user: u } as unknown as SessionWithUser;
         }
       } else {
         context.user = u;
+        context.session = { ...session, user: u } as unknown as SessionWithUser;
       }
     }
   } catch (error) {

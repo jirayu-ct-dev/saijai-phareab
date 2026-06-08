@@ -1,4 +1,5 @@
 import type { Session as AppSession, User as AppUser } from "~~/shared/types/auth";
+import { clearSessionStatusCache, fetchSessionStatus } from "~/utils/session-status";
 
 type SessionWithUser = (AppSession & { user?: AppUser }) | null;
 
@@ -19,11 +20,8 @@ export const useUser = () => {
   }));
 
   const refreshSession = async () => {
-    const { data, error } = await authClient.getSession();
-
-    if (!error) {
-      session.value = (data as SessionWithUser) ?? null;
-    }
+    clearSessionStatusCache();
+    session.value = await fetchSessionStatus({ force: true });
 
     return session.value;
   };
@@ -170,6 +168,7 @@ export const useUser = () => {
     start();
     try {
       await authClient.signOut();
+      clearSessionStatusCache();
       session.value = null;
     } catch (error: any) {
       console.error(error);

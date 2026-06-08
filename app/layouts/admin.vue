@@ -222,7 +222,7 @@ const groups = computed(() => [
 const checkAdminSession = async () => {
   if (import.meta.server) return;
   try {
-    const currentSession = await fetchSessionStatus();
+    const currentSession = await fetchSessionStatus({ force: true });
     if (!currentSession?.user) {
       session.value = null;
       await navigateTo("/auth/login");

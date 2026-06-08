@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useMediaQuery } from "@vueuse/core";
-import type { NavigationMenuItem } from "@nuxt/ui";
+import type { NavigationMenuItem, CommandPaletteItem } from "@nuxt/ui";
 
 const SESSION_CHECK_INTERVAL_MS = 60_000;
 const open = ref(false);
@@ -120,7 +120,7 @@ const groups = computed(() => {
     {
       id: "links",
       label: "Go to",
-      items: menu.value.flat(),
+      items: menu.value.flat() as CommandPaletteItem[],
     }
   ];
 });
@@ -128,7 +128,7 @@ const groups = computed(() => {
 const checkUserSession = async () => {
   if (import.meta.server) return;
   try {
-    const currentSession = await fetchSessionStatus();
+    const currentSession = await fetchSessionStatus({ force: true });
     if (!currentSession?.user) {
       session.value = null;
       await navigateTo("/auth/login");
