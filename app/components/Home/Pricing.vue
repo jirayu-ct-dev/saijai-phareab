@@ -1,5 +1,8 @@
 <script setup lang="ts">
-const { data: shopSettings } = await useFetch('/api/public/shop-settings')
+const { data: shopSettings } = useFetch('/api/public/shop-settings', {
+  key: "home-pricing-shop-settings",
+  lazy: true,
+})
 const washFoldPrice = computed(() => shopSettings.value?.washFoldPricePerKg ?? 60)
 </script>
 
@@ -30,7 +33,7 @@ const washFoldPrice = computed(() => shopSettings.value?.washFoldPricePerKg ?? 6
         <UButton
           size="xl"
           color="primary"
-          class="font-bold rounded-lg px-8 flex-shrink-0"
+          class="font-bold rounded-lg px-8 shrink-0"
           to="#contact"
         >
           สอบถามเพิ่มเติม
@@ -65,23 +68,23 @@ const washFoldPrice = computed(() => shopSettings.value?.washFoldPricePerKg ?? 6
         </div>
         <ul class="flex flex-col m-0 p-0">
           <li class="flex items-start gap-3 p-3.5 md:p-4 text-sm text-gray-700 dark:text-gray-300 leading-relaxed bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 last:border-b-0">
-            <span class="flex-shrink-0 w-1.5 h-1.5 rounded-full bg-gray-400 dark:bg-gray-500 mt-2"></span>
+            <span class="shrink-0 w-1.5 h-1.5 rounded-full bg-gray-400 dark:bg-gray-500 mt-2"></span>
             ราคาบางรายการอาจเปลี่ยนตามสภาพผ้า ร้านจะแจ้งก่อนดำเนินการ
           </li>
           <li class="flex items-start gap-3 p-3.5 md:p-4 text-sm text-gray-700 dark:text-gray-300 leading-relaxed bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 last:border-b-0">
-            <span class="flex-shrink-0 w-1.5 h-1.5 rounded-full bg-gray-400 dark:bg-gray-500 mt-2"></span>
+            <span class="shrink-0 w-1.5 h-1.5 rounded-full bg-gray-400 dark:bg-gray-500 mt-2"></span>
             คราบฝังแน่นอาจไม่สามารถขจัดได้หมด
           </li>
           <li class="flex items-start gap-3 p-3.5 md:p-4 text-sm text-gray-700 dark:text-gray-300 leading-relaxed bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 last:border-b-0">
-            <span class="flex-shrink-0 w-1.5 h-1.5 rounded-full bg-gray-400 dark:bg-gray-500 mt-2"></span>
+            <span class="shrink-0 w-1.5 h-1.5 rounded-full bg-gray-400 dark:bg-gray-500 mt-2"></span>
             กรุณาแจ้งหากผ้ามีโอกาสสีตก
           </li>
           <li class="flex items-start gap-3 p-3.5 md:p-4 text-sm text-gray-700 dark:text-gray-300 leading-relaxed bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 last:border-b-0">
-            <span class="flex-shrink-0 w-1.5 h-1.5 rounded-full bg-gray-400 dark:bg-gray-500 mt-2"></span>
+            <span class="shrink-0 w-1.5 h-1.5 rounded-full bg-gray-400 dark:bg-gray-500 mt-2"></span>
             กรุณาตรวจสอบสิ่งของในกระเป๋าก่อนส่งซัก ทางร้านไม่รับผิดชอบทรัพย์สินที่ตกค้าง
           </li>
           <li class="flex items-start gap-3 p-3.5 md:p-4 text-sm text-gray-700 dark:text-gray-300 leading-relaxed bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 last:border-b-0">
-            <span class="flex-shrink-0 w-1.5 h-1.5 rounded-full bg-gray-400 dark:bg-gray-500 mt-2"></span>
+            <span class="shrink-0 w-1.5 h-1.5 rounded-full bg-gray-400 dark:bg-gray-500 mt-2"></span>
             กรณีผ้าเสียหายจากความผิดพลาดของร้าน ชดใช้ไม่เกิน 10 เท่าของค่าบริการในรายการนั้น
           </li>
         </ul>

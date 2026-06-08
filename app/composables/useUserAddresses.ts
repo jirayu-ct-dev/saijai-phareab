@@ -1,6 +1,7 @@
 export const useUserAddresses = () => {
   const { data, status, refresh } = useFetch("/api/me/addresses", {
     key: "my-addresses",
+    lazy: true,
   });
 
   const addAddress = async (payload: any) => {

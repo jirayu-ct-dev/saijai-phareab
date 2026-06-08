@@ -17,9 +17,9 @@ const router = useRouter();
 const paymentId = computed(() => String(route.params.id ?? ""));
 const { settings: shopSettings } = useShopSettings();
 
-const { data, status, refresh, error } = await useFetch<UserReceiptPayload>(
+const { data, status, refresh, error } = useFetch<UserReceiptPayload>(
   () => `/api/me/payment/${paymentId.value}`,
-  { key: () => `my-payment-receipt-${paymentId.value}` },
+  { key: () => `my-payment-receipt-${paymentId.value}`, lazy: true, server: false },
 );
 
 watch(data, (value) => {
@@ -28,7 +28,7 @@ watch(data, (value) => {
   }
 }, { immediate: true });
 
-const isLoading = computed(() => status.value === "pending");
+const isLoading = computed(() => status.value === "pending" || status.value === "idle");
 const hasError = computed(() => Boolean(error.value) || !data.value);
 const receiptCode = computed(
   () => data.value?.receiptNo || data.value?.paymentNo || `RC-${paymentId.value.slice(-8).toUpperCase()}`,

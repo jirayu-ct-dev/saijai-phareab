@@ -13,8 +13,9 @@ const props = withDefaults(
 );
 
 const notify = useNotify();
-const { data, status } = await useFetch<ProfileResponse>("/api/me/profile", {
+const { data, status } = useFetch<ProfileResponse>("/api/me/profile", {
   key: "me-profile",
+  lazy: true,
 });
 const isLoading = computed(() => status.value === "pending");
 const email = computed(() => data.value?.email ?? null);

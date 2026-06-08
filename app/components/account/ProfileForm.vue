@@ -17,8 +17,9 @@ type ProfileResponse = {
 const notify = useNotify();
 const { refreshSession } = useUser();
 
-const { data, status, refresh } = await useFetch<ProfileResponse>("/api/me/profile", {
+const { data, status, refresh } = useFetch<ProfileResponse>("/api/me/profile", {
   key: "me-profile",
+  lazy: true,
 });
 
 const isLoading = computed(() => status.value === "pending");

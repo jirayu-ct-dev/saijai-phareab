@@ -26,8 +26,9 @@ type MemberRow = {
 const notify = useNotify();
 const { user: actor } = useUser();
 
-const { data: employees, refresh, status } = await useFetch<Employee[]>("/api/admin/employees", {
+const { data: employees, refresh, status } = useFetch<Employee[]>("/api/admin/employees", {
   key: "admin-employees",
+  lazy: true,
   default: () => [],
 });
 const isLoading = computed(() => status.value === "pending");
@@ -86,12 +87,19 @@ const promoteRole = ref<"EMPLOYEE" | "ADMIN">("EMPLOYEE");
 const selectedUserId = ref<string | undefined>(undefined);
 const isPromoting = ref(false);
 
-const { data: memberResults, status: memberStatus } = useFetch<MemberRow[]>("/api/admin/members", {
+const { data: memberResults, refresh: refreshMemberResults, status: memberStatus } = useFetch<MemberRow[]>("/api/admin/members", {
   query: computed(() => ({ search: promoteSearch.value, filter: "all" })),
-  watch: [promoteSearch],
+  immediate: false,
+  watch: false,
   default: () => [],
 });
 const isSearching = computed(() => memberStatus.value === "pending");
+
+watch([isPromoteOpen, promoteSearch], async () => {
+  if (!isPromoteOpen.value) return;
+  selectedUserId.value = undefined;
+  await refreshMemberResults();
+});
 
 const memberSelectOptions = computed(() =>
   (memberResults.value ?? []).map((m) => ({

@@ -12,6 +12,7 @@ export const useMyOrders = () => {
   const { data, status: requestStatus, refresh, error } = useFetch("/api/me/orders", {
     key: "me-orders",
     query,
+    lazy: true,
     watch: [query],
   });
 
@@ -21,7 +22,7 @@ export const useMyOrders = () => {
     page,
     pageSize,
     status,
-    pending: computed(() => requestStatus.value === 'pending'),
+    pending: computed(() => requestStatus.value === 'pending' || requestStatus.value === 'idle'),
     refresh,
     error,
   };

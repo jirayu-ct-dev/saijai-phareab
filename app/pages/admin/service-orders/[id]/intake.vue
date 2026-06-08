@@ -11,9 +11,9 @@ type ServiceOrderResponse = {
   payments: Array<{ id: string; createdAt?: string }>;
 };
 
-const { data } = await useFetch<ServiceOrderResponse>(
+const { data } = useFetch<ServiceOrderResponse>(
   () => `/api/admin/service-orders/${serviceOrderId.value}`,
-  { key: () => `service-order-intake-redirect-${serviceOrderId.value}` },
+  { key: () => `service-order-intake-redirect-${serviceOrderId.value}`, lazy: true, server: false },
 );
 
 const paymentId = computed(() => data.value?.payments[0]?.id ?? null);

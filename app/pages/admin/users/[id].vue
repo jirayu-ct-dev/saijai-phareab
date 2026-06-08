@@ -135,7 +135,7 @@ type UserDetailResponse = {
 const route = useRoute()
 const userId = computed(() => String(route.params.id))
 
-const { data, pending, status, refresh, error } = await useFetch<UserDetailResponse>(
+const { data, pending, status, refresh, error } = useFetch<UserDetailResponse>(
   () => `/api/admin/users/${userId.value}`,
   {
     key: () => `admin-user-detail-${userId.value}`,

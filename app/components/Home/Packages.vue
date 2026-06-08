@@ -10,7 +10,11 @@ type PublicPackage = {
   features: string[];
 };
 
-const { data: packages, pending, error } = await useFetch<PublicPackage[]>("/api/public/packages");
+const { data: packages, pending, error } = useFetch<PublicPackage[]>("/api/public/packages", {
+  key: "home-public-packages",
+  lazy: true,
+  default: () => [],
+});
 
 const formatPrice = (price: number) => new Intl.NumberFormat("th-TH").format(price);
 

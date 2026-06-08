@@ -26,9 +26,14 @@ const props = withDefaults(defineProps<{
 
 const router = useRouter()
 
-const { data: dashboardData, status } = useFetch('/api/me')
+const { data: dashboardData, status } = useFetch('/api/me', {
+  key: 'me-dashboard-summary',
+  lazy: true,
+  server: false,
+  default: () => ({ stats: null, recentOrders: [], activeEntitlements: [] }),
+})
 
-const isPending = computed(() => status.value === 'pending' || props.refreshing)
+const isPending = computed(() => status.value === 'pending' || status.value === 'idle' || props.refreshing)
 
 const orders = computed<RecentOrder[]>(() => {
   if (!dashboardData.value) return []

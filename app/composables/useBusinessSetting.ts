@@ -27,6 +27,7 @@ const FALLBACK: Omit<BusinessSetting, "id" | "updatedAt"> = {
 export const useBusinessSetting = () => {
   const { data, status, refresh } = useFetch<BusinessSetting>("/api/admin/settings/business", {
     key: "admin-business-setting",
+    lazy: true,
   });
 
   const isLoading = computed(() => status.value === "pending");

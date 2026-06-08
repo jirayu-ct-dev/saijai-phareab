@@ -1,9 +1,9 @@
 <script setup lang="ts">
 const notify = useNotify();
 
-const { data, status, refresh } = await useFetch<{ lineNotifyEnabled: boolean; hasLineLinked: boolean }>(
+const { data, status, refresh } = useFetch<{ lineNotifyEnabled: boolean; hasLineLinked: boolean }>(
   "/api/me/notification-preferences",
-  { key: "me-notification-preferences" },
+  { key: "me-notification-preferences", lazy: true },
 );
 
 const isLoading = computed(() => status.value === "pending");

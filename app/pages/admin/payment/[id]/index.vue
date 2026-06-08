@@ -88,7 +88,11 @@ const route = useRoute();
 const paymentId = computed(() => String(route.params.id ?? ""));
 const notify = useNotify();
 const { updatePayment, uploadSlip } = useAdminPayments({ fetchList: false, refreshAfterMutation: false });
-const { data, status, refresh, error } = await useFetch<PaymentDetailResponse>(() => `/api/admin/payments/${paymentId.value}`, { key: () => `admin-payment-detail-${paymentId.value}` });
+const { data, status, refresh, error } = useFetch<PaymentDetailResponse>(() => `/api/admin/payments/${paymentId.value}`, {
+  key: () => `admin-payment-detail-${paymentId.value}`,
+  lazy: true,
+  server: false,
+});
 
 const payment = computed(() => data.value ?? null);
 const isLoading = computed(() => status.value === "pending" || status.value === "idle");

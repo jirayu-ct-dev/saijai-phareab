@@ -47,13 +47,15 @@ type StaffOption = {
 
 const notify = useNotify();
 
-const { data, status, refresh } = await useFetch<{ setting: NotificationSetting; subscribers: Subscriber[] }>(
+const { data, status, refresh } = useFetch<{ setting: NotificationSetting; subscribers: Subscriber[] }>(
   "/api/admin/settings/notification",
-  { key: "admin-notification-setting" },
+  { key: "admin-notification-setting", lazy: true },
 );
 
-const { data: staffOptions } = await useFetch<StaffOption[]>("/api/admin/staff-options", {
+const { data: staffOptions } = useFetch<StaffOption[]>("/api/admin/staff-options", {
   key: "admin-staff-options",
+  lazy: true,
+  default: () => [],
 });
 
 const isLoading = computed(() => status.value === "pending");

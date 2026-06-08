@@ -12,9 +12,9 @@ const notify = useNotify();
 const { settings: shopSettings } = useAdminShopSettings();
 const { state: printerState, send } = useThermalPrinter();
 
-const { data, status, refresh, error } = await useFetch<ReceiptPayload>(
+const { data, status, refresh, error } = useFetch<ReceiptPayload>(
   () => `/api/admin/payments/${paymentId.value}/receipt`,
-  { key: () => `payment-receipt-${paymentId.value}` },
+  { key: () => `payment-receipt-${paymentId.value}`, lazy: true, server: false },
 );
 
 watch(error, (err) => {
@@ -22,7 +22,7 @@ watch(error, (err) => {
   if (code === 409) router.replace(`/admin/payment/${paymentId.value}/quotation`);
 }, { immediate: true });
 
-const isLoading = computed(() => status.value === "pending");
+const isLoading = computed(() => status.value === "pending" || status.value === "idle");
 const hasError = computed(() => Boolean(error.value) || !data.value);
 const receiptCode = computed(() => {
   const extras = (data.value ?? {}) as { receiptNo?: string | null };

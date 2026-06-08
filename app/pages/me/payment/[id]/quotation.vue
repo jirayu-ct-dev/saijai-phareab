@@ -17,9 +17,9 @@ const route = useRoute();
 const paymentId = computed(() => String(route.params.id ?? ""));
 const { settings: shopSettings } = useShopSettings();
 
-const { data, status, refresh, error } = await useFetch<ReceiptPayload>(
+const { data, status, refresh, error } = useFetch<ReceiptPayload>(
   () => `/api/me/payment/${paymentId.value}`,
-  { key: () => `my-payment-quotation-${paymentId.value}` },
+  { key: () => `my-payment-quotation-${paymentId.value}`, lazy: true, server: false },
 );
 
 const quotationData = computed<QuotationPayload | null>(() => {
@@ -31,7 +31,7 @@ const quotationData = computed<QuotationPayload | null>(() => {
   };
 });
 
-const isLoading = computed(() => status.value === "pending");
+const isLoading = computed(() => status.value === "pending" || status.value === "idle");
 const hasError = computed(() => Boolean(error.value) || !quotationData.value);
 const documentCode = computed(
   () => quotationData.value?.quotationNo || quotationData.value?.serviceOrder?.orderNo || `QT-${paymentId.value.slice(-8).toUpperCase()}`,

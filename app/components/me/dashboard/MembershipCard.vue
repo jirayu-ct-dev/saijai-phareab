@@ -7,9 +7,14 @@ const props = withDefaults(defineProps<{
 
 const { isMember } = useMemberStatus()
 
-const { data: dashboard, pending } = useFetch('/api/me')
+const { data: dashboard, pending, status } = useFetch('/api/me', {
+  key: 'me-dashboard-summary',
+  lazy: true,
+  server: false,
+  default: () => ({ stats: null, recentOrders: [], activeEntitlements: [] }),
+})
 
-const isPending = computed(() => pending.value || props.refreshing)
+const isPending = computed(() => pending.value || status.value === 'idle' || props.refreshing)
 
 const formatDaysLeft = (endAt: string | null) => {
   if (!endAt) return null

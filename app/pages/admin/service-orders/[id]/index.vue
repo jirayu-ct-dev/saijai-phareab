@@ -96,7 +96,7 @@ definePageMeta({
 const route = useRoute();
 const notify = useNotify();
 const serviceOrderId = computed(() => String(route.params.id ?? ""));
-const { data, pending, status, refresh, error } = await useFetch<ServiceOrderDetailResponse>(
+const { data, pending, status, refresh, error } = useFetch<ServiceOrderDetailResponse>(
   () => `/api/admin/service-orders/${serviceOrderId.value}`,
   {
     key: () => `admin-service-order-detail-${serviceOrderId.value}`,

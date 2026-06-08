@@ -92,8 +92,9 @@ const query = computed(() => ({
   limit: limit.value,
 }));
 
-const { data, status, refresh } = await useFetch<DeletedDataResponse>("/api/admin/deleted", {
+const { data, status, refresh } = useFetch<DeletedDataResponse>("/api/admin/deleted", {
   query,
+  lazy: true,
   default: () => ({ items: [], total: 0, page: 1, limit: 20, pageCount: 1 }),
 });
 

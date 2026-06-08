@@ -51,15 +51,17 @@ const notify = useNotify();
 const search = ref("");
 const filter = ref<"all" | "active" | "none" | "expiring">("all");
 
-const { data: members, status, refresh } = await useFetch<MemberRow[]>("/api/admin/members", {
+const { data: members, status, refresh } = useFetch<MemberRow[]>("/api/admin/members", {
   query: { search, filter },
+  lazy: true,
   default: () => [],
   watch: [search, filter],
 });
 
 const isLoading = computed(() => status.value === "pending");
 
-const { data: allPackages } = await useFetch<PackageProduct[]>("/api/admin/packages", {
+const { data: allPackages } = useFetch<PackageProduct[]>("/api/admin/packages", {
+  lazy: true,
   default: () => [],
 });
 const packageOptions = computed(() =>

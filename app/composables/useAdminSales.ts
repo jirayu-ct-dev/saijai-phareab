@@ -77,10 +77,13 @@ export const useAdminSales = () => {
   };
 
   const { data: sales, status, refresh } = useFetch<AdminPackageSaleRecord[]>("/api/admin/package-sales", {
+    key: "admin-package-sales",
+    lazy: true,
+    server: false,
     default: () => [],
   });
 
-  const isLoading = computed(() => status.value === "pending");
+  const isLoading = computed(() => status.value === "pending" || status.value === "idle");
 
   const createSale = async (body: CreateAdminSaleBody): Promise<CreateAdminSaleResult | null> => {
     try {

@@ -4,7 +4,10 @@ definePageMeta({
   middleware: ["role-user"],
 });
 
-const { data: shopSettings } = useFetch("/api/public/shop-settings");
+const { data: shopSettings } = useFetch("/api/public/shop-settings", {
+  key: "me-pricing-shop-settings",
+  lazy: true,
+});
 const washFoldPrice = computed(() => shopSettings.value?.washFoldPricePerKg ?? 60);
 
 const serviceConditions = [

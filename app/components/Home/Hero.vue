@@ -5,7 +5,10 @@ type ShopSettings = {
   washFoldPricePerKg?: number | null;
 };
 
-const { data: shopSettings } = await useFetch<ShopSettings>("/api/public/shop-settings");
+const { data: shopSettings } = useFetch<ShopSettings>("/api/public/shop-settings", {
+  key: "home-hero-shop-settings",
+  lazy: true,
+});
 const washFoldPrice = computed(() => shopSettings.value?.washFoldPricePerKg ?? 60);
 
 const isOpen = ref(false);

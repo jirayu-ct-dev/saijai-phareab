@@ -15,6 +15,7 @@ export const useAdminShopSettings = () => {
 
   const { data, status, refresh } = useFetch<ShopSetting>("/api/admin/settings/shop", {
     key: "admin-shop-settings",
+    lazy: true,
   });
   const isLoading = computed(() => status.value === "pending");
 

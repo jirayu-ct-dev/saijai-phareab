@@ -50,8 +50,8 @@ type PricingRow = {
 };
 
 const { data: pricingData, pending, status, error, refresh } = useFetch<PricingResponse>("/api/public/pricing", {
-  server: !props.clientSkeleton,
-  lazy: props.clientSkeleton,
+  server: false,
+  lazy: true,
 });
 const search = ref("");
 const filterCategory = ref("all");

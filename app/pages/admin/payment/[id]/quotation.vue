@@ -24,12 +24,12 @@ const notify = useNotify();
 const { settings: shopSettings } = useAdminShopSettings();
 const { state: printerState, send } = useThermalPrinter();
 
-const { data, status, refresh, error } = await useFetch<QuotationPayload>(
+const { data, status, refresh, error } = useFetch<QuotationPayload>(
   () => `/api/admin/payments/${paymentId.value}/quotation`,
-  { key: () => `payment-quotation-${paymentId.value}` },
+  { key: () => `payment-quotation-${paymentId.value}`, lazy: true, server: false },
 );
 
-const isLoading = computed(() => status.value === "pending");
+const isLoading = computed(() => status.value === "pending" || status.value === "idle");
 const hasError = computed(() => Boolean(error.value) || !data.value);
 const documentCode = computed(
   () => data.value?.quotationNo || data.value?.serviceOrder?.orderNo || `QT-${paymentId.value.slice(-8).toUpperCase()}`,

@@ -105,8 +105,10 @@ definePageMeta({
 const route = useRoute();
 const paymentId = computed(() => String(route.params.id ?? ""));
 
-const { data, status, refresh, error } = await useFetch<PaymentDetailResponse>(() => `/api/me/payment/${paymentId.value}`, {
+const { data, status, refresh, error } = useFetch<PaymentDetailResponse>(() => `/api/me/payment/${paymentId.value}`, {
   key: () => `my-payment-detail-${paymentId.value}`,
+  lazy: true,
+  server: false,
 });
 
 const payment = computed(() => data.value ?? null);
@@ -346,7 +348,7 @@ const entitlementRows = computed<InfoRow[]>(() => payment.value?.serviceOrder?.m
       <div class="flex flex-col gap-3 p-2 sm:p-6">
         <div v-if="isLoading" class="grid min-w-0 gap-3 xl:grid-cols-[minmax(0,1fr)_360px]">
           <div class="min-w-0 space-y-3">
-            <div class="-mx-2 border border-default/30 bg-default p-4 p-5! dark:border-default/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg">
+            <div class="-mx-2 border border-default/30 bg-default p-5! dark:border-default/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg">
               <div class="flex items-start gap-3">
                 <USkeleton class="size-12 rounded-full" />
                 <div class="flex-1 space-y-2">
@@ -376,7 +378,7 @@ const entitlementRows = computed<InfoRow[]>(() => payment.value?.serviceOrder?.m
           </div>
 
           <div class="min-w-0 space-y-3 xl:sticky xl:top-4 xl:self-start">
-            <div class="-mx-2 space-y-3 border border-default/30 bg-default p-4 p-5! dark:border-default/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg">
+            <div class="-mx-2 space-y-3 border border-default/30 bg-default p-5! dark:border-default/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg">
               <USkeleton class="h-5 w-36 rounded-lg" />
               <div class="mt-3 space-y-2">
                 <div v-for="i in 4" :key="`t-${i}`" class="flex justify-between gap-3">
@@ -385,7 +387,7 @@ const entitlementRows = computed<InfoRow[]>(() => payment.value?.serviceOrder?.m
                 </div>
               </div>
             </div>
-            <div class="-mx-2 space-y-3 border border-default/30 bg-default p-4 p-5! dark:border-default/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg">
+            <div class="-mx-2 space-y-3 border border-default/30 bg-default p-5! dark:border-default/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg">
               <USkeleton class="h-5 w-32 rounded-lg" />
               <div class="space-y-2">
                 <div v-for="i in 6" :key="`pi-${i}`" class="flex justify-between gap-3">
@@ -397,7 +399,7 @@ const entitlementRows = computed<InfoRow[]>(() => payment.value?.serviceOrder?.m
           </div>
         </div>
 
-        <div v-else-if="hasError" class="-mx-2 border border-default/30 bg-default p-4 p-6! dark:border-default/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg">
+        <div v-else-if="hasError" class="-mx-2 border border-default/30 bg-default p-6! dark:border-default/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg">
           <p class="text-base font-semibold text-highlighted">ไม่พบข้อมูลการชำระเงิน</p>
           <p class="mt-2 text-sm text-muted">รายการนี้อาจถูกลบหรือคุณไม่มีสิทธิ์เข้าถึง</p>
         </div>

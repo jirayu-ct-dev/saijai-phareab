@@ -1,5 +1,9 @@
 <script setup lang="ts">
-const { data: packages, pending, error } = await useFetch<any>("/api/public/packages");
+const { data: packages, pending, error } = useFetch<any>("/api/public/packages", {
+  key: "app-public-packages",
+  lazy: true,
+  default: () => [],
+});
 
 const formatPrice = (price: number) => new Intl.NumberFormat("th-TH").format(price);
 const packageTypeLabel = (packageType: string) =>
@@ -71,7 +75,7 @@ const packageTypeLabel = (packageType: string) =>
 
           <ul class="space-y-4 mb-8">
             <li v-for="(feature, fIndex) in pkg.features" :key="fIndex" class="flex items-start gap-3">
-              <UIcon name="i-lucide-check-circle-2" class="w-5 h-5 text-primary-500 flex-shrink-0 mt-0.5" />
+              <UIcon name="i-lucide-check-circle-2" class="w-5 h-5 text-primary-500 shrink-0 mt-0.5" />
               <span class="text-sm text-gray-700 dark:text-gray-300">{{ feature }}</span>
             </li>
           </ul>
