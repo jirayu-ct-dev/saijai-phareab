@@ -14,7 +14,7 @@ function createPrismaClient(): PrismaClient {
         connectionString: process.env.DATABASE_URL!,
         max: Number.isFinite(poolMax) && poolMax > 0 ? poolMax : 1,
         idleTimeoutMillis: 5_000,
-        connectionTimeoutMillis: 5_000,
+        connectionTimeoutMillis: 15_000,
     })
     return new PrismaClient({ adapter })
 }
