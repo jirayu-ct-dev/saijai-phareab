@@ -52,6 +52,7 @@ pnpm build
 - `PRISMA_POOL_MAX=1`: ลดการเปิด connection ต่อ serverless instance
 - `BETTER_AUTH_URL=https://saijaiphareab.shop`
 - `BETTER_AUTH_TRUSTED_ORIGINS=https://saijaiphareab.shop,https://www.saijaiphareab.shop`
+- `INTERNAL_BASE_URL`: ไม่ต้องตั้งบน Vercel ใช้เฉพาะ server/Docker ที่มี Nuxt listener ภายใน
 - `NUXT_PUBLIC_LIFF_ID`, `LINE_LIFF_CLIENT_ID`, `LINE_LIFF_CLIENT_SECRET`: ตั้งให้ตรงกับ LINE channel production
 
 ### Production checklist

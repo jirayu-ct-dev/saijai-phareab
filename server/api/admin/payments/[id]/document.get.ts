@@ -11,6 +11,8 @@ import { requireRole } from "~~/server/utils/auth";
 import { renderPdf, renderPng } from "~~/server/utils/pdfRenderer";
 import { buildEscposBytes } from "~~/server/utils/escposRaster";
 
+const trimTrailingSlash = (value: string) => value.replace(/\/+$/, "");
+
 export default defineEventHandler(async (event) => {
   requireRole(event, ["ADMIN", "EMPLOYEE"]);
 
@@ -26,14 +28,13 @@ export default defineEventHandler(async (event) => {
     return 576;
   })();
 
-  // Always navigate Puppeteer to the local Nitro instance — never round-trip
-  // through a public URL (Cloudflare Tunnel, reverse proxy, etc.). Going local
-  // avoids cert-trust issues, tunnel timeouts, and rate limits, and is faster.
-  // INTERNAL_BASE_URL lets you override (e.g. when server is in a Docker
-  // network and Puppeteer is in a sibling container).
-  const internalBase = process.env.INTERNAL_BASE_URL
-    || `http://127.0.0.1:${process.env.PORT || process.env.NITRO_PORT || 3000}`;
-  const url = `${internalBase}/print/payment/${id}/${type}?w=${width}`;
+  // On a long-running Node server, INTERNAL_BASE_URL can point Puppeteer to a
+  // local Nuxt listener. On Vercel there is no localhost:3000 listener inside
+  // the function, so fall back to the production origin instead.
+  const internalBase = (!process.env.VERCEL && process.env.INTERNAL_BASE_URL)
+    || process.env.BETTER_AUTH_URL
+    || getRequestURL(event).origin;
+  const url = `${trimTrailingSlash(internalBase)}/print/payment/${id}/${type}?w=${width}`;
 
   const cookieHeader = getRequestHeader(event, "cookie");
 

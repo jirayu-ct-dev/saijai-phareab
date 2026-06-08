@@ -87,7 +87,13 @@ async function withPage<T>(opts: RenderOptions, fn: (page: Page) => Promise<T>):
       await page.setExtraHTTPHeaders({ Cookie: opts.cookieHeader });
     }
 
-    await page.goto(opts.url, { waitUntil: "networkidle0", timeout: 30_000 });
+    const response = await page.goto(opts.url, { waitUntil: "domcontentloaded", timeout: 30_000 });
+    const status = response?.status();
+    if (status && status >= 400) {
+      throw new Error(`Print page failed with HTTP ${status}`);
+    }
+
+    await page.waitForSelector(".receipt-document", { timeout: 10_000 });
     // Wait for webfonts (Thai fallback chain) to finish loading; otherwise
     // Puppeteer can snapshot before glyphs swap in. Function runs in browser
     // context — the unbound `document` is the page's DOM, not Node's.
