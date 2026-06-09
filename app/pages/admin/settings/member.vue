@@ -106,22 +106,24 @@ const entForm = reactive({
 });
 const startDate = shallowRef<CalendarDate | null>(null);
 const endDate = shallowRef<CalendarDate | null>(null);
+const BANGKOK_OFFSET_MS = 7 * 60 * 60 * 1000;
 
 const toCalendarDate = (s: string | null): CalendarDate | null => {
   if (!s) return null;
   const d = new Date(s);
   if (Number.isNaN(d.getTime())) return null;
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
+  const bkk = new Date(d.getTime() + BANGKOK_OFFSET_MS);
+  const y = bkk.getUTCFullYear();
+  const m = String(bkk.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(bkk.getUTCDate()).padStart(2, "0");
   return parseDate(`${y}-${m}-${day}`);
 };
 
-const calendarDateToISO = (v: CalendarDate | null) => {
+const calendarDateToBangkokDateTime = (v: CalendarDate | null) => {
   if (!v) return null;
   const dd = String(v.day).padStart(2, "0");
   const mm = String(v.month).padStart(2, "0");
-  return new Date(`${v.year}-${mm}-${dd}T00:00:00`).toISOString();
+  return `${v.year}-${mm}-${dd}T00:00:00`;
 };
 
 const formatCalendarLabel = (v: CalendarDate | null) => {
@@ -157,8 +159,8 @@ const onSaveEnt = async () => {
         status: entForm.status,
         creditInitial: entForm.creditInitial,
         creditRemaining: entForm.creditRemaining,
-        startAt: calendarDateToISO(startDate.value),
-        endAt: calendarDateToISO(endDate.value),
+        startAt: calendarDateToBangkokDateTime(startDate.value),
+        endAt: calendarDateToBangkokDateTime(endDate.value),
       },
     });
     notify.updated();

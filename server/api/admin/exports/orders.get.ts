@@ -1,6 +1,6 @@
 import { prisma } from "~~/server/utils/prisma";
 import { requireRole } from "~~/server/utils/auth";
-import { buildCsv, formatBangkokDateTime, parseDateRange, sendCsv } from "~~/server/utils/csv";
+import { buildCsv, formatBangkokDateTag, formatBangkokDateTime, parseDateRange, sendCsv } from "~~/server/utils/csv";
 
 const statusLabel: Record<string, string> = {
   RECEIVED: "รับผ้าแล้ว",
@@ -94,7 +94,7 @@ export default defineEventHandler(async (event) => {
     "พนักงาน",
   ];
   const csv = buildCsv(headers, rows);
-  const fromTag = from.toISOString().slice(0, 10);
-  const toTag = to.toISOString().slice(0, 10);
+  const fromTag = formatBangkokDateTag(from);
+  const toTag = formatBangkokDateTag(to);
   return sendCsv(`orders-${fromTag}-to-${toTag}`, csv);
 });

@@ -8,6 +8,7 @@ import { prisma } from "~~/server/utils/prisma";
 import { ensureWalkInCustomer } from "~~/server/utils/walkInCustomer";
 import { createAddonUsageRecords, refundAddonUsages, voidPendingAddonUsageRecords } from "~~/server/utils/serviceOrderCredits";
 import { isServiceOrderStatus } from "~~/server/utils/serviceOrderStatusTransition";
+import { parseBangkokDateTime } from "~~/shared/utils/pickup";
 
 type UpdateServiceOrderBody = {
   customerId?: string | null;
@@ -251,7 +252,7 @@ export default defineEventHandler(async (event) => {
       ? Math.round(washFoldInput.weightKg * business.washFoldPricePerKg * 100) / 100
       : 0;
 
-    const dueAt = body.dueAt ? new Date(body.dueAt) : null;
+    const dueAt = parseBangkokDateTime(body.dueAt);
     if (dueAt && Number.isNaN(dueAt.getTime())) {
       throw createError({ statusCode: 400, statusMessage: "วันนัดรับไม่ถูกต้อง" });
     }

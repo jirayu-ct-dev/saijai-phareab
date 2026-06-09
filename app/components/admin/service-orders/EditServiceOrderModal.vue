@@ -643,7 +643,7 @@ const buildBody = async (): Promise<CreateAdminServiceOrderBody | null> => {
       ? { weightKg: Number(form.washFoldWeightKg), notes: form.washFoldNotes.trim() || null }
       : null,
     missingHangerCount: form.washFoldMode ? 0 : form.missingHangerCount,
-    dueAt: dueAtValue.value ? new Date(dueAtValue.value).toISOString() : null,
+    dueAt: dueAtValue.value,
     discountAmount: form.washFoldMode
       ? sanitizedDiscountAmount.value
       : (form.memberEntitlementId ? sanitizedCashDiscount.value : sanitizedDiscountAmount.value),

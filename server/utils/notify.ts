@@ -1019,7 +1019,7 @@ export const notifyReceipt = async (params: { paymentId: string }): Promise<void
         for (const pkg of packageItems) {
           body.push(kvRow(pkg.name, `×${pkg.qty}`));
         }
-        body.push(kvRow("เครดิต", `${totalCreditRemaining}/${totalCreditInitial} ครั้ง`));
+        body.push(kvRow("เครดิต", `${totalCreditRemaining}/${totalCreditInitial} เครดิต`));
       }
 
       const staffHeadline =
@@ -1057,7 +1057,7 @@ export const notifyReceipt = async (params: { paymentId: string }): Promise<void
       }
       if (isPackageSale && packageItems.length) {
         body.push(kvRow("แพ็กเกจ", packageItems.map((i) => i.name).join(", ")));
-        body.push(kvRow("เครดิต", `${totalCreditRemaining}/${totalCreditInitial} ครั้ง`));
+        body.push(kvRow("เครดิต", `${totalCreditRemaining}/${totalCreditInitial} เครดิต`));
       }
 
       const customerHeadline =

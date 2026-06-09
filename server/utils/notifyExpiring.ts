@@ -64,7 +64,7 @@ const buildFlex = (
       ? "แพ็กเกจของคุณหมดอายุวันนี้"
       : `แพ็กเกจของคุณกำลังจะหมดอายุในอีก ${daysBefore} วัน`;
   const expiryText = formatBangkokDate(e.endAt);
-  const url = `${getBaseUrl()}/me/packages`;
+  const url = `${getBaseUrl()}/packages`;
 
   const bodyContents: Record<string, unknown>[] = [
     {
@@ -94,7 +94,7 @@ const buildFlex = (
       spacing: "sm",
       contents: [
         { type: "text", text: "เครดิตคงเหลือ", size: "sm", color: "#6B7280", flex: 3 },
-        { type: "text", text: `${e.creditRemaining} ครั้ง`, size: "sm", color: "#111827", flex: 5, align: "end" },
+        { type: "text", text: `${e.creditRemaining} เครดิต`, size: "sm", color: "#111827", flex: 5, align: "end" },
       ],
     });
   }

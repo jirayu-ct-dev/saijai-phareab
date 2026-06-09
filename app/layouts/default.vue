@@ -6,6 +6,7 @@ const { logout, user, session, userAvatar } = useUser()
 const open = ref(false)
 
 const colorMode = useColorMode()
+const isColorModeReady = ref(false)
 const isDark = computed({
     get() {
         return colorMode.value === 'dark'
@@ -14,16 +15,24 @@ const isDark = computed({
         colorMode.preference = colorMode.value === 'dark' ? 'light' : 'dark'
     }
 })
+const colorModeIcon = computed(() => {
+    if (!isColorModeReady.value) return 'i-lucide-sun-moon'
+    return isDark.value ? 'i-lucide-moon' : 'i-lucide-sun'
+})
+
+onMounted(() => {
+    isColorModeReady.value = true
+})
 
 const menu = computed<NavigationMenuItem[]>(() => [
     {
         label: 'ซักอบรีดรายชิ้น',
-        href: '/#per-item-pricing',
+        href: '/pricing',
         active: false
     },
     {
         label: 'สมัครสมาชิกรายเดือน',
-        href: '/#monthly-membership',
+        href: '/packages',
         active: false
     },
     {
@@ -136,7 +145,7 @@ const itemsDropdown = computed<DropdownMenuItem[][]>(() => {
 
                 <UIButtonAddFriendLine :addLineFriend="addLineFriend" />
                 <UButton
-                    :icon="isDark ? 'i-lucide-moon' : 'i-lucide-sun'"
+                    :icon="colorModeIcon"
                     color="neutral"
                     variant="ghost"
                     aria-label="เปลี่ยนธีม"
@@ -167,7 +176,7 @@ const itemsDropdown = computed<DropdownMenuItem[][]>(() => {
             <div class="flex items-center justify-between mt-4">
                 <span class="text-sm font-medium text-gray-700 dark:text-gray-300">เปลี่ยนธีม</span>
                 <UButton
-                    :icon="isDark ? 'i-lucide-moon' : 'i-lucide-sun'"
+                    :icon="colorModeIcon"
                     color="neutral"
                     variant="ghost"
                     aria-label="เปลี่ยนธีม"
@@ -199,14 +208,14 @@ const itemsDropdown = computed<DropdownMenuItem[][]>(() => {
         </template>
     </UHeader>
     <UMain>
-        <div class="container mx-auto max-w-7xl px-10 lg:px-12">
+        <div class="container mx-auto max-w-7xl px-4 sm:px-6 lg:px-12">
             <slot />
         </div>
     </UMain>
 
     <UFooter>
         <template #top>
-            <div class="container mx-auto max-w-7xl px-10 lg:px-12 grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-24">
+            <div class="container mx-auto grid max-w-7xl grid-cols-1 gap-12 px-4 sm:px-6 lg:grid-cols-2 lg:gap-24 lg:px-12">
                 <div class="flex flex-col gap-6">
                     <div>
                         <div class="flex items-center gap-2">
@@ -248,14 +257,14 @@ const itemsDropdown = computed<DropdownMenuItem[][]>(() => {
                     <div>
                         <h3 class="font-semibold text-sm mb-4">บริการของเรา</h3>
                         <ul class="space-y-4 text-sm">
-                            <li><a href="#per-item-pricing"
+                            <li><a href="/pricing"
                                     class="hover:text-primary transition-colors">ซักอบรีดรายชิ้น</a>
                             </li>
-                            <li><a href="#monthly-membership"
+                            <li><a href="/packages"
                                     class="hover:text-primary transition-colors">สมัครสมาชิกรายเดือน</a>
                             </li>
-                            <li><a href="#faq" class="hover:text-primary transition-colors">คำถามที่พบบ่อย</a></li>
-                            <li><a href="#contact" class="hover:text-primary transition-colors">ติดต่อเรา</a></li>
+                            <li><a href="/#faq" class="hover:text-primary transition-colors">คำถามที่พบบ่อย</a></li>
+                            <li><a href="/#contact" class="hover:text-primary transition-colors">ติดต่อเรา</a></li>
                         </ul>
                     </div>
 
@@ -273,7 +282,7 @@ const itemsDropdown = computed<DropdownMenuItem[][]>(() => {
         </template>
 
         <template #bottom>
-            <div class="flex flex-col md:flex-row items-center justify-between gap-4 container mx-auto max-w-7xl px-10 lg:px-12">
+            <div class="container mx-auto flex max-w-7xl flex-col items-center justify-between gap-4 px-4 sm:px-6 md:flex-row lg:px-12">
                 <p class="text-sm text-muted">
                     &copy; {{ new Date().getFullYear() }} SaiJai-Phareab. All rights reserved.
                 </p>

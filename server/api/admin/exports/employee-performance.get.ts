@@ -1,6 +1,6 @@
 import { prisma } from "~~/server/utils/prisma";
 import { requireRole } from "~~/server/utils/auth";
-import { buildCsv, parseDateRange, sendCsv } from "~~/server/utils/csv";
+import { buildCsv, formatBangkokDateTag, parseDateRange, sendCsv } from "~~/server/utils/csv";
 
 export default defineEventHandler(async (event) => {
   requireRole(event, ["ADMIN"]);
@@ -57,7 +57,7 @@ export default defineEventHandler(async (event) => {
     "จำนวนชิ้นรวม", "ยอดที่รับผิดชอบ",
   ];
   const csv = buildCsv(headers, rows);
-  const fromTag = from.toISOString().slice(0, 10);
-  const toTag = to.toISOString().slice(0, 10);
+  const fromTag = formatBangkokDateTag(from);
+  const toTag = formatBangkokDateTag(to);
   return sendCsv(`employee-performance-${fromTag}-to-${toTag}`, csv);
 });

@@ -1,6 +1,6 @@
 import { prisma } from "~~/server/utils/prisma";
 import { requireRole } from "~~/server/utils/auth";
-import { buildCsv, formatBangkokDateTime, parseDateRange, sendCsv } from "~~/server/utils/csv";
+import { buildCsv, formatBangkokDateTag, formatBangkokDateTime, parseDateRange, sendCsv } from "~~/server/utils/csv";
 import { paymentMethodLabels } from "~~/shared/config/paymentConfig";
 
 export default defineEventHandler(async (event) => {
@@ -45,7 +45,7 @@ export default defineEventHandler(async (event) => {
     "ยอด", "หมายเหตุ",
   ];
   const csv = buildCsv(headers, rows);
-  const fromTag = from.toISOString().slice(0, 10);
-  const toTag = to.toISOString().slice(0, 10);
+  const fromTag = formatBangkokDateTag(from);
+  const toTag = formatBangkokDateTag(to);
   return sendCsv(`sales-${fromTag}-to-${toTag}`, csv);
 });

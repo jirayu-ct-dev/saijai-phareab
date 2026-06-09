@@ -11,6 +11,7 @@ import { ensureWalkInCustomer } from "~~/server/utils/walkInCustomer";
 import { notifyQuotationCreated, notifyServiceOrderCreated, notifyServiceOrderStatusChanged } from "~~/server/utils/notify";
 import { createAddonUsageRecords } from "~~/server/utils/serviceOrderCredits";
 import { isServiceOrderStatus } from "~~/server/utils/serviceOrderStatusTransition";
+import { parseBangkokDateTime } from "~~/shared/utils/pickup";
 
 type CreateServiceOrderBody = {
   customerId?: string | null;
@@ -121,7 +122,7 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, statusMessage: "สถานะรายการรับผ้าไม่ถูกต้อง" });
   }
   const receivedAt = new Date();
-  const dueAt = body.dueAt ? new Date(body.dueAt) : null;
+  const dueAt = parseBangkokDateTime(body.dueAt);
 
   if (dueAt && Number.isNaN(dueAt.getTime())) {
     throw createError({ statusCode: 400, statusMessage: "วันนัดรับไม่ถูกต้อง" });

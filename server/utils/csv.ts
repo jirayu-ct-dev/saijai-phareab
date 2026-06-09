@@ -1,3 +1,5 @@
+import { parseBangkokDateBoundary } from "~~/shared/utils/pickup";
+
 const escapeCell = (value: unknown): string => {
   if (value === null || value === undefined) return "";
   let str = typeof value === "string" ? value : String(value);
@@ -35,14 +37,18 @@ export function formatBangkokDateTime(date: Date | string | null | undefined): s
   return `${yyyy}-${mm}-${dd} ${hh}:${mi}`;
 }
 
+export function formatBangkokDateTag(date: Date | string | null | undefined): string {
+  return formatBangkokDateTime(date).slice(0, 10);
+}
+
 export function parseDateRange(from: unknown, to: unknown): { from: Date; to: Date } {
   const fromStr = String(from ?? "").trim();
   const toStr = String(to ?? "").trim();
-  const fromDate = fromStr ? new Date(fromStr) : new Date(Date.now() - 30 * 86400000);
-  const toDate = toStr ? new Date(toStr) : new Date();
-  if (Number.isNaN(fromDate.getTime()) || Number.isNaN(toDate.getTime())) {
+
+  const fromDate = parseBangkokDateBoundary(fromStr || new Date(Date.now() - 30 * 86400000), "start");
+  const toDate = parseBangkokDateBoundary(toStr || new Date(), "end");
+  if (!fromDate || !toDate || Number.isNaN(fromDate.getTime()) || Number.isNaN(toDate.getTime())) {
     throw createError({ statusCode: 400, statusMessage: "ช่วงเวลาไม่ถูกต้อง" });
   }
-  toDate.setHours(23, 59, 59, 999);
   return { from: fromDate, to: toDate };
 }

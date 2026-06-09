@@ -113,7 +113,7 @@ onUnmounted(() => {
                 size="xl"
                 color="primary"
                 class="px-7 font-bold rounded-lg transition-all hover:scale-[1.02] shadow-lg shadow-primary-500/20"
-                to="#per-item-pricing"
+                to="/pricing"
               >
                 ดูราคาบริการ
                 <template #trailing>
@@ -125,9 +125,9 @@ onUnmounted(() => {
                 variant="outline"
                 color="neutral"
                 class="px-7 font-bold rounded-lg"
-                to="#contact"
+                to="/packages"
               >
-                ติดต่อเรา
+                ดูแพ็กเกจบริการ
               </UButton>
             </template>
             <template v-else>

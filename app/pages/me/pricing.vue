@@ -4,9 +4,9 @@ definePageMeta({
   middleware: ["role-user"],
 });
 
-const { data: shopSettings } = useFetch("/api/public/shop-settings", {
+const { data: shopSettings } = await useFetch<{ washFoldPricePerKg?: number | null }>("/api/public/shop-settings", {
   key: "me-pricing-shop-settings",
-  lazy: true,
+  default: () => ({ washFoldPricePerKg: 60 }),
 });
 const washFoldPrice = computed(() => shopSettings.value?.washFoldPricePerKg ?? 60);
 
@@ -14,11 +14,11 @@ const serviceConditions = [
   "ราคานี้เป็นราคาหน้าร้านสำหรับลูกค้าทั่วไป และใช้กับรายการที่อยู่นอกสิทธิ์แพ็กเกจ",
   "ลูกค้าที่สมัครแพ็กเกจจะใช้สิทธิ์ตามรายการและจำนวนเครดิตที่แพ็กเกจกำหนด",
   "ผ้าหรือบริการที่ไม่อยู่ในรายการแพ็กเกจ จะคิดราคาตามอัตราหน้าร้านนี้",
-  "ราคาอาจมีการเปลี่ยนแปลงขึ้นอยู่กับสภาพความยากง่ายของผ้าแต่ละชิ้น (จะแจ้งให้ทราบก่อนดำเนินการ)",
+  "ราคาอาจมีการเปลี่ยนแปลงขึ้นอยู่กับสภาพความยากง่ายของผ้าแต่ละชิ้น โดยร้านจะแจ้งให้ทราบก่อนดำเนินการ",
   "คราบฝังแน่นบางชนิดอาจไม่สามารถขจัดออกได้ทั้งหมด",
   "หากผ้ามีโอกาสสีตก กรุณาแจ้งพนักงานให้ทราบล่วงหน้า",
   "กรุณาตรวจสอบสิ่งของในกระเป๋าก่อนส่งซัก ทางร้านไม่รับผิดชอบกรณีทรัพย์สินตกค้างหรือสูญหาย",
-  "กรณีเกิดความเสียหายจากทางร้าน ทางร้านยินดีชดใช้ตามเงื่อนไข (สูงสุดไม่เกิน 10 เท่าของค่าบริการชิ้นนั้น)",
+  "กรณีเกิดความเสียหายจากทางร้าน ทางร้านยินดีชดใช้ตามเงื่อนไข สูงสุดไม่เกิน 10 เท่าของค่าบริการชิ้นนั้น",
 ];
 </script>
 
@@ -26,19 +26,18 @@ const serviceConditions = [
   <div class="flex min-h-0 flex-1 flex-col">
     <UDashboardPanel grow>
       <template #header>
-        <UDashboardNavbar title="อัตราค่าบริการ" icon="i-lucide-tags">
+        <UDashboardNavbar title="ราคาหน้าร้าน" icon="i-lucide-tags">
           <template #leading>
             <UDashboardSidebarCollapse />
           </template>
           <template #right>
             <UButton
-              label="ออเดอร์ของฉัน"
+              label="ดูแพ็กเกจ"
+              icon="i-lucide-package"
               color="primary"
               variant="soft"
-              to="/me/service-orders"
-              icon="i-lucide-shopping-basket"
+              to="/packages"
               class="shrink-0"
-              aria-label="ออเดอร์ของฉัน"
               :ui="{ label: 'hidden sm:inline' }"
             />
           </template>
@@ -46,7 +45,7 @@ const serviceConditions = [
       </template>
 
       <template #body>
-        <div class="mx-auto flex w-full max-w-5xl flex-col gap-3 p-2 sm:p-6">
+        <div class="flex flex-col gap-3 p-2 sm:p-6">
           <section class="-mx-2 border border-default/30 bg-default p-4 dark:border-default/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg">
             <div class="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
               <div class="min-w-0">
@@ -65,10 +64,8 @@ const serviceConditions = [
                   <UIcon name="i-lucide-scale" class="size-5" />
                 </div>
                 <div class="min-w-0">
-                  <p class="text-base font-semibold text-highlighted">บริการซักพับ (ชั่งกิโล)</p>
-                  <p class="mt-1 text-sm text-muted">
-                    ราคาหน้าร้านสำหรับงานซักพับทั่วไป
-                  </p>
+                  <p class="text-base font-semibold text-highlighted">บริการซักพับแบบชั่งกิโล</p>
+                  <p class="mt-1 text-sm text-muted">ราคาหน้าร้านสำหรับงานซักพับทั่วไป</p>
                 </div>
               </div>
               <div class="flex shrink-0 flex-col items-end text-right sm:flex-row sm:items-baseline sm:gap-1">
@@ -82,7 +79,7 @@ const serviceConditions = [
             <div class="-mx-2 border border-default/30 bg-default p-4 dark:border-default/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg">
               <div class="flex items-center justify-between gap-3">
                 <div class="min-w-0">
-                  <p class="text-base font-semibold text-highlighted">ราคาบริการ</p>
+                  <p class="text-base font-semibold text-highlighted">ราคาซักแยกชิ้น</p>
                   <p class="mt-1 text-sm text-muted">ราคาแยกตามบริการและชนิดผ้า สำหรับรายการที่คิดราคาหน้าร้าน</p>
                 </div>
                 <div class="flex shrink-0 items-baseline gap-1 text-right">
@@ -91,9 +88,7 @@ const serviceConditions = [
                 </div>
               </div>
             </div>
-            <div>
-              <AppPricingTable embedded client-skeleton />
-            </div>
+            <AppPricingTable embedded client-skeleton />
           </section>
 
           <section class="-mx-2 overflow-hidden border border-default/30 bg-default dark:border-default/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg">
@@ -103,7 +98,7 @@ const serviceConditions = [
               </div>
               <p class="text-sm font-semibold text-highlighted">สิ่งที่ควรทราบก่อนใช้บริการ</p>
             </div>
-            <ul class="space-y-0">
+            <ul>
               <li
                 v-for="condition in serviceConditions"
                 :key="condition"

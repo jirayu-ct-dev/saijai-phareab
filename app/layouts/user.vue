@@ -42,12 +42,6 @@ const menu = computed<MenuItem[][]>(() => {
       onSelect: closeSidebar,
     },
     {
-      label: "เลือกซื้อแพ็กเกจ",
-      icon: "i-lucide-shopping-bag",
-      to: "/me/packages",
-      onSelect: closeSidebar,
-    },
-    {
       label: "ราคาหน้าร้าน",
       icon: "i-lucide-tags",
       to: "/me/pricing",

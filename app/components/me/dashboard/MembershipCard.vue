@@ -21,6 +21,23 @@ const formatDaysLeft = (endAt: string | null) => {
   const days = Math.ceil((new Date(endAt).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
   return days
 }
+
+const getUsedCredits = (entitlement: { creditInitial?: number | null, creditRemaining?: number | null }) => {
+  return Math.max(Number(entitlement.creditInitial || 0) - Number(entitlement.creditRemaining || 0), 0)
+}
+
+const getCreditPercent = (entitlement: { creditInitial?: number | null, creditRemaining?: number | null }) => {
+  const initial = Number(entitlement.creditInitial || 0)
+  if (initial <= 0) return 0
+  const remaining = Math.max(Number(entitlement.creditRemaining || 0), 0)
+  return Math.min(Math.round((remaining / initial) * 100), 100)
+}
+
+const getCreditBarColor = (percent: number) => {
+  if (percent <= 20) return 'bg-error'
+  if (percent <= 50) return 'bg-warning'
+  return 'bg-success'
+}
 </script>
 
 <template>
@@ -72,15 +89,19 @@ const formatDaysLeft = (endAt: string | null) => {
 
         <div class="space-y-2">
           <div class="flex justify-between text-sm">
-            <span>เครดิตคงเหลือ</span>
-            <span class="font-bold">{{ ent.creditRemaining }} / {{ ent.creditInitial }} ครั้ง</span>
+            <span class="text-muted">เครดิตคงเหลือ</span>
+            <span class="font-semibold tabular-nums text-highlighted">{{ ent.creditRemaining }} / {{ ent.creditInitial }} เครดิต</span>
           </div>
-          <UProgress
-            :value="ent.creditRemaining || 0"
-            :max="ent.creditInitial || 1"
-            color="warning"
-            size="sm"
-          />
+          <div class="h-2.5 overflow-hidden rounded-full bg-elevated dark:bg-default/80">
+            <div
+              class="h-full rounded-full transition-[width] duration-500 ease-out"
+              :class="getCreditBarColor(getCreditPercent(ent))"
+              :style="{ width: `${getCreditPercent(ent)}%` }"
+            />
+          </div>
+          <p class="text-[11px] text-muted">
+            ใช้ไปแล้ว {{ getUsedCredits(ent) }} เครดิต เหลือ {{ getCreditPercent(ent) }}%
+          </p>
         </div>
 
         <!-- Warning banner -->

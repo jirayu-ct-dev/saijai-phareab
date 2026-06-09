@@ -4,9 +4,22 @@ definePageMeta({
   layout: "admin",
 });
 
+const BANGKOK_OFFSET_MS = 7 * 60 * 60 * 1000;
+
+const toBangkokDate = (d: Date) => new Date(d.getTime() + BANGKOK_OFFSET_MS);
+const fromBangkokDateParts = (year: number, month: number, day: number) =>
+  new Date(Date.UTC(year, month, day) - BANGKOK_OFFSET_MS);
+const formatDateInput = (d: Date) => {
+  const bkk = toBangkokDate(d);
+  const year = bkk.getUTCFullYear();
+  const month = String(bkk.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(bkk.getUTCDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
 const today = new Date();
-const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
-const formatDateInput = (d: Date) => d.toISOString().slice(0, 10);
+const bangkokToday = toBangkokDate(today);
+const startOfMonth = fromBangkokDateParts(bangkokToday.getUTCFullYear(), bangkokToday.getUTCMonth(), 1);
 
 const fromDate = ref(formatDateInput(startOfMonth));
 const toDate = ref(formatDateInput(today));
@@ -66,17 +79,20 @@ const onDownload = async (key: string, endpoint: string) => {
 
 const setPreset = (preset: "this-month" | "last-month" | "last-30-days" | "this-year") => {
   const now = new Date();
+  const bkk = toBangkokDate(now);
+  const year = bkk.getUTCFullYear();
+  const month = bkk.getUTCMonth();
   if (preset === "this-month") {
-    fromDate.value = formatDateInput(new Date(now.getFullYear(), now.getMonth(), 1));
+    fromDate.value = formatDateInput(fromBangkokDateParts(year, month, 1));
     toDate.value = formatDateInput(now);
   } else if (preset === "last-month") {
-    fromDate.value = formatDateInput(new Date(now.getFullYear(), now.getMonth() - 1, 1));
-    toDate.value = formatDateInput(new Date(now.getFullYear(), now.getMonth(), 0));
+    fromDate.value = formatDateInput(fromBangkokDateParts(year, month - 1, 1));
+    toDate.value = formatDateInput(fromBangkokDateParts(year, month, 0));
   } else if (preset === "last-30-days") {
     fromDate.value = formatDateInput(new Date(now.getTime() - 30 * 86400000));
     toDate.value = formatDateInput(now);
   } else if (preset === "this-year") {
-    fromDate.value = formatDateInput(new Date(now.getFullYear(), 0, 1));
+    fromDate.value = formatDateInput(fromBangkokDateParts(year, 0, 1));
     toDate.value = formatDateInput(now);
   }
 };

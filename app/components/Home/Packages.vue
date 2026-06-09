@@ -27,86 +27,180 @@ const addonPackages = computed(() => {
   if (!packages.value) return [];
   return packages.value.filter(p => p.packageType === 'ADDON');
 });
+const featuredAddonPackages = computed(() => addonPackages.value.slice(0, 1));
+
+const getPreviewFeatures = (pkg: PublicPackage) => pkg.features.slice(0, 4);
 
 const getPackageLabel = (index: number) => {
   const labels = ['แพ็กเกจหลัก', 'แพ็กเกจหลัก', 'แพ็กเกจหลัก'];
   return labels[index] || '';
 };
+
+const mainPackageSlider = ref<HTMLElement | null>(null);
+const activePackageIndex = ref(0);
+
+const updatePackageSliderState = () => {
+  const el = mainPackageSlider.value;
+  if (!el) {
+    activePackageIndex.value = 0;
+    return;
+  }
+
+  const cards = Array.from(el.children) as HTMLElement[];
+  const current = cards.reduce((best, card, index) => {
+    const distance = Math.abs(card.offsetLeft - el.scrollLeft);
+    return distance < best.distance ? { index, distance } : best;
+  }, { index: 0, distance: Number.POSITIVE_INFINITY });
+  activePackageIndex.value = current.index;
+};
+
+const goToMainPackage = (index: number) => {
+  const el = mainPackageSlider.value;
+  const target = el?.children.item(index) as HTMLElement | null;
+  if (!el || !target) return;
+
+  el.scrollTo({
+    left: target.offsetLeft,
+    behavior: "smooth",
+  });
+};
+
+onMounted(async () => {
+  await nextTick();
+  updatePackageSliderState();
+});
+
+watch(mainPackages, async () => {
+  await nextTick();
+  updatePackageSliderState();
+});
 </script>
 
 <template>
-  <section id="monthly-membership" class="py-24">
+  <section id="monthly-membership" class="py-16 md:py-24">
     <UContainer>
       <!-- Header -->
-      <div class="mb-16 max-w-2xl mx-auto text-center">
-        <span class="inline-block text-blue-400 font-semibold text-[13px] tracking-[0.2em] uppercase mb-3">แพ็กเกจบริการ</span>
-        <h2 class="text-[32px] md:text-[44px] font-bold text-gray-900 dark:text-white leading-[1.2] mb-4">
-          เลือกแพ็กเกจที่เหมาะกับการใช้งาน
-        </h2>
-        <p class="text-gray-400 text-lg">
-          แพ็กเกจช่วยจัดการค่าใช้จ่ายสำหรับลูกค้าที่ใช้บริการเป็นประจำ และใช้กับรายการที่แพ็กเกจครอบคลุม
-        </p>
+      <div class="mb-10 flex flex-col justify-between gap-4 md:mb-12 md:flex-row md:items-end">
+        <div class="max-w-2xl">
+          <span class="inline-block text-blue-400 font-semibold text-[13px] tracking-[0.2em] uppercase mb-3">แพ็กเกจบริการ</span>
+          <h2 class="text-[32px] md:text-[44px] font-bold text-gray-900 dark:text-white leading-[1.2] mb-4">
+            ตัวอย่างแพ็กเกจที่ร้านเปิดให้บริการ
+          </h2>
+          <p class="text-lg text-gray-500 dark:text-gray-400">
+            แพ็กเกจเหมาะกับลูกค้าที่ใช้บริการเป็นประจำ และใช้ได้เฉพาะรายการที่อยู่ในสิทธิ์แพ็กเกจ
+          </p>
+        </div>
+        <UButton
+          size="lg"
+          color="primary"
+          variant="soft"
+          to="/packages"
+          class="shrink-0 justify-center rounded-lg font-bold"
+        >
+          ดูแพ็กเกจทั้งหมด
+          <template #trailing>
+            <UIcon name="i-lucide-arrow-right" class="size-4" />
+          </template>
+        </UButton>
       </div>
 
-      <!-- Main Packages Grid -->
-      <div v-if="pending" class="grid grid-cols-1 md:grid-cols-3 gap-8 mb-16">
-        <UCard v-for="i in 3" :key="i" class="h-150 animate-pulse rounded-lg bg-gray-100 dark:bg-gray-900/50 border-gray-200 dark:border-gray-800" />
+      <!-- Main Packages Slider -->
+      <div v-if="pending" class="mb-16">
+        <div class="-mx-4 flex snap-x snap-mandatory gap-4 overflow-x-auto px-4 pb-3 sm:-mx-6 sm:px-6 lg:mx-0 lg:grid lg:snap-none lg:grid-cols-3 lg:overflow-visible lg:px-0 lg:pb-0">
+          <UCard
+            v-for="i in 3"
+            :key="i"
+            class="h-120 min-w-[82vw] max-w-[420px] shrink-0 snap-start animate-pulse rounded-lg border-gray-200 bg-gray-100 dark:border-gray-800 dark:bg-gray-900/50 sm:min-w-[360px] lg:min-w-0 lg:max-w-none lg:snap-align-none"
+          />
+        </div>
       </div>
 
       <div v-else-if="error" class="text-center py-12 text-red-400">
         <p>เกิดข้อผิดพลาดในการโหลดข้อมูล</p>
       </div>
 
-      <div v-else class="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-16 items-stretch">
-        <div
-          v-for="(pkg, index) in mainPackages"
-          :key="pkg.id"
-          class="relative flex flex-col bg-white dark:bg-[#0f172a] rounded-lg transition-all duration-500 border h-full group border-gray-200 dark:border-gray-800 shadow-sm hover:border-gray-300 dark:hover:border-gray-700"
-        >
-          <div class="p-8 md:p-10 flex flex-col h-full">
-            <div class="mb-6">
-              <span class="text-[14px] font-medium tracking-[0.2em] text-blue-600/80 dark:text-blue-400/60 uppercase">
-                {{ getPackageLabel(index) }}
-              </span>
-              <h3 class="text-[28px] font-bold text-gray-900 dark:text-white mt-1">
-                {{ pkg.name }}
-              </h3>
-            </div>
+      <div v-else class="relative mb-16">
+        <div class="mb-4 flex items-center justify-between gap-3 lg:hidden">
+          <p class="min-w-0 text-sm font-medium text-gray-500 dark:text-gray-400">เลื่อนดูแพ็กเกจหลักที่ร้านเปิดให้บริการ</p>
+        </div>
 
-            <div class="mb-8 flex items-baseline gap-1">
-              <span class="text-[44px] font-bold text-gray-900 dark:text-white">฿{{ formatPrice(pkg.price) }}</span>
-              <span class="text-gray-500 dark:text-gray-400 text-[16px] ml-1">บาท</span>
-            </div>
+        <div class="relative">
+          <div
+            ref="mainPackageSlider"
+            class="-mx-4 flex snap-x snap-mandatory gap-4 overflow-x-auto px-4 pb-3 sm:-mx-6 sm:px-6 lg:mx-0 lg:grid lg:snap-none lg:grid-cols-3 lg:items-stretch lg:overflow-visible lg:px-0 lg:pb-0"
+            @scroll="updatePackageSliderState"
+          >
+            <div
+              v-for="(pkg, index) in mainPackages"
+              :key="pkg.id"
+              class="relative flex min-w-[82vw] max-w-[420px] shrink-0 snap-start flex-col rounded-lg border border-gray-200 bg-white transition-all duration-300 hover:border-gray-300 dark:border-gray-800 dark:bg-[#0f172a] dark:hover:border-gray-700 sm:min-w-[360px] lg:min-w-0 lg:max-w-none lg:snap-align-none"
+            >
+              <div class="flex h-full flex-col p-6 md:p-8 xl:p-10">
+                <div class="mb-6">
+                  <span class="text-[14px] font-medium tracking-[0.2em] text-blue-600/80 uppercase dark:text-blue-400/60">
+                    {{ getPackageLabel(index) }}
+                  </span>
+                  <h3 class="mt-1 text-2xl font-bold text-gray-900 dark:text-white md:text-[28px]">
+                    {{ pkg.name }}
+                  </h3>
+                </div>
 
-            <p class="text-gray-500 dark:text-gray-400 text-[14px] mb-8 -mt-5">ตามระยะเวลาแพ็กเกจ</p>
+                <div class="mb-8 flex items-baseline gap-1">
+                  <span class="text-4xl font-bold text-gray-900 dark:text-white md:text-[44px]">฿{{ formatPrice(pkg.price) }}</span>
+                  <span class="ml-1 text-[16px] text-gray-500 dark:text-gray-400">บาท</span>
+                </div>
 
-            <div class="space-y-5 mb-10 grow">
-              <div v-for="(feature, fIndex) in pkg.features" :key="fIndex" class="flex items-start gap-3">
-                <UIcon name="i-lucide-check" class="w-5 h-5 text-blue-600 dark:text-blue-400 mt-0.5 shrink-0" />
-                <span class="text-[15px] text-gray-600 dark:text-gray-300 leading-snug">{{ feature }}</span>
+                <p class="-mt-5 mb-8 text-[14px] text-gray-500 dark:text-gray-400">ตามระยะเวลาแพ็กเกจ</p>
+
+                <div class="mb-10 grow space-y-5">
+                  <div v-for="(feature, fIndex) in getPreviewFeatures(pkg)" :key="fIndex" class="flex items-start gap-3">
+                    <UIcon name="i-lucide-check" class="mt-0.5 h-5 w-5 shrink-0 text-blue-600 dark:text-blue-400" />
+                    <span class="text-[15px] leading-snug text-gray-600 dark:text-gray-300">{{ feature }}</span>
+                  </div>
+                  <p v-if="pkg.features.length > 4" class="text-[13px] font-medium text-gray-500 dark:text-gray-400">
+                    ดูสิทธิ์และเงื่อนไขทั้งหมดในหน้าแพ็กเกจบริการ
+                  </p>
+                </div>
+
+                <UButton
+                  block
+                  size="xl"
+                  to="/packages"
+                  variant="outline"
+                  class="group/btn rounded-lg border-gray-200 bg-transparent py-3 text-[15px] font-bold text-gray-900 transition-all hover:bg-gray-50 dark:border-gray-700 dark:text-white dark:hover:bg-white/5 md:py-4 md:text-[16px]"
+                >
+                  ดูรายละเอียดแพ็กเกจ
+                  <UIcon name="i-lucide-arrow-right" class="ml-2 h-4 w-4 transition-transform group-hover/btn:translate-x-1" />
+                </UButton>
               </div>
             </div>
-
-            <UButton
-              block
-              size="xl"
-              to="/me/packages"
-              variant="outline"
-              class="rounded-lg py-4 text-[16px] font-bold transition-all group/btn bg-transparent hover:bg-gray-50 dark:hover:bg-white/5 text-gray-900 dark:text-white border-gray-200 dark:border-gray-700"
-            >
-              ดูรายละเอียดแพ็กเกจ
-              <UIcon name="i-lucide-arrow-right" class="ml-2 w-4 h-4 group-hover/btn:translate-x-1 transition-transform" />
-            </UButton>
           </div>
+        </div>
+
+        <div
+          v-if="mainPackages.length > 1"
+          class="mt-4 flex items-center justify-center gap-2 lg:hidden"
+          aria-label="เลือกแพ็กเกจ"
+        >
+          <button
+            v-for="(pkg, index) in mainPackages"
+            :key="`package-dot-${pkg.id}`"
+            type="button"
+            class="h-2.5 rounded-full transition-all"
+            :class="activePackageIndex === index ? 'w-7 bg-blue-600 dark:bg-blue-400' : 'w-2.5 bg-gray-300 hover:bg-gray-400 dark:bg-gray-700 dark:hover:bg-gray-600'"
+            :aria-label="`ดูแพ็กเกจ ${pkg.name}`"
+            :aria-current="activePackageIndex === index ? 'true' : undefined"
+            @click="goToMainPackage(index)"
+          />
         </div>
       </div>
 
       <!-- Add-on Card (from API) -->
-      <div v-if="!pending && addonPackages.length > 0" class="space-y-6">
+      <div v-if="!pending && featuredAddonPackages.length > 0" class="space-y-6">
         <div
-          v-for="addon in addonPackages"
+          v-for="addon in featuredAddonPackages"
           :key="addon.id"
-          class="bg-white dark:bg-[#0f172a] border border-gray-200 dark:border-gray-800 rounded-lg p-6 md:p-8 flex flex-col md:flex-row items-center justify-between gap-8 shadow-sm hover:border-gray-300 dark:hover:border-gray-700 transition-colors"
+          class="flex flex-col items-center justify-between gap-8 rounded-lg border border-gray-200 bg-white p-6 transition-colors hover:border-gray-300 dark:border-gray-800 dark:bg-[#0f172a] dark:hover:border-gray-700 md:flex-row md:p-8"
         >
           <div class="flex items-center gap-6 flex-1 w-full md:w-auto">
             <div class="w-14 h-14 bg-gray-50 dark:bg-gray-800 rounded-lg flex items-center justify-center shadow-sm shrink-0 border border-gray-100 dark:border-gray-800">
@@ -138,7 +232,7 @@ const getPackageLabel = (index: number) => {
               </div>
               <UButton
                 variant="link"
-                to="/me/packages"
+                to="/packages"
                 class="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-bold p-0 group"
               >
                 ดูแพ็กเกจเสริม
