@@ -45,10 +45,10 @@ const entitlementOptions = computed(() =>
 );
 
 const mappedUsages = computed<MembershipUsageRow[]>(() =>
-  usages.value.map((usage, index) => ({
+  usages.value.map((usage: any, index: number) => ({
     ...usage,
     index: usages.value.length - index,
-  })),
+  }) as MembershipUsageRow),
 );
 
 const usedCredits = computed(() =>

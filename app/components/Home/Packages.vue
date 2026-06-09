@@ -110,7 +110,7 @@ watch(mainPackages, async () => {
           <UCard
             v-for="i in 3"
             :key="i"
-            class="h-120 min-w-[82vw] max-w-[420px] shrink-0 snap-start animate-pulse rounded-lg border-gray-200 bg-gray-100 dark:border-gray-800 dark:bg-gray-900/50 sm:min-w-[360px] lg:min-w-0 lg:max-w-none lg:snap-align-none"
+            class="h-120 min-w-[82vw] max-w-105 shrink-0 snap-start animate-pulse rounded-lg border-gray-200 bg-gray-100 dark:border-gray-800 dark:bg-gray-900/50 sm:min-w-90 lg:min-w-0 lg:max-w-none lg:snap-align-none"
           />
         </div>
       </div>
@@ -133,7 +133,7 @@ watch(mainPackages, async () => {
             <div
               v-for="(pkg, index) in mainPackages"
               :key="pkg.id"
-              class="relative flex min-w-[82vw] max-w-[420px] shrink-0 snap-start flex-col rounded-lg border border-gray-200 bg-white transition-all duration-300 hover:border-gray-300 dark:border-gray-800 dark:bg-[#0f172a] dark:hover:border-gray-700 sm:min-w-[360px] lg:min-w-0 lg:max-w-none lg:snap-align-none"
+              class="relative flex min-w-[82vw] max-w-105 shrink-0 snap-start flex-col rounded-lg border border-gray-200 bg-white transition-all duration-300 hover:border-gray-300 dark:border-gray-800 dark:bg-[#0f172a] dark:hover:border-gray-700 sm:min-w-90 lg:min-w-0 lg:max-w-none lg:snap-align-none"
             >
               <div class="flex h-full flex-col p-6 md:p-8 xl:p-10">
                 <div class="mb-6">
