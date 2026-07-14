@@ -1,0 +1,64 @@
+# ============================================================
+# docker-compose.yml
+# รัน saijai-phareab (Nuxt 4) + PostgreSQL พร้อมกันด้วยคำสั่งเดียว:
+#   docker compose up -d
+#
+# โครงสร้าง:
+#   app ─── port 3000 ──► Nuxt/Nitro server (จาก .output/)
+#   db  ─── port 5432 ──► PostgreSQL 16
+# ============================================================
+
+services:
+  # ---- PostgreSQL Database ----
+  db:
+    image: postgres:16-alpine
+    container_name: saijai-db
+    restart: unless-stopped
+    ports:
+      - "5433:5432"
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: 123
+      POSTGRES_DB: saijai
+    volumes:
+      # เก็บข้อมูล database ไว้บนเครื่อง host — ข้อมูลไม่หายแม้ลบ container
+      - pgdata:/var/lib/postgresql/data
+      # รัน SQL เริ่มต้น (สร้าง schema ถ้าต้องการ)
+      # - ./prisma/migrations:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres -d saijai" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ---- Nuxt Application ----
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: saijai-app
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: production
+      HOST: 0.0.0.0
+      PORT: 3000
+      # ---- Database (Docker internal network: db = container name) ----
+      DIRECT_URL: postgresql://postgres:123@db:5432/saijai
+      DATABASE_URL: postgresql://postgres:123@db:5432/saijai
+      # ---- ใส่ environment อื่นๆ จาก .env ของคุณ ----
+      # NUXT_PUBLIC_LIFF_ID:
+      # NUXT_PUBLIC_HOSTNAME:
+      # CLOUDINARY_NAME:
+      # ...
+    depends_on:
+      db:
+        condition: service_healthy  # รอจนกว่า PostgreSQL พร้อม
+    # โหลด .env ไฟล์ (สร้างจาก .env.example ด้านล่าง)
+    env_file:
+      - .env
+
+volumes:
+  pgdata:
+    name: saijai-pgdata
