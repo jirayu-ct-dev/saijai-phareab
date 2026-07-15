@@ -918,7 +918,6 @@ const handleSubmit = async () => {
                       description="แนบรูปเฉพาะผ้าที่มีตำหนิหรือชำรุด"
                       :photos="item.photos"
                       :disabled="isSubmitting"
-                      capture="environment"
                       @update:photos="updateItemPhotos(item.key, $event)"
                     />
                   </div>
@@ -1042,7 +1041,6 @@ const handleSubmit = async () => {
               :photos="intakePhotos"
               :max="1"
               :disabled="isSubmitting"
-              capture="environment"
               confirm-remove
               @update:photos="onIntakePhotosUpdate"
             />

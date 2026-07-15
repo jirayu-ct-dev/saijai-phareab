@@ -69,8 +69,10 @@ const uploadedOrderImage = ref<AdminServiceOrder["image"] | null>(null);
 const editDeliveryImageFile = ref<File | null>(null);
 const uploadedEditDeliveryImage = ref<AdminServiceOrder["image"] | null>(null);
 
-const intakeFileInputRef = ref<HTMLInputElement | null>(null);
-const deliveryFileInputRef = ref<HTMLInputElement | null>(null);
+const intakeGalleryInputRef = ref<HTMLInputElement | null>(null);
+const intakeCameraInputRef = ref<HTMLInputElement | null>(null);
+const deliveryGalleryInputRef = ref<HTMLInputElement | null>(null);
+const deliveryCameraInputRef = ref<HTMLInputElement | null>(null);
 const intakeObjectUrl = ref("");
 const deliveryObjectUrl = ref("");
 const editPhotoPreviewOpen = ref(false);
@@ -498,8 +500,10 @@ const catalogDropdownItems = computed<CatalogMenuItem[][]>(() => {
   return [items];
 });
 
-const openIntakePicker = () => intakeFileInputRef.value?.click();
-const openDeliveryPicker = () => deliveryFileInputRef.value?.click();
+const openIntakeGallery = () => intakeGalleryInputRef.value?.click();
+const openIntakeCamera = () => intakeCameraInputRef.value?.click();
+const openDeliveryGallery = () => deliveryGalleryInputRef.value?.click();
+const openDeliveryCamera = () => deliveryCameraInputRef.value?.click();
 const onIntakeFileSelected = (event: Event) => {
   const input = event.target as HTMLInputElement | null;
   const file = input?.files?.[0] ?? null;
@@ -925,9 +929,13 @@ const handleSubmit = async () => {
                     <p class="font-medium text-highlighted">รูปหลักฐานการรับผ้า</p>
                     <p v-if="!intakeDisplayUrl" class="text-sm text-muted">ยังไม่ได้แนบรูป</p>
                   </div>
-                  <UButton v-if="!intakeDisplayUrl" label="เพิ่มรูป" icon="i-lucide-camera" color="neutral" variant="solid" @click="openIntakePicker" />
+                  <div v-if="!intakeDisplayUrl" class="flex flex-wrap justify-end gap-2">
+                    <UButton label="เลือกจากเครื่อง" icon="i-lucide-image" color="neutral" variant="outline" @click="openIntakeGallery" />
+                    <UButton label="ถ่ายรูป" icon="i-lucide-camera" color="neutral" variant="outline" @click="openIntakeCamera" />
+                  </div>
                 </div>
-                <input ref="intakeFileInputRef" type="file" accept="image/*" capture="environment" class="hidden" @change="onIntakeFileSelected">
+                <input ref="intakeGalleryInputRef" type="file" accept="image/*" class="hidden" @change="onIntakeFileSelected">
+                <input ref="intakeCameraInputRef" type="file" accept="image/*" capture="environment" class="hidden" @change="onIntakeFileSelected">
                 <div v-if="intakeDisplayUrl" class="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
                   <div class="group relative overflow-hidden rounded-md border border-default bg-muted/30">
                     <img :src="intakeDisplayUrl" alt="รูปหลักฐานการรับผ้า" class="h-28 w-full cursor-pointer object-cover" @click="openEditPhotoPreview(intakeDisplayUrl, 'รูปหลักฐานการรับผ้า')">
@@ -942,9 +950,13 @@ const handleSubmit = async () => {
                     <p class="font-medium text-highlighted">รูปหลักฐานการส่งผ้า</p>
                     <p v-if="!deliveryDisplayUrl" class="text-sm text-muted">ยังไม่ได้แนบรูป</p>
                   </div>
-                  <UButton v-if="!deliveryDisplayUrl" label="เพิ่มรูป" icon="i-lucide-camera" color="neutral" variant="solid" @click="openDeliveryPicker" />
+                  <div v-if="!deliveryDisplayUrl" class="flex flex-wrap justify-end gap-2">
+                    <UButton label="เลือกจากเครื่อง" icon="i-lucide-image" color="neutral" variant="outline" @click="openDeliveryGallery" />
+                    <UButton label="ถ่ายรูป" icon="i-lucide-camera" color="neutral" variant="outline" @click="openDeliveryCamera" />
+                  </div>
                 </div>
-                <input ref="deliveryFileInputRef" type="file" accept="image/*" capture="environment" class="hidden" @change="onDeliveryFileSelected">
+                <input ref="deliveryGalleryInputRef" type="file" accept="image/*" class="hidden" @change="onDeliveryFileSelected">
+                <input ref="deliveryCameraInputRef" type="file" accept="image/*" capture="environment" class="hidden" @change="onDeliveryFileSelected">
                 <div v-if="deliveryDisplayUrl" class="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
                   <div class="group relative overflow-hidden rounded-md border border-default bg-muted/30">
                     <img :src="deliveryDisplayUrl" alt="รูปหลักฐานการส่งผ้า" class="h-28 w-full cursor-pointer object-cover" @click="openEditPhotoPreview(deliveryDisplayUrl, 'รูปหลักฐานการส่งผ้า')">

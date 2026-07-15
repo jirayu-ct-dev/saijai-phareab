@@ -15,7 +15,6 @@ const props = withDefaults(defineProps<{
   description?: string;
   disabled?: boolean;
   accept?: string;
-  capture?: "environment" | "user" | null;
   confirmRemove?: boolean;
 }>(), {
   max: undefined,
@@ -23,7 +22,6 @@ const props = withDefaults(defineProps<{
   description: undefined,
   disabled: false,
   accept: "image/*",
-  capture: null,
   confirmRemove: false,
 });
 
@@ -39,7 +37,8 @@ const previewOpen = ref(false);
 const previewUrl = ref("");
 const removeConfirmOpen = ref(false);
 const pendingRemoveKey = ref<string | null>(null);
-const fileInputRef = ref<HTMLInputElement | null>(null);
+const galleryInputRef = ref<HTMLInputElement | null>(null);
+const cameraInputRef = ref<HTMLInputElement | null>(null);
 
 const resolveUrl = (photo: Photo): string => {
   if (photo.url) return photo.url;
@@ -73,9 +72,14 @@ onBeforeUnmount(() => {
 const isFull = computed(() => props.max !== undefined && props.photos.length >= props.max);
 const helperText = computed(() => props.description ?? (props.photos.length === 0 ? "ยังไม่ได้แนบรูป" : `${props.photos.length} รูป`));
 
-const openPicker = () => {
+const openGallery = () => {
   if (props.disabled || isFull.value) return;
-  fileInputRef.value?.click();
+  galleryInputRef.value?.click();
+};
+
+const openCamera = () => {
+  if (props.disabled || isFull.value) return;
+  cameraInputRef.value?.click();
 };
 
 const onFileSelected = (e: Event) => {
@@ -126,25 +130,42 @@ const performRemove = () => {
         <p class="mt-0.5 text-xs text-muted">{{ helperText }}</p>
       </div>
 
-      <UButton
-        v-if="!isFull"
-        label="เพิ่มรูป"
-        icon="i-lucide-upload"
-        color="neutral"
-        variant="outline"
-        size="sm"
-        class="shrink-0"
-        :disabled="disabled"
-        @click="openPicker"
-      />
+      <div v-if="!isFull" class="flex shrink-0 flex-wrap justify-end gap-2">
+        <UButton
+          label="เลือกจากเครื่อง"
+          icon="i-lucide-image"
+          color="neutral"
+          variant="outline"
+          size="sm"
+          :disabled="disabled"
+          @click="openGallery"
+        />
+        <UButton
+          label="ถ่ายรูป"
+          icon="i-lucide-camera"
+          color="neutral"
+          variant="outline"
+          size="sm"
+          :disabled="disabled"
+          @click="openCamera"
+        />
+      </div>
     </div>
 
     <input
-      ref="fileInputRef"
+      ref="galleryInputRef"
       type="file"
       :accept="accept"
-      :capture="capture ?? undefined"
       :multiple="max === undefined || max > 1"
+      class="hidden"
+      @change="onFileSelected"
+    >
+
+    <input
+      ref="cameraInputRef"
+      type="file"
+      :accept="accept"
+      capture="environment"
       class="hidden"
       @change="onFileSelected"
     >
