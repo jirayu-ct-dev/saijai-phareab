@@ -50,7 +50,6 @@ onUnmounted(() => {
 
     <!-- Glow accents -->
     <div class="absolute top-0 left-1/4 w-150 h-100 bg-primary-400/8 dark:bg-primary-500/10 rounded-full blur-[120px] pointer-events-none -translate-x-1/2 -translate-y-1/2" />
-    <div class="absolute top-1/3 right-0 w-100 h-100 bg-blue-400/8 dark:bg-blue-500/10 rounded-full blur-[100px] pointer-events-none translate-x-1/2" />
 
     <UContainer class="relative z-10">
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-20 items-center">
@@ -162,13 +161,10 @@ onUnmounted(() => {
         </div>
 
         <!-- ===== RIGHT COLUMN — LINE Mockup ===== -->
-        <div class="relative hidden lg:block">
-
-          <!-- Floating glow behind card -->
-          <div class="absolute inset-0 bg-linear-to-br from-primary-200/30 to-blue-200/20 dark:from-primary-900/20 dark:to-blue-900/10 rounded-lg blur-2xl scale-110 pointer-events-none" />
+        <div class="relative hidden px-5 py-8 lg:block xl:px-8">
 
           <!-- Main chat card -->
-          <div class="relative bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-lg shadow-2xl overflow-hidden">
+          <div class="relative mx-auto max-w-xl overflow-hidden rounded-xl border border-gray-200/80 bg-white shadow-[0_28px_70px_-42px_rgba(15,23,42,0.42)] dark:border-gray-800 dark:bg-gray-900 dark:shadow-[0_28px_70px_-42px_rgba(0,0,0,0.8)]">
 
             <!-- Browser bar -->
             <div class="flex items-center gap-2 px-4 py-3 border-b border-gray-100 dark:border-gray-800 bg-gray-50/80 dark:bg-gray-950/80">
@@ -266,4 +262,5 @@ onUnmounted(() => {
   from { width: 0%; }
   to { width: 72%; }
 }
+
 </style>
