@@ -1,5 +1,6 @@
 import { PrismaClient } from "../app/generated/prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
+import { hashPassword } from "better-auth/crypto";
 import { config } from "dotenv";
 import {
   mockServicesData,
@@ -85,7 +86,7 @@ async function main() {
   ];
 
   // same password for all test users: password123
-  const passwordHash = "$2b$10$BW1zMWtr8AkiVm8YTFi2vuTdqv/upYlYRtxpPHgxWyTk2rYEMOyq2";
+  const passwordHash = await hashPassword("password123");
 
   for (const u of userData) {
     await prisma.user.upsert({

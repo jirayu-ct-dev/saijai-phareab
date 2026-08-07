@@ -1,64 +1,41 @@
-# ============================================================
-# docker-compose.yml
-# รัน saijai-phareab (Nuxt 4) + PostgreSQL พร้อมกันด้วยคำสั่งเดียว:
-#   docker compose up -d
-#
-# โครงสร้าง:
-#   app ─── port 3000 ──► Nuxt/Nitro server (จาก .output/)
-#   db  ─── port 5432 ──► PostgreSQL 16
-# ============================================================
+# Production workflow. Required values are loaded from `.env` or the deployment
+# platform. This stack never creates a database or inserts demo data.
 
 services:
-  # ---- PostgreSQL Database ----
-  db:
-    image: postgres:16-alpine
-    container_name: saijai-db
-    restart: unless-stopped
-    ports:
-      - "5433:5432"
-    environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: 123
-      POSTGRES_DB: saijai
-    volumes:
-      # เก็บข้อมูล database ไว้บนเครื่อง host — ข้อมูลไม่หายแม้ลบ container
-      - pgdata:/var/lib/postgresql/data
-      # รัน SQL เริ่มต้น (สร้าง schema ถ้าต้องการ)
-      # - ./prisma/migrations:/docker-entrypoint-initdb.d
-    healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U postgres -d saijai" ]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
-  # ---- Nuxt Application ----
-  app:
+  migrate:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: saijai-app
+    image: saijai-phareab:${IMAGE_TAG:-latest}
+    init: true
+    restart: "no"
+    command: ["./node_modules/.bin/prisma", "migrate", "deploy"]
+    environment:
+      NODE_ENV: production
+      DIRECT_URL: ${DIRECT_URL:?DIRECT_URL is required for production migrations}
+      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL is required}
+    env_file:
+      - .env
+
+  app:
+    image: saijai-phareab:${IMAGE_TAG:-latest}
+    init: true
     restart: unless-stopped
     ports:
-      - "3000:3000"
+      - "${APP_PORT:-3000}:3000"
     environment:
       NODE_ENV: production
       HOST: 0.0.0.0
       PORT: 3000
-      # ---- Database (Docker internal network: db = container name) ----
-      DIRECT_URL: postgresql://postgres:123@db:5432/saijai
-      DATABASE_URL: postgresql://postgres:123@db:5432/saijai
-      # ---- ใส่ environment อื่นๆ จาก .env ของคุณ ----
-      # NUXT_PUBLIC_LIFF_ID:
-      # NUXT_PUBLIC_HOSTNAME:
-      # CLOUDINARY_NAME:
-      # ...
-    depends_on:
-      db:
-        condition: service_healthy  # รอจนกว่า PostgreSQL พร้อม
-    # โหลด .env ไฟล์ (สร้างจาก .env.example ด้านล่าง)
+      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL is required}
     env_file:
       - .env
-
-volumes:
-  pgdata:
-    name: saijai-pgdata
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s

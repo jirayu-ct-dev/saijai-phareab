@@ -40,12 +40,6 @@ async function handleLineLogin() {
     }
 }
 
-watch(session, async (newSession) => {
-    if (newSession?.user) {
-        await redirectByRole(newSession.user.role);
-    }
-}, { immediate: false });
-
 onMounted(async () => {
     const reason = useCookie<string | null>("auth_signout_reason");
     if (reason.value === "deleted") {

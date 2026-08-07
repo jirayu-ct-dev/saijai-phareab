@@ -44,11 +44,15 @@ WORKDIR /app
 #   .output/          = Nuxt/Nitro server ที่ build แล้ว
 #   node_modules/     = runtime dependencies (รวม native modules เช่น sharp, prisma engines)
 #   prisma/           = schema + migrations (เผื่อต้องรัน migration ใน container)
+#   app/generated/    = generated Prisma Client สำหรับ seed scripts
+#   shared/           = mock storefront data ที่ full seed ใช้งาน
 #   prisma.config.ts  = Prisma 7 config
 #   package.json      = metadata
 COPY --from=build /app/.output   ./.output
 COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/prisma     ./prisma
+COPY --from=build /app/app/generated ./app/generated
+COPY --from=build /app/shared     ./shared
 COPY --from=build /app/prisma.config.ts ./
 COPY --from=build /app/package.json ./
 
