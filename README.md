@@ -21,7 +21,7 @@
 
 ### สิ่งที่ต้องมี
 
-- Node.js 22 แนะนำให้ใช้เวอร์ชันเดียวกับ `Dockerfile`
+- Node.js 24 แนะนำให้ใช้เวอร์ชันเดียวกับ `Dockerfile`
 - Corepack หรือ pnpm
 - PostgreSQL ที่เข้าถึงได้
 

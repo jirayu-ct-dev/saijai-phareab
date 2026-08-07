@@ -1,12 +1,12 @@
 # ============================================================
 # Stage 1: BUILD — ติดตั้ง dependencies ทั้งหมด + build โปรเจกต์
 # ============================================================
-FROM node:22-slim AS build
+FROM node:24-slim AS build
 
 # ติดตั้ง OpenSSL (จำเป็นสำหรับ Prisma engines)
 RUN apt-get update -y && apt-get install -y openssl libssl3 && rm -rf /var/lib/apt/lists/*
 
-# เปิดใช้ corepack สำหรับจัดการ pnpm (มากับ Node 22 อยู่แล้ว)
+# เปิดใช้ corepack สำหรับจัดการ pnpm (มากับ Node 24 อยู่แล้ว)
 RUN corepack enable
 
 WORKDIR /app
@@ -29,7 +29,7 @@ RUN NODE_OPTIONS="--max-old-space-size=4096" pnpm run build
 # ============================================================
 # Stage 2: PRODUCTION — เอาแค่ของที่จำเป็นสำหรับรัน
 # ============================================================
-FROM node:22-slim
+FROM node:24-slim
 
 # ติดตั้ง OpenSSL (จำเป็นสำหรับ Prisma engines ตอน runtime)
 RUN apt-get update -y && apt-get install -y openssl libssl3 && rm -rf /var/lib/apt/lists/*

@@ -98,7 +98,7 @@ docker compose -f docker-compose.local.yml up --build -d
 
 ## Docker and deployment
 
-- `Dockerfile` is a Node 22 multi-stage build that installs with the frozen pnpm lockfile, generates Prisma Client, builds Nuxt, and runs the generated `.output/server/index.mjs` on port 3000.
+- `Dockerfile` is a Node 24 multi-stage build that installs with the frozen pnpm lockfile, generates Prisma Client, builds Nuxt, and runs the generated `.output/server/index.mjs` on port 3000.
 - `docker-compose.yml` is the production workflow. It requires external `DATABASE_URL` and `DIRECT_URL`, runs `prisma migrate deploy` as a one-shot job before starting the app, and never creates a database or demo data.
 - `docker-compose.local.yml` is the disposable local/demo workflow: PostgreSQL 16 on host port 5433, `prisma db push`, full demo seed, known test accounts, and the app on port 3000.
 - No Nginx, TLS, or platform-specific infrastructure manifest is checked in. Those concerns must be provided by the production platform or reverse proxy.
