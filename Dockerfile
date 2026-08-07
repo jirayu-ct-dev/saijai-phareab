@@ -21,10 +21,8 @@ RUN pnpm install --frozen-lockfile
 # คัดลอก source code ทั้งหมด
 COPY . .
 
-# สร้าง Prisma Client (ต้องมี schema.prisma ก่อน)
-RUN npx prisma generate
-
-# Build Nuxt → ผลลัพธ์อยู่ใน .output/
+# สร้าง Prisma Client และ Build Nuxt → ผลลัพธ์อยู่ใน .output/
+# package.json กำหนดให้ build เรียก prisma generate ก่อน nuxt build
 # NODE_OPTIONS เพิ่ม heap memory ป้องกัน OOM ใน Docker
 RUN NODE_OPTIONS="--max-old-space-size=4096" pnpm run build
 
