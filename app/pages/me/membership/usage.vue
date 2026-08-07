@@ -12,6 +12,19 @@ definePageMeta({
 
 import type { TableColumn } from "@nuxt/ui";
 
+interface MembershipUsage {
+  orderId: string;
+  orderNo: string | null;
+  receivedAt: string;
+  creditUsed: number | null;
+  itemCount: number;
+  status: string;
+}
+
+interface MembershipUsageRow extends MembershipUsage {
+  index: number;
+}
+
 const route = useRoute();
 const entitlementId = computed(() => (route.query.id as string) || "");
 
@@ -27,7 +40,7 @@ watch(entitlements, (newEntitlements) => {
 
 const { entitlement, usages, pending, refresh } = useMyMembershipUsage(currentId);
 
-const columns: TableColumn<any>[] = [
+const columns: TableColumn<MembershipUsageRow>[] = [
   { accessorKey: "index", header: "ครั้งที่" },
   { accessorKey: "receivedAt", header: "วันที่" },
   { accessorKey: "orderNo", header: "เลขรับผ้า" },
@@ -35,7 +48,10 @@ const columns: TableColumn<any>[] = [
   { accessorKey: "creditUsed", header: "เครดิตที่ใช้" },
 ];
 
-const mappedUsages = computed(() => usages.value.map((u, i) => ({ ...u, index: usages.value.length - i })));
+const mappedUsages = computed<MembershipUsageRow[]>(() => (usages.value as unknown as MembershipUsage[]).map((usage, index) => ({
+  ...usage,
+  index: usages.value.length - index,
+})));
 
 const statusLabels: Record<string, string> = {
   ACTIVE: "กำลังใช้งาน",
