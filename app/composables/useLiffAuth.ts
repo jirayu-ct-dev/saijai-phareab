@@ -1,66 +1,61 @@
 import type { Liff } from '@line/liff'
+import { isPotentialLiffLaunch } from '~~/shared/utils/liff'
 
 type LiffAutoLoginResult = 'logged-in' | 'redirecting' | 'skipped' | 'failed'
 
+const LIFF_LAUNCH_STORAGE_KEY = 'liff:launch-context'
+let pendingAutoLogin: Promise<LiffAutoLoginResult> | null = null
+
 export const useLiffAuth = () => {
     const { $liff } = useNuxtApp()
-    const notify = useNotify()
     const { loginWithLineIdToken, session } = useUser()
 
     const addLineFriend = useState<boolean>('liff:add-line-friend', () => false)
-    const isAutoLoginProcessing = useState<boolean>('liff:auto-login-processing', () => false)
-    const isLiffBootstrapping = useState<boolean>('liff:bootstrapping', () => false)
-    const isPotentialLiffClient = useState<boolean>('liff:is-potential-client', () => false)
-    const isInLiffClient = useState<boolean>('liff:is-in-client', () => false)
-    const isLiffCheckCompleted = useState<boolean>('liff:check-completed', () => false)
+    const lastAutoLoginResult = useState<LiffAutoLoginResult | null>('liff:auto-login-result', () => null)
 
     const detectPotentialLiffClient = () => {
         if (!import.meta.client) {
             return false
         }
 
-        const userAgent = window.navigator.userAgent || ''
-        return /\bLine\/|\bLIFF\b/i.test(userAgent)
+        const persistedLaunch = window.sessionStorage.getItem(LIFF_LAUNCH_STORAGE_KEY) === '1'
+        return isPotentialLiffLaunch(
+            window.navigator.userAgent || '',
+            window.location.href,
+            persistedLaunch
+        )
     }
 
-    const runLiffAutoLogin = async (silent = false): Promise<LiffAutoLoginResult> => {
-        if (isAutoLoginProcessing.value || session.value?.user) {
+    const performLiffAutoLogin = async (): Promise<LiffAutoLoginResult> => {
+        if (session.value?.user) {
             return 'skipped'
         }
 
         if (!import.meta.client) {
-            isLiffCheckCompleted.value = true
             return 'skipped'
         }
 
-        isPotentialLiffClient.value = detectPotentialLiffClient()
-
-        if (!isPotentialLiffClient.value) {
-            isInLiffClient.value = false
-            isLiffCheckCompleted.value = true
+        if (!detectPotentialLiffClient()) {
             return 'skipped'
         }
-
-        isAutoLoginProcessing.value = true
-        isLiffBootstrapping.value = true
 
         try {
             const liff = (await $liff) as Liff | undefined
 
             if (!liff) {
-                isLiffCheckCompleted.value = true
-                return 'skipped'
+                return 'failed'
             }
 
-            isInLiffClient.value = liff.isInClient()
-            isLiffCheckCompleted.value = true
-
-            if (!isInLiffClient.value) {
-                return 'skipped'
-            }
+            const isInLiffClient = liff.isInClient()
 
             if (!liff.isLoggedIn()) {
-                liff.login()
+                if (isInLiffClient) {
+                    // liff.init() performs login inside the LIFF browser. LINE
+                    // explicitly does not support calling liff.login() there.
+                    return 'failed'
+                }
+
+                liff.login({ redirectUri: window.location.href })
                 return 'redirecting'
             }
 
@@ -68,14 +63,17 @@ export const useLiffAuth = () => {
             const accessToken = liff.getAccessToken()
 
             if (!idToken || !accessToken) {
-                if (!silent) {
-                    notify.error("ไม่สามารถเข้าสู่ระบบด้วย LINE ได้ในขณะนี้ กรุณาลองใหม่อีกครั้ง")
-                }
                 return 'failed'
             }
 
-            const profile = await liff.getProfile()
-            await loginWithLineIdToken(accessToken, idToken, profile.displayName)
+            let displayName: string | undefined
+            try {
+                displayName = liff.getDecodedIDToken()?.name ?? (await liff.getProfile()).displayName
+            } catch (profileError) {
+                console.warn('[useLiffAuth] Unable to read optional LINE profile', profileError)
+            }
+
+            await loginWithLineIdToken(accessToken, idToken, displayName)
 
             try {
                 const isFriend = await liff.getFriendship()
@@ -85,41 +83,35 @@ export const useLiffAuth = () => {
                 addLineFriend.value = false
             }
 
-            if (!silent) {
-                notify.success(
-                    addLineFriend.value
-                        ? "เข้าสู่ระบบเรียบร้อยแล้ว และเพิ่มเพื่อน LINE สำเร็จ"
-                        : "เข้าสู่ระบบเรียบร้อยแล้ว"
-                )
-            }
-
             return 'logged-in'
         }
         catch (error: any) {
             console.error(error)
-            if (!silent) {
-                notify.error(error?.message || "ขออภัย เกิดปัญหาในการเชื่อมต่อ LINE กรุณาลองใหม่อีกครั้ง")
-            }
             return 'failed'
-        } finally {
-            isAutoLoginProcessing.value = false
-            isLiffBootstrapping.value = false
         }
     }
 
-    const handleLiffAutoLogin = async () => {
-        return await runLiffAutoLogin(false)
-    }
+    const ensureLiffSession = (): Promise<LiffAutoLoginResult> => {
+        if (session.value?.user) return Promise.resolve('skipped')
+        if (lastAutoLoginResult.value) {
+            return Promise.resolve(lastAutoLoginResult.value)
+        }
+        if (pendingAutoLogin) return pendingAutoLogin
 
-    const ensureLiffSession = () => runLiffAutoLogin(true)
+        pendingAutoLogin = performLiffAutoLogin()
+            .then((result) => {
+                lastAutoLoginResult.value = result
+                return result
+            })
+            .finally(() => {
+                pendingAutoLogin = null
+            })
+
+        return pendingAutoLogin
+    }
 
     return {
         addLineFriend,
-        handleLiffAutoLogin,
-        ensureLiffSession,
-        isLiffBootstrapping,
-        isPotentialLiffClient,
-        isInLiffClient,
-        isLiffCheckCompleted
+        ensureLiffSession
     }
 }

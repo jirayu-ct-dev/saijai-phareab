@@ -3,10 +3,7 @@ definePageMeta({ layout: false });
 
 const notify = useNotify();
 
-const { login, loginWithLine, redirectByRole, session, user } = useUser();
-
-// ดึง Logic ของ LIFF มาจาก Composable
-const { handleLiffAutoLogin } = useLiffAuth();
+const { login, loginWithLine } = useUser();
 
 // Form state
 const loading = ref(false);
@@ -50,14 +47,6 @@ onMounted(async () => {
         notify.error("บัญชีของคุณถูกลบโดยผู้ดูแลระบบ ไม่สามารถเข้าสู่ระบบได้");
         reason.value = null;
         return;
-    }
-    if (session.value?.user) {
-        await redirectByRole(session.value.user.role);
-        return;
-    }
-    const liffResult = await handleLiffAutoLogin();
-    if (liffResult === "logged-in") {
-        await redirectByRole(user.value?.role);
     }
 })
 </script>
