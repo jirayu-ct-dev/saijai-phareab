@@ -455,7 +455,7 @@ const columns: TableColumn<MyReceiptRecord>[] = [
                 </div>
               </div>
             </div>
-            <div class="hidden rounded-lg border border-default/30 bg-default p-4 p-0! dark:border-default/20 dark:bg-elevated/55 md:block">
+            <div class="hidden rounded-lg border border-default/30 bg-default p-0! dark:border-default/20 dark:bg-elevated/55 md:block">
               <div class="space-y-2 p-3">
                 <USkeleton v-for="i in 8" :key="`dt-sk-${i}`" class="h-12 w-full rounded-lg" />
               </div>
@@ -542,7 +542,7 @@ const columns: TableColumn<MyReceiptRecord>[] = [
               </div>
             </div>
 
-            <div class="hidden overflow-hidden rounded-lg border border-default/30 bg-default p-4 p-0! dark:border-default/20 dark:bg-elevated/55 md:block">
+            <div class="hidden overflow-hidden rounded-lg border border-default/30 bg-default p-0! dark:border-default/20 dark:bg-elevated/55 md:block">
               <UTable
                 :pagination-options="{ getPaginationRowModel: getPaginationRowModel() }"
                 :data="filteredPayments"

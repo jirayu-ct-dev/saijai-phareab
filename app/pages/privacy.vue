@@ -3,6 +3,10 @@ definePageMeta({ layout: false });
 
 const lang = ref<'th' | 'en'>('th');
 
+function toggleLanguage(): void {
+  lang.value = lang.value === 'th' ? 'en' : 'th';
+}
+
 const content = {
   th: {
     title: 'นโยบายความเป็นส่วนตัว',
@@ -120,7 +124,7 @@ const t = computed(() => content[lang.value]);
           variant="outline"
           size="sm"
           icon="i-lucide-languages"
-          @click="lang = lang === 'th' ? 'en' : 'th'"
+          @click="toggleLanguage"
         />
       </div>
     </div>

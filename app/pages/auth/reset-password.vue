@@ -9,6 +9,14 @@ const loading = ref(false);
 const showPassword = ref(false);
 const showConfirmPassword = ref(false);
 
+function togglePasswordVisibility(): void {
+    showPassword.value = !showPassword.value;
+}
+
+function toggleConfirmPasswordVisibility(): void {
+    showConfirmPassword.value = !showConfirmPassword.value;
+}
+
 const token = computed(() => route.query.token as string);
 const email = computed(() => route.query.email as string); // รับ email มาแสดงถ้ามีใน URL
 
@@ -175,7 +183,7 @@ onMounted(() => {
                     variant="link"
                     :icon="showPassword ? 'i-lucide-eye' : 'i-lucide-eye-off'"
                     :padded="false"
-                    @click="showPassword = !showPassword"
+                    @click="togglePasswordVisibility"
                     class="text-gray-400"
                   />
                 </template>
@@ -202,7 +210,7 @@ onMounted(() => {
                     variant="link"
                     :icon="showConfirmPassword ? 'i-lucide-eye' : 'i-lucide-eye-off'"
                     :padded="false"
-                    @click="showConfirmPassword = !showConfirmPassword"
+                    @click="toggleConfirmPasswordVisibility"
                     class="text-gray-400"
                   />
                 </template>

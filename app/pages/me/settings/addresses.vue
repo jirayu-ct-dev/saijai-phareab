@@ -79,6 +79,14 @@ const confirmDelete = (id: string) => {
   showDeleteModal.value = true;
 };
 
+const closeAddressModal = (): void => {
+  isModalOpen.value = false;
+};
+
+const closeDeleteModal = (): void => {
+  showDeleteModal.value = false;
+};
+
 const handleDelete = async () => {
   if (!deleteConfirmId.value) return;
   isDeleting.value = true;
@@ -102,7 +110,7 @@ const handleDelete = async () => {
     <div class="rounded-md border border-default/30 bg-default px-4 py-3 shadow-[0_1px_2px_rgb(15_23_42/0.04)] dark:border-default/20 dark:bg-elevated/55 flex justify-between items-center">
       <div>
         <h1 class="text-xl font-semibold">ที่อยู่จัดส่ง</h1>
-        <p class="mt-1 text-sm text-muted font-normal text-toned">จัดการที่อยู่ของคุณสำหรับรับ-ส่งผ้า</p>
+        <p class="mt-1 text-sm font-normal text-toned">จัดการที่อยู่ของคุณสำหรับรับ-ส่งผ้า</p>
       </div>
       <UButton 
         color="primary" 
@@ -195,7 +203,7 @@ const handleDelete = async () => {
           </UFormField>
 
           <div class="flex justify-end gap-3 pt-4">
-            <UButton color="neutral" variant="ghost" @click="isModalOpen = false">ยกเลิก</UButton>
+            <UButton color="neutral" variant="ghost" @click="closeAddressModal">ยกเลิก</UButton>
             <UButton type="submit" color="primary">บันทึก</UButton>
           </div>
         </UForm>
@@ -209,7 +217,7 @@ const handleDelete = async () => {
       </template>
       <template #footer>
         <div class="flex justify-end gap-3">
-          <UButton color="neutral" variant="ghost" @click="showDeleteModal = false">ยกเลิก</UButton>
+          <UButton color="neutral" variant="ghost" @click="closeDeleteModal">ยกเลิก</UButton>
           <UButton color="error" :loading="isDeleting" @click="handleDelete">ลบทิ้ง</UButton>
         </div>
       </template>
