@@ -13,6 +13,10 @@ const loading = ref(false);
 const showPassword = ref(false);
 const rememberMe = ref(true);
 
+function togglePasswordVisibility(): void {
+    showPassword.value = !showPassword.value;
+}
+
 const form = reactive({
     email: "",
     password: "",
@@ -64,7 +68,7 @@ onMounted(async () => {
     <!-- LEFT PANEL: Brand & Illustration -->
     <div class="hidden lg:flex lg:w-[45%] xl:w-1/2 bg-[#1b4e85] text-white flex-col justify-between p-10 xl:p-16 relative overflow-hidden">
       <!-- Background details (optional) -->
-      <div class="absolute top-[-10%] right-[-10%] w-[500px] h-[500px] bg-white/5 rounded-full blur-[100px] pointer-events-none"></div>
+      <div class="absolute top-[-10%] right-[-10%] size-125 bg-white/5 rounded-full blur-[100px] pointer-events-none"></div>
       
       <!-- Top: Logo -->
       <div class="relative z-10 flex items-center gap-3">
@@ -94,7 +98,7 @@ onMounted(async () => {
           <div class="relative bg-white/10 backdrop-blur-md border border-white/20 rounded-md shadow-2xl overflow-hidden">
             <div class="p-4">
               <div class="flex items-center gap-3 pb-3 mb-3 border-b border-white/10">
-                <div class="w-10 h-10 rounded-full bg-gradient-to-br from-[#06C755] to-[#04a045] text-white flex items-center justify-center font-bold text-sm shrink-0 shadow ring-2 ring-white/20">
+                <div class="w-10 h-10 rounded-full bg-linear-to-br from-[#06C755] to-[#04a045] text-white flex items-center justify-center font-bold text-sm shrink-0 shadow ring-2 ring-white/20">
                   ใจ
                 </div>
                 <div class="flex-1 min-w-0">
@@ -152,7 +156,7 @@ onMounted(async () => {
       <!--      <!-- Form Container -->
       <div class="flex-1 flex items-center justify-center p-6 sm:p-12">
         <ClientOnly>
-          <div class="w-full max-w-[400px]">
+          <div class="w-full max-w-100">
             
             <div class="mb-10">
               <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-2">เข้าสู่ระบบ</h1>
@@ -210,7 +214,7 @@ onMounted(async () => {
                       variant="link"
                       :icon="showPassword ? 'i-lucide-eye' : 'i-lucide-eye-off'"
                       :padded="false"
-                      @click="showPassword = !showPassword"
+                      @click="togglePasswordVisibility"
                       class="text-gray-400"
                     />
                   </template>
@@ -249,7 +253,7 @@ onMounted(async () => {
 
           </div>
           <template #fallback>
-            <div class="w-full max-w-[400px] flex flex-col items-center justify-center py-12">
+            <div class="w-full max-w-100 flex flex-col items-center justify-center py-12">
               <UIcon name="i-lucide-loader-2" class="w-8 h-8 animate-spin text-primary mb-2" />
               <p class="text-gray-500 text-sm">กำลังโหลดระบบเข้าสู่ระบบ...</p>
             </div>
