@@ -102,7 +102,7 @@ const statusLabels: Record<string, string> = {
               </div>
               <div>
                 <p class="text-sm text-muted">ใช้ไปแล้ว</p>
-                <p class="font-bold text-lg text-warning">{{ (entitlement.creditInitial || 0) - (entitlement.creditRemaining || 0) }} ครั้ง</p>
+                <p class="font-bold text-lg text-primary">{{ (entitlement.creditInitial || 0) - (entitlement.creditRemaining || 0) }} ครั้ง</p>
               </div>
               <div>
                 <p class="text-sm text-muted">คงเหลือ</p>
@@ -116,7 +116,7 @@ const statusLabels: Record<string, string> = {
             <div v-for="usage in mappedUsages" :key="usage.orderId" :class="adminMobileListCardClass" class="p-3">
               <div class="flex justify-between items-start mb-2">
                 <span class="font-medium text-highlighted">ครั้งที่ {{ usage.index }}</span>
-                <UBadge color="warning" variant="subtle">{{ usage.creditUsed }} ครั้ง</UBadge>
+                <UBadge color="primary" variant="subtle">{{ usage.creditUsed }} ครั้ง</UBadge>
               </div>
               <div class="text-sm text-muted">
                 <p>วันที่: {{ formatDateTime(usage.receivedAt) }}</p>
@@ -159,7 +159,7 @@ const statusLabels: Record<string, string> = {
             </template>
             
             <template #creditUsed-cell="{ row }">
-              <UBadge color="warning" variant="subtle">{{ row.original.creditUsed }} ครั้ง</UBadge>
+              <UBadge color="primary" variant="subtle">{{ row.original.creditUsed }} ครั้ง</UBadge>
             </template>
 
             <template #empty>
