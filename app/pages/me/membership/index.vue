@@ -10,6 +10,10 @@ definePageMeta({
 
 const { entitlements, pending } = useMyMembership();
 
+const normalizeCredit = (value: number | null | undefined) => Math.max(0, Number(value) || 0);
+const creditMax = (value: number | null | undefined) => Math.max(1, normalizeCredit(value));
+const formatCreditValue = (value: number | null | undefined, max: number) => `${normalizeCredit(value)} จาก ${max} ครั้ง`;
+
 const formatDaysLeft = (endAt: string | null) => {
   if (!endAt) return null;
   const days = Math.ceil((new Date(endAt).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
@@ -49,7 +53,17 @@ const items = [
           </div>
 
           <div v-else>
-            <UTabs :items="items" class="w-full">
+            <UTabs
+              :items="items"
+              color="primary"
+              variant="pill"
+              size="lg"
+              class="w-full"
+              :ui="{
+                list: 'border border-default/50 bg-white shadow-xs',
+                trigger: 'min-h-11',
+              }"
+            >
           <template #content="{ item }">
             <div v-if="item.key === 'active'" class="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
               <div v-if="activeEntitlements.length === 0" class="col-span-full py-12 text-center border border-dashed border-default rounded-md bg-elevated">
@@ -79,12 +93,17 @@ const items = [
                     <span class="text-toned">เครดิตคงเหลือ</span>
                     <span class="font-bold text-highlighted">{{ ent.creditRemaining }} / {{ ent.creditInitial }} ครั้ง</span>
                   </div>
-                  <UProgress 
-                    :value="ent.creditRemaining || 0" 
-                    :max="ent.creditInitial || 1" 
-                    color="warning"
-                    size="sm"
+                  <UProgress
+                    v-if="normalizeCredit(ent.creditInitial) > 0"
+                    :model-value="Math.min(normalizeCredit(ent.creditRemaining), creditMax(ent.creditInitial))"
+                    :max="creditMax(ent.creditInitial)"
+                    color="primary"
+                    size="lg"
+                    :get-value-text="formatCreditValue"
                   />
+                  <p v-else class="rounded-md border border-dashed border-default py-2 text-center text-xs text-muted">
+                    ไม่มีเครดิตในแพ็กเกจนี้
+                  </p>
                 </div>
                 
                 <div class="mt-4 text-sm text-muted space-y-1">
@@ -93,7 +112,7 @@ const items = [
                 </div>
                 
                 <div class="mt-6">
-                  <UButton :to="`/me/membership/usage?id=${ent.id}`" block color="warning" variant="soft">ดูประวัติการใช้งาน</UButton>
+                  <UButton :to="`/me/membership/usage?id=${ent.id}`" block color="primary" variant="soft">ดูประวัติการใช้งาน</UButton>
                 </div>
               </UCard>
             </div>
@@ -116,12 +135,17 @@ const items = [
                     <span class="text-toned">เครดิตคงเหลือ</span>
                     <span class="font-bold text-highlighted">{{ ent.creditRemaining }} / {{ ent.creditInitial }} ครั้ง</span>
                   </div>
-                  <UProgress 
-                    :value="ent.creditRemaining || 0" 
-                    :max="ent.creditInitial || 1" 
+                  <UProgress
+                    v-if="normalizeCredit(ent.creditInitial) > 0"
+                    :model-value="Math.min(normalizeCredit(ent.creditRemaining), creditMax(ent.creditInitial))"
+                    :max="creditMax(ent.creditInitial)"
                     color="neutral"
-                    size="sm"
+                    size="lg"
+                    :get-value-text="formatCreditValue"
                   />
+                  <p v-else class="rounded-md border border-dashed border-default py-2 text-center text-xs text-muted">
+                    ไม่มีเครดิตในแพ็กเกจนี้
+                  </p>
                 </div>
                 
                 <div class="mt-4 text-sm text-muted space-y-1">
