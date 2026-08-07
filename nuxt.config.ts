@@ -17,7 +17,7 @@ export default defineNuxtConfig({
   },
   vite: {
     server: {
-      allowedHosts: [`${process.env.NUXT_PUBLIC_HOSTNAME}`],
+      allowedHosts: [`${process.env.NUXT_PUBLIC_HOSTNAME}`, 'localhost', '127.0.0.1'],
     },
   },
   app: {

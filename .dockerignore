@@ -1,0 +1,58 @@
+# ============================================================
+# .dockerignore — ไฟล์/โฟลเดอร์ที่ไม่ต้องส่งเข้า Docker build context
+# ยิ่งส่งน้อย = build เร็ว = image เล็กลง
+# ============================================================
+
+# Build outputs (จะถูกสร้างใหม่ใน container)
+.output
+.nuxt
+.nitro
+.cache
+dist
+
+# Dependencies (ติดตั้งใหม่ใน container ตาม lockfile)
+node_modules
+
+# Environment (ใช้ env_file ใน docker-compose แทน)
+.env
+.env.*
+
+# Git
+.git
+.gitignore
+.gitattributes
+
+# IDE / Editor
+.vscode
+.idea
+.fleet
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# AI Assistants (ไม่เกี่ยวกับ production)
+.claude
+.agents
+.codex
+.gemini
+CLAUDE*.md
+claude*
+
+# Docs
+docs
+*.md
+!README.md
+
+# Test
+tests
+*.test.ts
+*.spec.ts
+coverage
+
+# Misc
+error.md
+flow.md
+backups*

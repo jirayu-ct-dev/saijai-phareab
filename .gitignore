@@ -4,7 +4,6 @@
 .nuxt
 .nitro
 .cache
-.vercel
 dist
 
 # Node dependencies
@@ -13,7 +12,6 @@ node_modules
 # Logs
 logs
 *.log
-saijai-phareab-log-export-*.json
 
 # Misc
 .DS_Store
@@ -28,7 +26,13 @@ saijai-phareab-log-export-*.json
 /app/generated/prisma
 
 .claude
-.agents
+.agents/*
+!.agents/skills/
+.agents/skills/*
+!.agents/skills/handoff/
+!.agents/skills/handoff/**
+!.agents/skills/scrutinize/
+!.agents/skills/scrutinize/**
 .codex
 error.md
 flow.md
@@ -39,8 +43,7 @@ GEMINI*.md
 gemini*.md
 betterauth_unable*.md
 
-docs
-
 packagesaijai.json
 pricing.json
+
 backups*

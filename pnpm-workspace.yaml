@@ -1,4 +1,14 @@
 packages: []
 
-ignoredBuiltDependencies:
-  - maplibre-gl
+allowBuilds:
+  '@parcel/watcher': true
+  '@prisma/engines': true
+  esbuild: true
+  maplibre-gl: true
+  prisma: true
+  puppeteer: true
+  sharp: true
+  unrs-resolver: true
+  vue-demi: true
+
+ignoredBuiltDependencies: []

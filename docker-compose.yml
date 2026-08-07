@@ -1,0 +1,41 @@
+# Production workflow. Required values are loaded from `.env` or the deployment
+# platform. This stack never creates a database or inserts demo data.
+
+services:
+  migrate:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: saijai-phareab:${IMAGE_TAG:-latest}
+    init: true
+    restart: "no"
+    command: ["./node_modules/.bin/prisma", "migrate", "deploy"]
+    environment:
+      NODE_ENV: production
+      DIRECT_URL: ${DIRECT_URL:?DIRECT_URL is required for production migrations}
+      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL is required}
+    env_file:
+      - .env
+
+  app:
+    image: saijai-phareab:${IMAGE_TAG:-latest}
+    init: true
+    restart: unless-stopped
+    ports:
+      - "${APP_PORT:-3000}:3000"
+    environment:
+      NODE_ENV: production
+      HOST: 0.0.0.0
+      PORT: 3000
+      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL is required}
+    env_file:
+      - .env
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s

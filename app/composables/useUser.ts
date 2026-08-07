@@ -53,11 +53,12 @@ export const useUser = () => {
         throw new Error("ไม่พบข้อมูลผู้ใช้งาน");
       }
 
-      await refreshSession();
+      const refreshedSession = await refreshSession();
       notify.success("เข้าสู่ระบบสำเร็จ");
 
-      // Redirect based on role
-      await redirectByRole(user.value?.role);
+      // Keep redirect ownership here. The login page must not also watch the
+      // shared session and start a competing navigation.
+      await redirectByRole(refreshedSession?.user?.role ?? data.user.role);
     } catch (error: any) {
       console.error(error);
       notify.error(error.message || "เกิดข้อผิดพลาดในการเข้าสู่ระบบ");

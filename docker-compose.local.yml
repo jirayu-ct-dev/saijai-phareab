@@ -1,0 +1,67 @@
+# Local/demo workflow with PostgreSQL and deterministic test data.
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    ports:
+      - "5433:5432"
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: 123
+      POSTGRES_DB: saijai
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d saijai"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  setup:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: saijai-phareab:local
+    init: true
+    restart: "no"
+    command:
+      - sh
+      - -c
+      - ./node_modules/.bin/prisma db push && ./node_modules/.bin/tsx prisma/seed-full.ts
+    environment:
+      NODE_ENV: production
+      DIRECT_URL: postgresql://postgres:123@db:5432/saijai
+      DATABASE_URL: postgresql://postgres:123@db:5432/saijai
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file:
+      - .env
+
+  app:
+    image: saijai-phareab:local
+    init: true
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: production
+      HOST: 0.0.0.0
+      PORT: 3000
+      BETTER_AUTH_URL: http://localhost:3000
+      BETTER_AUTH_TRUSTED_ORIGINS: http://localhost:3000,http://127.0.0.1:3000
+      NUXT_PUBLIC_HOSTNAME: localhost
+      NUXT_PUBLIC_BASE_URL: http://localhost:3000
+      INTERNAL_BASE_URL: http://127.0.0.1:3000
+      DIRECT_URL: postgresql://postgres:123@db:5432/saijai
+      DATABASE_URL: postgresql://postgres:123@db:5432/saijai
+    depends_on:
+      setup:
+        condition: service_completed_successfully
+    env_file:
+      - .env
+
+volumes:
+  pgdata:
+    name: saijai-pgdata

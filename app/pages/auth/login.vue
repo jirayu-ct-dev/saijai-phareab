@@ -13,6 +13,10 @@ const loading = ref(false);
 const showPassword = ref(false);
 const rememberMe = ref(true);
 
+function togglePasswordVisibility(): void {
+    showPassword.value = !showPassword.value;
+}
+
 const form = reactive({
     email: "",
     password: "",
@@ -40,12 +44,6 @@ async function handleLineLogin() {
     }
 }
 
-watch(session, async (newSession) => {
-    if (newSession?.user) {
-        await redirectByRole(newSession.user.role);
-    }
-}, { immediate: false });
-
 onMounted(async () => {
     const reason = useCookie<string | null>("auth_signout_reason");
     if (reason.value === "deleted") {
@@ -70,18 +68,14 @@ onMounted(async () => {
     <!-- LEFT PANEL: Brand & Illustration -->
     <div class="hidden lg:flex lg:w-[45%] xl:w-1/2 bg-[#1b4e85] text-white flex-col justify-between p-10 xl:p-16 relative overflow-hidden">
       <!-- Background details (optional) -->
-      <div class="absolute top-[-10%] right-[-10%] w-[500px] h-[500px] bg-white/5 rounded-full blur-[100px] pointer-events-none"></div>
+      <div class="absolute top-[-10%] right-[-10%] size-125 bg-white/5 rounded-full blur-[100px] pointer-events-none"></div>
       
       <!-- Top: Logo -->
-      <div class="relative z-10 flex items-center gap-3">
-        <div class="w-10 h-10 rounded-md bg-white/10 flex items-center justify-center border border-white/20 backdrop-blur-sm">
-          <UIcon name="i-lucide-washing-machine" class="w-6 h-6 text-white" />
-        </div>
-        <div>
-          <h1 class="text-xl font-bold tracking-tight">ใส่ใจ ผ้าเรียบ</h1>
-          <p class="text-[10px] text-blue-200 tracking-widest uppercase">Saijai Laundry</p>
-        </div>
-      </div>
+      <AppLogo
+        to="/"
+        label="SAIJAI LAUNDRY"
+        class="relative z-10 w-fit rounded-lg focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white"
+      />
 
       <!-- Middle: Copy & Mockup -->
       <div class="relative z-10 mt-8 xl:mt-12">
@@ -95,49 +89,41 @@ onMounted(async () => {
           เข้าสู่ระบบเพื่อจัดการแพ็กเกจ ดูประวัติการซัก และติดตามสถานะผ้าของคุณแบบเรียลไทม์
         </p>
 
-        <!-- LINE Mockup -->
-        <div class="relative w-full max-w-sm opacity-95">
-          <div class="relative bg-white/10 backdrop-blur-md border border-white/20 rounded-md shadow-2xl overflow-hidden">
-            <div class="p-4">
-              <div class="flex items-center gap-3 pb-3 mb-3 border-b border-white/10">
-                <div class="w-10 h-10 rounded-full bg-gradient-to-br from-[#06C755] to-[#04a045] text-white flex items-center justify-center font-bold text-sm shrink-0 shadow ring-2 ring-white/20">
-                  ใจ
-                </div>
-                <div class="flex-1 min-w-0">
-                  <div class="font-semibold text-sm flex items-center gap-1.5 text-white">
-                    ใส่ใจ ผ้าเรียบ
-                    <UIcon name="i-ph-check-circle-fill" class="text-[#06C755] w-4 h-4 shrink-0" />
-                  </div>
-                  <div class="text-[10px] text-white/70">แจ้งเตือนล่าสุด · 14:23</div>
-                </div>
-              </div>
-              
-              <div class="bg-white/95 dark:bg-gray-800 rounded-md rounded-tl-sm p-3 mb-3">
-                <div class="font-semibold flex items-center gap-1.5 mb-2 text-gray-900 dark:text-white text-[12px]">
-                  <span class="w-2 h-2 rounded-full bg-amber-500" />
-                  กำลังซัก...
-                </div>
-                <div class="space-y-1 text-[11px] text-gray-600 dark:text-gray-400">
-                  <div class="flex justify-between gap-3">
-                    <span>ใบเสร็จ</span>
-                    <span class="font-mono font-medium text-gray-900 dark:text-gray-200">#SJ-2604-018</span>
-                  </div>
-                  <div class="flex justify-between gap-3">
-                    <span>เหลืออีก</span>
-                    <span class="font-semibold text-gray-900 dark:text-gray-200">~ 28 นาที</span>
-                  </div>
-                </div>
-              </div>
+        <!-- Member benefits -->
+        <div class="w-full max-w-md rounded-xl border border-white/20 bg-white/10 p-5 shadow-2xl backdrop-blur-md">
+          <div class="mb-4 flex items-center gap-2">
+            <UIcon name="i-lucide-sparkles" class="size-5 text-sky-200" />
+            <p class="text-sm font-semibold">ทุกเรื่องผ้า ดูได้ในที่เดียว</p>
+          </div>
 
-              <div class="bg-white/95 dark:bg-gray-800 rounded-md rounded-tl-sm p-3">
-                <div class="font-semibold flex items-center gap-1.5 mb-1.5 text-gray-900 dark:text-white text-[12px]">
-                  <span class="w-2 h-2 rounded-full bg-emerald-500" />
-                  พร้อมส่ง 🛵
-                </div>
-                <div class="flex justify-between gap-3 text-[11px] text-gray-600 dark:text-gray-400">
-                  <span>ถึงประมาณ</span>
-                  <span class="font-semibold text-gray-900 dark:text-gray-200">17:45 น.</span>
-                </div>
+          <div class="space-y-3">
+            <div class="flex items-center gap-3 rounded-lg bg-white/10 p-3">
+              <div class="flex size-9 shrink-0 items-center justify-center rounded-full bg-sky-300/20 text-sky-100">
+                <UIcon name="i-lucide-route" class="size-4.5" />
+              </div>
+              <div>
+                <p class="text-sm font-semibold">ติดตามสถานะงาน</p>
+                <p class="mt-0.5 text-xs text-blue-100/80">เช็กความคืบหน้าของผ้าได้ทุกขั้นตอน</p>
+              </div>
+            </div>
+
+            <div class="flex items-center gap-3 rounded-lg bg-white/10 p-3">
+              <div class="flex size-9 shrink-0 items-center justify-center rounded-full bg-sky-300/20 text-sky-100">
+                <UIcon name="i-lucide-ticket-check" class="size-4.5" />
+              </div>
+              <div>
+                <p class="text-sm font-semibold">จัดการแพ็กเกจ</p>
+                <p class="mt-0.5 text-xs text-blue-100/80">ดูเครดิตคงเหลือและประวัติการใช้งาน</p>
+              </div>
+            </div>
+
+            <div class="flex items-center gap-3 rounded-lg bg-white/10 p-3">
+              <div class="flex size-9 shrink-0 items-center justify-center rounded-full bg-[#06C755]/20 text-[#7df0a6]">
+                <UIcon name="i-simple-icons-line" class="size-4.5" />
+              </div>
+              <div>
+                <p class="text-sm font-semibold">ไม่พลาดการแจ้งเตือน</p>
+                <p class="mt-0.5 text-xs text-blue-100/80">รับข่าวสารสำคัญผ่าน LINE อย่างสะดวก</p>
               </div>
             </div>
           </div>
@@ -158,7 +144,7 @@ onMounted(async () => {
       <!--      <!-- Form Container -->
       <div class="flex-1 flex items-center justify-center p-6 sm:p-12">
         <ClientOnly>
-          <div class="w-full max-w-[400px]">
+          <div class="w-full max-w-100">
             
             <div class="mb-10">
               <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-2">เข้าสู่ระบบ</h1>
@@ -216,7 +202,7 @@ onMounted(async () => {
                       variant="link"
                       :icon="showPassword ? 'i-lucide-eye' : 'i-lucide-eye-off'"
                       :padded="false"
-                      @click="showPassword = !showPassword"
+                      @click="togglePasswordVisibility"
                       class="text-gray-400"
                     />
                   </template>
@@ -255,7 +241,7 @@ onMounted(async () => {
 
           </div>
           <template #fallback>
-            <div class="w-full max-w-[400px] flex flex-col items-center justify-center py-12">
+            <div class="w-full max-w-100 flex flex-col items-center justify-center py-12">
               <UIcon name="i-lucide-loader-2" class="w-8 h-8 animate-spin text-primary mb-2" />
               <p class="text-gray-500 text-sm">กำลังโหลดระบบเข้าสู่ระบบ...</p>
             </div>

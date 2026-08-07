@@ -20,6 +20,14 @@ const loading = ref(false);
 const showPassword = ref(false);
 const showConfirmPassword = ref(false);
 
+function togglePasswordVisibility(): void {
+    showPassword.value = !showPassword.value;
+}
+
+function toggleConfirmPasswordVisibility(): void {
+    showConfirmPassword.value = !showConfirmPassword.value;
+}
+
 const form = reactive({
     name: "",
     email: "",
@@ -72,18 +80,14 @@ watch(session, async (newSession) => {
     <!-- LEFT PANEL: Brand & Illustration -->
     <div class="hidden lg:flex lg:w-[45%] xl:w-1/2 bg-[#1b4e85] text-white flex-col justify-between p-10 xl:p-16 relative overflow-hidden">
       <!-- Background details -->
-      <div class="absolute -top-[10%] -right-[10%] w-125 h-125 bg-white/5 rounded-full blur-[100px] pointer-events-none"></div>
+      <div class="absolute -top-[10%] -right-[10%] size-125 bg-white/5 rounded-full blur-[100px] pointer-events-none"></div>
       
       <!-- Top: Logo -->
-      <div class="relative z-10 flex items-center gap-3">
-        <div class="w-10 h-10 rounded-md bg-white/10 flex items-center justify-center border border-white/20 backdrop-blur-sm">
-          <UIcon name="i-lucide-washing-machine" class="w-6 h-6 text-white" />
-        </div>
-        <div>
-          <h1 class="text-xl font-bold tracking-tight">ใส่ใจ ผ้าเรียบ</h1>
-          <p class="text-[10px] text-blue-200 tracking-widest uppercase">Saijai Laundry</p>
-        </div>
-      </div>
+      <AppLogo
+        to="/"
+        label="SAIJAI LAUNDRY"
+        class="relative z-10 w-fit rounded-lg focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white"
+      />
 
       <!-- Middle: Copy -->
       <div class="relative z-10 mt-8 xl:mt-12">
@@ -94,27 +98,36 @@ watch(session, async (newSession) => {
           เริ่มต้นดูแลผ้าของคุณ<br>ด้วยความใส่ใจ
         </h2>
         <p class="text-blue-100 text-sm xl:text-base max-w-sm mb-10 leading-relaxed">
-          สมัครสมาชิกเพื่อจัดการแพ็กเกจ และรับการแจ้งเตือนสถานะผ้าแบบเรียลไทม์ผ่าน LINE
+          สร้างบัญชีครั้งเดียว เพื่อให้ทุกการใช้บริการสะดวกและติดตามได้ง่ายขึ้น
         </p>
 
         <!-- Feature List -->
-         <div class="space-y-4">
-            <div class="flex items-center gap-3 p-4 bg-white/5 rounded-md border border-white/10 backdrop-blur-sm transition-all hover:bg-white/10">
-                <div class="w-10 h-10 rounded-full bg-primary-500/20 flex items-center justify-center shadow-inner">
-                    <UIcon name="i-lucide-package" class="w-6 h-6 text-primary-300" />
+         <div class="space-y-3">
+            <div class="flex items-center gap-3 rounded-lg border border-white/10 bg-white/10 p-3 backdrop-blur-sm">
+                <div class="flex size-9 shrink-0 items-center justify-center rounded-full bg-sky-300/20 text-sky-100">
+                    <UIcon name="i-lucide-route" class="size-4.5" />
                 </div>
                 <div>
-                    <h4 class="font-bold text-sm text-white">จัดการแพ็กเกจของคุณ</h4>
-                    <p class="text-xs text-blue-200">ตรวจสอบยอดคงเหลือและประวัติการใช้บริการ</p>
+                    <h4 class="text-sm font-semibold text-white">ติดตามงานได้ทุกขั้นตอน</h4>
+                    <p class="mt-0.5 text-xs text-blue-100/80">ดูสถานะและประวัติออเดอร์ของคุณได้ตลอดเวลา</p>
                 </div>
             </div>
-            <div class="flex items-center gap-3 p-4 bg-white/5 rounded-md border border-white/10 backdrop-blur-sm transition-all hover:bg-white/10">
-                <div class="w-10 h-10 rounded-full bg-emerald-500/20 flex items-center justify-center shadow-inner">
-                    <UIcon name="i-lucide-bell" class="w-6 h-6 text-emerald-300" />
+            <div class="flex items-center gap-3 rounded-lg border border-white/10 bg-white/10 p-3 backdrop-blur-sm">
+                <div class="flex size-9 shrink-0 items-center justify-center rounded-full bg-sky-300/20 text-sky-100">
+                    <UIcon name="i-lucide-ticket-check" class="size-4.5" />
                 </div>
                 <div>
-                    <h4 class="font-bold text-sm text-white">แจ้งเตือนผ่าน LINE</h4>
-                    <p class="text-xs text-blue-200">ไม่พลาดทุกความเคลื่อนไหวของผ้าคุณ</p>
+                    <h4 class="text-sm font-semibold text-white">ใช้แพ็กเกจได้อย่างคุ้มค่า</h4>
+                    <p class="mt-0.5 text-xs text-blue-100/80">ตรวจเครดิตคงเหลือและรายการใช้งานย้อนหลัง</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-3 rounded-lg border border-white/10 bg-white/10 p-3 backdrop-blur-sm">
+                <div class="flex size-9 shrink-0 items-center justify-center rounded-full bg-[#06C755]/20 text-[#7df0a6]">
+                    <UIcon name="i-simple-icons-line" class="size-4.5" />
+                </div>
+                <div>
+                    <h4 class="text-sm font-semibold text-white">สมัครและเข้าใช้ผ่าน LINE</h4>
+                    <p class="mt-0.5 text-xs text-blue-100/80">เริ่มต้นได้รวดเร็ว พร้อมรับการแจ้งเตือนสำคัญ</p>
                 </div>
             </div>
          </div>
@@ -133,15 +146,13 @@ watch(session, async (newSession) => {
       
       <!-- Top left nav -->
       <div class="absolute top-8 left-8 sm:left-12 z-10">
-        <UButton 
-          to="/" 
-          variant="ghost" 
-          color="neutral" 
-          icon="i-lucide-arrow-left" 
-          class="text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white"
+        <NuxtLink
+          to="/"
+          aria-label="กลับหน้าหลัก"
+          class="inline-flex rounded-lg transition-opacity hover:opacity-80 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary lg:hidden"
         >
-          กลับหน้าหลัก
-        </UButton>
+          <img src="/logo-saijai-phareab.png" alt="ใส่ใจ ผ้าเรียบ" class="size-12 object-contain" />
+        </NuxtLink>
       </div>
 
       <!-- Top right nav -->
@@ -238,7 +249,7 @@ watch(session, async (newSession) => {
                       variant="link"
                       :icon="showPassword ? 'i-lucide-eye' : 'i-lucide-eye-off'"
                       :padded="false"
-                      @click="showPassword = !showPassword"
+                      @click="togglePasswordVisibility"
                       class="text-gray-400"
                     />
                   </template>
@@ -265,7 +276,7 @@ watch(session, async (newSession) => {
                       variant="link"
                       :icon="showConfirmPassword ? 'i-lucide-eye' : 'i-lucide-eye-off'"
                       :padded="false"
-                      @click="showConfirmPassword = !showConfirmPassword"
+                      @click="toggleConfirmPasswordVisibility"
                       class="text-gray-400"
                     />
                   </template>
