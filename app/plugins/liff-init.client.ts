@@ -1,15 +1,10 @@
 // app/plugins/liff-init.client.ts
 import liff from '@line/liff'
+import { isPotentialLiffLaunch } from '~~/shared/utils/liff'
 
-// เก็บสถานะการ init ไว้ที่ระดับ module
 let isInitialized = false
 let liffPromise: Promise<typeof liff | undefined> | undefined
-
-const isPotentialLiffClient = () => {
-    if (!import.meta.client) return false
-    const userAgent = window.navigator.userAgent || ''
-    return /\bLine\/|\bLIFF\b/i.test(userAgent)
-}
+const LIFF_LAUNCH_STORAGE_KEY = 'liff:launch-context'
 
 export default defineNuxtPlugin((nuxtApp) => {
     const liffId = useRuntimeConfig().public.liffId as string
@@ -19,15 +14,24 @@ export default defineNuxtPlugin((nuxtApp) => {
         return
     }
 
-    if (!isPotentialLiffClient()) {
+    const persistedLaunch = window.sessionStorage.getItem(LIFF_LAUNCH_STORAGE_KEY) === '1'
+    const isLiffLaunch = isPotentialLiffLaunch(
+        window.navigator.userAgent || '',
+        window.location.href,
+        persistedLaunch
+    )
+
+    if (!isLiffLaunch) {
         nuxtApp.provide('liff', undefined)
         return
     }
 
+    window.sessionStorage.setItem(LIFF_LAUNCH_STORAGE_KEY, '1')
+
     liffPromise ||= (async () => {
         if (isInitialized) return liff
         try {
-            await liff.init({ liffId })
+            await liff.init({ liffId, withLoginOnExternalBrowser: false })
             isInitialized = true
             return liff
         } catch (error) {

@@ -1,4 +1,5 @@
 import type { SessionUser } from "~~/app/utils/session-status";
+import { getSafeInternalRedirect } from "~~/shared/utils/authNavigation";
 
 export default defineNuxtRouteMiddleware(async (to) => {
   const authSession = useState<unknown | null>("auth:session", () => null);
@@ -15,7 +16,7 @@ export default defineNuxtRouteMiddleware(async (to) => {
   ];
 
   // Force a fresh session check first so the server can wipe a deleted user's session and set the signout-reason cookie.
-  const preflight = await fetchSessionStatus();
+  let session = await fetchSessionStatus();
   const signoutReason = useCookie<string | null>("auth_signout_reason").value;
   if (signoutReason === "deleted" && to.path !== "/auth/login") {
     if (import.meta.client) {
@@ -36,7 +37,7 @@ export default defineNuxtRouteMiddleware(async (to) => {
   }
 
   // Also check isActive from session directly (catches cases where cookie hasn't been set yet)
-  if (preflight?.user && preflight.user.isActive === false) {
+  if (session?.user && session.user.isActive === false) {
     if (to.path.startsWith("/admin")) {
       if (import.meta.client) {
         window.location.href = "/me";
@@ -46,17 +47,29 @@ export default defineNuxtRouteMiddleware(async (to) => {
     }
     // On login page, redirect inactive employee to /me instead of admin
     if (to.path === "/auth/login" || to.path === "/auth/register") {
-      authSession.value = preflight;
+      authSession.value = session;
       // Don't redirect to admin — let them stay and see notification
       return;
     }
   }
 
+  if (!session?.user && import.meta.client) {
+    const { ensureLiffSession } = useLiffAuth();
+    const liffResult = await ensureLiffSession();
+
+    if (liffResult === "redirecting") return;
+    if (liffResult === "logged-in") {
+      session = await fetchSessionStatus({ force: true });
+    }
+  }
+
   if (publicRoutes.includes(to.path)) {
-    authSession.value = preflight ?? null;
+    authSession.value = session ?? null;
     if (to.path === "/auth/login" || to.path === "/auth/register") {
-      const session = preflight;
       if (session?.user) {
+        const returnTo = getSafeInternalRedirect(to.query.redirect);
+        if (returnTo && returnTo !== to.fullPath) return navigateTo(returnTo);
+
         const role = (session.user as SessionUser).role;
         if (role === "ADMIN") return navigateTo("/admin");
         if (role === "EMPLOYEE") return navigateTo("/admin/employee-dashboard");
@@ -66,34 +79,17 @@ export default defineNuxtRouteMiddleware(async (to) => {
     return;
   }
 
-  const session = preflight;
   if (session?.user) {
     authSession.value = session;
     return;
   }
 
   authSession.value = null;
+  const loginPath = `/auth/login?redirect=${encodeURIComponent(to.fullPath)}`;
 
   if (import.meta.client) {
-    const { ensureLiffSession } = useLiffAuth();
-    const liffResult = await ensureLiffSession();
-
-    if (liffResult === "redirecting") {
-      return;
-    }
-
-    if (liffResult === "logged-in") {
-      const refreshed = await fetchSessionStatus();
-      if (refreshed?.user) {
-        authSession.value = refreshed;
-        return;
-      }
-    }
-  }
-
-  if (import.meta.client) {
-    window.location.href = "/auth/login";
+    window.location.href = loginPath;
     return;
   }
-  return navigateTo("/auth/login");
+  return navigateTo(loginPath);
 });
