@@ -2,7 +2,17 @@ import type { SessionUser } from "~~/app/utils/session-status";
 
 export default defineNuxtRouteMiddleware(async (to) => {
   const authSession = useState<unknown | null>("auth:session", () => null);
-  const publicRoutes = ["/", "/auth/login", "/auth/register", "/auth/forgot-password", "/auth/reset-password", "/terms", "/privacy"];
+  const publicRoutes = [
+    "/",
+    "/pricing",
+    "/packages",
+    "/auth/login",
+    "/auth/register",
+    "/auth/forgot-password",
+    "/auth/reset-password",
+    "/terms",
+    "/privacy",
+  ];
 
   // Force a fresh session check first so the server can wipe a deleted user's session and set the signout-reason cookie.
   const preflight = await fetchSessionStatus();

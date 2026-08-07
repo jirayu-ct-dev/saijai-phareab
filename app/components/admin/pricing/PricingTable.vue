@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { h, resolveComponent, ref, computed, watch } from 'vue'
-import { getPaginationRowModel } from '@tanstack/table-core'
 import type { TableColumn } from '@nuxt/ui'
 import { cycleColumnSorting } from '~~/shared/utils/table'
 
@@ -79,15 +78,12 @@ type TableApi = {
   getFilteredRowModel: () => { rows: TableRow<PricingTableRow>[] }
   getRowModel: () => { rows: TableRow<PricingTableRow>[] }
   resetRowSelection: () => void
-  getState: () => { pagination: { pageIndex: number; pageSize: number } }
-  setPageIndex: (pageIndex: number) => void
 }
 type TableInstance = { tableApi?: TableApi }
 
 const table = useTemplateRef<TableInstance>('table')
 const columnVisibility = ref<Record<string, boolean>>({})
 const rowSelection = ref<Record<string, boolean>>({})
-const pagination = ref({ pageIndex: 0, pageSize: 10 })
 
 const search = ref('')
 const filterCategory = ref('all')
@@ -142,7 +138,6 @@ const tableData = computed<PricingTableRow[]>(() => {
 
 watch([search, filterCategory, filterService, () => props.data], () => {
   table.value?.tableApi?.resetRowSelection()
-  pagination.value.pageIndex = 0
 })
 
 const selectedRows = computed<TableRow<PricingTableRow>[]>(
@@ -153,12 +148,7 @@ const selectedCount = computed(() => selectedItems.value.length)
 const filteredRowCount = computed(
   () => table.value?.tableApi?.getFilteredRowModel().rows.length ?? tableData.value.length
 )
-const paginatedTableData = computed(() => {
-  const start = pagination.value.pageIndex * pagination.value.pageSize
-  return tableData.value.slice(start, start + pagination.value.pageSize)
-})
-
-const getMobileRowId = (index: number | string) => String(pagination.value.pageIndex * pagination.value.pageSize + Number(index))
+const getMobileRowId = (index: number | string) => String(index)
 const isMobileRowSelected = (index: number | string) => Boolean(rowSelection.value[getMobileRowId(index)])
 const setMobileRowSelected = (index: number | string, value: boolean | 'indeterminate') => {
   const rowId = getMobileRowId(index)
@@ -558,14 +548,14 @@ const columns = computed<TableColumn<PricingTableRow>[]>(() => {
         <USkeleton v-for="i in 5" :key="i" class="h-24 w-full rounded-lg" />
       </div>
 
-      <div v-else-if="!paginatedTableData.length" class="flex flex-col items-center justify-center rounded-lg border border-dashed border-default/30 bg-default/55 px-3 py-5 text-center text-muted dark:border-default/20 dark:bg-elevated/30">
+      <div v-else-if="!tableData.length" class="flex flex-col items-center justify-center rounded-lg border border-dashed border-default/30 bg-default/55 px-3 py-5 text-center text-muted dark:border-default/20 dark:bg-elevated/30">
         <UIcon name="i-lucide-list-x" class="mb-3 size-10 opacity-60" />
         <p>{{ search ? 'ไม่พบรายการที่ค้นหา' : 'ยังไม่มีรายการ' }}</p>
       </div>
 
       <div v-else class="-mx-2 space-y-1 sm:mx-0">
         <div
-          v-for="(item, index) in paginatedTableData"
+          v-for="(item, index) in tableData"
           :key="item.id"
           class="overflow-hidden border border-default/30 bg-default transition-[background-color,border-color] duration-200 hover:border-default/45 hover:bg-default dark:border-default/20 dark:bg-elevated/55 dark:hover:bg-elevated/70"
         >
@@ -622,8 +612,6 @@ const columns = computed<TableColumn<PricingTableRow>[]>(() => {
         ref="table"
         v-model:column-visibility="columnVisibility"
         v-model:row-selection="rowSelection"
-        v-model:pagination="pagination"
-        :pagination-options="{ getPaginationRowModel: getPaginationRowModel() }"
         :data="tableData"
         :columns="columns"
         :loading="loading"
@@ -658,16 +646,7 @@ const columns = computed<TableColumn<PricingTableRow>[]>(() => {
             กำลังโหลด...
           </span>
         </template>
-        <template v-else>เลือก {{ selectedCount }} จาก {{ filteredRowCount }} แถวทั้งหมด</template>
-      </div>
-      <div class="flex items-center gap-1.5">
-        <UPagination
-          v-if="!isSkeleton"
-          :page="pagination.pageIndex + 1"
-          :items-per-page="pagination.pageSize"
-          :total="filteredRowCount"
-          @update:page="(page: number) => { pagination = { ...pagination, pageIndex: page - 1 } }"
-        />
+        <template v-else>แสดง {{ filteredRowCount }} รายการ · เลือก {{ selectedCount }} รายการ</template>
       </div>
     </div>
   </section>
