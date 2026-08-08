@@ -2,7 +2,7 @@
 
 ## Working approach
 
-- Define the requested outcome and an observable completion check before editing. Inspect relevant code, tests, docs, and working-tree state first.
+- Define the requested outcome and an observable completion check before editing. Inspect relevant code, tests, configuration, and working-tree state first.
 - Surface assumptions that affect behavior. Resolve low-risk ambiguity with the simplest reasonable interpretation; ask when a wrong choice would be costly or hard to reverse.
 - Implement only the requested behavior. Reuse established patterns, avoid single-use abstractions and speculative flexibility, and keep every changed line traceable to the task.
 - Preserve unrelated user changes. Do not refactor, reformat, rename, or remove pre-existing code unless the task requires it.
@@ -17,11 +17,12 @@
 
 ## Repository map
 
-- `app/app.vue`: Nuxt application shell and LIFF bootstrap.
+- `app/app.vue`: minimal Nuxt application shell.
 - `app/pages/`: file-based public, `auth`, `me`, `admin`, and print pages. Access-controlled pages declare layouts and route middleware with `definePageMeta`.
 - `app/layouts/`, `app/components/`: default, user, admin, and print shells plus Nuxt UI-based UI. Preserve Thai copy, mobile states, loading/empty/error states, and the existing friendly tone.
 - `app/composables/`: reusable client data/state access. Follow existing `$fetch`, `useState`, and `useNotify()` patterns rather than duplicating API shapes or using `alert()`.
-- `app/middleware/`: global session/LIFF handling and `role-*` client navigation guards. These improve UX but are not server-side authorization.
+- `app/plugins/liff-init.client.ts`, `app/composables/useLiffAuth.ts`, `app/middleware/auth.global.ts`: LIFF launch detection, SDK initialization, token-to-session exchange, safe return paths, and global session/navigation handling. Keep auto-login orchestration centralized in the global middleware rather than adding page-level callers.
+- `app/middleware/role-*`: client navigation guards. These improve UX but are not server-side authorization.
 - `app/utils/auth.ts`: server-side Better Auth configuration despite its location under `app/`; `app/utils/auth-client.ts` is the browser client.
 - `server/api/`: Nitro file-based APIs grouped into `public`, `auth`, `me`, `admin`, and `line`. HTTP methods come from filename suffixes such as `.get.ts`, `.post.ts`, `.put.ts`, `.patch.ts`, and `.delete.ts`.
 - `server/middleware/auth-session.ts`: hydrates `event.context.user`, refreshes role/active/deleted state from the database, revokes deleted sessions, and applies centralized prefix policies to admin route families.
@@ -29,8 +30,7 @@
 - `server/tasks/`: Nitro tasks. `notify:expiring-packages` is scheduled in `nuxt.config.ts` for 02:00 UTC / 09:00 Asia/Bangkok.
 - `shared/types/`, `shared/config/`, `shared/utils/`: contracts, label/status configuration, and utilities shared by client and server. Prefer these over duplicate local definitions.
 - `prisma/schema.prisma`: PostgreSQL schema; `prisma/migrations/`: migration history; `prisma/seed.ts`: normal catalog/package seed; `prisma/seed-full.ts`: larger development/demo dataset.
-- `tests/server/`: Node-environment Vitest coverage for payment and service-order/credit transitions.
-- `docs/`: product briefs and audit notes. Read the relevant file before changing a workflow, but verify it against current code because some documents describe planned or historical behavior.
+- `tests/server/`, `tests/shared/`: Node-environment Vitest coverage for domain transitions and shared utilities.
 - `richmenu/`: checked-in LINE rich-menu JSON and images. `public/` contains static web assets.
 
 ## Architecture and conventions
@@ -70,7 +70,6 @@
 
 - Copy `.env.example` to `.env`; never print, commit, or replace secret values. Public runtime values use the `NUXT_PUBLIC_` prefix; provider credentials remain server-only.
 - Database/auth minimums are `DATABASE_URL`, `DIRECT_URL`, `BETTER_AUTH_URL`, and `BETTER_AUTH_SECRET`. LINE login also needs LIFF/client credentials; messaging/notifications need LINE channel credentials; uploads need Cloudinary credentials; email verification/reset needs Resend.
-- `.env.example` is currently incomplete for code paths that require `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET`, `LINE_CHANNEL_ID`, and `LINE_CHANNEL_SECRET`. Confirm these locally without committing values when working on those integrations.
 - Builds resolve/download fonts through Nuxt font tooling and may require outbound access to Google/Bunny/Fontsource endpoints.
 - Nitro cron expressions are UTC. The package-expiry task also has an admin/secret endpoint at `/api/admin/cron/package-expiry`; preserve `CRON_SECRET` authentication for external schedulers.
 
@@ -109,4 +108,4 @@ docker compose -f docker-compose.local.yml up --build -d
 - Add focused Vitest coverage for domain transitions and regressions when practical. Tests currently exercise utilities directly rather than a full database or HTTP stack.
 - Do not edit `.nuxt/`, `.output/`, `app/generated/prisma/`, lockfiles, migrations, or generated assets by hand.
 - Do not add production dependencies unless necessary and explicitly justified.
-- Update `README.md` or the relevant `docs/` brief when setup, public behavior, API contracts, or operational workflows change; reference detailed docs rather than copying them into this file.
+- Update `README.md` when setup, public behavior, API contracts, or operational workflows change. Keep operational guidance concise and verify it against the current code and configuration.
