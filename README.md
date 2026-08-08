@@ -163,7 +163,8 @@ docker compose -f docker-compose.local.yml config --quiet
 ```text
 app/                         Vue pages, layouts, components และ client composables
   pages/                     หน้าสาธารณะ, auth, member และ admin
-  middleware/                route guards ฝั่ง client
+  plugins/liff-init.client.ts ตรวจบริบทและเริ่มต้น LINE LIFF SDK
+  middleware/                session, LIFF auto login และ route guards ฝั่ง client
   generated/prisma/          Prisma Client ที่ generate แล้ว ห้ามแก้ด้วยมือ
 server/
   api/                       Nitro API แบ่งเป็น public, auth, me, line และ admin
@@ -174,13 +175,12 @@ prisma/
   schema.prisma              schema หลักของ PostgreSQL
   migrations/                ประวัติ migrations
   seed.ts                    seed เริ่มต้น
-tests/                       Vitest tests ของ domain logic
-docs/                        product brief, design intent และ audit notes
+tests/                       Vitest tests ของ domain logic และ shared utilities
 ```
 
 เส้นทาง `/api/me/**` ต้องอ้างอิงผู้ใช้จาก session และตรวจ ownership ส่วนเส้นทาง admin ใช้นโยบายใน `server/middleware/auth-session.ts` ร่วมกับ role checks ใน handler สถานะสมาชิกไม่ได้มาจาก role โดยตรง แต่คำนวณจาก entitlement ที่ยัง active
 
-รายละเอียดแนวทางสำหรับ AI coding agents และข้อควรระวังในการแก้โค้ดอยู่ใน [`AGENTS.md`](./AGENTS.md) เอกสารผลิตภัณฑ์เพิ่มเติมอยู่ใน [`docs/`](./docs/)
+รายละเอียดแนวทางสำหรับ AI coding agents และข้อควรระวังในการแก้โค้ดอยู่ใน [`AGENTS.md`](./AGENTS.md)
 
 ## การทดสอบและข้อควรรู้
 
@@ -192,8 +192,7 @@ docs/                        product brief, design intent และ audit notes
 - migration `20260522000000_reconcile_schema` เป็น no-op โดยตั้งใจ เพราะเนื้อหาเดิมซ้ำกับ migrations ก่อนหน้า; `20260807000000_sync_current_schema` เติม schema changes ที่เคยขาดจาก migration history
 - repository ยังไม่มี Nginx, TLS หรือ platform-specific infrastructure configuration; production Compose ดูแลเฉพาะ migration และ Node application
 
-## เอกสารที่เกี่ยวข้อง
+## ข้อมูลอ้างอิง
 
-- [`docs/member-portal-brief.md`](./docs/member-portal-brief.md) — ขอบเขตและ UX ของ member portal
-- [`docs/audit-me-report.md`](./docs/audit-me-report.md) — ผล audit ของ member APIs และหน้าที่เกี่ยวข้อง
-- [`IDEA.md`](./IDEA.md) — แนวคิดและภาพรวมผลิตภัณฑ์เดิม (อาจไม่ตรงกับ implementation ล่าสุดทุกจุด)
+- [`AGENTS.md`](./AGENTS.md) — โครงสร้าง สถาปัตยกรรม แนวทางการแก้ไข และข้อควรระวังสำหรับ coding agents
+- [`IDEA.md`](./IDEA.md) — แนวคิดและภาพรวมผลิตภัณฑ์เดิม ซึ่งอาจไม่ตรงกับ implementation ล่าสุดทุกจุด
