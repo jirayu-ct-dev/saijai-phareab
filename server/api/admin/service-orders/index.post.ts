@@ -12,6 +12,7 @@ import { notifyQuotationCreated, notifyServiceOrderCreated, notifyServiceOrderSt
 import { createAddonUsageRecords } from "~~/server/utils/serviceOrderCredits";
 import { isServiceOrderStatus } from "~~/server/utils/serviceOrderStatusTransition";
 import { parseBangkokDateTime } from "~~/shared/utils/pickup";
+import { reconcilePickupConfirmation } from "~~/server/utils/pickupConfirmation";
 
 type CreateServiceOrderBody = {
   customerId?: string | null;
@@ -301,6 +302,7 @@ export default defineEventHandler(async (event) => {
         productName: string;
         credits: number;
         deductOn: "CREATED" | "COMPLETED";
+        isDelivery: boolean;
         appliedAt?: string;
         deductedAt?: string;
       };
@@ -318,7 +320,7 @@ export default defineEventHandler(async (event) => {
             deletedAt: null,
             product: { packageType: "ADDON" },
           },
-          include: { product: { select: { id: true, name: true, deductOn: true } } },
+          include: { product: { select: { id: true, name: true, deductOn: true, isDelivery: true } } },
         });
         if (!addonEnt) {
           throw createError({ statusCode: 400, statusMessage: `ไม่พบสิทธิ์แพ็กเกจเสริม (${entry.entitlementId})` });
@@ -329,6 +331,7 @@ export default defineEventHandler(async (event) => {
           productName: addonEnt.product.name,
           credits,
           deductOn: addonEnt.product.deductOn,
+          isDelivery: addonEnt.product.isDelivery,
           deductedAt: undefined,
         };
         const shouldDeductNow = addonEnt.product.deductOn === "CREATED" || serviceOrderStatus === "COMPLETED";
@@ -483,6 +486,8 @@ export default defineEventHandler(async (event) => {
         paymentId: payment.id,
       };
     });
+
+    await reconcilePickupConfirmation(created.id);
 
     if (serviceOrderStatus === "RECEIVED") {
       // Send RECEIVED notification first, then transition to PROCESSING

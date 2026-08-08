@@ -1,6 +1,7 @@
 import { requireRole } from "~~/server/utils/auth";
 import { prisma } from "~~/server/utils/prisma";
 import { refundAddonUsages, refundPrimaryCredit, voidPendingAddonUsageRecords } from "~~/server/utils/serviceOrderCredits";
+import { reconcilePickupConfirmation } from "~~/server/utils/pickupConfirmation";
 
 export default defineEventHandler(async (event) => {
   const actor = requireRole(event, ["EMPLOYEE", "ADMIN"]);
@@ -71,6 +72,8 @@ export default defineEventHandler(async (event) => {
         },
       });
     });
+
+    await reconcilePickupConfirmation(existing.id);
 
     return { success: true };
   } catch (error) {

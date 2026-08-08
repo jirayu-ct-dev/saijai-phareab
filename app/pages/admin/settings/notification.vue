@@ -15,6 +15,13 @@ type NotificationSetting = {
   notifyCustomerReceipt: boolean;
   notifyStaffOnNewOrder: boolean;
   notifyCustomerOnPackageExpiring: boolean;
+  pickupConfirmationEnabled: boolean;
+  pickupInitialDaysBefore: number;
+  pickupInitialTime: string;
+  pickupReminderEnabled: boolean;
+  pickupReminderDaysBefore: number;
+  pickupReminderTime: string;
+  pickupMinimumLeadMinutes: number;
   updatedAt: string;
 };
 
@@ -25,6 +32,7 @@ type Subscriber = {
   receiveNewOrder: boolean;
   receiveStatusChange: boolean;
   receiveReceipt: boolean;
+  receivePickupResponse: boolean;
   createdAt: string;
   user: {
     id: string;
@@ -72,6 +80,34 @@ const form = reactive({
   notifyCustomerOnPackageExpiring: true,
 });
 
+const pickupForm = reactive({
+  pickupConfirmationEnabled: true,
+  pickupInitialDaysBefore: 1,
+  pickupInitialTime: "12:15",
+  pickupReminderEnabled: true,
+  pickupReminderDaysBefore: 0,
+  pickupReminderTime: "12:15",
+  pickupMinimumLeadMinutes: 120,
+});
+
+const minimumLeadItems = [
+  { label: "30 นาที", value: 30 },
+  { label: "1 ชั่วโมง", value: 60 },
+  { label: "2 ชั่วโมง", value: 120 },
+  { label: "3 ชั่วโมง", value: 180 },
+  { label: "6 ชั่วโมง", value: 360 },
+];
+const isSavingPickup = ref(false);
+const pickupPreview = computed(() => {
+  const initialDay = pickupForm.pickupInitialDaysBefore === 0
+    ? "วันนัด"
+    : `ก่อนวันนัด ${pickupForm.pickupInitialDaysBefore} วัน`;
+  const reminder = pickupForm.pickupReminderEnabled
+    ? ` และเตือนซ้ำ${pickupForm.pickupReminderDaysBefore === 0 ? "วันนัด" : `ก่อนวันนัด ${pickupForm.pickupReminderDaysBefore} วัน`} เวลา ${pickupForm.pickupReminderTime} น.`
+    : "";
+  return `ระบบจะถาม${initialDay} เวลา ${pickupForm.pickupInitialTime} น.${reminder}`;
+});
+
 watch(
   () => data.value?.setting,
   (val) => {
@@ -85,6 +121,13 @@ watch(
     form.notifyCustomerReceipt = val.notifyCustomerReceipt;
     form.notifyStaffOnNewOrder = val.notifyStaffOnNewOrder;
     form.notifyCustomerOnPackageExpiring = val.notifyCustomerOnPackageExpiring;
+    pickupForm.pickupConfirmationEnabled = val.pickupConfirmationEnabled;
+    pickupForm.pickupInitialDaysBefore = val.pickupInitialDaysBefore;
+    pickupForm.pickupInitialTime = val.pickupInitialTime;
+    pickupForm.pickupReminderEnabled = val.pickupReminderEnabled;
+    pickupForm.pickupReminderDaysBefore = val.pickupReminderDaysBefore;
+    pickupForm.pickupReminderTime = val.pickupReminderTime;
+    pickupForm.pickupMinimumLeadMinutes = val.pickupMinimumLeadMinutes;
   },
   { immediate: true },
 );
@@ -110,13 +153,29 @@ const onToggleSetting = async (key: SettingKey, value: boolean) => {
   try {
     await $fetch("/api/admin/settings/notification", {
       method: "PUT",
-      body: { ...form, [key]: value },
+      body: { ...form, ...pickupForm, [key]: value },
     });
   } catch {
     form[key] = prev;
     notify.serverError();
   } finally {
     pendingKeys.delete(key);
+  }
+};
+
+const onSavePickupSetting = async () => {
+  isSavingPickup.value = true;
+  try {
+    await $fetch("/api/admin/settings/notification", {
+      method: "PUT",
+      body: { ...form, ...pickupForm },
+    });
+    notify.saved("การตั้งค่ายืนยันการรับผ้า");
+    await refresh();
+  } catch {
+    notify.validationError("กรุณาตรวจสอบวันและเวลาของการถามครั้งแรกกับการเตือนซ้ำ");
+  } finally {
+    isSavingPickup.value = false;
   }
 };
 
@@ -144,7 +203,7 @@ const onAddSubscriber = async () => {
   }
 };
 
-const onUpdateSubscriber = async (sub: Subscriber, patch: Partial<Pick<Subscriber, "isActive" | "receiveNewOrder" | "receiveStatusChange" | "receiveReceipt">>) => {
+const onUpdateSubscriber = async (sub: Subscriber, patch: Partial<Pick<Subscriber, "isActive" | "receiveNewOrder" | "receiveStatusChange" | "receiveReceipt" | "receivePickupResponse">>) => {
   try {
     await $fetch(`/api/admin/settings/notification-subscribers/${sub.id}`, { method: "PUT", body: patch });
     await refresh();
@@ -339,6 +398,64 @@ const roleLabel = (role: "ADMIN" | "EMPLOYEE" | "USER") =>
       </section>
 
       <section class="-mx-2 border border-default/30 bg-default p-4 dark:border-default/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg">
+        <div class="flex items-start justify-between gap-4">
+          <div>
+            <p class="font-semibold text-highlighted">ยืนยันการรับผ้ารอบถัดไป</p>
+            <p class="mt-1 text-xs text-muted">ถามลูกค้าก่อนนำผ้าสะอาดไปส่ง เมื่อออเดอร์ใช้แพ็กเกจรับ–ส่ง</p>
+          </div>
+          <USwitch v-model="pickupForm.pickupConfirmationEnabled" />
+        </div>
+
+        <div class="mt-4 space-y-4" :class="{ 'pointer-events-none opacity-50': !pickupForm.pickupConfirmationEnabled }">
+          <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <UFormField label="ถามก่อนวันนัด (วัน)">
+              <UInput v-model.number="pickupForm.pickupInitialDaysBefore" type="number" :min="0" :max="30" />
+            </UFormField>
+            <UFormField label="เวลาถามครั้งแรก">
+              <UInput v-model="pickupForm.pickupInitialTime" type="time" />
+            </UFormField>
+          </div>
+
+          <div class="flex items-center justify-between rounded-lg border border-default p-3">
+            <div>
+              <p class="text-sm font-medium">เตือนซ้ำเมื่อลูกค้ายังไม่ตอบ</p>
+              <p class="text-xs text-muted">ส่งได้หลังจากข้อความครั้งแรกสำเร็จแล้วเท่านั้น</p>
+            </div>
+            <USwitch v-model="pickupForm.pickupReminderEnabled" />
+          </div>
+
+          <div class="grid grid-cols-1 gap-3 sm:grid-cols-2" :class="{ 'pointer-events-none opacity-50': !pickupForm.pickupReminderEnabled }">
+            <UFormField label="เตือนก่อนวันนัด (วัน)">
+              <UInput v-model.number="pickupForm.pickupReminderDaysBefore" type="number" :min="0" :max="30" />
+            </UFormField>
+            <UFormField label="เวลาเตือนซ้ำ">
+              <UInput v-model="pickupForm.pickupReminderTime" type="time" />
+            </UFormField>
+          </div>
+
+          <UFormField label="เวลาเตรียมงานขั้นต่ำก่อนส่ง">
+            <USelect
+              v-model="pickupForm.pickupMinimumLeadMinutes"
+              :items="minimumLeadItems"
+              value-key="value"
+              class="w-full"
+            />
+          </UFormField>
+
+          <div class="rounded-lg bg-elevated p-3 text-sm text-muted">
+            <p>{{ pickupPreview }}</p>
+            <p class="mt-1 text-xs">ออเดอร์รอบเช้าอาจถูกเลื่อนเวลาเตือนให้เร็วขึ้น เพื่อเหลือเวลาเตรียมงานตามค่าด้านบน</p>
+          </div>
+
+          <div class="flex justify-end">
+            <UButton icon="i-lucide-save" :loading="isSavingPickup" @click="onSavePickupSetting">
+              บันทึกการตั้งค่า
+            </UButton>
+          </div>
+        </div>
+      </section>
+
+      <section class="-mx-2 border border-default/30 bg-default p-4 dark:border-default/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg">
         <div class="mb-4 flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div class="min-w-0">
               <p class="font-semibold text-highlighted">ผู้รับการแจ้งเตือนของร้าน</p>
@@ -397,7 +514,7 @@ const roleLabel = (role: "ADMIN" | "EMPLOYEE" | "USER") =>
               </div>
             </div>
 
-            <div class="grid grid-cols-1 gap-3 border-t border-default pt-2 md:grid-cols-3">
+            <div class="grid grid-cols-1 gap-3 border-t border-default pt-2 md:grid-cols-2">
               <div class="flex items-center justify-between">
                 <span class="text-sm">ออเดอร์ใหม่</span>
                 <USwitch
@@ -420,6 +537,14 @@ const roleLabel = (role: "ADMIN" | "EMPLOYEE" | "USER") =>
                   :model-value="sub.receiveReceipt"
                   :disabled="!sub.isActive"
                   @update:model-value="(v: boolean) => onUpdateSubscriber(sub, { receiveReceipt: v })"
+                />
+              </div>
+              <div class="flex items-center justify-between">
+                <span class="text-sm">คำตอบรับผ้ารอบถัดไป</span>
+                <USwitch
+                  :model-value="sub.receivePickupResponse"
+                  :disabled="!sub.isActive"
+                  @update:model-value="(v: boolean) => onUpdateSubscriber(sub, { receivePickupResponse: v })"
                 />
               </div>
             </div>

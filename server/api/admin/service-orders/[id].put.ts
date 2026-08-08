@@ -9,6 +9,7 @@ import { ensureWalkInCustomer } from "~~/server/utils/walkInCustomer";
 import { createAddonUsageRecords, refundAddonUsages, voidPendingAddonUsageRecords } from "~~/server/utils/serviceOrderCredits";
 import { isServiceOrderStatus } from "~~/server/utils/serviceOrderStatusTransition";
 import { parseBangkokDateTime } from "~~/shared/utils/pickup";
+import { reconcilePickupConfirmation } from "~~/server/utils/pickupConfirmation";
 
 type UpdateServiceOrderBody = {
   customerId?: string | null;
@@ -363,6 +364,7 @@ export default defineEventHandler(async (event) => {
         productName: string;
         credits: number;
         deductOn: "CREATED" | "COMPLETED";
+        isDelivery: boolean;
         appliedAt?: string;
         deductedAt?: string;
       };
@@ -380,7 +382,7 @@ export default defineEventHandler(async (event) => {
             deletedAt: null,
             product: { packageType: "ADDON" },
           },
-          include: { product: { select: { id: true, name: true, deductOn: true } } },
+          include: { product: { select: { id: true, name: true, deductOn: true, isDelivery: true } } },
         });
         if (!addonEnt) {
           throw createError({ statusCode: 400, statusMessage: `ไม่พบสิทธิ์แพ็กเกจเสริม (${entry.entitlementId})` });
@@ -392,6 +394,7 @@ export default defineEventHandler(async (event) => {
           productName: addonEnt.product.name,
           credits,
           deductOn: addonEnt.product.deductOn,
+          isDelivery: addonEnt.product.isDelivery,
           deductedAt: undefined,
         };
         if (shouldDeductNow) {
@@ -583,6 +586,8 @@ export default defineEventHandler(async (event) => {
         });
       }
     });
+
+    await reconcilePickupConfirmation(existing.id);
 
     if (existing.status !== serviceOrderStatus) {
       void notifyServiceOrderStatusChanged({
