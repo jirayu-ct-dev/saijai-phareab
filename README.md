@@ -48,10 +48,11 @@ cp .env.example .env
 | Auth | `BETTER_AUTH_TRUSTED_ORIGINS`, `TRUSTED_PROXIES` | origin และ proxy ที่เชื่อถือได้ |
 | LINE Login | `NUXT_PUBLIC_LIFF_ID`, `LINE_LIFF_CLIENT_ID`, `LINE_LIFF_CLIENT_SECRET` | LINE LIFF และการเข้าสู่ระบบ |
 | LINE Messaging | `LINE_CHANNEL_ACCESS_TOKEN`, `LINE_CHANNEL_ID`, `LINE_CHANNEL_SECRET` | ส่งข้อความและยืนยัน webhook/provider |
+| LINE OA Chat | `LINE_BIZ_CHAT_URL` | base URL สำหรับปุ่มเปิดแชทลูกค้าจากหน้าแอดมิน |
 | Images | `CLOUDINARY_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET` | แสดงและอัปโหลดรูปภาพ |
 | Email | `RESEND_API_KEY`, `RESEND_FROM` | ส่งอีเมล |
 | App | `NUXT_PUBLIC_HOSTNAME`, `NUXT_PUBLIC_BASE_URL`, `INTERNAL_BASE_URL` | host และ base URL ของระบบ |
-| Scheduled task | `CRON_SECRET`, `PACKAGE_EXPIRY_NOTIFY_DAYS` | ป้องกัน cron endpoint และกำหนดช่วงแจ้งเตือน |
+| Scheduled task | `CRON_SECRET`, `PACKAGE_EXPIRY_NOTIFY_DAYS` | ป้องกัน cron endpoints และกำหนดช่วงแจ้งเตือนแพ็กเกจ |
 
 กำหนดเฉพาะ integration ที่ใช้งานจริง และห้าม commit secret ลง repository
 
@@ -128,7 +129,19 @@ Compose ไม่ได้สร้าง PostgreSQL, ไม่เปิด data
 docker compose -f docker-compose.local.yml up --build -d
 ```
 
-Local Compose override ค่า auth/base URL เป็น `http://localhost:3000` โดยตั้งใจ เพื่อให้ session cookie ทำงานบน HTTP local แม้ `.env` จะเก็บ URL ของ production ไว้ ให้เปิดผ่าน `http://localhost:3000` เป็นหลัก
+Local Compose อ่านค่า auth/base URL จาก `.env` และ fallback เป็น `http://localhost:3000` เมื่อไม่ได้กำหนดค่า หากทดสอบ LINE ผ่าน Cloudflare Tunnel ให้กำหนด URL HTTPS จาก Tunnel เช่น
+
+```dotenv
+BETTER_AUTH_URL=https://your-tunnel.example.com
+BETTER_AUTH_TRUSTED_ORIGINS=https://your-tunnel.example.com,http://localhost:3000,http://127.0.0.1:3000
+NUXT_PUBLIC_HOSTNAME=your-tunnel.example.com
+NUXT_PUBLIC_BASE_URL=https://your-tunnel.example.com
+INTERNAL_BASE_URL=http://127.0.0.1:3000
+```
+
+`NUXT_PUBLIC_HOSTNAME` ใส่เฉพาะ hostname โดยไม่มี `https://` จากนั้นตั้ง LINE LIFF Endpoint URL และ Messaging API Webhook URL เป็นโดเมนเดียวกัน โดย webhook ของโปรเจกต์คือ `https://your-tunnel.example.com/api/line/webhook` เมื่อใช้ public HTTPS URL เป็น `BETTER_AUTH_URL` ควรเปิดและทดสอบแอปผ่าน Tunnel URL เพื่อให้ secure session cookie ทำงานสม่ำเสมอ
+
+คำตอบยืนยันการรับผ้าของลูกค้าดูรวมได้ที่ `/admin/pickup-confirmations` โดยค้นหาและกรองคำตอบ พร้อมโทร เปิดแชท LINE หรือเปิดออเดอร์ต้นทางได้จากตารางเดียว
 
 เข้า [http://localhost:3000](http://localhost:3000) และใช้รหัสผ่าน `password123` กับบัญชีใดบัญชีหนึ่ง
 
@@ -189,6 +202,7 @@ tests/                       Vitest tests ของ domain logic และ share
 - typecheck ปัจจุบันมี baseline errors บางจุดในหน้า member/admin และ server utilities ควรแยก error เดิมออกจาก regression ที่เกิดจากงานใหม่
 - build อาจต้องเชื่อมต่อภายนอกเพื่อดาวน์โหลด Google, Bunny หรือ Fontsource fonts
 - cron แจ้งเตือนแพ็กเกจรันเวลา `02:00 UTC` หรือ `09:00 Asia/Bangkok`
+- task `notify:pickup-confirmations` ตรวจคิวคำยืนยันนัดรับ/ส่งทุก 5 นาที เวลาแจ้งเตือนจริงตั้งค่าจากหน้าแอดมิน ระบบ production ที่ไม่ได้เปิด Nitro scheduled tasks สามารถเรียก `POST /api/admin/cron/pickup-confirmations` พร้อม header `x-cron-secret: <CRON_SECRET>` แทนได้
 - migration `20260522000000_reconcile_schema` เป็น no-op โดยตั้งใจ เพราะเนื้อหาเดิมซ้ำกับ migrations ก่อนหน้า; `20260807000000_sync_current_schema` เติม schema changes ที่เคยขาดจาก migration history
 - repository ยังไม่มี Nginx, TLS หรือ platform-specific infrastructure configuration; production Compose ดูแลเฉพาะ migration และ Node application
 

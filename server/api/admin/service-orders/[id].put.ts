@@ -9,7 +9,7 @@ import { ensureWalkInCustomer } from "~~/server/utils/walkInCustomer";
 import { createAddonUsageRecords, refundAddonUsages, voidPendingAddonUsageRecords } from "~~/server/utils/serviceOrderCredits";
 import { isServiceOrderStatus } from "~~/server/utils/serviceOrderStatusTransition";
 import { parseBangkokDateTime } from "~~/shared/utils/pickup";
-import { reconcilePickupConfirmation } from "~~/server/utils/pickupConfirmation";
+import { dispatchPickupInitialFallback, reconcilePickupConfirmation } from "~~/server/utils/pickupConfirmation";
 
 type UpdateServiceOrderBody = {
   customerId?: string | null;
@@ -588,13 +588,17 @@ export default defineEventHandler(async (event) => {
     });
 
     await reconcilePickupConfirmation(existing.id);
-
     if (existing.status !== serviceOrderStatus) {
-      void notifyServiceOrderStatusChanged({
+      const notification = notifyServiceOrderStatusChanged({
         serviceOrderId: existing.id,
         fromStatus: existing.status,
         toStatus: serviceOrderStatus,
       });
+      if (serviceOrderStatus === "DELIVERING") await notification;
+      else void notification;
+    }
+    if (serviceOrderStatus === "DELIVERING") {
+      await dispatchPickupInitialFallback(existing.id);
     }
 
     return { success: true };

@@ -504,6 +504,16 @@ const columns: TableColumn<AdminServiceOrder>[] = [
         <template #right>
           <div class="flex flex-wrap items-center gap-2">
             <UButton
+              label="ดูคำตอบลูกค้า"
+              icon="i-lucide-messages-square"
+              color="neutral"
+              variant="outline"
+              class="shrink-0"
+              aria-label="ดูคำตอบรับผ้ารอบถัดไป"
+              :ui="{ label: 'hidden sm:inline' }"
+              to="/admin/pickup-confirmations"
+            />
+            <UButton
               label="เพิ่มรายการรับผ้า"
               icon="i-lucide-plus"
               color="primary"

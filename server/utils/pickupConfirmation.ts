@@ -8,6 +8,7 @@ import {
   shouldSkipPickupReminder,
 } from "~~/server/utils/pickupConfirmationScheduling";
 import { formatDateTime } from "~~/shared/utils/format";
+import { retryPickupResponseStaffNotifications } from "~~/server/utils/pickupConfirmationResponse";
 
 const ACTIVE_ORDER_STATUSES = ["RECEIVED", "PROCESSING", "DELIVERING"] as const;
 const CANCELLABLE_JOB_STATUSES = ["PENDING", "PROCESSING", "FAILED", "UNREACHABLE"] as const;
@@ -31,6 +32,8 @@ export type PickupDispatchSummary = {
   unreachable: number;
   reminded: number;
   skipped: number;
+  staffNotificationsRetried: number;
+  staffNotificationsFailed: number;
 };
 
 const sameInstant = (left: Date | null, right: Date | null): boolean =>
@@ -277,19 +280,39 @@ export async function reconcilePickupConfirmation(serviceOrderId: string, now: D
 
 export async function reschedulePendingPickupNotifications(now: Date = new Date()) {
   const setting = await prisma.notificationSetting.findUnique({ where: { id: "singleton" } });
-  if (!setting) return { scanned: 0, updated: 0, cancelled: 0 };
+  if (!setting) return { scanned: 0, updated: 0, cancelled: 0, created: 0 };
+
+  if (!setting.pickupConfirmationEnabled) {
+    const active = await prisma.pickupConfirmation.findMany({
+      where: { status: "ACTIVE" },
+      select: { id: true },
+    });
+    const ids = active.map((item) => item.id);
+    if (ids.length > 0) {
+      await prisma.$transaction([
+        prisma.pickupConfirmation.updateMany({
+          where: { id: { in: ids } },
+          data: { status: "CANCELLED", closedAt: now },
+        }),
+        prisma.pickupConfirmationNotification.updateMany({
+          where: { confirmationId: { in: ids }, status: { in: [...CANCELLABLE_JOB_STATUSES] } },
+          data: { status: "CANCELLED", claimExpiresAt: null },
+        }),
+      ]);
+    }
+    return { scanned: active.length, updated: 0, cancelled: active.length, created: 0 };
+  }
 
   const confirmations = await prisma.pickupConfirmation.findMany({
     where: { status: "ACTIVE" },
     include: {
-      serviceOrder: { select: { dueAt: true } },
-      notifications: {
-        where: { status: { in: ["PENDING", "FAILED"] } },
-      },
+      serviceOrder: { select: { dueAt: true, customerId: true } },
+      notifications: true,
     },
   });
   let updated = 0;
   let cancelled = 0;
+  let created = 0;
 
   for (const confirmation of confirmations) {
     if (!confirmation.serviceOrder.dueAt) continue;
@@ -298,13 +321,16 @@ export async function reschedulePendingPickupNotifications(now: Date = new Date(
       pickupSettings(setting),
       now,
     );
-    for (const job of confirmation.notifications.filter((item) => item.revision === confirmation.revision)) {
+    const currentJobs = confirmation.notifications.filter((item) => item.revision === confirmation.revision);
+    for (const job of currentJobs) {
       if (job.kind === "REMINDER" && !setting.pickupReminderEnabled) {
-        await prisma.pickupConfirmationNotification.update({
-          where: { id: job.id },
-          data: { status: "CANCELLED", claimExpiresAt: null },
-        });
-        cancelled += 1;
+        if (CANCELLABLE_JOB_STATUSES.includes(job.status as typeof CANCELLABLE_JOB_STATUSES[number])) {
+          await prisma.pickupConfirmationNotification.update({
+            where: { id: job.id },
+            data: { status: "CANCELLED", claimExpiresAt: null },
+          });
+          cancelled += 1;
+        }
         continue;
       }
       const nextScheduledFor = job.kind === "INITIAL"
@@ -312,20 +338,70 @@ export async function reschedulePendingPickupNotifications(now: Date = new Date(
         : schedule.reminderScheduledFor;
       // A settings edit must not release a backlog of already-past messages.
       if (!nextScheduledFor || nextScheduledFor <= now) continue;
-      await prisma.pickupConfirmationNotification.update({
-        where: { id: job.id },
-        data: { scheduledFor: nextScheduledFor },
+      if (job.status === "PENDING" || job.status === "FAILED") {
+        await prisma.pickupConfirmationNotification.update({
+          where: { id: job.id },
+          data: { scheduledFor: nextScheduledFor },
+        });
+        updated += 1;
+      } else if (job.kind === "REMINDER" && job.status === "CANCELLED" && setting.pickupReminderEnabled) {
+        await prisma.pickupConfirmationNotification.update({
+          where: { id: job.id },
+          data: { status: "PENDING", scheduledFor: nextScheduledFor, lastError: null },
+        });
+        updated += 1;
+      }
+    }
+    if (setting.pickupReminderEnabled && schedule.reminderScheduledFor && schedule.reminderScheduledFor > now
+      && !currentJobs.some((job) => job.kind === "REMINDER")) {
+      await prisma.pickupConfirmationNotification.create({
+        data: {
+          confirmationId: confirmation.id,
+          revision: confirmation.revision,
+          kind: "REMINDER",
+          recipientUserId: confirmation.serviceOrder.customerId,
+          scheduledFor: schedule.reminderScheduledFor,
+        },
       });
-      updated += 1;
+      created += 1;
     }
   }
-  return { scanned: confirmations.length, updated, cancelled };
+
+  const futureOrders = await prisma.serviceOrder.findMany({
+    where: {
+      deletedAt: null,
+      isWalkIn: false,
+      status: { in: ["RECEIVED", "PROCESSING", "DELIVERING"] },
+      dueAt: { gt: now },
+      addonUsageRecords: { some: { isDelivery: true, credits: { gt: 0 }, refundedAt: null } },
+      customer: {
+        isActive: true,
+        deletedAt: null,
+        lineNotifyEnabled: true,
+        accounts: { some: { providerId: "line" } },
+      },
+      OR: [
+        { pickupConfirmation: null },
+        { pickupConfirmation: { status: { not: "ACTIVE" } } },
+      ],
+    },
+    select: { id: true, dueAt: true },
+  });
+  for (const order of futureOrders) {
+    if (!order.dueAt) continue;
+    const schedule = computePickupNotificationSchedule(order.dueAt, pickupSettings(setting), now);
+    if (schedule.configuredInitialAt <= now) continue;
+    const result = await reconcilePickupConfirmation(order.id, now);
+    if (result.action === "CREATED" || result.action === "REVISED") created += 1;
+  }
+  return { scanned: confirmations.length + futureOrders.length, updated, cancelled, created };
 }
 
 export async function claimNextPickupNotification(
   now: Date = new Date(),
   leaseMs = DEFAULT_LEASE_MS,
   maxAttempts = DEFAULT_MAX_ATTEMPTS,
+  filter?: { serviceOrderId?: string; kind?: PickupNotificationKind },
 ): Promise<ClaimedNotification | null> {
   const claimExpiresAt = new Date(now.getTime() + leaseMs);
   const rows = await prisma.$queryRaw<ClaimedNotification[]>(Prisma.sql`
@@ -339,7 +415,9 @@ export async function claimNextPickupNotification(
         AND confirmation."response" IS NULL
         AND service_order."deletedAt" IS NULL
         AND service_order."status" IN ('RECEIVED', 'PROCESSING', 'DELIVERING')
-        AND job."attempts" < ${maxAttempts}
+        AND (${filter?.serviceOrderId ?? null}::text IS NULL OR service_order."id" = ${filter?.serviceOrderId ?? null})
+        AND (${filter?.kind ?? null}::text IS NULL OR job."kind"::text = ${filter?.kind ?? null})
+        AND (job."attempts" < ${maxAttempts} OR job."manualRetryRequestedAt" IS NOT NULL)
         AND (
           (job."status" IN ('PENDING', 'FAILED') AND job."scheduledFor" <= ${now})
           OR (job."status" = 'PROCESSING' AND job."claimExpiresAt" <= ${now})
@@ -363,6 +441,7 @@ export async function claimNextPickupNotification(
         "claimedAt" = ${now},
         "claimExpiresAt" = ${claimExpiresAt},
         "attempts" = job."attempts" + 1,
+        "manualRetryRequestedAt" = NULL,
         "updatedAt" = ${now}
     FROM candidate
     WHERE job."id" = candidate."id"
@@ -412,7 +491,11 @@ const buildPickupQuestionMessage = (input: {
   };
 };
 
-async function sendClaimedPickupNotification(claimed: ClaimedNotification, now: Date) {
+async function sendClaimedPickupNotification(
+  claimed: ClaimedNotification,
+  now: Date,
+  send: typeof pushMessage = pushMessage,
+) {
   const job = await prisma.pickupConfirmationNotification.findUnique({
     where: { id: claimed.id },
     include: {
@@ -475,7 +558,7 @@ async function sendClaimedPickupNotification(claimed: ClaimedNotification, now: 
   }
 
   try {
-    await pushMessage({
+    await send({
       to: lineUserId,
       messages: [buildPickupQuestionMessage({
         confirmationId: confirmation.id,
@@ -505,9 +588,20 @@ async function sendClaimedPickupNotification(claimed: ClaimedNotification, now: 
   }
 }
 
+export async function dispatchPickupInitialFallback(serviceOrderId: string, now: Date = new Date()) {
+  const claimed = await claimNextPickupNotification(now, DEFAULT_LEASE_MS, DEFAULT_MAX_ATTEMPTS, {
+    serviceOrderId,
+    kind: "INITIAL",
+  });
+  if (!claimed) return { claimed: false, result: "SKIPPED" as const };
+  const result = await sendClaimedPickupNotification(claimed, now);
+  return { claimed: true, result };
+}
+
 export async function dispatchDuePickupNotifications(
   now: Date = new Date(),
   limit = 50,
+  send: typeof pushMessage = pushMessage,
 ): Promise<PickupDispatchSummary> {
   const summary: PickupDispatchSummary = {
     scanned: 0,
@@ -517,13 +611,15 @@ export async function dispatchDuePickupNotifications(
     unreachable: 0,
     reminded: 0,
     skipped: 0,
+    staffNotificationsRetried: 0,
+    staffNotificationsFailed: 0,
   };
   for (let index = 0; index < limit; index += 1) {
     summary.scanned += 1;
     const claimed = await claimNextPickupNotification(now);
     if (!claimed) break;
     summary.claimed += 1;
-    const result = await sendClaimedPickupNotification(claimed, now);
+    const result = await sendClaimedPickupNotification(claimed, now, send);
     if (result === "SENT") {
       summary.sent += 1;
       if (claimed.kind === "REMINDER") summary.reminded += 1;
@@ -531,5 +627,8 @@ export async function dispatchDuePickupNotifications(
     else if (result === "UNREACHABLE") summary.unreachable += 1;
     else summary.skipped += 1;
   }
+  const staff = await retryPickupResponseStaffNotifications();
+  summary.staffNotificationsRetried = staff.sent;
+  summary.staffNotificationsFailed = staff.failed;
   return summary;
 }

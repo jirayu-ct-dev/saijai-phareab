@@ -74,6 +74,10 @@ export type LineWebhookEvent = {
   source?: LineWebhookSource;
   replyToken?: string;
   message?: LineWebhookMessage;
+  postback?: {
+    data: string;
+    params?: Record<string, string>;
+  };
 };
 
 export type LineWebhookPayload = {
@@ -469,5 +473,4 @@ export const syncUserRichMenu = async (userId: string): Promise<void> => {
     console.error(`[LINE RichMenu] Failed to sync user ${userId}:`, error);
   }
 };
-
 

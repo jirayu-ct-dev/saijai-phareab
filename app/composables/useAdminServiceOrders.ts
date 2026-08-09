@@ -57,6 +57,7 @@ export type AdminServiceOrder = {
     productName: string | null;
     credits: number;
     deductOn: "CREATED" | "COMPLETED";
+    isDelivery?: boolean;
     deductedAt: string | null;
     refundedAt: string | null;
   }>;

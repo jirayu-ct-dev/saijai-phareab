@@ -4,7 +4,7 @@ import { notifyServiceOrderStatusChanged } from "~~/server/utils/notify";
 import { prisma } from "~~/server/utils/prisma";
 import { deductAddonUsageRecords, parseAddonUsages, refundAddonUsages, refundPrimaryCredit, voidPendingAddonUsageRecords } from "~~/server/utils/serviceOrderCredits";
 import { canTransitionServiceOrderStatus, isServiceOrderStatus } from "~~/server/utils/serviceOrderStatusTransition";
-import { reconcilePickupConfirmation } from "~~/server/utils/pickupConfirmation";
+import { dispatchPickupInitialFallback, reconcilePickupConfirmation } from "~~/server/utils/pickupConfirmation";
 
 type UpdateServiceOrderStatusBody = {
   status?: ServiceOrderStatus;
@@ -93,12 +93,20 @@ export default defineEventHandler(async (event) => {
     });
 
     await reconcilePickupConfirmation(existing.id);
-
-    void notifyServiceOrderStatusChanged({
-      serviceOrderId: existing.id,
-      fromStatus: existing.status,
-      toStatus: nextStatus,
-    });
+    if (nextStatus === "DELIVERING") {
+      await notifyServiceOrderStatusChanged({
+        serviceOrderId: existing.id,
+        fromStatus: existing.status,
+        toStatus: nextStatus,
+      });
+      await dispatchPickupInitialFallback(existing.id);
+    } else {
+      void notifyServiceOrderStatusChanged({
+        serviceOrderId: existing.id,
+        fromStatus: existing.status,
+        toStatus: nextStatus,
+      });
+    }
 
     return { success: true };
   } catch (error) {

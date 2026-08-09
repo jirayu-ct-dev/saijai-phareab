@@ -34,6 +34,13 @@ type CustomerOption = {
     creditRemaining: number | null;
     endAt: string | null;
   } | null;
+  addonEntitlements?: Array<{
+    id: string;
+    productName: string;
+    creditRemaining: number | null;
+    deductOn: "CREATED" | "COMPLETED";
+    isDelivery: boolean;
+  }>;
 };
 
 const props = defineProps<{
@@ -95,6 +102,7 @@ const createEmptyForm = () => ({
   hangerCount: 0,
   missingHangerCount: 0,
   memberEntitlementId: null as string | null,
+  addonEntitlements: [] as Array<{ entitlementId: string; credits: number }>,
   orderImageId: null as string | null,
   deliveryImageId: null as string | null,
   discountAmount: 0,
@@ -126,11 +134,40 @@ const customerOptions = computed<CustomerOption[]>(() =>
     email: customer.email,
     phoneNumber: customer.phoneNumber,
     activeMemberEntitlement: customer.activeMemberEntitlement ?? null,
+    addonEntitlements: customer.addonEntitlements ?? [],
   })),
 );
 const selectedCustomer = computed(() => customerOptions.value.find((item) => item.value === form.customerId) ?? null);
 const activeMemberEntitlement = computed(() => selectedCustomer.value?.activeMemberEntitlement ?? null);
+const activeAddonEntitlements = computed(() => selectedCustomer.value?.addonEntitlements ?? []);
+const selectedAddonCreditMap = computed(() => new Map(
+  form.addonEntitlements.map((item) => [item.entitlementId, item.credits]),
+));
+const hasDeliveryUsage = computed(() => activeAddonEntitlements.value.some(
+  (addon) => addon.isDelivery && (selectedAddonCreditMap.value.get(addon.id) ?? 0) > 0,
+));
 const canUseMemberPackage = computed(() => !form.isWalkIn && Boolean(activeMemberEntitlement.value));
+
+const existingAddonCredits = computed(() => {
+  const credits = new Map<string, number>();
+  for (const usage of props.order?.addonUsages ?? []) {
+    if (!usage.entitlementId || usage.refundedAt) continue;
+    credits.set(usage.entitlementId, (credits.get(usage.entitlementId) ?? 0) + usage.credits);
+  }
+  return credits;
+});
+const addonCreditLimit = (entitlementId: string, remaining: number | null) =>
+  Math.max(0, Number(remaining ?? 0) + (existingAddonCredits.value.get(entitlementId) ?? 0));
+const setAddonCredits = (entitlementId: string, value: number | string | null | undefined) => {
+  const entitlement = activeAddonEntitlements.value.find((item) => item.id === entitlementId);
+  if (!entitlement) return;
+  const credits = Math.min(
+    addonCreditLimit(entitlementId, entitlement.creditRemaining),
+    Math.max(0, Math.floor(Number(value) || 0)),
+  );
+  form.addonEntitlements = form.addonEntitlements.filter((item) => item.entitlementId !== entitlementId);
+  if (credits > 0) form.addonEntitlements.push({ entitlementId, credits });
+};
 
 const catalogMap = computed(() => new Map((catalogItems.value ?? []).map((item) => [item.id, item])));
 const formLineItems = computed(() =>
@@ -312,6 +349,9 @@ const applyOrderToForm = () => {
   form.walkInName = order.walkInName || "";
   form.walkInPhone = order.walkInPhone || "";
   form.memberEntitlementId = order.memberEntitlement?.id ?? null;
+  form.addonEntitlements = (order.addonUsages ?? [])
+    .filter((usage) => Boolean(usage.entitlementId) && !usage.refundedAt && usage.credits > 0)
+    .map((usage) => ({ entitlementId: usage.entitlementId as string, credits: usage.credits }));
   form.serviceOrderStatus = order.status;
   setDueDateTime(order.dueAt);
   form.hangerCount = order.hangerCharge?.count ?? order.items.reduce((sum, item) => sum + item.quantity, 0);
@@ -385,6 +425,12 @@ watch(
     if (open.value) applyOrderToForm();
   },
 );
+watch(() => form.customerId, (customerId, previousCustomerId) => {
+  if (previousCustomerId && customerId !== previousCustomerId) form.addonEntitlements = [];
+});
+watch(() => form.isWalkIn, (isWalkIn) => {
+  if (isWalkIn) form.addonEntitlements = [];
+});
 
 const BANGKOK_OFFSET_MS = 7 * 60 * 60 * 1000;
 const setPickupDow = (targetDow: number) => {
@@ -640,6 +686,7 @@ const buildBody = async (): Promise<CreateAdminServiceOrderBody | null> => {
     walkInName: form.isWalkIn ? form.walkInName.trim() || null : null,
     walkInPhone: form.isWalkIn ? form.walkInPhone.trim() || null : null,
     memberEntitlementId: form.washFoldMode ? null : form.memberEntitlementId,
+    addonEntitlements: form.isWalkIn ? [] : form.addonEntitlements.filter((item) => item.credits > 0),
     orderImageId: form.orderImageId,
     deliveryImageId: form.deliveryImageId,
     items: form.washFoldMode ? [] : items,
@@ -752,6 +799,35 @@ const handleSubmit = async () => {
                 </div>
               </div>
 
+              <div
+                v-if="!form.isWalkIn && activeAddonEntitlements.length"
+                class="space-y-3 rounded-md border border-default/35 bg-elevated/70 p-3 dark:border-default/25 dark:bg-elevated/45 md:col-span-2"
+              >
+                <div>
+                  <p class="font-medium text-highlighted">แพ็กเกจเสริมที่ใช้กับออเดอร์นี้</p>
+                  <p class="text-xs text-muted">ต้องเลือกเครดิตบริการรับส่งอย่างน้อย 1 ครั้ง จึงจะส่งข้อความยืนยันรอบรับผ้า</p>
+                </div>
+                <div v-for="addon in activeAddonEntitlements" :key="addon.id" class="flex items-center justify-between gap-3">
+                  <div class="min-w-0">
+                    <p class="truncate text-sm text-highlighted">{{ addon.productName }}</p>
+                    <p class="text-xs text-muted">
+                      ใช้ได้ {{ addonCreditLimit(addon.id, addon.creditRemaining) }} ครั้ง
+                      <span v-if="addon.isDelivery"> · บริการรับส่ง</span>
+                    </p>
+                  </div>
+                  <UInputNumber
+                    :model-value="selectedAddonCreditMap.get(addon.id) ?? 0"
+                    :min="0"
+                    :max="addonCreditLimit(addon.id, addon.creditRemaining)"
+                    :step="1"
+                    orientation="horizontal"
+                    size="xs"
+                    class="w-24 shrink-0"
+                    @update:model-value="setAddonCredits(addon.id, $event)"
+                  />
+                </div>
+              </div>
+
               <template v-if="form.isWalkIn">
                 <UFormField label="ชื่อลูกค้าหน้าร้าน">
                   <UInput v-model="form.walkInName" class="w-full" placeholder="เช่น คุณสมชาย">
@@ -772,7 +848,7 @@ const handleSubmit = async () => {
                 </UFormField>
               </template>
 
-              <UFormField label="วันนัดรับ">
+              <UFormField :label="hasDeliveryUsage ? 'วันนัดส่งถึงลูกค้า' : 'วันนัดรับที่ร้าน'">
                 <div class="space-y-2">
                   <div class="flex flex-wrap gap-1.5">
                     <UButton size="xs" color="neutral" variant="soft" label="พุธ" @click="setPickupDow(3)" />

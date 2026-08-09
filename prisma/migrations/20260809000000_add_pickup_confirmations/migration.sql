@@ -91,6 +91,7 @@ CREATE TABLE "pickup_confirmation_notification" (
   "claimExpiresAt" TIMESTAMP(3),
   "sentAt" TIMESTAMP(3),
   "attempts" INTEGER NOT NULL DEFAULT 0,
+  "manualRetryRequestedAt" TIMESTAMP(3),
   "lastError" TEXT,
   "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
   "updatedAt" TIMESTAMP(3) NOT NULL,
@@ -108,6 +109,8 @@ CREATE TABLE "pickup_confirmation_response_event" (
   "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
   "staffNotifiedAt" TIMESTAMP(3),
   "staffNotifyAttempts" INTEGER NOT NULL DEFAULT 0,
+  "staffNotifyClaimedAt" TIMESTAMP(3),
+  "staffNotifyClaimExpiresAt" TIMESTAMP(3),
   "staffNotifyError" TEXT,
 
   CONSTRAINT "pickup_confirmation_response_event_pkey" PRIMARY KEY ("id")
@@ -121,8 +124,9 @@ CREATE INDEX "pickup_confirmation_notification_claimExpiresAt_idx" ON "pickup_co
 CREATE UNIQUE INDEX "pickup_confirmation_response_event_webhookEventId_key" ON "pickup_confirmation_response_event"("webhookEventId");
 CREATE INDEX "pickup_confirmation_response_event_confirmationId_createdAt_idx" ON "pickup_confirmation_response_event"("confirmationId", "createdAt");
 CREATE INDEX "pickup_confirmation_response_event_staffNotifiedAt_createdAt_idx" ON "pickup_confirmation_response_event"("staffNotifiedAt", "createdAt");
+CREATE INDEX "pickup_confirmation_response_event_staffNotifyClaimExpiresAt_idx" ON "pickup_confirmation_response_event"("staffNotifyClaimExpiresAt");
 
 -- AddForeignKey
-ALTER TABLE "pickup_confirmation" ADD CONSTRAINT "pickup_confirmation_serviceOrderId_fkey" FOREIGN KEY ("serviceOrderId") REFERENCES "service_order"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "pickup_confirmation" ADD CONSTRAINT "pickup_confirmation_serviceOrderId_fkey" FOREIGN KEY ("serviceOrderId") REFERENCES "service_order"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 ALTER TABLE "pickup_confirmation_notification" ADD CONSTRAINT "pickup_confirmation_notification_confirmationId_fkey" FOREIGN KEY ("confirmationId") REFERENCES "pickup_confirmation"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 ALTER TABLE "pickup_confirmation_response_event" ADD CONSTRAINT "pickup_confirmation_response_event_confirmationId_fkey" FOREIGN KEY ("confirmationId") REFERENCES "pickup_confirmation"("id") ON DELETE CASCADE ON UPDATE CASCADE;

@@ -682,7 +682,7 @@ model NotificationSubscriber {
 model PickupConfirmation {
   id             String                      @id @default(cuid())
   serviceOrderId String                      @unique
-  serviceOrder   ServiceOrder                @relation(fields: [serviceOrderId], references: [id])
+  serviceOrder   ServiceOrder                @relation(fields: [serviceOrderId], references: [id], onDelete: Cascade)
   revision       Int                         @default(1)
   status         PickupConfirmationStatus    @default(ACTIVE)
   response       PickupConfirmationResponse?
@@ -700,21 +700,22 @@ model PickupConfirmation {
 }
 
 model PickupConfirmationNotification {
-  id              String                   @id @default(cuid())
-  confirmationId  String
-  confirmation    PickupConfirmation       @relation(fields: [confirmationId], references: [id], onDelete: Cascade)
-  revision        Int
-  kind            PickupNotificationKind
-  recipientUserId String
-  scheduledFor    DateTime
-  status          PickupNotificationStatus @default(PENDING)
-  claimedAt       DateTime?
-  claimExpiresAt  DateTime?
-  sentAt          DateTime?
-  attempts        Int                      @default(0)
-  lastError       String?
-  createdAt       DateTime                 @default(now())
-  updatedAt       DateTime                 @updatedAt
+  id                     String                   @id @default(cuid())
+  confirmationId         String
+  confirmation           PickupConfirmation       @relation(fields: [confirmationId], references: [id], onDelete: Cascade)
+  revision               Int
+  kind                   PickupNotificationKind
+  recipientUserId        String
+  scheduledFor           DateTime
+  status                 PickupNotificationStatus @default(PENDING)
+  claimedAt              DateTime?
+  claimExpiresAt         DateTime?
+  sentAt                 DateTime?
+  attempts               Int                      @default(0)
+  manualRetryRequestedAt DateTime?
+  lastError              String?
+  createdAt              DateTime                 @default(now())
+  updatedAt              DateTime                 @updatedAt
 
   @@unique([confirmationId, revision, kind])
   @@index([status, scheduledFor])
@@ -723,20 +724,23 @@ model PickupConfirmationNotification {
 }
 
 model PickupConfirmationResponseEvent {
-  id                  String                     @id @default(cuid())
-  confirmationId      String
-  confirmation        PickupConfirmation         @relation(fields: [confirmationId], references: [id], onDelete: Cascade)
-  revision            Int
-  webhookEventId      String                     @unique
-  response            PickupConfirmationResponse
-  respondedByLineId   String
-  createdAt           DateTime                   @default(now())
-  staffNotifiedAt     DateTime?
-  staffNotifyAttempts Int                        @default(0)
-  staffNotifyError    String?
+  id                        String                     @id @default(cuid())
+  confirmationId            String
+  confirmation              PickupConfirmation         @relation(fields: [confirmationId], references: [id], onDelete: Cascade)
+  revision                  Int
+  webhookEventId            String                     @unique
+  response                  PickupConfirmationResponse
+  respondedByLineId         String
+  createdAt                 DateTime                   @default(now())
+  staffNotifiedAt           DateTime?
+  staffNotifyAttempts       Int                        @default(0)
+  staffNotifyClaimedAt      DateTime?
+  staffNotifyClaimExpiresAt DateTime?
+  staffNotifyError          String?
 
   @@index([confirmationId, createdAt])
   @@index([staffNotifiedAt, createdAt])
+  @@index([staffNotifyClaimExpiresAt])
   @@map("pickup_confirmation_response_event")
 }
 

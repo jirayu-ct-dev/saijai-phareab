@@ -21,13 +21,14 @@ const props = withDefaults(defineProps<{
 const chatUrl = computed(() => {
   if (!props.lineUserId) return "#";
   const config = useRuntimeConfig();
-  return `${config.public.lineBizChatUrl}/${props.lineUserId}`;
+  const baseUrl = String(config.public.lineBizChatUrl || "").replace(/\/+$/, "");
+  return baseUrl ? `${baseUrl}/${props.lineUserId}` : "#";
 });
 </script>
 
 <template>
   <UButton
-    v-if="lineUserId"
+    v-if="lineUserId && chatUrl !== '#'"
     icon="i-simple-icons-line"
     variant="ghost"
     :size="size"

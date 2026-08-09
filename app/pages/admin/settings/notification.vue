@@ -397,61 +397,129 @@ const roleLabel = (role: "ADMIN" | "EMPLOYEE" | "USER") =>
         </div>
       </section>
 
-      <section class="-mx-2 border border-default/30 bg-default p-4 dark:border-default/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg">
-        <div class="flex items-start justify-between gap-4">
-          <div>
-            <p class="font-semibold text-highlighted">ยืนยันการรับผ้ารอบถัดไป</p>
-            <p class="mt-1 text-xs text-muted">ถามลูกค้าก่อนนำผ้าสะอาดไปส่ง เมื่อออเดอร์ใช้แพ็กเกจรับ–ส่ง</p>
+      <section class="-mx-2 overflow-hidden border border-default/30 bg-default dark:border-default/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg">
+        <div class="flex items-start justify-between gap-4 border-b border-default/40 p-4 sm:p-5">
+          <div class="flex min-w-0 items-start gap-3">
+            <div class="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+              <UIcon name="i-lucide-message-circle-question" class="size-5" />
+            </div>
+            <div class="min-w-0">
+              <p class="font-semibold text-highlighted">ยืนยันการรับผ้ารอบถัดไป</p>
+              <p class="mt-1 text-xs leading-5 text-muted">ถามลูกค้าก่อนนำผ้าสะอาดไปส่ง เฉพาะออเดอร์ที่เลือกใช้บริการรับ–ส่ง</p>
+            </div>
           </div>
-          <USwitch v-model="pickupForm.pickupConfirmationEnabled" />
+          <div class="flex shrink-0 flex-col items-end gap-1">
+            <USwitch v-model="pickupForm.pickupConfirmationEnabled" />
+            <span class="text-[11px] text-muted">{{ pickupForm.pickupConfirmationEnabled ? "เปิดใช้งาน" : "ปิดใช้งาน" }}</span>
+          </div>
         </div>
 
-        <div class="mt-4 space-y-4" :class="{ 'pointer-events-none opacity-50': !pickupForm.pickupConfirmationEnabled }">
-          <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <UFormField label="ถามก่อนวันนัด (วัน)">
-              <UInput v-model.number="pickupForm.pickupInitialDaysBefore" type="number" :min="0" :max="30" />
-            </UFormField>
-            <UFormField label="เวลาถามครั้งแรก">
-              <UInput v-model="pickupForm.pickupInitialTime" type="time" />
-            </UFormField>
-          </div>
-
-          <div class="flex items-center justify-between rounded-lg border border-default p-3">
-            <div>
-              <p class="text-sm font-medium">เตือนซ้ำเมื่อลูกค้ายังไม่ตอบ</p>
-              <p class="text-xs text-muted">ส่งได้หลังจากข้อความครั้งแรกสำเร็จแล้วเท่านั้น</p>
+        <div class="space-y-4 p-4 sm:p-5">
+          <div class="grid gap-4 lg:grid-cols-2">
+            <div class="rounded-lg border border-default/50 bg-elevated/45 p-4">
+              <div class="mb-4 flex items-center gap-2">
+                <UBadge label="1" color="primary" variant="solid" size="xs" />
+                <div>
+                  <p class="text-sm font-semibold text-highlighted">ข้อความถามครั้งแรก</p>
+                  <p class="text-xs text-muted">กำหนดวันและเวลาที่เริ่มถามลูกค้า</p>
+                </div>
+              </div>
+              <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
+                <UFormField label="ล่วงหน้าก่อนวันนัด">
+                  <UInput
+                    v-model.number="pickupForm.pickupInitialDaysBefore"
+                    type="number"
+                    :min="0"
+                    :max="30"
+                    :disabled="!pickupForm.pickupConfirmationEnabled"
+                    class="w-full"
+                  >
+                    <template #trailing><span class="text-xs text-muted">วัน</span></template>
+                  </UInput>
+                </UFormField>
+                <UFormField label="เวลาส่งข้อความ">
+                  <UInput
+                    v-model="pickupForm.pickupInitialTime"
+                    type="time"
+                    :disabled="!pickupForm.pickupConfirmationEnabled"
+                    class="w-full"
+                  />
+                </UFormField>
+              </div>
             </div>
-            <USwitch v-model="pickupForm.pickupReminderEnabled" />
+
+            <div class="rounded-lg border border-default/50 bg-elevated/45 p-4">
+              <div class="mb-4 flex items-start justify-between gap-3">
+                <div class="flex items-center gap-2">
+                  <UBadge label="2" color="neutral" variant="solid" size="xs" />
+                  <div>
+                    <p class="text-sm font-semibold text-highlighted">ข้อความเตือนซ้ำ</p>
+                    <p class="text-xs text-muted">ส่งเมื่อข้อความแรกสำเร็จและลูกค้ายังไม่ตอบ</p>
+                  </div>
+                </div>
+                <USwitch
+                  v-model="pickupForm.pickupReminderEnabled"
+                  :disabled="!pickupForm.pickupConfirmationEnabled"
+                  size="sm"
+                />
+              </div>
+              <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
+                <UFormField label="ล่วงหน้าก่อนวันนัด">
+                  <UInput
+                    v-model.number="pickupForm.pickupReminderDaysBefore"
+                    type="number"
+                    :min="0"
+                    :max="30"
+                    :disabled="!pickupForm.pickupConfirmationEnabled || !pickupForm.pickupReminderEnabled"
+                    class="w-full"
+                  >
+                    <template #trailing><span class="text-xs text-muted">วัน</span></template>
+                  </UInput>
+                </UFormField>
+                <UFormField label="เวลาเตือนซ้ำ">
+                  <UInput
+                    v-model="pickupForm.pickupReminderTime"
+                    type="time"
+                    :disabled="!pickupForm.pickupConfirmationEnabled || !pickupForm.pickupReminderEnabled"
+                    class="w-full"
+                  />
+                </UFormField>
+              </div>
+            </div>
           </div>
 
-          <div class="grid grid-cols-1 gap-3 sm:grid-cols-2" :class="{ 'pointer-events-none opacity-50': !pickupForm.pickupReminderEnabled }">
-            <UFormField label="เตือนก่อนวันนัด (วัน)">
-              <UInput v-model.number="pickupForm.pickupReminderDaysBefore" type="number" :min="0" :max="30" />
-            </UFormField>
-            <UFormField label="เวลาเตือนซ้ำ">
-              <UInput v-model="pickupForm.pickupReminderTime" type="time" />
-            </UFormField>
-          </div>
+          <div class="grid gap-4 lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]">
+            <div class="rounded-lg border border-default/50 p-4">
+              <UFormField label="เวลาเตรียมงานขั้นต่ำก่อนส่ง">
+                <USelect
+                  v-model="pickupForm.pickupMinimumLeadMinutes"
+                  :items="minimumLeadItems"
+                  value-key="value"
+                  :disabled="!pickupForm.pickupConfirmationEnabled"
+                  class="w-full"
+                />
+              </UFormField>
+              <p class="mt-2 text-xs leading-5 text-muted">ระบบจะไม่ส่งคำถามช้าจนร้านเหลือเวลาเตรียมงานน้อยกว่าค่านี้</p>
+            </div>
 
-          <UFormField label="เวลาเตรียมงานขั้นต่ำก่อนส่ง">
-            <USelect
-              v-model="pickupForm.pickupMinimumLeadMinutes"
-              :items="minimumLeadItems"
-              value-key="value"
-              class="w-full"
-            />
-          </UFormField>
-
-          <div class="rounded-lg bg-elevated p-3 text-sm text-muted">
-            <p>{{ pickupPreview }}</p>
-            <p class="mt-1 text-xs">ออเดอร์รอบเช้าอาจถูกเลื่อนเวลาเตือนให้เร็วขึ้น เพื่อเหลือเวลาเตรียมงานตามค่าด้านบน</p>
+            <div class="rounded-lg border border-primary/25 bg-primary/5 p-4">
+              <div class="flex items-start gap-3">
+                <UIcon name="i-lucide-calendar-clock" class="mt-0.5 size-5 shrink-0 text-primary" />
+                <div>
+                  <p class="text-xs font-semibold uppercase tracking-wide text-primary">ตัวอย่างตารางส่ง</p>
+                  <p class="mt-1 text-sm font-medium leading-6 text-highlighted">{{ pickupPreview }}</p>
+                  <p class="mt-1 text-xs leading-5 text-muted">ออเดอร์รอบเช้าอาจถูกเลื่อนเวลาเตือนให้เร็วขึ้น เพื่อให้ร้านมีเวลาเตรียมงานเพียงพอ</p>
+                </div>
+              </div>
+            </div>
           </div>
+        </div>
 
-          <div class="flex justify-end">
-            <UButton icon="i-lucide-save" :loading="isSavingPickup" @click="onSavePickupSetting">
-              บันทึกการตั้งค่า
-            </UButton>
-          </div>
+        <div class="flex items-center justify-between gap-3 border-t border-default/40 bg-elevated/30 px-4 py-3 sm:px-5">
+          <p class="hidden text-xs text-muted sm:block">การเปลี่ยนค่านี้จะปรับเฉพาะข้อความที่ยังไม่ถูกส่ง</p>
+          <UButton icon="i-lucide-save" :loading="isSavingPickup" class="w-full justify-center sm:ml-auto sm:w-auto" @click="onSavePickupSetting">
+            บันทึกการตั้งค่า
+          </UButton>
         </div>
       </section>
 

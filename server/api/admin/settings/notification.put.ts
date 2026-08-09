@@ -42,6 +42,15 @@ export default defineEventHandler(async (event) => {
   requireRole(event, ["ADMIN"]);
 
   const body = await readValidatedBody(event, schema.parse);
+  const existing = await prisma.notificationSetting.findUnique({ where: { id: "singleton" } });
+  const pickupChanged = !existing
+    || existing.pickupConfirmationEnabled !== body.pickupConfirmationEnabled
+    || existing.pickupInitialDaysBefore !== body.pickupInitialDaysBefore
+    || existing.pickupInitialTime !== body.pickupInitialTime
+    || existing.pickupReminderEnabled !== body.pickupReminderEnabled
+    || existing.pickupReminderDaysBefore !== body.pickupReminderDaysBefore
+    || existing.pickupReminderTime !== body.pickupReminderTime
+    || existing.pickupMinimumLeadMinutes !== body.pickupMinimumLeadMinutes;
 
   const setting = await prisma.notificationSetting.upsert({
     where: { id: "singleton" },
@@ -49,7 +58,7 @@ export default defineEventHandler(async (event) => {
     update: body,
   });
 
-  const rescheduled = await reschedulePendingPickupNotifications();
+  const rescheduled = pickupChanged ? await reschedulePendingPickupNotifications() : null;
 
   return { setting, rescheduled };
 });
