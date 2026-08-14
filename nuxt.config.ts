@@ -43,6 +43,7 @@ export default defineNuxtConfig({
     // Cron times are UTC. 02:00 UTC = 09:00 Asia/Bangkok.
     scheduledTasks: {
       '0 2 * * *': ['notify:expiring-packages'],
+      '*/5 * * * *': ['notify:pickup-confirmations'],
     },
   },
   runtimeConfig: {

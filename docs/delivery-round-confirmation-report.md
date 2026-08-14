@@ -75,7 +75,7 @@ recordPickupResponse(webhookEvent)
 - จำนวนวันล่วงหน้าและเวลาของ initial
 - เปิด/ปิด reminder
 - จำนวนวันล่วงหน้าและเวลาของ reminder
-- minimum lead time ก่อน `dueAt`
+- ระยะเวลาเตรียมงานขั้นต่ำก่อน `dueAt`
 - subscriber คนใดรับการแจ้งคำตอบของลูกค้า
 
 เสนอ schema:
@@ -85,10 +85,10 @@ model NotificationSetting {
   // fields เดิม
   pickupConfirmationEnabled            Boolean @default(true)
   pickupInitialDaysBefore               Int     @default(1)
-  pickupInitialMinute                   Int     @default(735) // 12:15
+  pickupInitialTime                     String  @default("12:15") @db.VarChar(5)
   pickupReminderEnabled                 Boolean @default(true)
   pickupReminderDaysBefore              Int     @default(0)
-  pickupReminderMinute                  Int     @default(735) // 12:15
+  pickupReminderTime                    String  @default("12:15") @db.VarChar(5)
   pickupMinimumLeadMinutes              Int     @default(120)
 }
 
@@ -98,13 +98,20 @@ model NotificationSubscriber {
 }
 ```
 
-เก็บเวลาเป็นนาทีหลังเที่ยงคืน (`0–1439`) แล้วแปลงเป็น `HH:mm` ที่ UI
+เวลาแจ้งเตือนใช้สัญญาเดียวกันตั้งแต่ฐานข้อมูล, API และ UI เป็น local wall-clock time รูปแบบ `HH:mm` เช่น `"12:15"` โดยมี timezone คงที่ `Asia/Bangkok` ห้ามแสดงหรือรับค่าจำนวนนาทีหลังเที่ยงคืนจากผู้ใช้ เพราะอ่านยากและเพิ่มโอกาสตั้งค่าผิด
+
+migration เพิ่ม database `CHECK` constraint ให้ทั้งสองช่องตรง `HH:mm` ที่ถูกต้องด้วย เพื่อไม่ให้ข้อมูลที่ข้าม API หรือข้อมูลจาก script หลุดเข้าไปในรูปแบบอื่น
+
+หน้าแอดมินใช้ `UInput` ที่ `type="time"` และปุ่ม **บันทึกการตั้งค่า** สำหรับ section นี้ ไม่ autosave ทีละ field เพราะ initial, reminder และระยะเวลาเตรียมงานต้อง validate ร่วมกัน แสดง preview ใต้ form เช่น **ระบบจะถามก่อนวันนัด 1 วัน เวลา 12:15 น. และเตือนซ้ำวันนัดเวลา 12:15 น.**
+
+`pickupMinimumLeadMinutes` เป็นค่าระยะเวลา ไม่ใช่เวลาบนนาฬิกา จึงยังเก็บเป็นนาทีเพื่อคำนวณได้ แต่ UI ห้ามให้กรอกเลขนาทีอิสระ ให้เลือกค่าที่เข้าใจง่าย เช่น `30 นาที`, `1 ชั่วโมง`, `2 ชั่วโมง`, `3 ชั่วโมง`, `6 ชั่วโมง` แล้วส่งค่าที่กำหนดไว้ไป API
 
 API ต้อง validate:
 
 - days before เป็นจำนวนเต็ม `0–30`
-- minute เป็นจำนวนเต็ม `0–1439`
-- minimum lead เป็นจำนวนเต็ม `0–1440`
+- time ต้องตรงรูปแบบ 24 ชั่วโมง `HH:mm` ที่ canonical เท่านั้น (`00:00`–`23:59`); reject ค่าว่าง, วันที่, timezone offset และรูปแบบย่อ เช่น `9:5`
+- แปลง `HH:mm` เป็น hour/minute ด้วย utility กลางหลัง validation เท่านั้น ห้ามพึ่ง `new Date("1970-01-01T" + time)` หรือ parser ของ runtime
+- minimum lead ต้องเป็นหนึ่งในค่าที่ระบบรองรับและอยู่ในช่วง `0–1440` นาที
 - initial ต้องถูกกำหนดก่อน reminder เมื่อเทียบเป็นเวลาจริง
 - PUT ต้องรับและบันทึก fields เดิมกับ fields ใหม่โดยไม่ทำค่าอื่นสูญหาย
 - เฉพาะ `ADMIN` แก้ settings และ subscriber preferences ได้
@@ -125,7 +132,7 @@ UI ควรเปลี่ยน label ตาม fulfillment:
 ### Initial
 
 ```text
-configuredInitialAt = วันที่ของ dueAt - initialDaysBefore ที่ initialMinute
+configuredInitialAt = วันที่ของ dueAt - initialDaysBefore ที่ pickupInitialTime ใน Asia/Bangkok
 ```
 
 - worker ส่งเมื่อ `scheduledFor <= now` และ `now < dueAt`
@@ -136,7 +143,7 @@ configuredInitialAt = วันที่ของ dueAt - initialDaysBefore ท�
 ### Reminder
 
 ```text
-configuredReminderAt = วันที่ของ dueAt - reminderDaysBefore ที่ reminderMinute
+configuredReminderAt = วันที่ของ dueAt - reminderDaysBefore ที่ pickupReminderTime ใน Asia/Bangkok
 latestUsefulReminderAt = dueAt - minimumLeadMinutes
 effectiveReminderAt = min(configuredReminderAt, latestUsefulReminderAt)
 ```
@@ -391,6 +398,7 @@ business utility เดียวกันต้องเรียกได้จ
 ### Scheduling
 
 - initial default วันก่อน `dueAt` เวลา 12:15 Asia/Bangkok
+- settings API ปฏิเสธเวลาไม่ canonical และ round-trip `00:00`, `12:15`, `23:59` ได้โดยค่าไม่เปลี่ยน
 - late-created order ส่งใน worker รอบถัดไป ไม่รอ `DELIVERING`
 - reminder default วันส่ง 12:15 แต่ไม่ช้ากว่า `dueAt - minimumLead`
 - reminder ถูก skip เมื่อเวลาไม่เหลือ, มี response, เคยส่ง, order ปิด หรือ confirmation ปิด

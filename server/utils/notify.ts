@@ -44,18 +44,6 @@ const resolveOrderCustomer = (order: OrderWalkInInfo | null | undefined): Resolv
   return { name, label: `คุณ ${name}`, phone, walkIn: false };
 };
 
-const customerHasDeliveryAddon = async (customerId: string): Promise<boolean> => {
-  const count = await prisma.memberEntitlement.count({
-    where: {
-      customerId,
-      status: "ACTIVE",
-      deletedAt: null,
-      product: { isDelivery: true, deletedAt: null },
-    },
-  });
-  return count > 0;
-};
-
 type ServiceOrderStatusLabels = Record<ServiceOrderStatus, string>;
 
 export const serviceOrderStatusLabels: ServiceOrderStatusLabels = {
@@ -396,6 +384,7 @@ const loadServiceOrderForNotify = async (id: string) =>
           productName: true,
           credits: true,
           deductOn: true,
+          isDelivery: true,
           deductedAt: true,
           memberEntitlement: {
             select: {
@@ -718,7 +707,7 @@ export const notifyServiceOrderCreated = async (params: {
     const customerName = resolved.name;
     const customerLabel = resolved.label;
     const orderUrl = `${getBaseUrl()}/admin/service-orders/${order.id}`;
-    const hasDelivery = await customerHasDeliveryAddon(order.customerId);
+    const hasDelivery = order.addonUsageRecords.some((usage) => usage.isDelivery);
     const customerSubline = notifyStatus === "RECEIVED"
       ? order.dueAt ? `รับผ้าได้: ${formatDateTime(order.dueAt.toISOString())}` : null
       : customerSublineFor(notifyStatus, hasDelivery);
@@ -805,7 +794,7 @@ export const notifyServiceOrderStatusChanged = async (params: {
     const customerName = resolved.name;
     const customerLabel = resolved.label;
     const orderUrl = `${getBaseUrl()}/admin/service-orders/${order.id}`;
-    const hasDelivery = await customerHasDeliveryAddon(order.customerId);
+    const hasDelivery = order.addonUsageRecords.some((usage) => usage.isDelivery);
 
     const bodyContents = await buildOrderBody({
       order,

@@ -180,6 +180,9 @@ const uploadedPhotoIds = ref(new Map<string, string>()); // photoKey → imageId
 
 const selectedItemMap = computed(() => new Map(form.items.map((item) => [item.storefrontPriceId, item])));
 const selectedAddonCreditMap = computed(() => new Map(form.addonEntitlements.map((item) => [item.entitlementId, item.credits])));
+const hasSelectedDeliveryAddon = computed(() => activeAddonEntitlements.value.some(
+  (addon) => addon.isDelivery && (selectedAddonCreditMap.value.get(addon.id) ?? 0) > 0,
+));
 
 const cartItems = computed(() =>
   form.items
@@ -563,6 +566,17 @@ watch([() => form.isWalkIn, activeAddonEntitlements], ([isWalkIn, addons]) => {
   }
   const availableIds = new Set(addons.map((item) => item.id));
   form.addonEntitlements = form.addonEntitlements.filter((item) => availableIds.has(item.entitlementId));
+  const hasSelectedDelivery = addons.some(
+    (addon) => addon.isDelivery && form.addonEntitlements.some(
+      (selection) => selection.entitlementId === addon.id && selection.credits > 0,
+    ),
+  );
+  if (!hasSelectedDelivery) {
+    const deliveryAddon = addons.find(
+      (addon) => addon.isDelivery && Number(addon.creditRemaining ?? 0) > 0,
+    );
+    if (deliveryAddon) form.addonEntitlements.push({ entitlementId: deliveryAddon.id, credits: 1 });
+  }
 });
 
 watch(() => form.hangerCount, (raw) => { const v = Number.isFinite(raw) ? raw : 0; form.hangerCount = v; if (v !== form.missingHangerCount) form.missingHangerCount = v; });
@@ -804,7 +818,7 @@ const handleSubmit = async () => {
       <div :class="isCompact ? 'flex-1 p-2' : ''">
       <PosCheckoutPanel
         title="ตะกร้ารับผ้า"
-        description="สรุปรายการผ้า วันนัดรับ และการชำระเงินในหน้าเดียว"
+        :description="`สรุปรายการผ้า ${hasSelectedDeliveryAddon ? 'วันนัดส่งถึงลูกค้า' : 'วันนัดรับที่ร้าน'} และการชำระเงินในหน้าเดียว`"
         :flat="isCompact"
         :section-class="checkoutSectionClass"
         :customer-id="form.customerId"
@@ -952,14 +966,30 @@ const handleSubmit = async () => {
               <span class="font-medium text-highlighted">{{ formatCurrency(hangerCharge.total) }}</span>
             </div>
 
-            <div v-if="canUseAddonPackages" class="space-y-2 border-t border-default pt-3">
+            <div
+              v-if="canUseAddonPackages"
+              class="space-y-3 rounded-lg border-2 border-success/45 bg-success/8 p-3 shadow-sm"
+            >
               <div class="flex items-center justify-between gap-3">
-                <p class="text-sm font-medium text-highlighted">แพ็กเกจเสริม</p>
-                <span class="text-xs text-muted">เลือกจำนวนเครดิต</span>
+                <div>
+                  <p class="text-sm font-semibold text-highlighted">แพ็กเกจเสริมและบริการรับ–ส่ง</p>
+                  <p class="text-xs text-muted">บริการรับ–ส่งจะเลือกให้ 1 ครั้งอัตโนมัติ ตรวจสอบก่อนบันทึก</p>
+                </div>
+                <UBadge v-if="hasSelectedDeliveryAddon" label="รับ–ส่ง 1 ครั้ง" color="success" variant="subtle" />
               </div>
-              <div v-for="addon in activeAddonEntitlements" :key="addon.id" class="flex items-center justify-between gap-3">
+              <div
+                v-for="addon in activeAddonEntitlements"
+                :key="addon.id"
+                :class="[
+                  'flex items-center justify-between gap-3 rounded-md border p-2.5',
+                  addon.isDelivery ? 'border-success/40 bg-success/10' : 'border-default/40 bg-default',
+                ]"
+              >
                 <div class="min-w-0">
-                  <p class="truncate text-sm text-highlighted">{{ addon.productName }}</p>
+                  <div class="flex flex-wrap items-center gap-2">
+                    <p class="truncate text-sm font-medium text-highlighted">{{ addon.productName }}</p>
+                    <UBadge v-if="addon.isDelivery" label="บริการรับ–ส่ง" color="success" variant="solid" size="xs" />
+                  </div>
                   <p class="text-xs text-muted">
                     คงเหลือ {{ addon.creditRemaining ?? 0 }} | หักเมื่อ {{ addon.deductOn === 'CREATED' ? 'รับผ้า' : 'เสร็จสิ้น' }}
                   </p>
@@ -992,7 +1022,7 @@ const handleSubmit = async () => {
 
             <div>
               <div class="mb-2 flex flex-wrap items-center justify-between gap-2">
-                <p class="text-sm font-medium text-highlighted">วันนัดรับ</p>
+                <p class="text-sm font-medium text-highlighted">{{ hasSelectedDeliveryAddon ? "วันนัดส่งถึงลูกค้า" : "วันนัดรับที่ร้าน" }}</p>
                 <div class="flex gap-1.5">
                   <UButton size="xs" color="neutral" variant="soft" label="พุธ" @click="setPickupDow(3)" />
                   <UButton size="xs" color="neutral" variant="soft" label="เสาร์" @click="setPickupDow(6)" />
