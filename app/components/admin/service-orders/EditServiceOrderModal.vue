@@ -282,7 +282,6 @@ watch(editDeliveryImageFile, (file) => {
 });
 watch(() => form.washFoldMode, (enabled) => {
   if (enabled) {
-    formItems.value = [];
     form.memberEntitlementId = null;
     form.missingHangerCount = 0;
     form.hangerCount = 0;
@@ -655,26 +654,25 @@ const buildBody = async (): Promise<CreateAdminServiceOrderBody | null> => {
   }
 
   const slipImageId = await uploadSlipIfNeeded();
-  if (!form.washFoldMode) await uploadOrderImagesIfNeeded();
-  const items = form.washFoldMode
-    ? []
-    : formItems.value
-        .map((item) => {
-          const readyPhotos = item.photos.filter((photo) => photo.uploadedImageId);
-          return {
-            storefrontPriceId: item.storefrontPriceId,
-            quantity: Number(item.quantity ?? 1),
-            unitPrice: item.unitPrice ?? null,
-            imageId: readyPhotos[0]?.uploadedImageId ?? null,
-            notes: item.notes.trim() || null,
-            photos: readyPhotos.map((photo, index) => ({
-              imageId: photo.uploadedImageId as string,
-              isDamaged: photo.isDamaged,
-              sortOrder: index,
-            })),
-          };
-        })
-        .filter((item) => item.storefrontPriceId);
+  await uploadOrderImagesIfNeeded();
+  const items = formItems.value
+    .map((item) => {
+      const readyPhotos = item.photos.filter((photo) => photo.uploadedImageId);
+      return {
+        storefrontPriceId: item.storefrontPriceId,
+        quantity: Number(item.quantity ?? 1),
+        unitPrice: item.unitPrice ?? null,
+        imageId: readyPhotos[0]?.uploadedImageId ?? null,
+        notes: item.notes.trim() || null,
+        photos: readyPhotos.map((photo, index) => ({
+          imageId: photo.uploadedImageId as string,
+          isDamaged: photo.isDamaged,
+          sortOrder: index,
+        })),
+      };
+    })
+    .filter((item) => item.storefrontPriceId);
+
   if (!form.washFoldMode && !items.length) {
     notify.validationError("กรุณาเลือกบริการอย่างน้อย 1 รายการ");
     return null;
@@ -689,7 +687,7 @@ const buildBody = async (): Promise<CreateAdminServiceOrderBody | null> => {
     addonEntitlements: form.isWalkIn ? [] : form.addonEntitlements.filter((item) => item.credits > 0),
     orderImageId: form.orderImageId,
     deliveryImageId: form.deliveryImageId,
-    items: form.washFoldMode ? [] : items,
+    items: items,
     washFold: form.washFoldMode
       ? { weightKg: Number(form.washFoldWeightKg), notes: form.washFoldNotes.trim() || null }
       : null,

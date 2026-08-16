@@ -836,7 +836,10 @@ const isFirstPickupResponseEvent = (event: NonNullable<ServiceOrderDetailRespons
         <section class="-mx-2 overflow-hidden border border-default/30 bg-default p-4 dark:border-default/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg">
           <div class="flex flex-col justify-between gap-3 border-b border-default/40 pb-3 sm:flex-row sm:items-center">
               <div>
-                <p class="text-sm font-semibold text-highlighted">รายการบริการ <span class="ml-2 text-xs text-muted">{{ itemCountLabel }}</span></p>
+                <p class="text-sm font-semibold text-highlighted">
+                  {{ order.weightKg != null ? 'ข้อมูลซัก-พับ ชั่งกิโล' : 'รายการบริการ' }}
+                  <span v-if="order.weightKg == null" class="ml-2 text-xs text-muted">{{ itemCountLabel }}</span>
+                </p>
               </div>
 
               <div v-if="order.image || order.deliveryImage" class="flex items-center gap-3">
@@ -888,6 +891,18 @@ const isFirstPickupResponseEvent = (event: NonNullable<ServiceOrderDetailRespons
           </div>
 
           <div class="pt-3">
+            <div v-if="order.weightKg != null" class="mb-3 rounded-lg border border-warning/40 bg-warning/5 p-4">
+              <div class="flex items-start justify-between gap-4">
+                <div>
+                  <p class="font-medium text-highlighted">น้ำหนักซัก-พับ (ชั่งกิโล)</p>
+                  <p v-if="order.washFoldPricePerKgSnapshot != null" class="mt-1 text-xs text-muted">{{ formatCurrency(order.washFoldPricePerKgSnapshot) }} / กก.</p>
+                </div>
+                <div class="text-right">
+                  <p class="font-semibold text-highlighted">{{ order.weightKg }} กก.</p>
+                  <p class="mt-1 text-[13px] font-semibold text-primary">{{ formatCurrency(order.subtotalAmount) }}</p>
+                </div>
+              </div>
+            </div>
             <div v-if="order.items.length" class="space-y-1 md:hidden">
               <div
                 v-for="item in order.items"
@@ -938,8 +953,11 @@ const isFirstPickupResponseEvent = (event: NonNullable<ServiceOrderDetailRespons
                         </div>
                       </div>
                       <div class="shrink-0 text-right">
+                        <p v-if="order.weightKg != null" class="text-sm font-semibold leading-none text-highlighted">
+                          รวมชั่งกิโล
+                        </p>
                         <p
-                          v-if="hasMemberEntitlement && item.isPackageIncluded"
+                          v-else-if="hasMemberEntitlement && item.isPackageIncluded"
                           class="text-sm font-semibold leading-none text-success"
                         >
                           {{ item.quantity }} เครดิต
@@ -1016,8 +1034,9 @@ const isFirstPickupResponseEvent = (event: NonNullable<ServiceOrderDetailRespons
                     </td>
                     <td class="border-b border-default px-3 py-2 text-right text-muted dark:border-default/25">{{ item.quantity }} ชิ้น</td>
                     <td class="border-b border-default px-3 py-2 text-right dark:border-default/25">
+                      <span v-if="order.weightKg != null" class="font-semibold text-highlighted">รวมชั่งกิโล</span>
                       <span
-                        v-if="hasMemberEntitlement && item.isPackageIncluded"
+                        v-else-if="hasMemberEntitlement && item.isPackageIncluded"
                         class="font-semibold text-success"
                       >{{ item.quantity }} เครดิต</span>
                       <span v-else class="font-semibold text-highlighted">{{ formatCurrency(item.totalPrice) }}</span>

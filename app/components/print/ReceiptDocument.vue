@@ -70,7 +70,7 @@ const receiptLines = computed<ReceiptLineItem[]>(() => {
       unitPrice: item.unitPrice,
       totalPrice: item.totalPrice,
       subtitle: null,
-      isWashFold: item.isWashFold,
+      isWashFold: item.isWashFold || props.data.serviceOrder?.weightKg != null,
       weightKg: item.weightKg,
     })) ?? []
   );
