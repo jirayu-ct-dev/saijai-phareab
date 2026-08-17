@@ -143,6 +143,10 @@ model User {
   deletedServiceOrderItemImages ServiceOrderItemImage[] @relation("ServiceOrderItemImageDeletedBy")
   deletedPaymentRecords         PaymentRecord[]         @relation("PaymentRecordDeletedBy")
   deletedUserAddresses          UserAddress[]           @relation("UserAddressDeletedBy")
+  createdExpenses               Expense[]               @relation("ExpenseCreatedBy")
+  updatedExpenses               Expense[]               @relation("ExpenseUpdatedBy")
+  deletedExpenses               Expense[]               @relation("ExpenseDeletedBy")
+  deletedExpenseCategories      ExpenseCategory[]       @relation("ExpenseCategoryDeletedBy")
 
   notificationSubscriber NotificationSubscriber?
 
@@ -758,4 +762,44 @@ model LineRichMenu {
   updatedAt     DateTime @updatedAt
 
   @@map("line_rich_menu")
+}
+
+model ExpenseCategory {
+  id             String    @id @default(cuid())
+  name           String
+  normalizedName String    @unique
+  isActive       Boolean   @default(true)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  deletedAt      DateTime?
+  deletedById    String?
+  deletedBy      User?     @relation("ExpenseCategoryDeletedBy", fields: [deletedById], references: [id])
+
+  expenses       Expense[]
+
+  @@index([isActive, deletedAt])
+  @@map("expense_category")
+}
+
+model Expense {
+  id          String          @id @default(cuid())
+  categoryId  String
+  category    ExpenseCategory @relation(fields: [categoryId], references: [id])
+  amount      Decimal         @db.Decimal(12, 2)
+  expenseAt   DateTime
+  description String?
+  createdById String
+  createdBy   User            @relation("ExpenseCreatedBy", fields: [createdById], references: [id])
+  updatedById String?
+  updatedBy   User?           @relation("ExpenseUpdatedBy", fields: [updatedById], references: [id])
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  deletedAt   DateTime?
+  deletedById String?
+  deletedBy   User?           @relation("ExpenseDeletedBy", fields: [deletedById], references: [id])
+
+  @@index([expenseAt, deletedAt])
+  @@index([categoryId, expenseAt])
+  @@index([createdById])
+  @@map("expense")
 }

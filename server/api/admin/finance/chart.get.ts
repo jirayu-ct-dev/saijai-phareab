@@ -4,7 +4,7 @@ import { parseDateRange } from '~~/server/utils/csv'
 import type { DashboardCashflowPoint } from '~~/shared/types/expense'
 
 export default defineEventHandler(async (event): Promise<DashboardCashflowPoint[]> => {
-  await requireRole(event, ['ADMIN', 'EMPLOYEE'])
+  await requireRole(event, ['ADMIN'])
 
   const query = getQuery(event)
   const { from, to } = parseDateRange(query.from, query.to)
