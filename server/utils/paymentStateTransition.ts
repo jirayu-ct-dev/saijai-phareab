@@ -1,4 +1,5 @@
 import type { PaymentMethod, PaymentStatus } from "~~/shared/types/enums";
+import type { Prisma } from "~~/app/generated/prisma/client";
 
 type PaymentStateExisting = {
   id: string;
@@ -26,13 +27,13 @@ type PaymentStateTransitionOperationInput = Omit<PaymentStateTransitionInput, "r
   paymentId: string;
   tx: {
     paymentRecord: {
-      update: (args: unknown) => Promise<unknown>;
+      update: Prisma.TransactionClient["paymentRecord"]["update"];
     };
     packageSale: {
-      update: (args: unknown) => Promise<unknown>;
+      update: Prisma.TransactionClient["packageSale"]["update"];
     };
     paymentAuditLog: {
-      create: (args: unknown) => Promise<unknown>;
+      create: Prisma.TransactionClient["paymentAuditLog"]["create"];
     };
   };
   createReceiptNo: (date: Date, tx: unknown) => Promise<string>;

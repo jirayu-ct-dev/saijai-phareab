@@ -1,4 +1,5 @@
 import type { ServiceOrderStatus } from "~~/shared/types/enums";
+import type { Prisma } from "~~/app/generated/prisma/client";
 import { requireRole } from "~~/server/utils/auth";
 import { notifyServiceOrderStatusChanged } from "~~/server/utils/notify";
 import { prisma } from "~~/server/utils/prisma";
@@ -57,7 +58,7 @@ export default defineEventHandler(async (event) => {
     await prisma.$transaction(async (tx) => {
       const shouldRefundCredits = existing.status !== "CANCELLED" && nextStatus === "CANCELLED";
       const shouldDeductCompletedAddons = existing.status !== "CANCELLED" && nextStatus === "COMPLETED";
-      let nextAddonUsages: unknown | undefined;
+      let nextAddonUsages: Prisma.InputJsonValue | undefined;
 
       if (shouldRefundCredits) {
         await refundPrimaryCredit(tx, {
@@ -71,23 +72,27 @@ export default defineEventHandler(async (event) => {
       if (shouldDeductCompletedAddons) {
         const deducted = await deductAddonUsageRecords(tx, existing.id, "COMPLETED");
         if (deducted.length > 0) {
-          nextAddonUsages = [...parseAddonUsages(existing.addonUsages), ...deducted];
+          nextAddonUsages = [...parseAddonUsages(existing.addonUsages), ...deducted] as Prisma.InputJsonValue;
         }
+      }
+
+      const updateData: Prisma.ServiceOrderUncheckedUpdateInput = {
+        status: nextStatus,
+      };
+
+      if (nextAddonUsages !== undefined) {
+        updateData.addonUsages = nextAddonUsages;
+      }
+
+      if (shouldRefundCredits) {
+        updateData.creditUsed = null;
+        updateData.memberEntitlementId = null;
+        updateData.addonUsages = [];
       }
 
       await tx.serviceOrder.update({
         where: { id },
-        data: {
-          status: nextStatus,
-          ...(nextAddonUsages !== undefined ? { addonUsages: nextAddonUsages } : {}),
-          ...(shouldRefundCredits
-            ? {
-                creditUsed: null,
-                memberEntitlementId: null,
-                addonUsages: [],
-              }
-            : {}),
-        },
+        data: updateData,
       });
     });
 
