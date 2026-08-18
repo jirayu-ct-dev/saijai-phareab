@@ -129,11 +129,11 @@ Compose ไม่ได้สร้าง PostgreSQL, ไม่เปิด data
 docker compose -f docker-compose.local.yml up --build -d
 ```
 
-Local Compose อ่านค่า auth/base URL จาก `.env` และ fallback เป็น `http://localhost:3000` เมื่อไม่ได้กำหนดค่า หากทดสอบ LINE ผ่าน Cloudflare Tunnel ให้กำหนด URL HTTPS จาก Tunnel เช่น
+Local Compose เปิด PostgreSQL บน host port `5434` และเว็บบน [http://localhost:3004](http://localhost:3004) โดยอ่านค่า auth/base URL จาก `.env` และ fallback เป็น `http://localhost:3004` เมื่อไม่ได้กำหนดค่า หากทดสอบ LINE ผ่าน Cloudflare Tunnel ให้กำหนด URL HTTPS จาก Tunnel เช่น
 
 ```dotenv
 BETTER_AUTH_URL=https://your-tunnel.example.com
-BETTER_AUTH_TRUSTED_ORIGINS=https://your-tunnel.example.com,http://localhost:3000,http://127.0.0.1:3000
+BETTER_AUTH_TRUSTED_ORIGINS=https://your-tunnel.example.com,http://localhost:3004,http://127.0.0.1:3004
 NUXT_PUBLIC_HOSTNAME=your-tunnel.example.com
 NUXT_PUBLIC_BASE_URL=https://your-tunnel.example.com
 INTERNAL_BASE_URL=http://127.0.0.1:3000
@@ -141,9 +141,54 @@ INTERNAL_BASE_URL=http://127.0.0.1:3000
 
 `NUXT_PUBLIC_HOSTNAME` ใส่เฉพาะ hostname โดยไม่มี `https://` จากนั้นตั้ง LINE LIFF Endpoint URL และ Messaging API Webhook URL เป็นโดเมนเดียวกัน โดย webhook ของโปรเจกต์คือ `https://your-tunnel.example.com/api/line/webhook` เมื่อใช้ public HTTPS URL เป็น `BETTER_AUTH_URL` ควรเปิดและทดสอบแอปผ่าน Tunnel URL เพื่อให้ secure session cookie ทำงานสม่ำเสมอ
 
+#### การเปลี่ยนพอร์ต Local Compose
+
+พอร์ตใน `docker-compose.local.yml` มีสองฝั่ง เช่น `3004:3000` หมายถึง host เปิดพอร์ต `3004` แต่แอปภายใน container ยังฟังพอร์ต `3000` การเปลี่ยนพอร์ตที่ใช้เปิดจากเครื่องให้แก้เฉพาะค่าฝั่งซ้าย
+
+| สิ่งที่เปลี่ยน | จุดที่ต้องแก้ | ตัวอย่าง |
+| --- | --- | --- |
+| พอร์ต PostgreSQL บน host | `services.db.ports` ใน `docker-compose.local.yml` | `5434:5432` |
+| พอร์ตเว็บบน host | `services.app.ports` ใน `docker-compose.local.yml` | `3004:3000` |
+| พอร์ตเว็บของ Production Compose | `APP_PORT` ใน `.env` หรือ host port ใน `docker-compose.yml` | `APP_PORT=3004` |
+| Better Auth origin | `BETTER_AUTH_URL` ใน `.env` | `http://localhost:3004` |
+| Origin ที่อนุญาต | `BETTER_AUTH_TRUSTED_ORIGINS` ใน `.env` | `http://localhost:3004,http://127.0.0.1:3004` |
+| Nuxt public URL | `NUXT_PUBLIC_BASE_URL` ใน `.env` | `http://localhost:3004` |
+| Nuxt hostname | `NUXT_PUBLIC_HOSTNAME` ใน `.env` | `localhost` |
+
+ตัวอย่าง `.env` สำหรับเปิดผ่าน localhost พอร์ต `3004`:
+
+```dotenv
+APP_PORT=3004
+BETTER_AUTH_URL=http://localhost:3004
+BETTER_AUTH_TRUSTED_ORIGINS=http://localhost:3004,http://127.0.0.1:3004
+NUXT_PUBLIC_HOSTNAME=localhost
+NUXT_PUBLIC_BASE_URL=http://localhost:3004
+INTERNAL_BASE_URL=http://127.0.0.1:3000
+```
+
+ห้ามเปลี่ยน `INTERNAL_BASE_URL`, `PORT` หรือพอร์ตด้านขวาของ mapping ตามพอร์ต host โดยอัตโนมัติ สำหรับ Docker configuration ปัจจุบันแอปภายใน container ยังใช้ `3000` และ PostgreSQL ภายใน Compose ยังใช้ `db:5432` เสมอ
+
+`docker-compose.local.yml` override `DATABASE_URL` และ `DIRECT_URL` ภายใน container เป็น `db:5432` อยู่แล้ว หากรัน Prisma จากเครื่อง host โดยตรง ให้เปลี่ยนเฉพาะพอร์ตใน URL เป็นพอร์ต PostgreSQL ฝั่ง host เช่น `localhost:5434` ส่วน Production Compose ไม่มี PostgreSQL service และต้องใช้ database host จริง ห้ามใช้ `localhost` จาก migration/app container
+
+หลังแก้พอร์ตหรือ origin ให้ตรวจ config และ recreate app container:
+
+```bash
+docker compose -f docker-compose.local.yml config --quiet
+docker compose -f docker-compose.local.yml up -d --no-deps --force-recreate app
+```
+
+ถ้าเปลี่ยนพอร์ต PostgreSQL หรือยังไม่ได้สร้าง local stack ให้ recreate ทั้ง stack แทน:
+
+```bash
+docker compose down
+docker compose -f docker-compose.local.yml up --build -d
+```
+
+Browser origin ต้องตรงกันทั้ง protocol, hostname และ port อย่าเปิดหน้าเว็บผ่าน Tunnel หรือ `127.0.0.1` แต่ให้ API ชี้ไป `localhost` เพราะ cookie, CORS และ browser access-control checks จะถือว่าเป็นคนละ origin
+
 คำตอบยืนยันการรับผ้าของลูกค้าดูรวมได้ที่ `/admin/pickup-confirmations` โดยค้นหาและกรองคำตอบ พร้อมโทร เปิดแชท LINE หรือเปิดออเดอร์ต้นทางได้จากตารางเดียว
 
-เข้า [http://localhost:3000](http://localhost:3000) และใช้รหัสผ่าน `password123` กับบัญชีใดบัญชีหนึ่ง
+เข้า [http://localhost:3004](http://localhost:3004) และใช้รหัสผ่าน `password123` กับบัญชีใดบัญชีหนึ่ง
 
 | บทบาท | Email |
 | --- | --- |

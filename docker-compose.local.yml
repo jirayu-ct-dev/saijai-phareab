@@ -5,7 +5,7 @@ services:
     image: postgres:16-alpine
     restart: unless-stopped
     ports:
-      - "5433:5432"
+      - "5434:5432"
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: 123
@@ -44,15 +44,15 @@ services:
     init: true
     restart: unless-stopped
     ports:
-      - "3000:3000"
+      - "3004:3000"
     environment:
       NODE_ENV: production
       HOST: 0.0.0.0
       PORT: 3000
-      BETTER_AUTH_URL: ${BETTER_AUTH_URL:-http://localhost:3000}
-      BETTER_AUTH_TRUSTED_ORIGINS: ${BETTER_AUTH_TRUSTED_ORIGINS:-http://localhost:3000,http://127.0.0.1:3000}
+      BETTER_AUTH_URL: ${BETTER_AUTH_URL:-http://localhost:3004}
+      BETTER_AUTH_TRUSTED_ORIGINS: ${BETTER_AUTH_TRUSTED_ORIGINS:-http://localhost:3004,http://127.0.0.1:3004}
       NUXT_PUBLIC_HOSTNAME: ${NUXT_PUBLIC_HOSTNAME:-localhost}
-      NUXT_PUBLIC_BASE_URL: ${NUXT_PUBLIC_BASE_URL:-http://localhost:3000}
+      NUXT_PUBLIC_BASE_URL: ${NUXT_PUBLIC_BASE_URL:-http://localhost:3004}
       NUXT_PUBLIC_LINE_BIZ_CHAT_URL: ${LINE_BIZ_CHAT_URL:-}
       INTERNAL_BASE_URL: ${INTERNAL_BASE_URL:-http://127.0.0.1:3000}
       DIRECT_URL: postgresql://postgres:123@db:5432/saijai
