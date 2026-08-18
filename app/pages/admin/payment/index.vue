@@ -343,7 +343,7 @@ const columns: TableColumn<AdminPaymentRecord>[] = [
         h(UAvatar, { ...getAvatarProps(customer) }),
         h("div", { class: "min-w-0 max-w-60 space-y-0.5" }, [
           h("p", { class: "truncate font-medium text-highlighted hover:underline" }, customer.name || "-"),
-          h("p", { class: "truncate text-sm text-muted" }, customer.email),
+          h("p", { class: "truncate text-sm text-muted" }, customerEmailLabel(customer.email)),
         ]),
       ]);
     },
@@ -799,7 +799,7 @@ const columns: TableColumn<AdminPaymentRecord>[] = [
             <UAvatar v-bind="getAvatarProps(payment.customer)" />
             <div class="min-w-0 flex-1">
               <p class="truncate font-medium text-highlighted">
-                {{ payment.customer.name || payment.customer.email }}
+                {{ payment.customer.name || customerEmailLabel(payment.customer.email) }}
               </p>
               <p class="truncate text-sm text-muted">
                 {{ payment.paymentNo || payment.id }}
@@ -842,7 +842,7 @@ const columns: TableColumn<AdminPaymentRecord>[] = [
       <template #message>
         ต้องการลบรายการของ
         <strong class="text-highlighted">
-          {{ deletingPayment?.customer.name || deletingPayment?.customer.email }}
+          {{ deletingPayment?.customer.name || customerEmailLabel(deletingPayment?.customer.email) }}
         </strong>
         ใช่หรือไม่?
       </template>

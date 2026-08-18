@@ -1,6 +1,5 @@
 import { prisma } from "~~/server/utils/prisma";
 import { requireRole } from "~~/server/utils/auth";
-import { isWalkInCustomerEmail } from "~~/server/utils/walkInCustomer";
 
 export default defineEventHandler(async (event) => {
   const id = getRouterParam(event, "id");
@@ -19,17 +18,10 @@ export default defineEventHandler(async (event) => {
   try {
     const existing = await prisma.user.findFirst({
       where: { id, deletedAt: null },
-      select: { id: true, email: true },
+      select: { id: true },
     });
     if (!existing) {
       throw createError({ statusCode: 404, statusMessage: "User not found" });
-    }
-
-    if (isWalkInCustomerEmail(existing.email)) {
-      throw createError({
-        statusCode: 400,
-        statusMessage: "Cannot delete system default user",
-      });
     }
 
     await prisma.user.update({

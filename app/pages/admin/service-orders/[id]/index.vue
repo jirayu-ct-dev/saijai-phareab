@@ -15,9 +15,7 @@ type ServiceOrderDetailResponse = {
   id: string;
   orderNo: string | null;
   status: ServiceOrderStatus;
-  isWalkIn: boolean;
-  walkInName: string | null;
-  walkInPhone: string | null;
+  hasDelivery: boolean;
   creditUsed: number | null;
   note: string | null;
   receivedAt: string;
@@ -32,7 +30,7 @@ type ServiceOrderDetailResponse = {
   image: { id: string; secureUrl: string | null; url: string | null } | null;
   deliveryImage: { id: string; secureUrl: string | null; url: string | null } | null;
   hangerCharge: { count: number; pricePerUnit: number; total: number } | null;
-  customer: { id: string; name: string | null; email: string; phoneNumber: string | null; image: string | null };
+  customer: { id: string; name: string | null; email: string | null; phoneNumber: string | null; image: string | null; customerAccountStatus?: "OFFLINE" | "ACTIVE" };
   employee: { id: string; name: string | null; email: string } | null;
   memberEntitlement: {
     id: string;
@@ -84,6 +82,17 @@ type ServiceOrderDetailResponse = {
     verifiedAt: string | null;
     verifiedBy: { id: string; name: string | null; email: string } | null;
     slipImage: { id: string; secureUrl: string | null; url: string | null } | null;
+  }>;
+  addonUsages: Array<{
+    id: string;
+    entitlementId: string | null;
+    productId: string | null;
+    productName: string | null;
+    credits: number;
+    deductOn: "CREATED" | "COMPLETED";
+    isDelivery: boolean;
+    deductedAt: string | null;
+    refundedAt: string | null;
   }>;
 };
 type ServiceOrderDetailItem = ServiceOrderDetailResponse["items"][number];
@@ -194,9 +203,9 @@ const customerRows = computed<InfoRow[]>(() => {
 
   return [
     { label: "ชื่อลูกค้า", value: order.value.customer.name || "-" },
-    { label: "อีเมล", value: order.value.customer.email, valueClass: "break-all" },
+    { label: "อีเมล", value: customerEmailLabel(order.value.customer.email), valueClass: "break-all" },
     { label: "เบอร์โทร", value: order.value.customer.phoneNumber || "-" },
-    { label: "ประเภทลูกค้า", value: order.value.isWalkIn ? "ลูกค้าหน้าร้าน" : "สมาชิก/ลูกค้าในระบบ" },
+    { label: "ประเภทลูกค้า", value: order.value.customer.customerAccountStatus === "OFFLINE" ? "ยังไม่เปิดใช้งานบัญชี" : "ลูกค้าในระบบ" },
     { label: "ผู้รับงาน", value: order.value.employee?.name || order.value.employee?.email || "-" },
     { label: "หมายเหตุ", value: order.value.note || "-", valueClass: "whitespace-pre-line" },
   ];
@@ -213,7 +222,7 @@ const orderRows = computed<InfoRow[]>(() => {
     { label: "วันที่รับงาน", value: formatDateTime(order.value.receivedAt) },
     isCompleted
       ? { label: "วันที่ส่งผ้า", value: deliveredAt ? formatDateTime(deliveredAt) : "-" }
-      : { label: "วันนัดรับ", value: order.value.dueAt ? formatDateTime(order.value.dueAt) : "-" },
+      : { label: order.value.hasDelivery ? "วันนัดส่งถึงลูกค้า" : "วันนัดรับที่ร้าน", value: order.value.dueAt ? formatDateTime(order.value.dueAt) : "-" },
   ];
 
   const active = order.value.activeEntitlements ?? [];
@@ -348,6 +357,7 @@ const getItemPhotos = (item: ServiceOrderDetailItem) =>
     : (item.image
         ? [{ id: item.image.id, imageId: item.image.id, isDamaged: false, sortOrder: 0, secureUrl: item.image.secureUrl, url: item.image.url }]
         : []);
+
 </script>
 
 <template>
@@ -553,7 +563,7 @@ const getItemPhotos = (item: ServiceOrderDetailItem) =>
                     {{ order.customer.name || order.customer.email || "-" }}
                   </button>
                   <UBadge color="neutral" variant="soft" size="xs">
-                    {{ order.isWalkIn ? "ลูกค้าหน้าร้าน" : "ลูกค้าในระบบ" }}
+                    {{ order.customer.customerAccountStatus === "OFFLINE" ? "ยังไม่เปิดใช้งานบัญชี" : "ลูกค้าในระบบ" }}
                   </UBadge>
                 </div>
                 <div class="flex items-center gap-1">
@@ -632,7 +642,10 @@ const getItemPhotos = (item: ServiceOrderDetailItem) =>
         <section class="-mx-2 overflow-hidden border border-default/30 bg-default p-4 dark:border-default/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg">
           <div class="flex flex-col justify-between gap-3 border-b border-default/40 pb-3 sm:flex-row sm:items-center">
               <div>
-                <p class="text-sm font-semibold text-highlighted">รายการบริการ <span class="ml-2 text-xs text-muted">{{ itemCountLabel }}</span></p>
+                <p class="text-sm font-semibold text-highlighted">
+                  {{ order.weightKg != null ? 'ข้อมูลซัก-พับ ชั่งกิโล' : 'รายการบริการ' }}
+                  <span v-if="order.weightKg == null" class="ml-2 text-xs text-muted">{{ itemCountLabel }}</span>
+                </p>
               </div>
 
               <div v-if="order.image || order.deliveryImage" class="flex items-center gap-3">
@@ -684,6 +697,18 @@ const getItemPhotos = (item: ServiceOrderDetailItem) =>
           </div>
 
           <div class="pt-3">
+            <div v-if="order.weightKg != null" class="mb-3 rounded-lg border border-warning/40 bg-warning/5 p-4">
+              <div class="flex items-start justify-between gap-4">
+                <div>
+                  <p class="font-medium text-highlighted">น้ำหนักซัก-พับ (ชั่งกิโล)</p>
+                  <p v-if="order.washFoldPricePerKgSnapshot != null" class="mt-1 text-xs text-muted">{{ formatCurrency(order.washFoldPricePerKgSnapshot) }} / กก.</p>
+                </div>
+                <div class="text-right">
+                  <p class="font-semibold text-highlighted">{{ order.weightKg }} กก.</p>
+                  <p class="mt-1 text-[13px] font-semibold text-primary">{{ formatCurrency(order.subtotalAmount) }}</p>
+                </div>
+              </div>
+            </div>
             <div v-if="order.items.length" class="space-y-1 md:hidden">
               <div
                 v-for="item in order.items"
@@ -734,8 +759,11 @@ const getItemPhotos = (item: ServiceOrderDetailItem) =>
                         </div>
                       </div>
                       <div class="shrink-0 text-right">
+                        <p v-if="order.weightKg != null" class="text-sm font-semibold leading-none text-highlighted">
+                          รวมชั่งกิโล
+                        </p>
                         <p
-                          v-if="hasMemberEntitlement && item.isPackageIncluded"
+                          v-else-if="hasMemberEntitlement && item.isPackageIncluded"
                           class="text-sm font-semibold leading-none text-success"
                         >
                           {{ item.quantity }} เครดิต
@@ -812,8 +840,9 @@ const getItemPhotos = (item: ServiceOrderDetailItem) =>
                     </td>
                     <td class="border-b border-default px-3 py-2 text-right text-muted dark:border-default/25">{{ item.quantity }} ชิ้น</td>
                     <td class="border-b border-default px-3 py-2 text-right dark:border-default/25">
+                      <span v-if="order.weightKg != null" class="font-semibold text-highlighted">รวมชั่งกิโล</span>
                       <span
-                        v-if="hasMemberEntitlement && item.isPackageIncluded"
+                        v-else-if="hasMemberEntitlement && item.isPackageIncluded"
                         class="font-semibold text-success"
                       >{{ item.quantity }} เครดิต</span>
                       <span v-else class="font-semibold text-highlighted">{{ formatCurrency(item.totalPrice) }}</span>

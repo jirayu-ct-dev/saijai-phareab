@@ -1,7 +1,6 @@
 import { addDays } from "date-fns";
 import { requireRole } from "~~/server/utils/auth";
 import { prisma } from "~~/server/utils/prisma";
-import { syncUserRichMenu } from "~~/server/utils/line-messaging";
 
 interface UpdatePaymentBody {
   customerId?: string;
@@ -258,13 +257,6 @@ export default defineEventHandler(async (event) => {
 
       return row;
     });
-
-    const syncIds = new Set([existingPackageSale.customerId, nextCustomerId]);
-    for (const customerId of syncIds) {
-      void syncUserRichMenu(customerId).catch((err) => {
-        console.error("[PUT /api/admin/payments/:id] syncUserRichMenu failed", err);
-      });
-    }
 
     return updated;
   } catch (error) {

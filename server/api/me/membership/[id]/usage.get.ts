@@ -28,7 +28,7 @@ export default defineEventHandler(async (event) => {
     }
 
     const usages = entitlement.product.packageType === "ADDON"
-      ? await prisma.serviceOrderAddonUsage.findMany({
+      ? (await prisma.serviceOrderAddonUsage.findMany({
           where: {
             memberEntitlementId: entitlementId,
             refundedAt: null,
@@ -50,8 +50,15 @@ export default defineEventHandler(async (event) => {
             },
           },
           orderBy: { serviceOrder: { receivedAt: "desc" } },
-        })
-      : await prisma.serviceOrder.findMany({
+        })).map(usage => ({
+          orderId: usage.serviceOrder.id,
+          orderNo: usage.serviceOrder.orderNo,
+          receivedAt: usage.serviceOrder.receivedAt.toISOString(),
+          creditUsed: usage.credits,
+          itemCount: usage.serviceOrder._count.serviceOrderItems,
+          status: usage.serviceOrder.status,
+        }))
+      : (await prisma.serviceOrder.findMany({
           where: {
             memberEntitlementId: entitlementId,
             deletedAt: null,
@@ -67,7 +74,14 @@ export default defineEventHandler(async (event) => {
             }
           },
           orderBy: { receivedAt: 'desc' }
-        });
+        })).map(usage => ({
+          orderId: usage.id,
+          orderNo: usage.orderNo,
+          receivedAt: usage.receivedAt.toISOString(),
+          creditUsed: usage.creditUsed,
+          itemCount: usage._count.serviceOrderItems,
+          status: usage.status,
+        }));
 
     return {
       entitlement: {
@@ -80,23 +94,7 @@ export default defineEventHandler(async (event) => {
         startAt: entitlement.startAt?.toISOString() || null,
         endAt: entitlement.endAt?.toISOString() || null,
       },
-      usages: entitlement.product.packageType === "ADDON"
-        ? usages.map(usage => ({
-            orderId: usage.serviceOrder.id,
-            orderNo: usage.serviceOrder.orderNo,
-            receivedAt: usage.serviceOrder.receivedAt.toISOString(),
-            creditUsed: usage.credits,
-            itemCount: usage.serviceOrder._count.serviceOrderItems,
-            status: usage.serviceOrder.status,
-          }))
-        : usages.map(usage => ({
-            orderId: usage.id,
-            orderNo: usage.orderNo,
-            receivedAt: usage.receivedAt.toISOString(),
-            creditUsed: usage.creditUsed,
-            itemCount: usage._count.serviceOrderItems,
-            status: usage.status,
-          }))
+      usages,
     };
   } catch (error) {
     console.error("[GET /api/me/membership/[id]/usage]", error);

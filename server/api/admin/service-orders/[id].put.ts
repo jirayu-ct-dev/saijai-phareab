@@ -5,16 +5,12 @@ import { computeVat } from "~~/server/utils/vat";
 import { requireRole } from "~~/server/utils/auth";
 import { createPaymentNo } from "~~/server/utils/paymentNo";
 import { prisma } from "~~/server/utils/prisma";
-import { ensureWalkInCustomer } from "~~/server/utils/walkInCustomer";
 import { createAddonUsageRecords, refundAddonUsages, voidPendingAddonUsageRecords } from "~~/server/utils/serviceOrderCredits";
 import { isServiceOrderStatus } from "~~/server/utils/serviceOrderStatusTransition";
 import { parseBangkokDateTime } from "~~/shared/utils/pickup";
 
 type UpdateServiceOrderBody = {
   customerId?: string | null;
-  isWalkIn?: boolean;
-  walkInName?: string | null;
-  walkInPhone?: string | null;
   memberEntitlementId?: string | null;
   addonEntitlements?: Array<{ entitlementId: string; credits: number }>;
   orderImageId?: string | null;
@@ -46,10 +42,7 @@ export default defineEventHandler(async (event) => {
   }
 
   const body = await readBody<UpdateServiceOrderBody>(event);
-  const isWalkIn = Boolean(body.isWalkIn);
   const customerId = body.customerId?.trim() || null;
-  const walkInName = body.walkInName?.trim() || null;
-  const walkInPhone = body.walkInPhone?.trim() || null;
   const requestedEntitlementId = body.memberEntitlementId?.trim() || null;
   const orderImageId = body.orderImageId?.trim() || null;
   const deliveryImageId = body.deliveryImageId === null ? null : body.deliveryImageId?.trim() || undefined;
@@ -58,16 +51,8 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, statusMessage: "สถานะรายการรับผ้าไม่ถูกต้อง" });
   }
 
-  if (!isWalkIn && !customerId) {
+  if (!customerId) {
     throw createError({ statusCode: 400, statusMessage: "กรุณาเลือกลูกค้า" });
-  }
-
-  if (isWalkIn && requestedEntitlementId) {
-    throw createError({ statusCode: 400, statusMessage: "ลูกค้าหน้าร้านไม่สามารถใช้เครดิตแพ็กเกจได้" });
-  }
-
-  if (isWalkIn && Array.isArray(body.addonEntitlements) && body.addonEntitlements.length > 0) {
-    throw createError({ statusCode: 400, statusMessage: "ลูกค้าหน้าร้านไม่สามารถใช้แพ็กเกจเสริมได้" });
   }
 
   const washFoldInput = body.washFold && Number.isFinite(Number(body.washFold.weightKg))
@@ -157,22 +142,13 @@ export default defineEventHandler(async (event) => {
       });
     }
 
-    let paymentUserId = customerId;
-    if (isWalkIn) {
-      const walkInCustomer = await ensureWalkInCustomer(prisma);
-      paymentUserId = walkInCustomer.id;
-    } else {
-      const customer = await prisma.user.findFirst({
-        where: {
-          id: customerId!,
-          deletedAt: null,
-        },
-        select: { id: true },
-      });
-
-      if (!customer) {
-        throw createError({ statusCode: 404, statusMessage: "ไม่พบลูกค้าที่เลือก" });
-      }
+    const paymentUserId = customerId;
+    const customer = await prisma.user.findFirst({
+      where: { id: customerId, role: "USER", deletedAt: null },
+      select: { id: true },
+    });
+    if (!customer) {
+      throw createError({ statusCode: 404, statusMessage: "ไม่พบลูกค้าที่เลือก" });
     }
 
     const priceIds = [...new Set(normalizedItems.map((item) => item.storefrontPriceId))];
@@ -363,6 +339,7 @@ export default defineEventHandler(async (event) => {
         productName: string;
         credits: number;
         deductOn: "CREATED" | "COMPLETED";
+        isDelivery: boolean;
         appliedAt?: string;
         deductedAt?: string;
       };
@@ -380,7 +357,7 @@ export default defineEventHandler(async (event) => {
             deletedAt: null,
             product: { packageType: "ADDON" },
           },
-          include: { product: { select: { id: true, name: true, deductOn: true } } },
+          include: { product: { select: { id: true, name: true, deductOn: true, isDelivery: true } } },
         });
         if (!addonEnt) {
           throw createError({ statusCode: 400, statusMessage: `ไม่พบสิทธิ์แพ็กเกจเสริม (${entry.entitlementId})` });
@@ -392,6 +369,7 @@ export default defineEventHandler(async (event) => {
           productName: addonEnt.product.name,
           credits,
           deductOn: addonEnt.product.deductOn,
+          isDelivery: addonEnt.product.isDelivery,
           deductedAt: undefined,
         };
         if (shouldDeductNow) {
@@ -425,9 +403,6 @@ export default defineEventHandler(async (event) => {
           customerId: paymentUserId!,
           employeeId: existing.employeeId ?? actor.id,
           status: serviceOrderStatus,
-          isWalkIn,
-          walkInName,
-          walkInPhone,
           memberEntitlementId: nextEntitlementId,
           creditUsed: nextEntitlementId ? creditUsed : null,
           dueAt,
@@ -538,9 +513,6 @@ export default defineEventHandler(async (event) => {
                 baseAmount: vat.baseAmount,
               },
               dueAt,
-              isWalkIn,
-              walkInName,
-              walkInPhone,
               memberEntitlementId: nextEntitlementId,
               creditUsed: nextEntitlementId ? creditUsed : null,
               orderImageId,
@@ -572,9 +544,6 @@ export default defineEventHandler(async (event) => {
               },
               receivedAt: existing.receivedAt,
               dueAt,
-              isWalkIn,
-              walkInName,
-              walkInPhone,
               memberEntitlementId: nextEntitlementId,
               creditUsed: nextEntitlementId ? creditUsed : null,
               orderImageId,
@@ -585,13 +554,14 @@ export default defineEventHandler(async (event) => {
     });
 
     if (existing.status !== serviceOrderStatus) {
-      void notifyServiceOrderStatusChanged({
+      const notification = notifyServiceOrderStatusChanged({
         serviceOrderId: existing.id,
         fromStatus: existing.status,
         toStatus: serviceOrderStatus,
       });
+      if (serviceOrderStatus === "DELIVERING") await notification;
+      else void notification;
     }
-
     return { success: true };
   } catch (error) {
     if (error && typeof error === "object" && "statusCode" in error) {

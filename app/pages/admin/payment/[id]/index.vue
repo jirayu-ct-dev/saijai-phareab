@@ -37,7 +37,7 @@ type PaymentDetailResponse = {
   updatedAt: string;
   metadata: unknown;
   auditLogs: PaymentAuditLog[];
-  customer: { id: string; name: string | null; email: string; phoneNumber: string | null; image: string | null };
+  customer: { id: string; name: string | null; email: string | null; phoneNumber: string | null; image: string | null };
   slipImage: { id: string; url: string | null; secureUrl: string | null } | null;
   memberEntitlement: {
     id: string;
@@ -271,7 +271,7 @@ const openPaymentDocument = () => {
 
 const customerInfoRows = computed<InfoRow[]>(() => payment.value ? [
   { label: "ชื่อลูกค้า", value: payment.value.customer.name || "-" },
-  { label: "อีเมล", value: payment.value.customer.email, valueClass: "break-all" },
+  { label: "อีเมล", value: customerEmailLabel(payment.value.customer.email), valueClass: "break-all" },
   { label: "เบอร์โทร", value: payment.value.customer.phoneNumber || "-" },
   { label: "ประเภท", value: saleTypeLabel.value },
 ] : []);
@@ -591,7 +591,7 @@ const savePaymentChanges = async () => {
                 <UAvatar v-bind="getAvatarProps(payment.customer)" size="lg" />
                 <div class="min-w-0">
                   <div class="flex flex-wrap items-center gap-2">
-                    <p class="truncate text-base font-semibold text-highlighted">{{ payment.customer.name || payment.customer.email || "-" }}</p>
+                    <p class="truncate text-base font-semibold text-highlighted">{{ payment.customer.name || customerEmailLabel(payment.customer.email) }}</p>
                     <UBadge :color="saleTypeColor" variant="subtle">{{ saleTypeLabel }}</UBadge>
                   </div>
                   <div class="mt-1 flex min-w-0 items-center gap-1">

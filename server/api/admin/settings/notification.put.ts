@@ -18,7 +18,6 @@ export default defineEventHandler(async (event) => {
   requireRole(event, ["ADMIN"]);
 
   const body = await readValidatedBody(event, schema.parse);
-
   const setting = await prisma.notificationSetting.upsert({
     where: { id: "singleton" },
     create: { id: "singleton", ...body },

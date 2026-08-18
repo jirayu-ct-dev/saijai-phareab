@@ -4,7 +4,6 @@ import { createPaymentNo } from "~~/server/utils/paymentNo";
 import { prisma } from "~~/server/utils/prisma";
 import { getBusinessSetting } from "~~/server/utils/businessSetting";
 import { computeVat } from "~~/server/utils/vat";
-import { syncUserRichMenu } from "~~/server/utils/line-messaging";
 
 type UpdatePackageSaleBody = {
   customerId: string;
@@ -289,13 +288,6 @@ export default defineEventHandler(async (event) => {
         });
       }
     });
-
-    const syncIds = new Set([existingSale.customerId, body.customerId]);
-    for (const customerId of syncIds) {
-      void syncUserRichMenu(customerId).catch((err) => {
-        console.error("[PUT /api/admin/package-sales/:id] syncUserRichMenu failed", err);
-      });
-    }
 
     return { success: true };
   } catch (error) {

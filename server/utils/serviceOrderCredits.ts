@@ -9,6 +9,7 @@ export type StoredAddonUsage = {
   productName?: string;
   credits: number;
   deductOn?: DeductOn;
+  isDelivery?: boolean;
   appliedAt?: string;
   deductedAt?: string;
   refundedAt?: string;
@@ -25,13 +26,14 @@ export const parseAddonUsages = (value: unknown): StoredAddonUsage[] => {
   return (value as unknown[])
     .filter((item): item is Record<string, unknown> => Boolean(item && typeof item === "object"))
     .map((item) => {
-      const deductOn = item.deductOn === "COMPLETED" ? "COMPLETED" : "CREATED";
+      const deductOn: DeductOn = item.deductOn === "COMPLETED" ? "COMPLETED" : "CREATED";
       return {
         entitlementId: typeof item.entitlementId === "string" ? item.entitlementId : "",
         productId: typeof item.productId === "string" ? item.productId : undefined,
         productName: typeof item.productName === "string" ? item.productName : undefined,
         credits: Number(item.credits ?? 0),
         deductOn,
+        isDelivery: item.isDelivery === true,
         appliedAt: typeof item.appliedAt === "string" ? item.appliedAt : undefined,
         deductedAt: typeof item.deductedAt === "string" ? item.deductedAt : undefined,
         refundedAt: typeof item.refundedAt === "string" ? item.refundedAt : undefined,
@@ -69,6 +71,7 @@ export const createAddonUsageRecords = async (
       productName: usage.productName ?? null,
       credits: usage.credits,
       deductOn: usage.deductOn,
+      isDelivery: usage.isDelivery ?? false,
       deductedAt: usage.deductedAt ? new Date(usage.deductedAt) : null,
     })),
   });
@@ -127,6 +130,7 @@ export const deductAddonUsageRecords = async (tx: TxClient, serviceOrderId: stri
       productName: usage.productName ?? usage.memberEntitlement.product.name,
       credits: usage.credits,
       deductOn: usage.deductOn,
+      isDelivery: usage.isDelivery,
       appliedAt: deductedAt.toISOString(),
       deductedAt: deductedAt.toISOString(),
     });

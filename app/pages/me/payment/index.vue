@@ -52,9 +52,6 @@ type MyReceiptRecord = {
   serviceOrder: {
     id: string;
     orderNo: string | null;
-    isWalkIn: boolean;
-    walkInName: string | null;
-    walkInPhone: string | null;
     itemCount: number;
     creditUsed: number;
     memberEntitlementId: string | null;
@@ -106,7 +103,7 @@ const pagination = ref({
 const searchQuery = ref("");
 const saleTypeFilter = ref<(typeof saleTypeOptions)[number]["value"]>("all");
 
-const typedPayments = computed<MyReceiptRecord[]>(() => payments.value as MyReceiptRecord[]);
+const typedPayments = computed<MyReceiptRecord[]>(() => payments.value as unknown as MyReceiptRecord[]);
 
 const isServiceMember = (payment: MyReceiptRecord) =>
   Boolean(payment.serviceOrder?.id) && Boolean(payment.serviceOrder?.memberEntitlementId);

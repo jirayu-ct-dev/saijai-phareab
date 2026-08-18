@@ -1,5 +1,6 @@
 import { requireRole } from "~~/server/utils/auth";
 import { prisma } from "~~/server/utils/prisma";
+import { isInternalCustomerEmail } from "~~/server/utils/customerAccount";
 
 export default defineEventHandler(async (event) => {
   requireRole(event, ["ADMIN"]);
@@ -19,6 +20,7 @@ export default defineEventHandler(async (event) => {
         image: true,
         role: true,
         phoneNumber: true,
+        customerAccountStatus: true,
         isActive: true,
         emailVerified: true,
         createdAt: true,
@@ -213,11 +215,12 @@ export default defineEventHandler(async (event) => {
     return {
       user: {
         id: user.id,
-        email: user.email,
+        email: isInternalCustomerEmail(user.email) ? null : user.email,
         name: user.name,
         image: user.image,
         role: user.role,
         phoneNumber: user.phoneNumber,
+        customerAccountStatus: user.customerAccountStatus,
         emailVerified: user.emailVerified,
         createdAt: user.createdAt,
         updatedAt: user.updatedAt,

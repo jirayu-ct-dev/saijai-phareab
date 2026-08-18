@@ -13,6 +13,11 @@ enum Role {
   ADMIN
 }
 
+enum CustomerAccountStatus {
+  OFFLINE
+  ACTIVE
+}
+
 enum PackageType {
   MAIN
   ADDON
@@ -72,24 +77,32 @@ enum PaymentAuditAction {
 }
 
 model User {
-  id                String    @id @default(cuid())
-  email             String    @unique
-  name              String?
-  emailVerified     Boolean   @default(false)
-  image             String?
-  role              Role      @default(USER)
-  phoneNumber       String?
-  lineNotifyEnabled Boolean   @default(true)
-  isActive          Boolean   @default(true)
-  createdAt         DateTime  @default(now())
-  updatedAt         DateTime  @updatedAt
-  deletedAt         DateTime?
-  deletedById       String?
-  deletedBy         User?     @relation("DeletedByUser", fields: [deletedById], references: [id])
-  deletedUsers      User[]    @relation("DeletedByUser")
+  id                    String                @id @default(cuid())
+  email                 String                @unique
+  name                  String?
+  emailVerified         Boolean               @default(false)
+  image                 String?
+  role                  Role                  @default(USER)
+  phoneNumber           String?
+  normalizedPhoneNumber String?
+  customerAccountStatus CustomerAccountStatus @default(ACTIVE)
+  claimedAt             DateTime?
+  createdByStaffId      String?
+  lineNotifyEnabled     Boolean               @default(true)
+  isActive              Boolean               @default(true)
+  createdAt             DateTime              @default(now())
+  updatedAt             DateTime              @updatedAt
+  deletedAt             DateTime?
+  deletedById           String?
+  deletedBy             User?                 @relation("DeletedByUser", fields: [deletedById], references: [id])
+  deletedUsers          User[]                @relation("DeletedByUser")
+  createdByStaff        User?                 @relation("CustomerCreatedByStaff", fields: [createdByStaffId], references: [id], onDelete: SetNull)
+  createdCustomers      User[]                @relation("CustomerCreatedByStaff")
 
-  sessions Session[]
-  accounts Account[]
+  sessions                   Session[]
+  accounts                   Account[]
+  claimTokens                CustomerClaimToken[] @relation("CustomerClaimTokenUser")
+  createdCustomerClaimTokens CustomerClaimToken[] @relation("CustomerClaimTokenCreatedBy")
 
   packageSales          PackageSale[]       @relation("PackageSaleCustomer")
   soldPackageSales      PackageSale[]       @relation("PackageSaleSeller")
@@ -115,10 +128,32 @@ model User {
   deletedServiceOrderItemImages ServiceOrderItemImage[] @relation("ServiceOrderItemImageDeletedBy")
   deletedPaymentRecords         PaymentRecord[]         @relation("PaymentRecordDeletedBy")
   deletedUserAddresses          UserAddress[]           @relation("UserAddressDeletedBy")
+  createdExpenses               Expense[]               @relation("ExpenseCreatedBy")
+  updatedExpenses               Expense[]               @relation("ExpenseUpdatedBy")
+  deletedExpenses               Expense[]               @relation("ExpenseDeletedBy")
+  deletedExpenseCategories      ExpenseCategory[]       @relation("ExpenseCategoryDeletedBy")
 
   notificationSubscriber NotificationSubscriber?
 
+  @@index([createdByStaffId])
   @@map("user")
+}
+
+model CustomerClaimToken {
+  id          String    @id @default(cuid())
+  userId      String
+  user        User      @relation("CustomerClaimTokenUser", fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash   String    @unique
+  expiresAt   DateTime
+  usedAt      DateTime?
+  revokedAt   DateTime?
+  createdById String?
+  createdBy   User?     @relation("CustomerClaimTokenCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt   DateTime  @default(now())
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("customer_claim_token")
 }
 
 model Session {
@@ -376,9 +411,6 @@ model ServiceOrder {
   employeeId                 String?
   employee                   User?              @relation("ServiceOrderEmployee", fields: [employeeId], references: [id])
   status                     ServiceOrderStatus @default(RECEIVED)
-  isWalkIn                   Boolean            @default(false)
-  walkInName                 String?
-  walkInPhone                String?
   memberEntitlementId        String?
   memberEntitlement          MemberEntitlement? @relation(fields: [memberEntitlementId], references: [id])
   creditUsed                 Int?
@@ -475,6 +507,7 @@ model ServiceOrderAddonUsage {
   productName         String?
   credits             Int
   deductOn            DeductOn           @default(CREATED)
+  isDelivery          Boolean            @default(false)
   deductedAt          DateTime?
   refundedAt          DateTime?
   createdAt           DateTime           @default(now())
@@ -641,19 +674,42 @@ model NotificationSubscriber {
   @@map("notification_subscriber")
 }
 
-model LineRichMenu {
+model ExpenseCategory {
   id             String    @id @default(cuid())
-  name           String    // Name/identifier for the rich menu
-  richMenuId     String    @unique // LINE richMenuId
-  imageUrl       String?   // Permanent URL of the rich menu image
-  imagePublicId  String?   // Cloudinary publicId
-  jsonContent    String    @db.Text // Raw JSON configuration
-  targetRole     String?   // Mapped role: "USER", "MEMBER", "EMPLOYEE", "ADMIN"
-  aliasId        String?   @unique // LINE rich menu alias ID
-  isDefault      Boolean   @default(false)
+  name           String
+  normalizedName String    @unique
+  isActive       Boolean   @default(true)
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
+  deletedAt      DateTime?
+  deletedById    String?
+  deletedBy      User?     @relation("ExpenseCategoryDeletedBy", fields: [deletedById], references: [id])
 
-  @@map("line_rich_menu")
+  expenses       Expense[]
+
+  @@index([isActive, deletedAt])
+  @@map("expense_category")
 }
 
+model Expense {
+  id          String          @id @default(cuid())
+  categoryId  String
+  category    ExpenseCategory @relation(fields: [categoryId], references: [id])
+  amount      Decimal         @db.Decimal(12, 2)
+  expenseAt   DateTime
+  description String?
+  createdById String
+  createdBy   User            @relation("ExpenseCreatedBy", fields: [createdById], references: [id])
+  updatedById String?
+  updatedBy   User?           @relation("ExpenseUpdatedBy", fields: [updatedById], references: [id])
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  deletedAt   DateTime?
+  deletedById String?
+  deletedBy   User?           @relation("ExpenseDeletedBy", fields: [deletedById], references: [id])
+
+  @@index([expenseAt, deletedAt])
+  @@index([categoryId, expenseAt])
+  @@index([createdById])
+  @@map("expense")
+}

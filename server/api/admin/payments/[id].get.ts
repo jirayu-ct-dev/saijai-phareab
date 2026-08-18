@@ -1,5 +1,6 @@
 import { requireRole } from "~~/server/utils/auth";
 import { prisma } from "~~/server/utils/prisma";
+import { isInternalCustomerEmail } from "~~/server/utils/customerAccount";
 
 const toNumber = (value: unknown) => Number(value ?? 0);
 
@@ -303,10 +304,10 @@ export default defineEventHandler(async (event) => {
     })),
     customer: {
       id: payment.user.id,
-      name: payment.serviceOrder?.isWalkIn ? payment.serviceOrder.walkInName || "ลูกค้าหน้าร้าน" : payment.user.name,
-      email: payment.serviceOrder?.isWalkIn ? "ลูกค้าหน้าร้าน" : payment.user.email,
-      phoneNumber: payment.serviceOrder?.isWalkIn ? payment.serviceOrder.walkInPhone : payment.user.phoneNumber,
-      image: payment.serviceOrder?.isWalkIn ? null : payment.user.image,
+      name: payment.user.name,
+      email: isInternalCustomerEmail(payment.user.email) ? null : payment.user.email,
+      phoneNumber: payment.user.phoneNumber,
+      image: payment.user.image,
     },
     slipImage: payment.slipImage
       ? {
@@ -341,9 +342,6 @@ export default defineEventHandler(async (event) => {
           orderNo: payment.serviceOrder.orderNo,
           quotationNo: payment.serviceOrder.quotationNo,
           status: payment.serviceOrder.status,
-          isWalkIn: payment.serviceOrder.isWalkIn,
-          walkInName: payment.serviceOrder.walkInName,
-          walkInPhone: payment.serviceOrder.walkInPhone,
           creditUsed: payment.serviceOrder.creditUsed,
           receivedAt: payment.serviceOrder.receivedAt?.toISOString() ?? null,
           dueAt: payment.serviceOrder.dueAt?.toISOString() ?? null,

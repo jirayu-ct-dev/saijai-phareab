@@ -20,12 +20,13 @@ type InfoRow = { label: string; value: string; valueClass?: string }
 type UserDetailResponse = {
   user: {
     id: string
-    email: string
+    email: string | null
     name: string | null
     image: string | null
     role: Role
     phoneNumber: string | null
     emailVerified: boolean
+    customerAccountStatus?: "OFFLINE" | "ACTIVE"
     createdAt: string
     updatedAt: string
     lineUserId: string | null
@@ -134,6 +135,7 @@ type UserDetailResponse = {
 
 const route = useRoute()
 const userId = computed(() => String(route.params.id))
+const notify = useNotify()
 
 const { data, pending, status, refresh, error } = useFetch<UserDetailResponse>(
   () => `/api/admin/users/${userId.value}`,
@@ -154,6 +156,53 @@ const entitlements = computed(() => data.value?.memberEntitlements ?? [])
 const recentPayments = computed(() => data.value?.recentPayments ?? [])
 const recentSales = computed(() => data.value?.recentSales ?? [])
 const recentServiceOrders = computed(() => data.value?.recentServiceOrders ?? [])
+const activationLinkOpen = ref(false)
+const activationToken = ref('')
+const activationExpiresAt = ref<string | null>(null)
+const isIssuingActivation = ref(false)
+
+const activationUrl = computed(() => {
+  if (!activationToken.value) return ''
+  const path = `/auth/claim-customer?token=${encodeURIComponent(activationToken.value)}`
+  return import.meta.client ? `${window.location.origin}${path}` : path
+})
+
+const issueActivationLink = async () => {
+  if (!user.value || user.value.customerAccountStatus !== 'OFFLINE') return
+  isIssuingActivation.value = true
+  try {
+    const result = await $fetch<{ activationToken: string; expiresAt: string }>(
+      `/api/admin/customers/${user.value.id}/claim-token`,
+      { method: 'POST' },
+    )
+    activationToken.value = result.activationToken
+    activationExpiresAt.value = result.expiresAt
+    activationLinkOpen.value = true
+  } catch (error: unknown) {
+    const message = error && typeof error === 'object' && 'data' in error
+      ? (error as { data?: { statusMessage?: string } }).data?.statusMessage
+      : null
+    notify.error(message || 'ไม่สามารถออกลิงก์เปิดใช้งานได้')
+  } finally {
+    isIssuingActivation.value = false
+  }
+}
+
+const copyActivationLink = async () => {
+  if (!activationUrl.value || !import.meta.client) return
+  try {
+    await navigator.clipboard.writeText(activationUrl.value)
+    notify.success('คัดลอกลิงก์เปิดใช้งานแล้ว')
+  } catch {
+    notify.error('ไม่สามารถคัดลอกลิงก์ได้ กรุณาเลือกและคัดลอกด้วยตนเอง')
+  }
+}
+
+watch(activationLinkOpen, (isOpen) => {
+  if (isOpen) return
+  activationToken.value = ''
+  activationExpiresAt.value = null
+})
 
 const roleLabelMap: Record<Role, string> = {
   USER: 'ผู้ใช้งาน',
@@ -192,7 +241,7 @@ const customerRows = computed<InfoRow[]>(() => {
 
   return [
     { label: 'ชื่อ', value: user.value.name || '-' },
-    { label: 'อีเมล', value: user.value.email, valueClass: 'break-all' },
+    { label: 'อีเมล', value: customerEmailLabel(user.value.email), valueClass: 'break-all' },
     { label: 'เบอร์โทร', value: user.value.phoneNumber || '-' },
     { label: 'LINE User ID', value: user.value.lineUserId || '-', valueClass: 'break-all font-mono text-xs' },
     { label: 'สิทธิ์', value: roleLabelMap[user.value.role] },
@@ -272,13 +321,24 @@ const orderItemCount = (order: UserDetailResponse['recentServiceOrders'][number]
   <div class="contents">
   <UDashboardPanel id="user-detail">
     <template #header>
-      <UDashboardNavbar :title="user?.name || user?.email || 'รายละเอียดลูกค้า'" icon="i-lucide-user-round">
+      <UDashboardNavbar :title="user?.name || customerEmailLabel(user?.email)" icon="i-lucide-user-round">
         <template #leading>
           <UDashboardSidebarCollapse class="hidden lg:inline-flex" />
         </template>
 
         <template #right>
           <div class="flex items-center gap-2">
+            <UButton
+              v-if="user?.customerAccountStatus === 'OFFLINE'"
+              label="ออกลิงก์เปิดใช้งาน"
+              icon="i-lucide-key-round"
+              color="primary"
+              variant="soft"
+              :loading="isIssuingActivation"
+              class="shrink-0"
+              :ui="{ label: 'hidden md:inline' }"
+              @click="issueActivationLink"
+            />
             <UButton
               label="กลับหน้าลูกค้า"
               icon="i-lucide-arrow-left"
@@ -363,7 +423,7 @@ const orderItemCount = (order: UserDetailResponse['recentServiceOrders'][number]
               <div class="min-w-0 space-y-1.5">
                 <div class="flex flex-wrap items-center gap-2">
                   <h1 class="truncate text-xl font-bold text-highlighted sm:text-2xl">
-                    {{ user.name || user.email || '-' }}
+                    {{ user.name || customerEmailLabel(user.email) }}
                   </h1>
                   <UBadge v-if="hasMembership" color="primary" variant="subtle" size="sm">
                     <UIcon name="i-lucide-crown" class="size-3 mr-1" />ลูกค้ารายเดือน
@@ -371,7 +431,7 @@ const orderItemCount = (order: UserDetailResponse['recentServiceOrders'][number]
                 </div>
                 <p class="text-xs text-muted break-all sm:text-sm flex items-center gap-1.5">
                   <UIcon name="i-lucide-mail" class="size-3.5 shrink-0" />
-                  {{ user.email }}
+                  {{ customerEmailLabel(user.email) }}
                 </p>
                 <p v-if="user.phoneNumber" class="text-xs text-muted sm:text-sm flex items-center gap-1.5">
                   <UIcon name="i-lucide-phone" class="size-3.5 shrink-0" />
@@ -379,9 +439,9 @@ const orderItemCount = (order: UserDetailResponse['recentServiceOrders'][number]
                 </p>
                 <div class="flex flex-wrap items-center gap-1.5 pt-1">
                   <UBadge color="neutral" variant="subtle" size="sm">{{ roleLabelMap[user.role] }}</UBadge>
-                  <UBadge :color="user.emailVerified ? 'success' : 'warning'" variant="subtle" size="sm">
-                    <UIcon :name="user.emailVerified ? 'i-lucide-check-circle' : 'i-lucide-clock'" class="size-3 mr-1" />
-                    {{ user.emailVerified ? 'ยืนยันอีเมลแล้ว' : 'รอยืนยันอีเมล' }}
+                  <UBadge :color="user.customerAccountStatus === 'OFFLINE' ? 'warning' : user.emailVerified ? 'success' : 'warning'" variant="subtle" size="sm">
+                    <UIcon :name="user.customerAccountStatus === 'OFFLINE' ? 'i-lucide-key-round' : user.emailVerified ? 'i-lucide-check-circle' : 'i-lucide-clock'" class="size-3 mr-1" />
+                    {{ user.customerAccountStatus === 'OFFLINE' ? 'ยังไม่เปิดใช้งานบัญชี' : user.emailVerified ? 'ยืนยันอีเมลแล้ว' : 'รอยืนยันอีเมล' }}
                   </UBadge>
                   <UBadge v-if="user.lineUserId" color="success" variant="subtle" size="sm" icon="i-simple-icons-line">LINE</UBadge>
                 </div>
@@ -538,5 +598,25 @@ const orderItemCount = (order: UserDetailResponse['recentServiceOrders'][number]
       </div>
     </template>
   </UDashboardPanel>
+
+  <UModal v-model:open="activationLinkOpen" title="ลิงก์เปิดใช้งานบัญชี" :ui="{ content: 'max-w-lg' }">
+    <template #body>
+      <div class="space-y-4">
+        <div class="rounded-lg border border-warning/30 bg-warning/5 p-3 text-sm text-toned">
+          การออกลิงก์ใหม่จะยกเลิกลิงก์เดิมที่ยังไม่ได้ใช้ ลิงก์นี้แสดงเพียงครั้งเดียว กรุณาส่งให้ลูกค้าโดยตรง
+        </div>
+        <UFormField label="ลิงก์เปิดใช้งาน">
+          <UTextarea :model-value="activationUrl" readonly autoresize class="w-full font-mono text-xs" />
+        </UFormField>
+        <p v-if="activationExpiresAt" class="text-xs text-muted">หมดอายุ {{ formatDateTime(activationExpiresAt) }}</p>
+      </div>
+    </template>
+    <template #footer>
+      <div class="flex w-full flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+        <UButton color="neutral" variant="ghost" @click="activationLinkOpen = false">ปิด</UButton>
+        <UButton icon="i-lucide-copy" @click="copyActivationLink">คัดลอกลิงก์</UButton>
+      </div>
+    </template>
+  </UModal>
   </div>
 </template>

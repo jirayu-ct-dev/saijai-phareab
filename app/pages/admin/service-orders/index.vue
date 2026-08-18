@@ -28,7 +28,7 @@ type TableApi = {
   resetRowSelection: () => void;
 };
 type TableInstance = { tableApi?: TableApi };
-type CustomerTypeFilter = "all" | "walk-in" | "member" | "monthly";
+type CustomerTypeFilter = "all" | "offline" | "active" | "monthly";
 type CustomerOption = {
   label: string;
   value: string;
@@ -106,7 +106,7 @@ const filteredServiceOrders = computed<AdminServiceOrder[]>(() => {
       ? [
           order.orderNo ?? "",
           order.customer.name ?? "",
-          order.customer.email,
+          order.customer.email ?? "",
           order.customer.phoneNumber ?? "",
           order.note ?? "",
           ...order.items.map((item) => item.label),
@@ -119,9 +119,9 @@ const filteredServiceOrders = computed<AdminServiceOrder[]>(() => {
     const matchStatus = statusFilter.value === "all" || order.status === statusFilter.value;
     const matchCustomerType = (() => {
       if (customerTypeFilter.value === "all") return true;
-      if (customerTypeFilter.value === "walk-in") return order.isWalkIn;
+      if (customerTypeFilter.value === "offline") return order.customer.customerAccountStatus === "OFFLINE";
       if (customerTypeFilter.value === "monthly") return Boolean(order.memberEntitlement);
-      return !order.isWalkIn;
+      return order.customer.customerAccountStatus !== "OFFLINE";
     })();
 
     return matchKeyword && matchStatus && matchCustomerType;
@@ -380,7 +380,7 @@ const columns: TableColumn<AdminServiceOrder>[] = [
               ? h(UBadge, { color: "success", variant: "subtle", size: "xs" }, () => "รายเดือน")
               : null,
           ]),
-          h("p", { class: "text-xs text-muted" }, customer.phoneNumber || (row.original.isWalkIn ? "ลูกค้าหน้าร้าน" : customer.email)),
+          h("p", { class: "text-xs text-muted" }, customer.phoneNumber || customerEmailLabel(customer.email)),
         ]),
       ]);
     },
@@ -551,8 +551,8 @@ const columns: TableColumn<AdminServiceOrder>[] = [
                   v-model="customerTypeFilter"
                   :items="[
                     { label: 'ลูกค้าทุกประเภท', value: 'all' },
-                    { label: 'ลูกค้าหน้าร้าน', value: 'walk-in' },
-                    { label: 'สมาชิก/ลูกค้าระบบ', value: 'member' },
+                    { label: 'ยังไม่เปิดใช้งาน', value: 'offline' },
+                    { label: 'เปิดใช้งานแล้ว', value: 'active' },
                     { label: 'ลูกค้ารายเดือน', value: 'monthly' },
                   ]"
                   value-key="value"
@@ -662,7 +662,7 @@ const columns: TableColumn<AdminServiceOrder>[] = [
                               @click="openCustomerPage(order, $event)"
                             >
                               {{ order.customer.name || "-" }}
-                              <span class="text-[11px] font-normal text-muted">· {{ order.customer.phoneNumber || (order.isWalkIn ? "ลูกค้าหน้าร้าน" : order.customer.email) }}</span>
+                              <span class="text-[11px] font-normal text-muted">· {{ order.customer.phoneNumber || customerEmailLabel(order.customer.email) }}</span>
                             </button>
                             <button
                               type="button"

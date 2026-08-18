@@ -140,6 +140,20 @@ onMounted(async () => {
               <p class="text-gray-500 dark:text-gray-400 text-sm">ใช้บัญชีของคุณเพื่อจัดการบริการ และดูสถานะผ้าทุกผืน</p>
             </div>
 
+            <NuxtLink
+              to="/auth/claim-customer"
+              class="mb-6 flex items-center gap-3 rounded-xl border border-primary/25 bg-primary/5 p-4 transition-colors hover:bg-primary/10"
+            >
+              <span class="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+                <UIcon name="i-lucide-key-round" class="size-5" />
+              </span>
+              <span class="min-w-0 flex-1">
+                <span class="block text-sm font-semibold text-highlighted">มีรหัสเปิดใช้งานจากหน้าร้าน?</span>
+                <span class="mt-0.5 block text-xs text-muted">เปิดใช้งานบัญชีเดิมก่อนเข้าสู่ระบบด้วย LINE</span>
+              </span>
+              <UIcon name="i-lucide-chevron-right" class="size-4 text-muted" />
+            </NuxtLink>
+
             <!-- LINE Button -->
             <UButton 
               block 

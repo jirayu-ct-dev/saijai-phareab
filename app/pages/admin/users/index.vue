@@ -2,7 +2,7 @@
 import { h, resolveComponent } from 'vue'
 import { getPaginationRowModel } from '@tanstack/table-core'
 import type { TableColumn } from '@nuxt/ui'
-import type { AdminUser, CreateAdminUserBody } from '~~/app/composables/useAdminUsers'
+import type { AdminUser, CreateAdminUserBody, UpdateAdminUserBody } from '~~/app/composables/useAdminUsers'
 import type { Role } from '~~/shared/types/enums'
 import { cycleColumnSorting } from '~~/shared/utils/table'
 import { randomPassword } from '~~/shared/utils/random'
@@ -129,7 +129,7 @@ const filteredUsers = computed<AdminUser[]>(() => {
   return source.filter((user) => {
     const currentPackages = getCurrentPackages(user)
     const matchKeyword = keyword
-      ? [user.name ?? '', user.email, user.phoneNumber ?? '', ...currentPackages.map((entitlement) => entitlement.product.name)]
+      ? [user.name ?? '', isInternalCustomerEmail(user.email) ? '' : user.email, user.phoneNumber ?? '', ...currentPackages.map((entitlement) => entitlement.product.name)]
           .join(' ')
           .toLowerCase()
           .includes(keyword)
@@ -153,7 +153,7 @@ const filteredUsers = computed<AdminUser[]>(() => {
 
 const selectedRows = computed<TableRow<AdminUser>[]>(() => table.value?.tableApi?.getFilteredSelectedRowModel().rows ?? [])
 const selectedUsers = computed<AdminUser[]>(() => 
-  selectedRows.value.map((row) => row.original).filter(u => u.email !== 'walkin@saijai.local')
+  selectedRows.value.map((row) => row.original)
 )
 const selectedRowsCount = computed(() => selectedUsers.value.length)
 const filteredRowCount = computed(() => table.value?.tableApi?.getFilteredRowModel().rows.length ?? filteredUsers.value.length)
@@ -162,7 +162,6 @@ const paginatedUsers = computed(() => {
   return filteredUsers.value.slice(start, start + pagination.value.pageSize)
 })
 
-const isSystemUser = (user: AdminUser) => user.email === 'walkin@saijai.local'
 const getMobileRowId = (index: number) => String(pagination.value.pageIndex * pagination.value.pageSize + index)
 const isMobileRowSelected = (index: number) => Boolean(rowSelection.value[getMobileRowId(index)])
 const setMobileRowSelected = (index: number, value: boolean | 'indeterminate') => {
@@ -196,7 +195,7 @@ const handleRefresh = async () => {
 }
 
 const handleUsersRemoved = async (removedUsers: AdminUser[]) => {
-  const usersToDelete = removedUsers.filter(u => u.email !== 'walkin@saijai.local')
+  const usersToDelete = removedUsers
   if (!usersToDelete.length) {
     showDeleteModal.value = false
     return
@@ -345,7 +344,7 @@ const form = reactive({
 const openEditModal = (user: AdminUser) => {
   editingUser.value = user
   form.name = user.name ?? ''
-  form.email = user.email
+  form.email = isInternalCustomerEmail(user.email) ? '' : (user.email ?? '')
   form.phoneNumber = user.phoneNumber ?? ''
   form.role = user.role
   form.emailVerified = user.emailVerified
@@ -353,23 +352,23 @@ const openEditModal = (user: AdminUser) => {
 }
 
 const saveUser = async () => {
-  if (!form.email.trim()) {
+  if (!editingUser.value) return
+  const email = form.email?.trim().toLowerCase() || ''
+  if (!email && editingUser.value?.customerAccountStatus !== 'OFFLINE') {
     notify.validationError('กรุณากรอกอีเมล')
     return
   }
 
   isSubmitting.value = true
-  const payload: CreateAdminUserBody = {
+  const payload: UpdateAdminUserBody = {
     name: form.name.trim() || null,
-    email: form.email.trim(),
     phoneNumber: form.phoneNumber.trim() || null,
     role: form.role,
     emailVerified: form.emailVerified
   }
+  if (email && email !== editingUser.value?.email?.toLowerCase()) payload.email = email
 
-  const ok = editingUser.value
-    ? await updateUser(editingUser.value.id, payload)
-    : await createUser(payload)
+  const ok = await updateUser(editingUser.value.id, payload)
 
   isSubmitting.value = false
   if (ok) {
@@ -384,7 +383,7 @@ const getUserActionItems = (user: AdminUser): Array<Array<Record<string, unknown
     ],
   ]
 
-  if (!isSystemUser(user) && (user.role === 'EMPLOYEE' || user.role === 'ADMIN')) {
+  if (user.role === 'EMPLOYEE' || user.role === 'ADMIN') {
     items.push([
       {
         label: user.isActive ? 'พักงาน' : 'เปิดใช้งาน',
@@ -399,13 +398,7 @@ const getUserActionItems = (user: AdminUser): Array<Array<Record<string, unknown
       label: 'ลบผู้ใช้งาน',
       icon: 'i-lucide-trash-2',
       color: 'error',
-      onSelect: () => {
-        if (isSystemUser(user)) {
-          notify.error('ไม่สามารถลบได้เนื่องจากเป็นบัญชีของระบบ')
-          return
-        }
-        openSingleDeleteModal(user)
-      }
+      onSelect: () => openSingleDeleteModal(user)
     }
   ])
 
@@ -422,12 +415,10 @@ const columns: TableColumn<AdminUser>[] = [
         ariaLabel: 'เลือกทั้งหมด'
       })),
     cell: ({ row }) => {
-      const disabled = isSystemUser(row.original)
       return h('div', h(UCheckbox, {
         modelValue: row.getIsSelected(),
-        disabled,
         'onUpdate:modelValue': (value: boolean | 'indeterminate') => {
-          if (!disabled) row.toggleSelected(!!value)
+          row.toggleSelected(!!value)
         },
         ariaLabel: 'เลือกแถว'
       }))
@@ -457,7 +448,12 @@ const columns: TableColumn<AdminUser>[] = [
           h(UAvatar, getAvatarProps(user)),
           h('div', { class: 'w-44 space-y-1 sm:w-60' }, [
             h('p', { class: 'truncate font-medium text-highlighted' }, user.name || '-'),
-            h('p', { class: 'truncate text-sm text-muted' }, user.email)
+            h('div', { class: 'flex flex-wrap items-center gap-1.5' }, [
+              h('p', { class: 'truncate text-sm text-muted' }, customerEmailLabel(user.email)),
+              user.customerAccountStatus === 'OFFLINE'
+                ? h(UBadge, { color: 'warning', variant: 'subtle', size: 'xs' }, () => 'ยังไม่เปิดใช้งาน')
+                : null,
+            ])
           ])
         ]
       )
@@ -501,7 +497,6 @@ const columns: TableColumn<AdminUser>[] = [
     cell: ({ row }) => {
       const user = row.original
       if (user.role === 'USER') return null
-      if (isSystemUser(user)) return null
 
       return h('div', { class: 'flex items-center gap-1.5' }, [
         h(UBadge, {
@@ -559,6 +554,11 @@ const columns: TableColumn<AdminUser>[] = [
     header: 'อีเมล',
     cell: ({ row }) => {
       const user = row.original
+      if (user.customerAccountStatus === 'OFFLINE') {
+        return h('a', { href: `/admin/users/${user.id}`, class: 'hover:opacity-75 transition-opacity' },
+          h(UBadge, { variant: 'subtle', color: 'warning' }, () => 'ยังไม่เปิดใช้งาน')
+        )
+      }
       const status = user.emailVerified ? 'verified' : 'pending'
       const badge = EMAIL_STATUS_BADGE_MAP[status]
       return h('a', { href: `/admin/users/${user.id}`, class: 'hover:opacity-75 transition-opacity' },
@@ -715,7 +715,7 @@ const columns: TableColumn<AdminUser>[] = [
                     {{ user.name || '-' }}
                   </p>
                   <p class="truncate text-sm text-muted">
-                    {{ user.email }}
+                    {{ customerEmailLabel(user.email) }}
                   </p>
                 </div>
                 <UButton
@@ -807,7 +807,6 @@ const columns: TableColumn<AdminUser>[] = [
                 <div class="flex items-center gap-2 p-2">
                   <UCheckbox
                     :model-value="isMobileRowSelected(index)"
-                    :disabled="isSystemUser(user)"
                     aria-label="เลือกผู้ใช้งาน"
                     class="shrink-0"
                     @update:model-value="setMobileRowSelected(index, $event)"
@@ -824,7 +823,7 @@ const columns: TableColumn<AdminUser>[] = [
                           <span class="text-[11px] font-normal text-muted">· {{ user.phoneNumber || ROLE_BADGE_MAP[user.role].label }}</span>
                         </NuxtLink>
                         <NuxtLink :to="`/admin/users/${user.id}`" class="block max-w-full truncate text-[11px] text-muted hover:underline">
-                          {{ user.email }}
+                          {{ customerEmailLabel(user.email) }}
                         </NuxtLink>
                       </div>
 
@@ -861,12 +860,12 @@ const columns: TableColumn<AdminUser>[] = [
                         <UBadge
                           variant="subtle"
                           size="xs"
-                          :color="EMAIL_STATUS_BADGE_MAP[user.emailVerified ? 'verified' : 'pending'].color"
+                          :color="user.customerAccountStatus === 'OFFLINE' ? 'warning' : EMAIL_STATUS_BADGE_MAP[user.emailVerified ? 'verified' : 'pending'].color"
                         >
-                          {{ EMAIL_STATUS_BADGE_MAP[user.emailVerified ? 'verified' : 'pending'].label }}
+                          {{ user.customerAccountStatus === 'OFFLINE' ? 'ยังไม่เปิดใช้งาน' : EMAIL_STATUS_BADGE_MAP[user.emailVerified ? 'verified' : 'pending'].label }}
                         </UBadge>
                         <UBadge
-                          v-if="!isSystemUser(user) && (user.role === 'EMPLOYEE' || user.role === 'ADMIN')"
+                          v-if="user.role === 'EMPLOYEE' || user.role === 'ADMIN'"
                           variant="subtle"
                           size="xs"
                           :color="user.isActive ? 'success' : 'warning'"
@@ -1076,8 +1075,11 @@ const columns: TableColumn<AdminUser>[] = [
           <UInput v-model="form.name" class="w-full" />
         </UFormField>
 
-        <UFormField label="อีเมล" required>
-          <UInput v-model="form.email" class="w-full" />
+        <UFormField label="อีเมล" :required="editingUser?.customerAccountStatus !== 'OFFLINE'">
+          <UInput v-model="form.email" type="email" class="w-full" placeholder="customer@example.com" />
+          <template v-if="editingUser?.customerAccountStatus === 'OFFLINE'" #help>
+            เว้นว่างเพื่อเก็บบัญชีแบบยังไม่เปิดใช้งาน หรือกรอกอีเมลจริงของลูกค้า
+          </template>
         </UFormField>
 
         <UFormField label="เบอร์โทร">
@@ -1127,7 +1129,7 @@ const columns: TableColumn<AdminUser>[] = [
   >
     <template #message>
       คุณต้องการลบผู้ใช้งาน
-      <strong class="text-highlighted">{{ deletingUser?.email }}</strong>
+      <strong class="text-highlighted">{{ deletingUser?.name || customerEmailLabel(deletingUser?.email) }}</strong>
       ใช่หรือไม่?
     </template>
   </UIConfirmModal>

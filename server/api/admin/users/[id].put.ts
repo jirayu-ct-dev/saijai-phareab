@@ -1,9 +1,9 @@
 import { Prisma } from "~~/app/generated/prisma/client";
 import { prisma } from "~~/server/utils/prisma";
 import { requireRole } from "~~/server/utils/auth";
-import { isWalkInCustomerEmail } from "~~/server/utils/walkInCustomer";
 import type { Role } from "~~/shared/types/enums";
-import { syncUserRichMenu } from "~~/server/utils/line-messaging";
+import { normalizeThaiPhoneNumber } from "~~/shared/utils/phone";
+import { isInternalCustomerEmail } from "~~/server/utils/customerAccount";
 
 type UpdateUserBody = {
   email?: string;
@@ -30,6 +30,7 @@ export default defineEventHandler(async (event) => {
     email?: string;
     name?: string | null;
     phoneNumber?: string | null;
+    normalizedPhoneNumber?: string | null;
     role?: Role;
     emailVerified?: boolean;
     isActive?: boolean;
@@ -37,10 +38,11 @@ export default defineEventHandler(async (event) => {
 
   if (body.email !== undefined) {
     const email = body.email.trim().toLowerCase();
-    if (!email || !EMAIL_REGEX.test(email)) {
+    if (!email || !EMAIL_REGEX.test(email) || isInternalCustomerEmail(email)) {
       throw createError({ statusCode: 400, statusMessage: "Invalid email" });
     }
     payload.email = email;
+    payload.emailVerified = false;
   }
 
   if (body.role !== undefined) {
@@ -56,9 +58,13 @@ export default defineEventHandler(async (event) => {
 
   if (body.phoneNumber !== undefined) {
     payload.phoneNumber = body.phoneNumber?.trim() || null;
+    payload.normalizedPhoneNumber = payload.phoneNumber ? normalizeThaiPhoneNumber(payload.phoneNumber) : null;
+    if (payload.phoneNumber && !payload.normalizedPhoneNumber) {
+      throw createError({ statusCode: 400, statusMessage: "Invalid phone number" });
+    }
   }
 
-  if (body.emailVerified !== undefined) {
+  if (body.emailVerified !== undefined && body.email === undefined) {
     payload.emailVerified = body.emailVerified;
   }
 
@@ -69,18 +75,14 @@ export default defineEventHandler(async (event) => {
   try {
     const existing = await prisma.user.findFirst({
       where: { id, deletedAt: null },
-      select: { id: true, email: true, role: true },
+      select: { id: true, email: true, role: true, customerAccountStatus: true },
     });
     if (!existing) {
       throw createError({ statusCode: 404, statusMessage: "User not found" });
     }
-    if (isWalkInCustomerEmail(existing.email)) {
-      throw createError({
-        statusCode: 400,
-        statusMessage: "Cannot edit system default user",
-      });
+    if (existing.customerAccountStatus === "OFFLINE" && payload.role && payload.role !== "USER") {
+      throw createError({ statusCode: 409, statusMessage: "ต้องเปิดใช้งานบัญชีลูกค้าก่อนเปลี่ยนเป็นพนักงาน" });
     }
-
     const isRoleChanged = payload.role !== undefined && payload.role !== existing.role;
     const isDeactivated = body.isActive === false;
 
@@ -114,12 +116,6 @@ export default defineEventHandler(async (event) => {
         sessionsRevoked,
       };
     });
-
-    if (isRoleChanged || isDeactivated) {
-      void syncUserRichMenu(id).catch((err) =>
-        console.error(`[PUT /api/admin/users/:id] Failed to sync rich menu:`, err),
-      );
-    }
 
     return result;
   } catch (error) {

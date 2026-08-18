@@ -1,45 +1,73 @@
-import { prisma } from "~~/server/utils/prisma";
+import { prisma } from '~~/server/utils/prisma'
+import { requireRole } from '~~/server/utils/auth'
+import { parseDateRange } from '~~/server/utils/csv'
+import type { DashboardCashflowPoint } from '~~/shared/types/expense'
 
+export default defineEventHandler(async (event): Promise<DashboardCashflowPoint[]> => {
+  await requireRole(event, ['ADMIN', 'EMPLOYEE'])
 
-export default defineEventHandler(async (event) => {
-  await requireRole(event, ["ADMIN", "EMPLOYEE"]);
+  const query = getQuery(event)
+  const { from, to } = parseDateRange(query.from, query.to)
 
-  const query = getQuery(event);
-  const { from, to } = parseDateRange(query.from, query.to);
-
-  const payments = await prisma.paymentRecord.findMany({
-    where: {
-      deletedAt: null,
-      createdAt: { gte: from, lte: to },
-    },
-    select: { amount: true, createdAt: true },
-    orderBy: { createdAt: "asc" },
-  });
+  const [payments, expenses] = await Promise.all([
+    prisma.paymentRecord.findMany({
+      where: {
+        deletedAt: null,
+        status: 'PAID',
+        paidAt: { gte: from, lte: to },
+      },
+      select: { amount: true, paidAt: true },
+      orderBy: { paidAt: 'asc' },
+    }),
+    prisma.expense.findMany({
+      where: {
+        deletedAt: null,
+        expenseAt: { gte: from, lte: to },
+      },
+      select: { amount: true, expenseAt: true },
+      orderBy: { expenseAt: 'asc' },
+    }),
+  ])
 
   // Bucket by day (Bangkok UTC+7 = offset 7*3600*1000)
-  const BKK_OFFSET = 7 * 60 * 60 * 1000;
+  const BKK_OFFSET = 7 * 60 * 60 * 1000
 
-  const buckets = new Map<string, number>();
-
+  const incomeBuckets = new Map<string, number>()
   for (const p of payments) {
-    const localMs = p.createdAt.getTime() + BKK_OFFSET;
-    const localDate = new Date(localMs);
-    const key = `${localDate.getUTCFullYear()}-${String(localDate.getUTCMonth() + 1).padStart(2, "0")}-${String(localDate.getUTCDate()).padStart(2, "0")}`;
-    buckets.set(key, (buckets.get(key) ?? 0) + Number(p.amount));
+    if (!p.paidAt) continue
+    const localMs = p.paidAt.getTime() + BKK_OFFSET
+    const localDate = new Date(localMs)
+    const key = `${localDate.getUTCFullYear()}-${String(localDate.getUTCMonth() + 1).padStart(2, '0')}-${String(localDate.getUTCDate()).padStart(2, '0')}`
+    incomeBuckets.set(key, (incomeBuckets.get(key) ?? 0) + Number(p.amount))
+  }
+
+  const expenseBuckets = new Map<string, number>()
+  for (const e of expenses) {
+    const localMs = e.expenseAt.getTime() + BKK_OFFSET
+    const localDate = new Date(localMs)
+    const key = `${localDate.getUTCFullYear()}-${String(localDate.getUTCMonth() + 1).padStart(2, '0')}-${String(localDate.getUTCDate()).padStart(2, '0')}`
+    expenseBuckets.set(key, (expenseBuckets.get(key) ?? 0) + Number(e.amount))
   }
 
   // Fill all days in range
-  const result: { date: string; amount: number }[] = [];
-  const cursor = new Date(from.getTime() + BKK_OFFSET);
-  cursor.setUTCHours(0, 0, 0, 0);
-  const endLocal = new Date(to.getTime() + BKK_OFFSET);
-  endLocal.setUTCHours(0, 0, 0, 0);
+  const result: DashboardCashflowPoint[] = []
+  const cursor = new Date(from.getTime() + BKK_OFFSET)
+  cursor.setUTCHours(0, 0, 0, 0)
+  const endLocal = new Date(to.getTime() + BKK_OFFSET)
+  endLocal.setUTCHours(0, 0, 0, 0)
 
   while (cursor <= endLocal) {
-    const key = `${cursor.getUTCFullYear()}-${String(cursor.getUTCMonth() + 1).padStart(2, "0")}-${String(cursor.getUTCDate()).padStart(2, "0")}`;
-    result.push({ date: key, amount: buckets.get(key) ?? 0 });
-    cursor.setUTCDate(cursor.getUTCDate() + 1);
+    const key = `${cursor.getUTCFullYear()}-${String(cursor.getUTCMonth() + 1).padStart(2, '0')}-${String(cursor.getUTCDate()).padStart(2, '0')}`
+    const income = incomeBuckets.get(key) ?? 0
+    const expense = expenseBuckets.get(key) ?? 0
+    result.push({
+      date: key,
+      income,
+      expense,
+      net: income - expense,
+    })
+    cursor.setUTCDate(cursor.getUTCDate() + 1)
   }
 
-  return result;
-});
+  return result
+})

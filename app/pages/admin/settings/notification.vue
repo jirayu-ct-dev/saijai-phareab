@@ -397,7 +397,7 @@ const roleLabel = (role: "ADMIN" | "EMPLOYEE" | "USER") =>
               </div>
             </div>
 
-            <div class="grid grid-cols-1 gap-3 border-t border-default pt-2 md:grid-cols-3">
+            <div class="grid grid-cols-1 gap-3 border-t border-default pt-2 md:grid-cols-2">
               <div class="flex items-center justify-between">
                 <span class="text-sm">ออเดอร์ใหม่</span>
                 <USwitch
