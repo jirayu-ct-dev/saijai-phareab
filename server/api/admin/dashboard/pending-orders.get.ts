@@ -17,9 +17,6 @@ export default defineEventHandler(async (event) => {
       status: true,
       createdAt: true,
       dueAt: true,
-      isWalkIn: true,
-      walkInName: true,
-      walkInPhone: true,
       customer: {
         select: {
           id: true,
@@ -37,15 +34,13 @@ export default defineEventHandler(async (event) => {
   });
 
   return orders.map((order) => {
-    const customer = order.isWalkIn
-      ? { id: order.customer?.id ?? null, name: order.walkInName ?? "ลูกค้าทั่วไป", phoneNumber: order.walkInPhone, image: null, lineUserId: null }
-      : {
-          id: order.customer?.id ?? null,
-          name: order.customer?.name ?? "-",
-          phoneNumber: order.customer?.phoneNumber ?? null,
-          image: order.customer?.image ?? null,
-          lineUserId: order.customer?.accounts?.[0]?.accountId ?? null,
-        };
+    const customer = {
+      id: order.customer.id,
+      name: order.customer.name ?? "-",
+      phoneNumber: order.customer.phoneNumber,
+      image: order.customer.image,
+      lineUserId: order.customer.accounts[0]?.accountId ?? null,
+    };
 
     return {
       id: order.id,

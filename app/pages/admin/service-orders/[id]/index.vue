@@ -15,10 +15,7 @@ type ServiceOrderDetailResponse = {
   id: string;
   orderNo: string | null;
   status: ServiceOrderStatus;
-  isWalkIn: boolean;
   hasDelivery: boolean;
-  walkInName: string | null;
-  walkInPhone: string | null;
   creditUsed: number | null;
   note: string | null;
   receivedAt: string;
@@ -33,7 +30,7 @@ type ServiceOrderDetailResponse = {
   image: { id: string; secureUrl: string | null; url: string | null } | null;
   deliveryImage: { id: string; secureUrl: string | null; url: string | null } | null;
   hangerCharge: { count: number; pricePerUnit: number; total: number } | null;
-  customer: { id: string; name: string | null; email: string; phoneNumber: string | null; image: string | null };
+  customer: { id: string; name: string | null; email: string | null; phoneNumber: string | null; image: string | null; customerAccountStatus?: "OFFLINE" | "ACTIVE" };
   employee: { id: string; name: string | null; email: string } | null;
   memberEntitlement: {
     id: string;
@@ -234,9 +231,9 @@ const customerRows = computed<InfoRow[]>(() => {
 
   return [
     { label: "ชื่อลูกค้า", value: order.value.customer.name || "-" },
-    { label: "อีเมล", value: order.value.customer.email, valueClass: "break-all" },
+    { label: "อีเมล", value: customerEmailLabel(order.value.customer.email), valueClass: "break-all" },
     { label: "เบอร์โทร", value: order.value.customer.phoneNumber || "-" },
-    { label: "ประเภทลูกค้า", value: order.value.isWalkIn ? "ลูกค้าหน้าร้าน" : "สมาชิก/ลูกค้าในระบบ" },
+    { label: "ประเภทลูกค้า", value: order.value.customer.customerAccountStatus === "OFFLINE" ? "ยังไม่เปิดใช้งานบัญชี" : "ลูกค้าในระบบ" },
     { label: "ผู้รับงาน", value: order.value.employee?.name || order.value.employee?.email || "-" },
     { label: "หมายเหตุ", value: order.value.note || "-", valueClass: "whitespace-pre-line" },
   ];
@@ -646,7 +643,7 @@ const isFirstPickupResponseEvent = (event: NonNullable<ServiceOrderDetailRespons
                     {{ order.customer.name || order.customer.email || "-" }}
                   </button>
                   <UBadge color="neutral" variant="soft" size="xs">
-                    {{ order.isWalkIn ? "ลูกค้าหน้าร้าน" : "ลูกค้าในระบบ" }}
+                    {{ order.customer.customerAccountStatus === "OFFLINE" ? "ยังไม่เปิดใช้งานบัญชี" : "ลูกค้าในระบบ" }}
                   </UBadge>
                 </div>
                 <div class="flex items-center gap-1">

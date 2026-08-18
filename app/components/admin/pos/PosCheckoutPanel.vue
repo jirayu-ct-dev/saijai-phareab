@@ -6,6 +6,7 @@ type CustomerOption = {
   name?: string | null;
   email?: string | null;
   phoneNumber?: string | null;
+  customerAccountStatus?: "OFFLINE" | "ACTIVE";
 };
 
 const props = defineProps<{
@@ -14,10 +15,11 @@ const props = defineProps<{
   customerId: string;
   customerOptions: CustomerOption[];
   customerLoading?: boolean;
-  allowWalkIn?: boolean;
-  isWalkIn?: boolean;
-  walkInName?: string;
-  walkInPhone?: string;
+  allowNewCustomer?: boolean;
+  customerMode?: "existing" | "new";
+  newCustomerName?: string;
+  newCustomerPhone?: string;
+  newCustomerEmail?: string;
   note: string;
   totalLabel: string;
   totalValue: string;
@@ -34,9 +36,11 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   "update:customerId": [value: string];
-  "update:isWalkIn": [value: boolean];
-  "update:walkInName": [value: string];
-  "update:walkInPhone": [value: string];
+  "update:customerMode": [value: "existing" | "new"];
+  "update:newCustomerName": [value: string];
+  "update:newCustomerPhone": [value: string];
+  "update:newCustomerEmail": [value: string];
+  "search-customer": [value: string];
   "update:note": [value: string];
   "update:slipFile": [value: File | null];
   "remove-slip": [];
@@ -44,15 +48,15 @@ const emit = defineEmits<{
   reset: [];
 }>();
 
-const customerModeOptions: Array<{ label: string; value: "member" | "walk-in" }> = [
-  { label: "เลือกลูกค้าในระบบ", value: "member" },
-  { label: "ลูกค้าหน้าร้าน", value: "walk-in" },
+const customerModeOptions: Array<{ label: string; value: "existing" | "new" }> = [
+  { label: "เลือกลูกค้าเดิม", value: "existing" },
+  { label: "เพิ่มลูกค้าใหม่", value: "new" },
 ];
 
 const selectedCustomer = computed(() => props.customerOptions.find((item) => item.value === props.customerId) ?? null);
-const customerMode = computed({
-  get: () => (props.isWalkIn ? "walk-in" : "member"),
-  set: (value: "member" | "walk-in") => emit("update:isWalkIn", value === "walk-in"),
+const selectedMode = computed({
+  get: () => props.customerMode ?? "existing",
+  set: (value: "existing" | "new") => emit("update:customerMode", value),
 });
 
 const getAvatarProps = (customer?: CustomerOption | null) => ({
@@ -108,42 +112,46 @@ const panelSectionClass = computed(() =>
 
     <div :class="panelContentClass">
       <div :class="props.flat ? panelSectionClass : 'space-y-3'">
-        <div v-if="props.allowWalkIn" class="space-y-3">
+        <div v-if="props.allowNewCustomer" class="space-y-3">
           <UFormField label="ประเภทลูกค้า">
-            <URadioGroup v-model="customerMode" orientation="horizontal" :items="customerModeOptions" value-key="value" />
+            <URadioGroup v-model="selectedMode" orientation="horizontal" :items="customerModeOptions" value-key="value" />
           </UFormField>
 
-          <div v-if="props.isWalkIn" class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
-            <UFormField label="ชื่อลูกค้าหน้าร้าน">
+          <div v-if="selectedMode === 'new'" class="grid w-full grid-cols-1 gap-4">
+            <UFormField label="ชื่อลูกค้า" required>
               <UInput
-                :model-value="props.walkInName || ''"
+                :model-value="props.newCustomerName || ''"
+                class="w-full"
                 placeholder="เช่น คุณเอ"
-                @update:model-value="emit('update:walkInName', String($event || ''))"
-              >
-                <template #trailing>
-                  <UBadge
-                    label="ไม่ระบุ"
-                    color="neutral"
-                    variant="subtle"
-                    size="xs"
-                    class="cursor-pointer"
-                    @click="emit('update:walkInName', 'ไม่ระบุ')"
-                  />
-                </template>
-              </UInput>
+                @update:model-value="emit('update:newCustomerName', String($event || ''))"
+              />
             </UFormField>
 
-            <UFormField label="เบอร์โทร">
+            <UFormField label="เบอร์โทร" required>
               <UInput
-                :model-value="props.walkInPhone || ''"
+                :model-value="props.newCustomerPhone || ''"
+                class="w-full"
                 placeholder="เช่น 08xxxxxxxx"
-                @update:model-value="emit('update:walkInPhone', String($event || ''))"
+                inputmode="tel"
+                @update:model-value="emit('update:newCustomerPhone', String($event || ''))"
               />
+            </UFormField>
+
+            <UFormField label="อีเมล (ถ้ามี)">
+              <UInput
+                :model-value="props.newCustomerEmail || ''"
+                class="w-full"
+                type="email"
+                placeholder="customer@example.com"
+                autocomplete="off"
+                @update:model-value="emit('update:newCustomerEmail', String($event || ''))"
+              />
+              <template #help>ลูกค้าต้องเปิดใช้งานบัญชีก่อนเข้าสู่ระบบ</template>
             </UFormField>
           </div>
         </div>
 
-        <UFormField v-if="!props.allowWalkIn || !props.isWalkIn" label="ลูกค้า" required>
+        <UFormField v-if="!props.allowNewCustomer || selectedMode === 'existing'" label="ลูกค้า" required>
           <USelectMenu
             :model-value="props.customerId"
             :items="props.customerOptions"
@@ -153,15 +161,19 @@ const panelSectionClass = computed(() =>
             :loading="props.customerLoading"
             :avatar="getAvatarProps(selectedCustomer)"
             class="w-full"
+            @update:search-term="emit('search-customer', String($event || ''))"
             @update:model-value="emit('update:customerId', String($event || ''))"
           >
             <template #item="{ item }">
               <div class="flex items-center gap-3">
                 <UAvatar v-bind="getAvatarProps(item)" size="sm" />
                 <div class="min-w-0">
-                  <p class="truncate font-medium text-highlighted">{{ item.name || item.email }}</p>
+                  <div class="flex min-w-0 items-center gap-2">
+                    <p class="truncate font-medium text-highlighted">{{ item.name || item.email || 'ไม่ระบุชื่อ' }}</p>
+                    <UBadge v-if="item.customerAccountStatus === 'OFFLINE'" label="ยังไม่เปิดใช้งาน" color="warning" variant="subtle" size="xs" />
+                  </div>
                   <p class="truncate text-xs text-muted">
-                    {{ item.phoneNumber ? `${item.phoneNumber} | ` : "" }}{{ item.email }}
+                    {{ item.phoneNumber || "ไม่ระบุเบอร์" }}<template v-if="item.email"> | {{ item.email }}</template>
                   </p>
                 </div>
               </div>

@@ -1,5 +1,4 @@
 import { prisma } from "~~/server/utils/prisma";
-import { getWalkInCustomerEmail } from "~~/server/utils/walkInCustomer";
 
 export default defineEventHandler(async (event) => {
   await requireRole(event, ["ADMIN", "EMPLOYEE"]);
@@ -41,7 +40,6 @@ export default defineEventHandler(async (event) => {
       where: {
         deletedAt: null,
         role: "USER",
-        email: { not: getWalkInCustomerEmail() },
         createdAt: { gte: from, lte: to },
       },
     }),
@@ -49,7 +47,6 @@ export default defineEventHandler(async (event) => {
       where: {
         deletedAt: null,
         role: "USER",
-        email: { not: getWalkInCustomerEmail() },
         createdAt: { gte: prevFrom, lte: prevTo },
       },
     }),

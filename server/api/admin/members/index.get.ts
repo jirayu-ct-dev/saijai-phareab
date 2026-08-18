@@ -1,6 +1,6 @@
 import { prisma } from "~~/server/utils/prisma";
 import { requireRole } from "~~/server/utils/auth";
-import { getWalkInCustomerEmail } from "~~/server/utils/walkInCustomer";
+import { isInternalCustomerEmail } from "~~/server/utils/customerAccount";
 
 export default defineEventHandler(async (event) => {
   requireRole(event, ["ADMIN"]);
@@ -15,7 +15,6 @@ export default defineEventHandler(async (event) => {
   const users = await prisma.user.findMany({
     where: {
       deletedAt: null,
-      email: { not: getWalkInCustomerEmail() },
       memberEntitlements: { some: { deletedAt: null } },
       ...(search
         ? {
@@ -74,7 +73,7 @@ export default defineEventHandler(async (event) => {
 
     return {
       id: u.id,
-      email: u.email,
+      email: isInternalCustomerEmail(u.email) ? null : u.email,
       name: u.name,
       image: u.image,
       phoneNumber: u.phoneNumber,

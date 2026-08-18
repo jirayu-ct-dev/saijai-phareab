@@ -138,7 +138,6 @@ export async function reconcilePickupConfirmation(serviceOrderId: string, now: D
   if (!order) return { action: "NOT_FOUND" as const };
 
   const eligible = isPickupConfirmationEligible({
-    isWalkIn: order.isWalkIn,
     deletedAt: order.deletedAt,
     status: order.status,
     hasDeliveryUsage: order.addonUsageRecords.length > 0,
@@ -370,7 +369,6 @@ export async function reschedulePendingPickupNotifications(now: Date = new Date(
   const futureOrders = await prisma.serviceOrder.findMany({
     where: {
       deletedAt: null,
-      isWalkIn: false,
       status: { in: ["RECEIVED", "PROCESSING", "DELIVERING"] },
       dueAt: { gt: now },
       addonUsageRecords: { some: { isDelivery: true, credits: { gt: 0 }, refundedAt: null } },

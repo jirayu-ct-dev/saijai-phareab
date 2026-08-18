@@ -37,9 +37,6 @@ export interface ServiceOrder extends Timestamps, SoftDeletable {
   customerId: string;
   employeeId: string | null;
   status: ServiceOrderStatus;
-  isWalkIn: boolean;
-  walkInName: string | null;
-  walkInPhone: string | null;
   memberEntitlementId: string | null;
   creditUsed: number | null;
   hangerCharge: HangerCharge | null;

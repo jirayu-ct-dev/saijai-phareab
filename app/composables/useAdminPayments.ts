@@ -24,7 +24,7 @@ export type AdminPaymentRecord = {
   customer: {
     id: string;
     name: string | null;
-    email: string;
+    email: string | null;
     phoneNumber: string | null;
     image: string | null;
   };
@@ -48,9 +48,6 @@ export type AdminPaymentRecord = {
   serviceOrder: {
     id: string | null;
     orderNo: string | null;
-    isWalkIn?: boolean;
-    walkInName?: string | null;
-    walkInPhone?: string | null;
     itemCount: number;
     creditUsed?: number;
     memberEntitlementId?: string | null;

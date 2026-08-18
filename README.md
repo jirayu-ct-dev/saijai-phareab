@@ -79,6 +79,12 @@ pnpm exec prisma db seed
 
 ไฟล์ `prisma/seed-full.ts` มีไว้สำหรับชุดข้อมูล demo ขนาดใหญ่ ไม่ควรรันกับฐานข้อมูลร่วมกันหรือ production โดยไม่ตรวจสอบก่อน
 
+### Migration ลูกค้าหน้าร้านแบบนำกลับมาใช้ซ้ำ
+
+ก่อน deploy migration `20260818010000_remove_walk_in_orders` ต้องสำรองฐานข้อมูลและตรวจด้วยตนเองว่าไม่มีออเดอร์เดิมที่ใช้ `isWalkIn`, ไม่มีเอกสารหรือการชำระเงินที่ยังต้องอ้างถึง `walkin@saijai.local` และลบบัญชีกลางดังกล่าวแล้ว Migration จะหยุดโดยตั้งใจหากยังพบข้อมูลเหล่านี้ และจะไม่ลบหรือเดาเจ้าของข้อมูลแทนผู้ดูแลระบบ
+
+ควรทดลอง migration chain กับฐานข้อมูล disposable ที่เป็นสำเนาโครงสร้าง/ข้อมูลก่อน production แล้วจึงรัน `pnpm exec prisma migrate deploy` กับฐานข้อมูลจริง ห้ามใช้ `db push` ข้าม precondition นี้
+
 ### 4. รัน development server
 
 ```bash

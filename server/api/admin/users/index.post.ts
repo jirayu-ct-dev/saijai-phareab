@@ -2,6 +2,8 @@ import { Prisma } from "~~/app/generated/prisma/client";
 import { prisma } from "~~/server/utils/prisma";
 import { requireRole } from "~~/server/utils/auth";
 import type { Role } from "~~/shared/types/enums";
+import { normalizeThaiPhoneNumber } from "~~/shared/utils/phone";
+import { isInternalCustomerEmail } from "~~/server/utils/customerAccount";
 
 type CreateUserBody = {
   email?: string;
@@ -20,9 +22,14 @@ export default defineEventHandler(async (event) => {
 
   const body = await readBody<CreateUserBody>(event);
   const email = body.email?.trim().toLowerCase();
+  const phoneNumber = body.phoneNumber?.trim() || null;
+  const normalizedPhoneNumber = phoneNumber ? normalizeThaiPhoneNumber(phoneNumber) : null;
 
-  if (!email || !EMAIL_REGEX.test(email)) {
+  if (!email || !EMAIL_REGEX.test(email) || isInternalCustomerEmail(email)) {
     throw createError({ statusCode: 400, statusMessage: "Invalid email" });
+  }
+  if (phoneNumber && !normalizedPhoneNumber) {
+    throw createError({ statusCode: 400, statusMessage: "Invalid phone number" });
   }
 
   if (body.role && !ALLOWED_ROLES.includes(body.role)) {
@@ -41,7 +48,8 @@ export default defineEventHandler(async (event) => {
       data: {
         email,
         name: body.name?.trim() || null,
-        phoneNumber: body.phoneNumber?.trim() || null,
+        phoneNumber,
+        normalizedPhoneNumber,
         role: body.role ?? "USER",
         emailVerified: body.emailVerified ?? false,
         ...(hashedPassword

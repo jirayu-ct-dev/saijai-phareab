@@ -1,6 +1,7 @@
 import { prisma } from "~~/server/utils/prisma";
 import { requireRole } from "~~/server/utils/auth";
 import { buildCsv, formatBangkokDateTag, formatBangkokDateTime, parseDateRange, sendCsv } from "~~/server/utils/csv";
+import { isInternalCustomerEmail } from "~~/server/utils/customerAccount";
 
 const statusLabel: Record<string, string> = {
   ACTIVE: "ใช้งานได้",
@@ -35,7 +36,7 @@ export default defineEventHandler(async (event) => {
 
   const rows = ents.map((e) => ({
     "ลูกค้า": e.customer.name ?? "",
-    "อีเมล": e.customer.email,
+    "อีเมล": isInternalCustomerEmail(e.customer.email) ? "" : e.customer.email,
     "เบอร์": e.customer.phoneNumber ?? "",
     "แพ็กเกจ": e.product.name,
     "ประเภท": e.product.packageType === "MAIN" ? "แพ็กเกจหลัก" : "แพ็กเกจเสริม",

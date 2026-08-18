@@ -1,5 +1,6 @@
 import { prisma } from "~~/server/utils/prisma";
 import { requireRole } from "~~/server/utils/auth";
+import { isInternalCustomerEmail } from "~~/server/utils/customerAccount";
 
 export default defineEventHandler(async (event) => {
   await requireRole(event, ["EMPLOYEE", "ADMIN"]);
@@ -60,9 +61,6 @@ export default defineEventHandler(async (event) => {
             id: true,
             orderNo: true,
             quotationNo: true,
-            isWalkIn: true,
-            walkInName: true,
-            walkInPhone: true,
             creditUsed: true,
             memberEntitlementId: true,
             memberEntitlement: {
@@ -89,15 +87,9 @@ export default defineEventHandler(async (event) => {
     });
 
     return rows.map((row) => {
-      const customerName = row.serviceOrder?.isWalkIn
-        ? row.serviceOrder.walkInName || "ลูกค้าหน้าร้าน"
-        : row.user.name;
-      const customerEmail = row.serviceOrder?.isWalkIn
-        ? "ลูกค้าหน้าร้าน"
-        : row.user.email;
-      const customerPhoneNumber = row.serviceOrder?.isWalkIn
-        ? row.serviceOrder.walkInPhone || null
-        : row.user.phoneNumber;
+      const customerName = row.user.name;
+      const customerEmail = isInternalCustomerEmail(row.user.email) ? null : row.user.email;
+      const customerPhoneNumber = row.user.phoneNumber;
 
       const saleMainItem = row.packageSale?.items[0] ?? null;
       const packageProduct = row.memberEntitlement?.product ?? saleMainItem?.product ?? null;
@@ -130,7 +122,7 @@ export default defineEventHandler(async (event) => {
           name: customerName,
           email: customerEmail,
           phoneNumber: customerPhoneNumber,
-          image: row.serviceOrder?.isWalkIn ? null : row.user.image,
+          image: row.user.image,
         },
         packageSale: {
           memberEntitlementId: row.memberEntitlement?.id ?? null,
@@ -146,9 +138,6 @@ export default defineEventHandler(async (event) => {
           ? {
               id: row.serviceOrder.id,
               orderNo: row.serviceOrder.orderNo,
-              isWalkIn: row.serviceOrder.isWalkIn,
-              walkInName: row.serviceOrder.walkInName,
-              walkInPhone: row.serviceOrder.walkInPhone,
               itemCount: row.serviceOrder.serviceOrderItems.length,
               creditUsed: row.serviceOrder.creditUsed ?? 0,
               memberEntitlementId: row.serviceOrder.memberEntitlementId ?? null,

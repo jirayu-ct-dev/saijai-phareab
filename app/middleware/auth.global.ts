@@ -11,6 +11,7 @@ export default defineNuxtRouteMiddleware(async (to) => {
     "/auth/register",
     "/auth/forgot-password",
     "/auth/reset-password",
+    "/auth/claim-customer",
     "/terms",
     "/privacy",
   ];
@@ -53,7 +54,11 @@ export default defineNuxtRouteMiddleware(async (to) => {
     }
   }
 
-  if (!session?.user && import.meta.client) {
+  // A claim token must be consumed before LINE creates or selects another User.
+  // In particular, links are commonly opened inside the LIFF browser, where the
+  // normal auto-login would otherwise run before this public route is handled.
+  const shouldSkipLiffAutoLogin = to.path === "/auth/claim-customer";
+  if (!session?.user && import.meta.client && !shouldSkipLiffAutoLogin) {
     const { ensureLiffSession } = useLiffAuth();
     const liffResult = await ensureLiffSession();
 

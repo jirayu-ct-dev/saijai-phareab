@@ -1,7 +1,6 @@
 import { z } from "zod/v4";
 import { prisma } from "~~/server/utils/prisma";
 import { requireUser } from "~~/server/utils/auth";
-import { isWalkInCustomerEmail } from "~~/server/utils/walkInCustomer";
 
 const schema = z.object({
   password: z.string().min(1),
@@ -10,10 +9,6 @@ const schema = z.object({
 export default defineEventHandler(async (event) => {
   const actor = requireUser(event);
   const body = await readValidatedBody(event, schema.parse);
-
-  if (isWalkInCustomerEmail(actor.email)) {
-    throw createError({ statusCode: 403, statusMessage: "ไม่สามารถลบบัญชีนี้ได้" });
-  }
 
   // Block if this is the last ADMIN
   if (actor.role === "ADMIN") {

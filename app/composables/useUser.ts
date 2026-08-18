@@ -58,7 +58,7 @@ export const useUser = () => {
 
       // Keep redirect ownership here. The login page must not also watch the
       // shared session and start a competing navigation.
-      await redirectByRole(refreshedSession?.user?.role ?? data.user.role);
+      await redirectByRole(refreshedSession?.user?.role ?? (data.user as AppUser).role);
     } catch (error: any) {
       console.error(error);
       notify.error(error.message || "เกิดข้อผิดพลาดในการเข้าสู่ระบบ");

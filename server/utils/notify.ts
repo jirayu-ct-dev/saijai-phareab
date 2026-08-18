@@ -1,47 +1,23 @@
 import { prisma } from "~~/server/utils/prisma";
 import { pushMessage, type LineMessage } from "~~/server/utils/line-messaging";
-import { isWalkInCustomerEmail } from "~~/server/utils/walkInCustomer";
 import type { ServiceOrderStatus } from "~~/shared/types/enums";
 import { formatDate, formatDateTime } from "~~/shared/utils/format";
 
 type CustomerLike = { name?: string | null; email?: string | null; phoneNumber?: string | null } | null | undefined;
 
-type OrderWalkInInfo = {
-  isWalkIn?: boolean | null;
-  walkInName?: string | null;
-  walkInPhone?: string | null;
-  customer?: CustomerLike;
-};
-
-const isWalkInCustomer = (customer: CustomerLike): boolean =>
-  Boolean(customer && isWalkInCustomerEmail(customer.email));
-
-const isWalkInOrder = (order: OrderWalkInInfo | null | undefined): boolean =>
-  Boolean(order?.isWalkIn) || isWalkInCustomer(order?.customer);
+type OrderCustomerInfo = { customer?: CustomerLike };
 
 type ResolvedCustomer = {
   name: string;
   label: string;
   phone: string | null;
-  walkIn: boolean;
 };
 
-const resolveOrderCustomer = (order: OrderWalkInInfo | null | undefined): ResolvedCustomer => {
-  if (isWalkInOrder(order)) {
-    const rawName = order?.walkInName?.trim() || "";
-    const rawPhone = order?.walkInPhone?.trim() || "";
-    const name = rawName || "ไม่ระบุ";
-    return {
-      name: `${name} (ลูกค้าหน้าร้าน)`,
-      label: rawName ? `คุณ ${rawName}` : "ไม่ระบุ (ลูกค้าหน้าร้าน)",
-      phone: rawPhone || null,
-      walkIn: true,
-    };
-  }
+const resolveOrderCustomer = (order: OrderCustomerInfo | null | undefined): ResolvedCustomer => {
   const c = order?.customer;
   const name = c?.name?.trim() || c?.email || "ลูกค้า";
   const phone = c?.phoneNumber?.trim() || null;
-  return { name, label: `คุณ ${name}`, phone, walkIn: false };
+  return { name, label: `คุณ ${name}`, phone };
 };
 
 type ServiceOrderStatusLabels = Record<ServiceOrderStatus, string>;
@@ -356,9 +332,6 @@ const loadServiceOrderForNotify = async (id: string) =>
       updatedAt: true,
       creditUsed: true,
       customerId: true,
-      isWalkIn: true,
-      walkInName: true,
-      walkInPhone: true,
       subtotalAmount: true,
       discountAmount: true,
       totalAmount: true,
@@ -467,11 +440,10 @@ const buildOrderBody = async (params: {
   status: ServiceOrderStatus;
   customerName: string;
   customerPhone?: string | null;
-  isWalkIn?: boolean;
   totalQty: number;
   detailed: boolean;
 }): Promise<FlexBox[]> => {
-  const { order, status, customerName, customerPhone, isWalkIn, totalQty, detailed } = params;
+  const { order, status, customerName, customerPhone, totalQty, detailed } = params;
   const orderNo = order.orderNo || `ORDER-${order.id.slice(-8).toUpperCase()}`;
   const isPackage = Boolean(order.memberEntitlement);
   const rows: FlexBox[] = [
@@ -479,7 +451,6 @@ const buildOrderBody = async (params: {
     kvRow("ชื่อลูกค้า", customerName),
     kvRow("เบอร์โทร", customerPhone || "ไม่ระบุ"),
   ];
-  void isWalkIn;
   rows.push(
     kvRow(
       "รูปแบบบริการ",
@@ -717,7 +688,6 @@ export const notifyServiceOrderCreated = async (params: {
       status: notifyStatus,
       customerName,
       customerPhone: resolved.phone,
-      isWalkIn: resolved.walkIn,
       totalQty,
       detailed: true,
     });
@@ -801,7 +771,6 @@ export const notifyServiceOrderStatusChanged = async (params: {
       status: params.toStatus,
       customerName,
       customerPhone: resolved.phone,
-      isWalkIn: resolved.walkIn,
       totalQty,
       detailed: params.toStatus === "COMPLETED",
     });
@@ -873,9 +842,6 @@ export const notifyReceipt = async (params: { paymentId: string }): Promise<void
           select: {
             id: true,
             orderNo: true,
-            isWalkIn: true,
-            walkInName: true,
-            walkInPhone: true,
             subtotalAmount: true,
             discountAmount: true,
             totalAmount: true,
@@ -925,12 +891,7 @@ export const notifyReceipt = async (params: { paymentId: string }): Promise<void
     const setting = await getNotificationSetting();
     const shopName = await getShopName();
 
-    const resolved = resolveOrderCustomer({
-      isWalkIn: payment.serviceOrder?.isWalkIn ?? false,
-      walkInName: payment.serviceOrder?.walkInName ?? null,
-      walkInPhone: payment.serviceOrder?.walkInPhone ?? null,
-      customer: payment.user,
-    });
+    const resolved = resolveOrderCustomer({ customer: payment.user });
     const customerName = resolved.name;
     const receiptCode = payment.receiptNo || payment.paymentNo || `RC-${payment.id.slice(-8).toUpperCase()}`;
     const totalAmount = Number(payment.amount);
@@ -1103,9 +1064,6 @@ export const notifyQuotationCreated = async (params: { serviceOrderId: string })
         totalAmount: true,
         dueAt: true,
         receivedAt: true,
-        isWalkIn: true,
-        walkInName: true,
-        walkInPhone: true,
         customer: { select: { name: true, email: true, phoneNumber: true } },
         payments: {
           where: { deletedAt: null },

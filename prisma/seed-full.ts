@@ -9,6 +9,7 @@ import {
   mockPricesData,
   mockPackagesData,
 } from "../shared/data/mockPricing.ts";
+import { normalizeThaiPhoneNumber } from "../shared/utils/phone.ts";
 
 config();
 
@@ -91,8 +92,16 @@ async function main() {
   for (const u of userData) {
     await prisma.user.upsert({
       where: { id: u.id },
-      update: { name: u.name, phoneNumber: u.phone },
-      create: { id: u.id, email: u.email, name: u.name, role: u.role, phoneNumber: u.phone, emailVerified: true },
+      update: { name: u.name, phoneNumber: u.phone, normalizedPhoneNumber: normalizeThaiPhoneNumber(u.phone) },
+      create: {
+        id: u.id,
+        email: u.email,
+        name: u.name,
+        role: u.role,
+        phoneNumber: u.phone,
+        normalizedPhoneNumber: normalizeThaiPhoneNumber(u.phone),
+        emailVerified: true,
+      },
     });
 
     // create credential account for email/password login
@@ -313,7 +322,7 @@ async function main() {
     });
   }
 
-  // Order 3: Walk-in ซักพับ (COMPLETED)
+  // Order 3: Customer wash-and-fold order (COMPLETED)
   const order3Id = "seed-order-003";
   await prisma.serviceOrder.upsert({
     where: { id: order3Id },
@@ -324,7 +333,6 @@ async function main() {
       customerId: USERS.customer,
       employeeId: USERS.employee,
       status: "COMPLETED",
-      isWalkIn: false,
       subtotalAmount: baht(75),
       totalAmount: baht(75),
       receivedAt: daysAgo(7),

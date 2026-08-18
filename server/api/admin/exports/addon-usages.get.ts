@@ -1,6 +1,7 @@
 import { prisma } from "~~/server/utils/prisma";
 import { requireRole } from "~~/server/utils/auth";
 import { buildCsv, formatBangkokDateTag, formatBangkokDateTime, parseDateRange, sendCsv } from "~~/server/utils/csv";
+import { isInternalCustomerEmail } from "~~/server/utils/customerAccount";
 
 const statusLabel: Record<string, string> = {
   RECEIVED: "รับผ้าแล้ว",
@@ -59,7 +60,7 @@ export default defineEventHandler(async (event) => {
     "เลขรับผ้า": u.serviceOrder.orderNo ?? u.serviceOrder.id,
     "วันที่รับผ้า": formatBangkokDateTime(u.serviceOrder.receivedAt),
     "ลูกค้า": u.serviceOrder.customer.name ?? "",
-    "อีเมล": u.serviceOrder.customer.email,
+    "อีเมล": isInternalCustomerEmail(u.serviceOrder.customer.email) ? "" : u.serviceOrder.customer.email,
     "เบอร์": u.serviceOrder.customer.phoneNumber ?? "",
     "สถานะงาน": statusLabel[u.serviceOrder.status] ?? u.serviceOrder.status,
     "แพ็กเกจหลัก": u.serviceOrder.memberEntitlement?.product.name ?? u.memberEntitlement?.product.name ?? "",

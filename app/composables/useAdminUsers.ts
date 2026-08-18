@@ -12,13 +12,14 @@ export type AdminUserMemberEntitlement = {
 
 export type AdminUser = {
   id: string;
-  email: string;
+  email: string | null;
   name: string | null;
   image?: string | null;
   lineUserId?: string | null;
   role: Role;
   phoneNumber: string | null;
   emailVerified: boolean;
+  customerAccountStatus?: "OFFLINE" | "ACTIVE";
   isActive: boolean;
   createdAt: string | Date;
   updatedAt: string | Date;

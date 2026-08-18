@@ -1,5 +1,6 @@
 import { requireRole } from "~~/server/utils/auth";
 import { prisma } from "~~/server/utils/prisma";
+import { isInternalCustomerEmail } from "~~/server/utils/customerAccount";
 
 const toNumber = (value: unknown) => Number(value ?? 0);
 
@@ -24,6 +25,7 @@ export default defineEventHandler(async (event) => {
           email: true,
           phoneNumber: true,
           image: true,
+          customerAccountStatus: true,
         },
       },
       employee: {
@@ -143,9 +145,7 @@ export default defineEventHandler(async (event) => {
   }
 
   const now = new Date();
-  const activeEntitlements = serviceOrder.isWalkIn
-    ? []
-    : await prisma.memberEntitlement.findMany({
+  const activeEntitlements = await prisma.memberEntitlement.findMany({
         where: {
           customerId: serviceOrder.customerId,
           deletedAt: null,
@@ -178,9 +178,6 @@ export default defineEventHandler(async (event) => {
     id: serviceOrder.id,
     orderNo: serviceOrder.orderNo,
     status: serviceOrder.status,
-    isWalkIn: serviceOrder.isWalkIn,
-    walkInName: serviceOrder.walkInName,
-    walkInPhone: serviceOrder.walkInPhone,
     creditUsed: serviceOrder.creditUsed,
     note: serviceOrder.note,
     receivedAt: serviceOrder.receivedAt.toISOString(),
@@ -215,10 +212,11 @@ export default defineEventHandler(async (event) => {
       : null,
     customer: {
       id: serviceOrder.customer.id,
-      name: serviceOrder.isWalkIn ? serviceOrder.walkInName || "ลูกค้าหน้าร้าน" : serviceOrder.customer.name,
-      email: serviceOrder.isWalkIn ? "ลูกค้าหน้าร้าน" : serviceOrder.customer.email,
-      phoneNumber: serviceOrder.isWalkIn ? serviceOrder.walkInPhone : serviceOrder.customer.phoneNumber,
-      image: serviceOrder.isWalkIn ? null : serviceOrder.customer.image,
+      name: serviceOrder.customer.name,
+      email: isInternalCustomerEmail(serviceOrder.customer.email) ? null : serviceOrder.customer.email,
+      phoneNumber: serviceOrder.customer.phoneNumber,
+      image: serviceOrder.customer.image,
+      customerAccountStatus: serviceOrder.customer.customerAccountStatus,
     },
     hasDelivery: serviceOrder.addonUsageRecords.some((usage) => usage.isDelivery),
     pickupConfirmation: serviceOrder.pickupConfirmation

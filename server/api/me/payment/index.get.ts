@@ -28,7 +28,7 @@ export default defineEventHandler(async (event) => {
         },
         serviceOrder: {
           select: {
-            id: true, orderNo: true, quotationNo: true, isWalkIn: true, walkInName: true, walkInPhone: true, creditUsed: true, memberEntitlementId: true,
+            id: true, orderNo: true, quotationNo: true, creditUsed: true, memberEntitlementId: true,
             memberEntitlement: { select: { id: true, product: { select: { id: true, name: true } } } },
             serviceOrderItems: { where: { deletedAt: null }, select: { id: true } },
           },
@@ -68,8 +68,7 @@ export default defineEventHandler(async (event) => {
           validityDays: packageProduct?.validityDays ?? null, items: packageSaleItems,
         },
         serviceOrder: row.serviceOrder ? {
-          id: row.serviceOrder.id, orderNo: row.serviceOrder.orderNo, isWalkIn: row.serviceOrder.isWalkIn,
-          walkInName: row.serviceOrder.walkInName, walkInPhone: row.serviceOrder.walkInPhone,
+          id: row.serviceOrder.id, orderNo: row.serviceOrder.orderNo,
           itemCount: row.serviceOrder.serviceOrderItems.length, creditUsed: row.serviceOrder.creditUsed ?? 0,
           memberEntitlementId: row.serviceOrder.memberEntitlementId ?? null,
           memberProductName: row.serviceOrder.memberEntitlement?.product.name ?? null,

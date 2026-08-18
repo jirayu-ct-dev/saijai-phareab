@@ -1,18 +1,34 @@
 import { prisma } from "~~/server/utils/prisma";
 import { requireRole } from "~~/server/utils/auth";
-import { getWalkInCustomerEmail } from "~~/server/utils/walkInCustomer";
+import { isInternalCustomerEmail } from "~~/server/utils/customerAccount";
+import { z } from "zod";
+import { normalizeThaiPhoneNumber } from "~~/shared/utils/phone";
+
+const querySchema = z.object({
+  q: z.string().trim().max(100).optional().default(""),
+  limit: z.coerce.number().int().min(1).max(50).optional().default(20),
+});
 
 export default defineEventHandler(async (event) => {
   await requireRole(event, ["EMPLOYEE", "ADMIN"]);
+  const { q, limit } = await getValidatedQuery(event, querySchema.parse);
+  const normalizedPhoneQuery = q ? normalizeThaiPhoneNumber(q) : null;
 
   try {
     const users = await prisma.user.findMany({
       where: {
         deletedAt: null,
-        email: {
-          not: getWalkInCustomerEmail(),
-        },
-        // role: "USER",
+        role: "USER",
+        ...(q
+          ? {
+              OR: [
+                { name: { contains: q, mode: "insensitive" as const } },
+                { phoneNumber: { contains: q } },
+                ...(normalizedPhoneQuery ? [{ normalizedPhoneNumber: { contains: normalizedPhoneQuery } }] : []),
+                { email: { contains: q, mode: "insensitive" as const } },
+              ],
+            }
+          : {}),
       },
       select: {
         id: true,
@@ -20,6 +36,7 @@ export default defineEventHandler(async (event) => {
         email: true,
         phoneNumber: true,
         image: true,
+        customerAccountStatus: true,
         memberEntitlements: {
           where: {
             deletedAt: null,
@@ -51,6 +68,7 @@ export default defineEventHandler(async (event) => {
         { name: "asc" },
         { createdAt: "desc" },
       ],
+      take: limit,
     });
 
     return users.map((user) => {
@@ -61,9 +79,10 @@ export default defineEventHandler(async (event) => {
         id: user.id,
         label: `${user.name || user.email}${user.phoneNumber ? ` (${user.phoneNumber})` : ""}`,
         name: user.name,
-        email: user.email,
+        email: isInternalCustomerEmail(user.email) ? null : user.email,
         phoneNumber: user.phoneNumber,
         image: user.image,
+        customerAccountStatus: user.customerAccountStatus,
         activeMemberEntitlement: activeMemberEntitlement
           ? {
               id: activeMemberEntitlement.id,

@@ -69,7 +69,6 @@ export default defineEventHandler(async (event) => {
         dueAt: row.dueAt?.toISOString() ?? null,
         totalAmount: toNumber(row.totalAmount),
         creditUsed: row.creditUsed,
-        isWalkIn: row.isWalkIn,
         note: row.note,
         items: row.serviceOrderItems.map((item) => ({
           label: item.weightKg != null

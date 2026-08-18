@@ -2,9 +2,11 @@ import type { ServiceOrderStatus } from "~~/shared/types/enums";
 
 export type CreateAdminServiceOrderBody = {
   customerId?: string | null;
-  isWalkIn?: boolean;
-  walkInName?: string | null;
-  walkInPhone?: string | null;
+  newCustomer?: {
+    name: string;
+    phoneNumber: string;
+    email?: string | null;
+  };
   memberEntitlementId?: string | null;
   addonEntitlements?: Array<{ entitlementId: string; credits: number }>;
   orderImageId?: string | null;
@@ -40,15 +42,13 @@ export type CreateAdminServiceOrderResult = {
   id: string;
   orderNo: string | null;
   paymentId: string;
+  activationToken?: string | null;
 };
 
 export type AdminServiceOrder = {
   id: string;
   orderNo: string | null;
   status: ServiceOrderStatus;
-  isWalkIn: boolean;
-  walkInName: string | null;
-  walkInPhone: string | null;
   creditUsed: number | null;
   addonUsages?: Array<{
     id?: string;
@@ -117,9 +117,10 @@ export type AdminServiceOrder = {
   customer: {
     id: string;
     name: string | null;
-    email: string;
+    email: string | null;
     phoneNumber: string | null;
     image: string | null;
+    customerAccountStatus?: "OFFLINE" | "ACTIVE";
   };
   employee: {
     id: string;
@@ -213,6 +214,13 @@ export const useAdminServiceOrders = (options: UseAdminServiceOrdersOptions = {}
     }
   };
 
+  const createServiceOrderOrThrow = async (body: CreateAdminServiceOrderBody): Promise<CreateAdminServiceOrderResult> => {
+    const result = await $fetch<CreateAdminServiceOrderResult>("/api/admin/service-orders", { method: "POST", body });
+    if (refreshAfterMutation) await refresh();
+    notify.created("รายการรับผ้า");
+    return result;
+  };
+
   const updateServiceOrder = async (id: string, body: UpdateAdminServiceOrderBody): Promise<boolean> => {
     try {
       await $fetch(`/api/admin/service-orders/${id}`, { method: "PUT", body });
@@ -269,6 +277,7 @@ export const useAdminServiceOrders = (options: UseAdminServiceOrdersOptions = {}
     isLoading,
     refresh,
     createServiceOrder,
+    createServiceOrderOrThrow,
     updateServiceOrder,
     updateServiceOrderStatus,
     deleteServiceOrder,

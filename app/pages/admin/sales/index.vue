@@ -18,6 +18,7 @@ type CompletedSalePayload = {
   saleType: "PACKAGE" | "STOREFRONT";
   serviceOrderId?: string;
   orderNo?: string | null;
+  activationToken?: string | null;
   title: string;
 };
 
@@ -33,6 +34,7 @@ const latestSaleResult = reactive<CompletedSalePayload>({
   saleType: "PACKAGE",
   serviceOrderId: "",
   orderNo: null,
+  activationToken: null,
   title: "",
 });
 
@@ -72,6 +74,7 @@ const handleCompleted = (payload: CompletedSalePayload) => {
   latestSaleResult.saleType = payload.saleType;
   latestSaleResult.serviceOrderId = payload.serviceOrderId ?? "";
   latestSaleResult.orderNo = payload.orderNo ?? null;
+  latestSaleResult.activationToken = payload.activationToken ?? null;
   latestSaleResult.title = payload.title;
   saleResultModalOpen.value = true;
 };
@@ -154,6 +157,22 @@ const primaryActionLabel = computed(() =>
 const primaryActionIcon = computed(() =>
   latestSaleResult.saleType === "PACKAGE" ? "i-lucide-receipt" : "i-lucide-file-text",
 );
+
+const activationUrl = computed(() => {
+  if (!latestSaleResult.activationToken) return "";
+  const path = `/auth/claim-customer?token=${encodeURIComponent(latestSaleResult.activationToken)}`;
+  return import.meta.client ? `${window.location.origin}${path}` : path;
+});
+
+const copyActivationLink = async () => {
+  if (!activationUrl.value || !import.meta.client) return;
+  try {
+    await navigator.clipboard.writeText(activationUrl.value);
+    useNotify().success("คัดลอกลิงก์เปิดใช้งานแล้ว");
+  } catch {
+    useNotify().error("ไม่สามารถคัดลอกลิงก์ได้ กรุณาลองใหม่");
+  }
+};
 </script>
 
 <template>
@@ -275,6 +294,19 @@ const primaryActionIcon = computed(() =>
           >
             <p class="font-medium text-highlighted">เลขรับผ้า</p>
             <p class="mt-1 break-all font-mono text-xs text-muted">{{ latestSaleResult.orderNo }}</p>
+          </div>
+
+          <div
+            v-if="latestSaleResult.activationToken"
+            class="mt-3 border-t border-default/15 pt-3 dark:border-default/10"
+          >
+            <div class="flex items-start justify-between gap-3">
+              <div class="min-w-0">
+                <p class="font-medium text-highlighted">ลิงก์เปิดใช้งานบัญชีลูกค้า</p>
+                <p class="mt-1 text-xs text-muted">ลิงก์นี้แสดงครั้งเดียว ส่งให้ลูกค้าเพื่อกำหนดอีเมลและรหัสผ่าน</p>
+              </div>
+              <UButton label="คัดลอก" icon="i-lucide-copy" size="xs" color="primary" variant="soft" @click="copyActivationLink" />
+            </div>
           </div>
         </div>
       </template>

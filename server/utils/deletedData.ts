@@ -1,4 +1,5 @@
 import { Prisma } from "~~/app/generated/prisma/client";
+import { isInternalCustomerEmail } from "~~/server/utils/customerAccount";
 
 export const DELETED_DATA_TYPES = [
   "user",
@@ -30,7 +31,6 @@ type Tx = Prisma.TransactionClient;
 type PrismaLike = Tx;
 
 export const HARD_DELETE_CONFIRM_TEXT = "ยืนยันการลบข้อมูล";
-export const WALK_IN_EMAIL = "walkin@saijai.local";
 
 type DeletedDataTypeLabels = Record<DeletedDataType | "all", string>;
 
@@ -55,6 +55,9 @@ const deletedBySelect = {
 
 const toDeletedBy = (value: { id: string; name: string | null; email: string } | null | undefined) =>
   value ? { id: value.id, name: value.name, email: value.email } : null;
+
+const customerIdentityLabel = (value: { name: string | null; email: string }) =>
+  value.name || (isInternalCustomerEmail(value.email) ? "ลูกค้ายังไม่ได้ระบุอีเมล" : value.email);
 
 const createSearch = (search: string | null | undefined) => search?.trim() || "";
 
@@ -153,7 +156,6 @@ export const getDeletedDataItems = async (
   if (types.includes("user")) {
     const where: Prisma.UserWhereInput = {
       deletedAt: { not: null },
-      email: { not: WALK_IN_EMAIL },
       ...(search
         ? {
             OR: [
@@ -184,8 +186,8 @@ export const getDeletedDataItems = async (
       items.push({
         id: row.id,
         type: "user",
-        title: row.name || row.email,
-        description: [row.email, row.phoneNumber].filter(Boolean).join(" | "),
+        title: customerIdentityLabel(row),
+        description: [isInternalCustomerEmail(row.email) ? null : row.email, row.phoneNumber].filter(Boolean).join(" | "),
         deletedAt: row.deletedAt,
         deletedBy: toDeletedBy(row.deletedBy),
         impact: await getDeletedDataImpact(prisma, "user", row.id),
@@ -201,7 +203,6 @@ export const getDeletedDataItems = async (
             OR: [
               { orderNo: createInsensitiveContains(search) },
               { quotationNo: createInsensitiveContains(search) },
-              { walkInName: createInsensitiveContains(search) },
               { customer: { name: createInsensitiveContains(search) } },
               { customer: { email: createInsensitiveContains(search) } },
             ],
@@ -217,8 +218,6 @@ export const getDeletedDataItems = async (
       select: {
         id: true,
         orderNo: true,
-        isWalkIn: true,
-        walkInName: true,
         totalAmount: true,
         deletedAt: true,
         deletedBy: { select: deletedBySelect },
@@ -231,7 +230,7 @@ export const getDeletedDataItems = async (
         id: row.id,
         type: "service_order",
         title: row.orderNo ? `Order #${row.orderNo}` : "รายการรับผ้า",
-        description: `${row.isWalkIn ? row.walkInName || "ลูกค้าหน้าร้าน (walk-in)" : row.customer.name || row.customer.email} | ยอด ${Number(row.totalAmount ?? 0).toLocaleString("th-TH")} บาท`,
+        description: `${customerIdentityLabel(row.customer)} | ยอด ${Number(row.totalAmount ?? 0).toLocaleString("th-TH")} บาท`,
         amount: Number(row.totalAmount ?? 0),
         deletedAt: row.deletedAt,
         deletedBy: toDeletedBy(row.deletedBy),
@@ -272,7 +271,7 @@ export const getDeletedDataItems = async (
       items.push({
         id: row.id,
         type: "package_sale",
-        title: `ขายแพ็กเกจ: ${row.customer.name || row.customer.email}`,
+        title: `ขายแพ็กเกจ: ${customerIdentityLabel(row.customer)}`,
         description: `ยอด ${Number(row.totalAmount).toLocaleString("th-TH")} บาท`,
         amount: Number(row.totalAmount),
         deletedAt: row.deletedAt,
@@ -318,7 +317,7 @@ export const getDeletedDataItems = async (
         id: row.id,
         type: "payment_record",
         title: row.paymentNo || row.receiptNo || "การชำระเงิน",
-        description: `${row.user.name || row.user.email} | ยอด ${Number(row.amount).toLocaleString("th-TH")} บาท`,
+        description: `${customerIdentityLabel(row.user)} | ยอด ${Number(row.amount).toLocaleString("th-TH")} บาท`,
         amount: Number(row.amount),
         deletedAt: row.deletedAt,
         deletedBy: toDeletedBy(row.deletedBy),
@@ -362,7 +361,7 @@ export const getDeletedDataItems = async (
         id: row.id,
         type: "member_entitlement",
         title: row.product.name,
-        description: `${row.customer.name || row.customer.email} | เครดิต ${row.creditRemaining ?? 0}/${row.creditInitial ?? 0}`,
+        description: `${customerIdentityLabel(row.customer)} | เครดิต ${row.creditRemaining ?? 0}/${row.creditInitial ?? 0}`,
         deletedAt: row.deletedAt,
         deletedBy: toDeletedBy(row.deletedBy),
         impact: await getDeletedDataImpact(prisma, "member_entitlement", row.id),
@@ -428,10 +427,6 @@ export const getDeletedDataItems = async (
 
 export const restoreDeletedData = async (tx: Tx, type: DeletedDataType, id: string) => {
   if (type === "user") {
-    const user = await tx.user.findUnique({ where: { id }, select: { email: true } });
-    if (user?.email === WALK_IN_EMAIL) {
-      throw createError({ statusCode: 400, statusMessage: "ไม่สามารถกู้คืนผู้ใช้ระบบหน้าร้านได้" });
-    }
     return tx.user.update({ where: { id }, data: { deletedAt: null, deletedById: null } });
   }
   if (type === "service_order") return tx.serviceOrder.update({ where: { id }, data: { deletedAt: null, deletedById: null } });
@@ -550,10 +545,6 @@ const clearUserReferences = async (tx: Tx, userId: string) => {
 const hardDeleteUser = async (tx: Tx, id: string) => {
   const user = await tx.user.findUnique({ where: { id }, select: { email: true } });
   if (!user) throw createError({ statusCode: 404, statusMessage: "ไม่พบผู้ใช้งาน" });
-  if (user.email === WALK_IN_EMAIL) {
-    throw createError({ statusCode: 400, statusMessage: "ห้ามลบผู้ใช้ระบบหน้าร้าน" });
-  }
-
   const [orders, packageSales, entitlements, payments, images] = await Promise.all([
     tx.serviceOrder.findMany({ where: { customerId: id }, select: { id: true } }),
     tx.packageSale.findMany({ where: { customerId: id }, select: { id: true } }),
