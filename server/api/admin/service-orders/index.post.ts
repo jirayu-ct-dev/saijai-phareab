@@ -12,7 +12,6 @@ import { notifyQuotationCreated, notifyServiceOrderCreated, notifyServiceOrderSt
 import { createAddonUsageRecords } from "~~/server/utils/serviceOrderCredits";
 import { isServiceOrderStatus } from "~~/server/utils/serviceOrderStatusTransition";
 import { parseBangkokDateTime } from "~~/shared/utils/pickup";
-import { dispatchPickupInitialFallback, reconcilePickupConfirmation } from "~~/server/utils/pickupConfirmation";
 
 type CreateServiceOrderBody = {
   customerId?: string | null;
@@ -475,7 +474,6 @@ export default defineEventHandler(async (event) => {
       };
     });
 
-    await reconcilePickupConfirmation(created.id);
     if (serviceOrderStatus === "RECEIVED") {
       // Send RECEIVED notification first, then transition to PROCESSING
       await notifyServiceOrderCreated({ serviceOrderId: created.id });
@@ -492,9 +490,6 @@ export default defineEventHandler(async (event) => {
     } else {
       await notifyServiceOrderCreated({ serviceOrderId: created.id, status: serviceOrderStatus });
       await notifyQuotationCreated({ serviceOrderId: created.id });
-      if (serviceOrderStatus === "DELIVERING") {
-        await dispatchPickupInitialFallback(created.id);
-      }
     }
 
     return { ...created, activationToken };

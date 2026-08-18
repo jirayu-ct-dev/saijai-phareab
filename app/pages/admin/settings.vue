@@ -9,7 +9,6 @@ const adminLinks = [
   { label: "จัดการบัญชี", icon: "i-lucide-user-round-cog", to: "/admin/settings/account", exact: true },
   { label: "จัดการพนักงาน", icon: "i-lucide-user-cog", to: "/admin/settings/employee", exact: true },
   { label: "จัดการสมาชิก", icon: "i-lucide-user-star", to: "/admin/settings/member", exact: true },
-  { label: "จัดการ Rich Menu", icon: "i-lucide-menu", to: "/admin/settings/richmenu", exact: true },
   { label: "การแจ้งเตือน", icon: "i-lucide-bell", to: "/admin/settings/notification", exact: true },
   { label: "Export ข้อมูล", icon: "i-lucide-download", to: "/admin/settings/backup", exact: true },
   { label: "ตั้งค่าธุรกิจ", icon: "i-lucide-coins", to: "/admin/settings/billing", exact: true },

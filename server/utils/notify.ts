@@ -71,7 +71,7 @@ const customerSublineFor = (status: ServiceOrderStatus, hasDelivery: boolean): s
 
 const staffSublineFor = (status: ServiceOrderStatus, hasDelivery: boolean): string | null => {
   if (status === "RECEIVED") return "มีออเดอร์ใหม่เข้าระบบ";
-  if (status === "DELIVERING") return hasDelivery ? "ทีมงานออกส่งผ้าแล้ว — รับผ้ารอบถัดไปกลับมาด้วย" : "ผ้าพร้อมให้ลูกค้ามารับ";
+  if (status === "DELIVERING") return hasDelivery ? "ทีมงานออกส่งผ้าแล้ว" : "ผ้าพร้อมให้ลูกค้ามารับ";
   if (status === "COMPLETED") return "ปิดงานเรียบร้อย";
   if (status === "CANCELLED") return "ออเดอร์ถูกยกเลิก";
   return null;

@@ -8,7 +8,6 @@ import { prisma } from "~~/server/utils/prisma";
 import { createAddonUsageRecords, refundAddonUsages, voidPendingAddonUsageRecords } from "~~/server/utils/serviceOrderCredits";
 import { isServiceOrderStatus } from "~~/server/utils/serviceOrderStatusTransition";
 import { parseBangkokDateTime } from "~~/shared/utils/pickup";
-import { dispatchPickupInitialFallback, reconcilePickupConfirmation } from "~~/server/utils/pickupConfirmation";
 
 type UpdateServiceOrderBody = {
   customerId?: string | null;
@@ -554,7 +553,6 @@ export default defineEventHandler(async (event) => {
       }
     });
 
-    await reconcilePickupConfirmation(existing.id);
     if (existing.status !== serviceOrderStatus) {
       const notification = notifyServiceOrderStatusChanged({
         serviceOrderId: existing.id,
@@ -564,10 +562,6 @@ export default defineEventHandler(async (event) => {
       if (serviceOrderStatus === "DELIVERING") await notification;
       else void notification;
     }
-    if (serviceOrderStatus === "DELIVERING") {
-      await dispatchPickupInitialFallback(existing.id);
-    }
-
     return { success: true };
   } catch (error) {
     if (error && typeof error === "object" && "statusCode" in error) {

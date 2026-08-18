@@ -105,13 +105,6 @@ const adminMenu = [
           exact: true,
           onSelect: closeSidebar,
         },
-        // {
-        //   label: "จัดการ Rich Menu",
-        //   icon: "i-lucide-menu",
-        //   to: "/admin/settings/richmenu",
-        //   exact: true,
-        //   onSelect: closeSidebar,
-        // },
         {
           label: "การแจ้งเตือน",
           icon: "i-lucide-bell",

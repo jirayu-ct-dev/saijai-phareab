@@ -1,6 +1,5 @@
 import { requireRole } from "~~/server/utils/auth";
 import { prisma } from "~~/server/utils/prisma";
-import { syncUserRichMenu } from "~~/server/utils/line-messaging";
 
 type CancelPaymentBody = { note?: string | null };
 
@@ -103,12 +102,6 @@ export default defineEventHandler(async (event) => {
       });
     }
   });
-
-  if (existing.packageSale?.customerId) {
-    void syncUserRichMenu(existing.packageSale.customerId).catch((err) => {
-      console.error("[cancel.post] syncUserRichMenu failed", err);
-    });
-  }
 
   return { id: paymentId, status: "CANCELLED" as const };
 });

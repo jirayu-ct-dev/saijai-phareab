@@ -192,8 +192,6 @@ docker compose -f docker-compose.local.yml up --build -d
 
 Browser origin ต้องตรงกันทั้ง protocol, hostname และ port อย่าเปิดหน้าเว็บผ่าน Tunnel หรือ `127.0.0.1` แต่ให้ API ชี้ไป `localhost` เพราะ cookie, CORS และ browser access-control checks จะถือว่าเป็นคนละ origin
 
-คำตอบยืนยันการรับผ้าของลูกค้าดูรวมได้ที่ `/admin/pickup-confirmations` โดยค้นหาและกรองคำตอบ พร้อมโทร เปิดแชท LINE หรือเปิดออเดอร์ต้นทางได้จากตารางเดียว
-
 เข้า [http://localhost:3004](http://localhost:3004) และใช้รหัสผ่าน `password123` กับบัญชีใดบัญชีหนึ่ง
 
 | บทบาท | Email |
@@ -253,7 +251,6 @@ tests/                       Vitest tests ของ domain logic และ share
 - typecheck ปัจจุบันมี baseline errors บางจุดในหน้า member/admin และ server utilities ควรแยก error เดิมออกจาก regression ที่เกิดจากงานใหม่
 - build อาจต้องเชื่อมต่อภายนอกเพื่อดาวน์โหลด Google, Bunny หรือ Fontsource fonts
 - cron แจ้งเตือนแพ็กเกจรันเวลา `02:00 UTC` หรือ `09:00 Asia/Bangkok`
-- task `notify:pickup-confirmations` ตรวจคิวคำยืนยันนัดรับ/ส่งทุก 5 นาที เวลาแจ้งเตือนจริงตั้งค่าจากหน้าแอดมิน ระบบ production ที่ไม่ได้เปิด Nitro scheduled tasks สามารถเรียก `POST /api/admin/cron/pickup-confirmations` พร้อม header `x-cron-secret: <CRON_SECRET>` แทนได้
 - migration `20260522000000_reconcile_schema` เป็น no-op โดยตั้งใจ เพราะเนื้อหาเดิมซ้ำกับ migrations ก่อนหน้า; `20260807000000_sync_current_schema` เติม schema changes ที่เคยขาดจาก migration history
 - repository ยังไม่มี Nginx, TLS หรือ platform-specific infrastructure configuration; production Compose ดูแลเฉพาะ migration และ Node application
 

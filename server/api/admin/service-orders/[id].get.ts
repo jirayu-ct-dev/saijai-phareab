@@ -131,12 +131,6 @@ export default defineEventHandler(async (event) => {
           url: true,
         },
       },
-      pickupConfirmation: {
-        include: {
-          notifications: { orderBy: [{ revision: "desc" }, { kind: "asc" }] },
-          responseEvents: { orderBy: [{ createdAt: "desc" }, { id: "desc" }] },
-        },
-      },
     },
   });
 
@@ -219,35 +213,6 @@ export default defineEventHandler(async (event) => {
       customerAccountStatus: serviceOrder.customer.customerAccountStatus,
     },
     hasDelivery: serviceOrder.addonUsageRecords.some((usage) => usage.isDelivery),
-    pickupConfirmation: serviceOrder.pickupConfirmation
-      ? {
-          id: serviceOrder.pickupConfirmation.id,
-          revision: serviceOrder.pickupConfirmation.revision,
-          status: serviceOrder.pickupConfirmation.status,
-          response: serviceOrder.pickupConfirmation.response,
-          respondedAt: serviceOrder.pickupConfirmation.respondedAt?.toISOString() ?? null,
-          responseCount: serviceOrder.pickupConfirmation.responseCount,
-          notifications: serviceOrder.pickupConfirmation.notifications.map((job) => ({
-            id: job.id,
-            revision: job.revision,
-            kind: job.kind,
-            status: job.status,
-            scheduledFor: job.scheduledFor.toISOString(),
-            sentAt: job.sentAt?.toISOString() ?? null,
-            attempts: job.attempts,
-            lastError: job.lastError,
-          })),
-          responseEvents: serviceOrder.pickupConfirmation.responseEvents.map((responseEvent) => ({
-            id: responseEvent.id,
-            revision: responseEvent.revision,
-            response: responseEvent.response,
-            createdAt: responseEvent.createdAt.toISOString(),
-            staffNotifiedAt: responseEvent.staffNotifiedAt?.toISOString() ?? null,
-            staffNotifyAttempts: responseEvent.staffNotifyAttempts,
-            staffNotifyError: responseEvent.staffNotifyError,
-          })),
-        }
-      : null,
     employee: serviceOrder.employee,
     addonUsages: serviceOrder.addonUsageRecords.map((usage) => ({
       id: usage.id,

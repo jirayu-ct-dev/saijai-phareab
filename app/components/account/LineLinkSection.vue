@@ -37,9 +37,6 @@ onMounted(async () => {
   if (linked === "line") {
     notify.success("เชื่อมบัญชี LINE สำเร็จ");
     await refresh();
-    await $fetch("/api/me/sync-richmenu", { method: "POST" }).catch((err) => {
-      console.error("[LineLinkSection] sync rich menu failed", err);
-    });
     await router.replace({ query: { ...route.query, linked: undefined } });
   }
 });

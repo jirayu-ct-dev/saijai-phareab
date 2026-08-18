@@ -7,7 +7,6 @@ const schema = z.object({
   receiveNewOrder: z.boolean().optional(),
   receiveStatusChange: z.boolean().optional(),
   receiveReceipt: z.boolean().optional(),
-  receivePickupResponse: z.boolean().optional(),
 });
 
 export default defineEventHandler(async (event) => {

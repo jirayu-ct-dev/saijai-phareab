@@ -1,6 +1,5 @@
 import { requireRole } from "~~/server/utils/auth";
 import { prisma } from "~~/server/utils/prisma";
-import { syncUserRichMenu } from "~~/server/utils/line-messaging";
 
 export default defineEventHandler(async (event) => {
   const actor = requireRole(event, ["ADMIN"]);
@@ -105,12 +104,6 @@ export default defineEventHandler(async (event) => {
         });
       }
     });
-
-    if (existing.packageSale?.customerId) {
-      void syncUserRichMenu(existing.packageSale.customerId).catch((err) => {
-        console.error("[DELETE /api/admin/payments/:id] syncUserRichMenu failed", err);
-      });
-    }
 
     return { success: true };
   } catch (error) {

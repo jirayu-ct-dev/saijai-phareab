@@ -39,7 +39,6 @@ export default defineEventHandler(async (event) => {
       receiveNewOrder: sub.receiveNewOrder,
       receiveStatusChange: sub.receiveStatusChange,
       receiveReceipt: sub.receiveReceipt,
-      receivePickupResponse: sub.receivePickupResponse,
       createdAt: sub.createdAt,
       user: {
         id: sub.user.id,

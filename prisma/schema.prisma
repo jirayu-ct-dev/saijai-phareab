@@ -76,34 +76,6 @@ enum PaymentAuditAction {
   UPDATED
 }
 
-enum PickupConfirmationResponse {
-  HOME_PICKUP
-  SELF_DROPOFF
-  SKIP
-  CONTACT_REQUESTED
-}
-
-enum PickupConfirmationStatus {
-  ACTIVE
-  CLOSED
-  CANCELLED
-}
-
-enum PickupNotificationKind {
-  INITIAL
-  REMINDER
-}
-
-enum PickupNotificationStatus {
-  PENDING
-  PROCESSING
-  SENT
-  FAILED
-  UNREACHABLE
-  SKIPPED_TOO_LATE
-  CANCELLED
-}
-
 model User {
   id                    String                @id @default(cuid())
   email                 String                @unique
@@ -464,10 +436,9 @@ model ServiceOrder {
   deletedById                String?
   deletedBy                  User?              @relation("ServiceOrderDeletedBy", fields: [deletedById], references: [id])
 
-  serviceOrderItems  ServiceOrderItem[]
-  addonUsageRecords  ServiceOrderAddonUsage[]
-  payments           PaymentRecord[]
-  pickupConfirmation PickupConfirmation?
+  serviceOrderItems ServiceOrderItem[]
+  addonUsageRecords ServiceOrderAddonUsage[]
+  payments          PaymentRecord[]
 
   @@index([customerId])
   @@index([employeeId])
@@ -671,13 +642,6 @@ model NotificationSetting {
   notifyCustomerReceipt           Boolean  @default(true)
   notifyStaffOnNewOrder           Boolean  @default(true)
   notifyCustomerOnPackageExpiring Boolean  @default(true)
-  pickupConfirmationEnabled       Boolean  @default(true)
-  pickupInitialDaysBefore         Int      @default(1)
-  pickupInitialTime               String   @default("12:15") @db.VarChar(5)
-  pickupReminderEnabled           Boolean  @default(true)
-  pickupReminderDaysBefore        Int      @default(0)
-  pickupReminderTime              String   @default("12:15") @db.VarChar(5)
-  pickupMinimumLeadMinutes        Int      @default(120)
   updatedAt                       DateTime @updatedAt
 
   @@map("notification_setting")
@@ -697,99 +661,17 @@ model PackageExpiryNotification {
 }
 
 model NotificationSubscriber {
-  id                    String   @id @default(cuid())
-  userId                String   @unique
-  user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  isActive              Boolean  @default(true)
-  receiveNewOrder       Boolean  @default(true)
-  receiveStatusChange   Boolean  @default(true)
-  receiveReceipt        Boolean  @default(true)
-  receivePickupResponse Boolean  @default(true)
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
+  id                  String   @id @default(cuid())
+  userId              String   @unique
+  user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  isActive            Boolean  @default(true)
+  receiveNewOrder     Boolean  @default(true)
+  receiveStatusChange Boolean  @default(true)
+  receiveReceipt      Boolean  @default(true)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
 
   @@map("notification_subscriber")
-}
-
-model PickupConfirmation {
-  id             String                      @id @default(cuid())
-  serviceOrderId String                      @unique
-  serviceOrder   ServiceOrder                @relation(fields: [serviceOrderId], references: [id], onDelete: Cascade)
-  revision       Int                         @default(1)
-  status         PickupConfirmationStatus    @default(ACTIVE)
-  response       PickupConfirmationResponse?
-  respondedAt    DateTime?
-  responseCount  Int                         @default(0)
-  dueAtSnapshot  DateTime?
-  closedAt       DateTime?
-  createdAt      DateTime                    @default(now())
-  updatedAt      DateTime                    @updatedAt
-
-  notifications  PickupConfirmationNotification[]
-  responseEvents PickupConfirmationResponseEvent[]
-
-  @@map("pickup_confirmation")
-}
-
-model PickupConfirmationNotification {
-  id                     String                   @id @default(cuid())
-  confirmationId         String
-  confirmation           PickupConfirmation       @relation(fields: [confirmationId], references: [id], onDelete: Cascade)
-  revision               Int
-  kind                   PickupNotificationKind
-  recipientUserId        String
-  scheduledFor           DateTime
-  status                 PickupNotificationStatus @default(PENDING)
-  claimedAt              DateTime?
-  claimExpiresAt         DateTime?
-  sentAt                 DateTime?
-  attempts               Int                      @default(0)
-  manualRetryRequestedAt DateTime?
-  lastError              String?
-  createdAt              DateTime                 @default(now())
-  updatedAt              DateTime                 @updatedAt
-
-  @@unique([confirmationId, revision, kind])
-  @@index([status, scheduledFor])
-  @@index([claimExpiresAt])
-  @@map("pickup_confirmation_notification")
-}
-
-model PickupConfirmationResponseEvent {
-  id                        String                     @id @default(cuid())
-  confirmationId            String
-  confirmation              PickupConfirmation         @relation(fields: [confirmationId], references: [id], onDelete: Cascade)
-  revision                  Int
-  webhookEventId            String                     @unique
-  response                  PickupConfirmationResponse
-  respondedByLineId         String
-  createdAt                 DateTime                   @default(now())
-  staffNotifiedAt           DateTime?
-  staffNotifyAttempts       Int                        @default(0)
-  staffNotifyClaimedAt      DateTime?
-  staffNotifyClaimExpiresAt DateTime?
-  staffNotifyError          String?
-
-  @@index([confirmationId, createdAt])
-  @@index([staffNotifiedAt, createdAt])
-  @@index([staffNotifyClaimExpiresAt])
-  @@map("pickup_confirmation_response_event")
-}
-
-model LineRichMenu {
-  id            String   @id @default(cuid())
-  name          String // Name/identifier for the rich menu
-  richMenuId    String   @unique // LINE richMenuId
-  imageUrl      String? // Permanent URL of the rich menu image
-  imagePublicId String? // Cloudinary publicId
-  jsonContent   String   @db.Text // Raw JSON configuration
-  targetRole    String? // Mapped role: "USER", "MEMBER", "EMPLOYEE", "ADMIN"
-  aliasId       String?  @unique // LINE rich menu alias ID
-  isDefault     Boolean  @default(false)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-
-  @@map("line_rich_menu")
 }
 
 model ExpenseCategory {

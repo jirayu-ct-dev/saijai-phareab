@@ -6,7 +6,6 @@ import { prisma } from "~~/server/utils/prisma";
 import { getBusinessSetting } from "~~/server/utils/businessSetting";
 import { computeVat } from "~~/server/utils/vat";
 import { notifyReceipt } from "~~/server/utils/notify";
-import { syncUserRichMenu } from "~~/server/utils/line-messaging";
 
 type CreatePackageSaleBody = {
   customerId: string;
@@ -214,10 +213,6 @@ export default defineEventHandler(async (event) => {
         console.error("[package-sales] notifyReceipt failed", err);
       });
     }
-    void syncUserRichMenu(body.customerId).catch((err) => {
-      console.error("[package-sales] syncUserRichMenu failed", err);
-    });
-
     return created;
   } catch (error) {
     if (error && typeof error === "object" && "statusCode" in error) throw error;

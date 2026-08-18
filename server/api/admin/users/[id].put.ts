@@ -2,7 +2,6 @@ import { Prisma } from "~~/app/generated/prisma/client";
 import { prisma } from "~~/server/utils/prisma";
 import { requireRole } from "~~/server/utils/auth";
 import type { Role } from "~~/shared/types/enums";
-import { syncUserRichMenu } from "~~/server/utils/line-messaging";
 import { normalizeThaiPhoneNumber } from "~~/shared/utils/phone";
 import { isInternalCustomerEmail } from "~~/server/utils/customerAccount";
 
@@ -117,12 +116,6 @@ export default defineEventHandler(async (event) => {
         sessionsRevoked,
       };
     });
-
-    if (isRoleChanged || isDeactivated) {
-      void syncUserRichMenu(id).catch((err) =>
-        console.error(`[PUT /api/admin/users/:id] Failed to sync rich menu:`, err),
-      );
-    }
 
     return result;
   } catch (error) {

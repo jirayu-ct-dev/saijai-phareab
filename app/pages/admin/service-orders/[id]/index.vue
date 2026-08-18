@@ -83,33 +83,6 @@ type ServiceOrderDetailResponse = {
     verifiedBy: { id: string; name: string | null; email: string } | null;
     slipImage: { id: string; secureUrl: string | null; url: string | null } | null;
   }>;
-  pickupConfirmation: {
-    id: string;
-    revision: number;
-    status: "ACTIVE" | "CLOSED" | "CANCELLED";
-    response: "HOME_PICKUP" | "SELF_DROPOFF" | "SKIP" | "CONTACT_REQUESTED" | null;
-    respondedAt: string | null;
-    responseCount: number;
-    notifications: Array<{
-      id: string;
-      revision: number;
-      kind: "INITIAL" | "REMINDER";
-      status: "PENDING" | "PROCESSING" | "SENT" | "FAILED" | "UNREACHABLE" | "SKIPPED_TOO_LATE" | "CANCELLED";
-      scheduledFor: string;
-      sentAt: string | null;
-      attempts: number;
-      lastError: string | null;
-    }>;
-    responseEvents: Array<{
-      id: string;
-      revision: number;
-      response: "HOME_PICKUP" | "SELF_DROPOFF" | "SKIP" | "CONTACT_REQUESTED";
-      createdAt: string;
-      staffNotifiedAt: string | null;
-      staffNotifyAttempts: number;
-      staffNotifyError: string | null;
-    }>;
-  } | null;
   addonUsages: Array<{
     id: string;
     entitlementId: string | null;
@@ -131,7 +104,6 @@ definePageMeta({
 
 const route = useRoute();
 const notify = useNotify();
-const runtimeConfig = useRuntimeConfig();
 const serviceOrderId = computed(() => String(route.params.id ?? ""));
 const { data, pending, status, refresh, error } = useFetch<ServiceOrderDetailResponse>(
   () => `/api/admin/service-orders/${serviceOrderId.value}`,
@@ -386,58 +358,6 @@ const getItemPhotos = (item: ServiceOrderDetailItem) =>
         ? [{ id: item.image.id, imageId: item.image.id, isDamaged: false, sortOrder: 0, secureUrl: item.image.secureUrl, url: item.image.url }]
         : []);
 
-const pickupResponseLabels = {
-  HOME_PICKUP: "มีผ้าส่งซัก — รับกลับจากบ้าน",
-  SELF_DROPOFF: "นำผ้ามาส่งที่ร้านเอง",
-  SKIP: "ไม่มีผ้ารอบนี้",
-  CONTACT_REQUESTED: "ขอเลื่อน / ติดต่อร้าน",
-} as const;
-const pickupJobLabels = {
-  PENDING: "รอส่ง",
-  PROCESSING: "กำลังส่ง",
-  SENT: "ส่งแล้ว",
-  FAILED: "ส่งไม่สำเร็จ",
-  UNREACHABLE: "ติดต่อไม่ได้",
-  SKIPPED_TOO_LATE: "ข้ามเพราะช้าเกินไป",
-  CANCELLED: "ยกเลิก",
-} as const;
-const pickupJobColors: Record<keyof typeof pickupJobLabels, BadgeColor> = {
-  PENDING: "neutral",
-  PROCESSING: "info",
-  SENT: "success",
-  FAILED: "error",
-  UNREACHABLE: "warning",
-  SKIPPED_TOO_LATE: "neutral",
-  CANCELLED: "neutral",
-};
-const currentPickupJobs = computed(() => {
-  const confirmation = order.value?.pickupConfirmation;
-  if (!confirmation) return [];
-  return confirmation.notifications.filter((job) => job.revision === confirmation.revision);
-});
-const pickupAnswerLabel = computed(() => {
-  const response = order.value?.pickupConfirmation?.response;
-  return response ? pickupResponseLabels[response] : "ยังไม่ตอบ (NO_RESPONSE)";
-});
-const retryingPickupJobs = reactive(new Set<string>());
-const retryPickupJob = async (notificationId: string) => {
-  if (!order.value) return;
-  retryingPickupJobs.add(notificationId);
-  try {
-    await $fetch(`/api/admin/service-orders/${order.value.id}/pickup-confirmation/${notificationId}/retry`, { method: "POST" });
-    notify.success("นำงานแจ้งเตือนเข้าคิวใหม่แล้ว");
-    await refresh();
-  } catch {
-    notify.serverError();
-  } finally {
-    retryingPickupJobs.delete(notificationId);
-  }
-};
-const lineBizChatUrl = computed(() => String(runtimeConfig.public.lineBizChatUrl || ""));
-const isFirstPickupResponseEvent = (event: NonNullable<ServiceOrderDetailResponse["pickupConfirmation"]>["responseEvents"][number]) => {
-  const sameRevision = order.value?.pickupConfirmation?.responseEvents.filter((item) => item.revision === event.revision) ?? [];
-  return sameRevision.at(-1)?.id === event.id;
-};
 </script>
 
 <template>
@@ -717,117 +637,6 @@ const isFirstPickupResponseEvent = (event: NonNullable<ServiceOrderDetailRespons
               </div>
             </div>
           </div>
-        </section>
-
-        <section
-          v-if="order.hasDelivery || order.pickupConfirmation"
-          class="-mx-2 border border-default/30 bg-default p-4 dark:border-default/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg"
-        >
-          <div class="flex flex-col justify-between gap-3 border-b border-default/40 pb-3 sm:flex-row sm:items-start">
-            <div>
-              <div class="flex flex-wrap items-center gap-2">
-                <p class="text-sm font-semibold text-highlighted">ยืนยันการรับผ้ารอบถัดไป</p>
-                <UBadge v-if="order.pickupConfirmation" color="neutral" variant="soft" size="xs">
-                  รอบแก้ไข {{ order.pickupConfirmation.revision }}
-                </UBadge>
-              </div>
-              <p class="mt-1 text-sm" :class="order.pickupConfirmation?.response === 'CONTACT_REQUESTED' ? 'font-semibold text-warning' : 'text-muted'">
-                {{ pickupAnswerLabel }}
-              </p>
-            </div>
-            <div class="flex flex-wrap gap-2">
-              <UButton
-                to="/admin/pickup-confirmations"
-                icon="i-lucide-table-2"
-                color="neutral"
-                variant="outline"
-                size="sm"
-              >ดูภาพรวมคำตอบ</UButton>
-              <UButton
-                v-if="order.customer.phoneNumber"
-                :to="`tel:${order.customer.phoneNumber}`"
-                icon="i-lucide-phone"
-                color="neutral"
-                variant="outline"
-                size="sm"
-              >โทรหาลูกค้า</UButton>
-              <UButton
-                v-if="lineBizChatUrl"
-                :to="lineBizChatUrl"
-                target="_blank"
-                icon="i-lucide-message-circle"
-                color="success"
-                variant="outline"
-                size="sm"
-              >เปิด LINE</UButton>
-            </div>
-          </div>
-
-          <div v-if="order.pickupConfirmation" class="mt-4 grid gap-4 lg:grid-cols-2">
-            <div>
-              <p class="text-xs font-semibold uppercase tracking-wide text-muted">ข้อความถึงลูกค้า</p>
-              <div v-if="currentPickupJobs.length" class="mt-2 space-y-2">
-                <div v-for="job in currentPickupJobs" :key="job.id" class="rounded-lg border border-default p-3">
-                  <div class="flex items-start justify-between gap-3">
-                    <div>
-                      <p class="text-sm font-medium">{{ job.kind === 'INITIAL' ? 'ถามครั้งแรก' : 'เตือนซ้ำ' }}</p>
-                      <p class="mt-1 text-xs text-muted">
-                        กำหนด {{ formatDateTime(job.scheduledFor) }}
-                        <span v-if="job.sentAt"> · ส่ง {{ formatDateTime(job.sentAt) }}</span>
-                      </p>
-                    </div>
-                    <UBadge :color="pickupJobColors[job.status]" variant="soft" size="xs">
-                      {{ pickupJobLabels[job.status] }}
-                    </UBadge>
-                  </div>
-                  <p class="mt-2 text-xs text-muted">พยายามส่ง {{ job.attempts }} ครั้ง</p>
-                  <p v-if="job.lastError" class="mt-1 break-words text-xs text-error">{{ job.lastError }}</p>
-                  <div v-if="job.status === 'FAILED' || job.status === 'UNREACHABLE'" class="mt-2">
-                    <UButton
-                      size="xs"
-                      color="warning"
-                      variant="soft"
-                      icon="i-lucide-rotate-cw"
-                      :loading="retryingPickupJobs.has(job.id)"
-                      @click="retryPickupJob(job.id)"
-                    >ลองส่งใหม่</UButton>
-                  </div>
-                </div>
-              </div>
-              <p v-else class="mt-2 rounded-lg border border-dashed border-default p-3 text-sm text-muted">
-                ยังไม่มีเวลาส่งข้อความ อาจยังไม่ได้กำหนดวันนัดส่ง
-              </p>
-            </div>
-
-            <div>
-              <p class="text-xs font-semibold uppercase tracking-wide text-muted">ประวัติคำตอบ</p>
-              <div v-if="order.pickupConfirmation.responseEvents.length" class="mt-2 space-y-2">
-                <div
-                  v-for="(responseEvent, index) in order.pickupConfirmation.responseEvents"
-                  :key="responseEvent.id"
-                  class="rounded-lg border border-default p-3"
-                >
-                  <div class="flex items-start justify-between gap-3">
-                    <div>
-                      <p class="text-sm font-medium">{{ pickupResponseLabels[responseEvent.response] }}</p>
-                      <p class="mt-1 text-xs text-muted">{{ formatDateTime(responseEvent.createdAt) }} · revision {{ responseEvent.revision }}</p>
-                    </div>
-                    <UBadge :color="index === 0 ? 'primary' : 'neutral'" variant="soft" size="xs">
-                      {{ isFirstPickupResponseEvent(responseEvent) ? 'คำตอบครั้งแรก' : 'แก้ไขคำตอบ' }}
-                    </UBadge>
-                  </div>
-                  <p class="mt-2 text-xs" :class="responseEvent.staffNotifiedAt ? 'text-success' : 'text-warning'">
-                    {{ responseEvent.staffNotifiedAt ? `แจ้งทีมงานแล้ว ${formatDateTime(responseEvent.staffNotifiedAt)}` : `รอแจ้งทีมงาน · พยายาม ${responseEvent.staffNotifyAttempts} ครั้ง` }}
-                  </p>
-                  <p v-if="responseEvent.staffNotifyError" class="mt-1 break-words text-xs text-error">{{ responseEvent.staffNotifyError }}</p>
-                </div>
-              </div>
-              <p v-else class="mt-2 rounded-lg border border-dashed border-default p-3 text-sm text-muted">ยังไม่มีคำตอบจากลูกค้า</p>
-            </div>
-          </div>
-          <p v-else class="mt-4 rounded-lg border border-dashed border-default p-3 text-sm text-muted">
-            ออเดอร์นี้ใช้บริการรับ–ส่ง แต่ยังไม่เข้าเกณฑ์ส่งคำถามผ่าน LINE
-          </p>
         </section>
 
         <section class="-mx-2 overflow-hidden border border-default/30 bg-default p-4 dark:border-default/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg">

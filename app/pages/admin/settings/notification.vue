@@ -15,13 +15,6 @@ type NotificationSetting = {
   notifyCustomerReceipt: boolean;
   notifyStaffOnNewOrder: boolean;
   notifyCustomerOnPackageExpiring: boolean;
-  pickupConfirmationEnabled: boolean;
-  pickupInitialDaysBefore: number;
-  pickupInitialTime: string;
-  pickupReminderEnabled: boolean;
-  pickupReminderDaysBefore: number;
-  pickupReminderTime: string;
-  pickupMinimumLeadMinutes: number;
   updatedAt: string;
 };
 
@@ -32,7 +25,6 @@ type Subscriber = {
   receiveNewOrder: boolean;
   receiveStatusChange: boolean;
   receiveReceipt: boolean;
-  receivePickupResponse: boolean;
   createdAt: string;
   user: {
     id: string;
@@ -80,34 +72,6 @@ const form = reactive({
   notifyCustomerOnPackageExpiring: true,
 });
 
-const pickupForm = reactive({
-  pickupConfirmationEnabled: true,
-  pickupInitialDaysBefore: 1,
-  pickupInitialTime: "12:15",
-  pickupReminderEnabled: true,
-  pickupReminderDaysBefore: 0,
-  pickupReminderTime: "12:15",
-  pickupMinimumLeadMinutes: 120,
-});
-
-const minimumLeadItems = [
-  { label: "30 นาที", value: 30 },
-  { label: "1 ชั่วโมง", value: 60 },
-  { label: "2 ชั่วโมง", value: 120 },
-  { label: "3 ชั่วโมง", value: 180 },
-  { label: "6 ชั่วโมง", value: 360 },
-];
-const isSavingPickup = ref(false);
-const pickupPreview = computed(() => {
-  const initialDay = pickupForm.pickupInitialDaysBefore === 0
-    ? "วันนัด"
-    : `ก่อนวันนัด ${pickupForm.pickupInitialDaysBefore} วัน`;
-  const reminder = pickupForm.pickupReminderEnabled
-    ? ` และเตือนซ้ำ${pickupForm.pickupReminderDaysBefore === 0 ? "วันนัด" : `ก่อนวันนัด ${pickupForm.pickupReminderDaysBefore} วัน`} เวลา ${pickupForm.pickupReminderTime} น.`
-    : "";
-  return `ระบบจะถาม${initialDay} เวลา ${pickupForm.pickupInitialTime} น.${reminder}`;
-});
-
 watch(
   () => data.value?.setting,
   (val) => {
@@ -121,13 +85,6 @@ watch(
     form.notifyCustomerReceipt = val.notifyCustomerReceipt;
     form.notifyStaffOnNewOrder = val.notifyStaffOnNewOrder;
     form.notifyCustomerOnPackageExpiring = val.notifyCustomerOnPackageExpiring;
-    pickupForm.pickupConfirmationEnabled = val.pickupConfirmationEnabled;
-    pickupForm.pickupInitialDaysBefore = val.pickupInitialDaysBefore;
-    pickupForm.pickupInitialTime = val.pickupInitialTime;
-    pickupForm.pickupReminderEnabled = val.pickupReminderEnabled;
-    pickupForm.pickupReminderDaysBefore = val.pickupReminderDaysBefore;
-    pickupForm.pickupReminderTime = val.pickupReminderTime;
-    pickupForm.pickupMinimumLeadMinutes = val.pickupMinimumLeadMinutes;
   },
   { immediate: true },
 );
@@ -153,29 +110,13 @@ const onToggleSetting = async (key: SettingKey, value: boolean) => {
   try {
     await $fetch("/api/admin/settings/notification", {
       method: "PUT",
-      body: { ...form, ...pickupForm, [key]: value },
+      body: { ...form, [key]: value },
     });
   } catch {
     form[key] = prev;
     notify.serverError();
   } finally {
     pendingKeys.delete(key);
-  }
-};
-
-const onSavePickupSetting = async () => {
-  isSavingPickup.value = true;
-  try {
-    await $fetch("/api/admin/settings/notification", {
-      method: "PUT",
-      body: { ...form, ...pickupForm },
-    });
-    notify.saved("การตั้งค่ายืนยันการรับผ้า");
-    await refresh();
-  } catch {
-    notify.validationError("กรุณาตรวจสอบวันและเวลาของการถามครั้งแรกกับการเตือนซ้ำ");
-  } finally {
-    isSavingPickup.value = false;
   }
 };
 
@@ -203,7 +144,7 @@ const onAddSubscriber = async () => {
   }
 };
 
-const onUpdateSubscriber = async (sub: Subscriber, patch: Partial<Pick<Subscriber, "isActive" | "receiveNewOrder" | "receiveStatusChange" | "receiveReceipt" | "receivePickupResponse">>) => {
+const onUpdateSubscriber = async (sub: Subscriber, patch: Partial<Pick<Subscriber, "isActive" | "receiveNewOrder" | "receiveStatusChange" | "receiveReceipt">>) => {
   try {
     await $fetch(`/api/admin/settings/notification-subscribers/${sub.id}`, { method: "PUT", body: patch });
     await refresh();
@@ -397,132 +338,6 @@ const roleLabel = (role: "ADMIN" | "EMPLOYEE" | "USER") =>
         </div>
       </section>
 
-      <section class="-mx-2 overflow-hidden border border-default/30 bg-default dark:border-default/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg">
-        <div class="flex items-start justify-between gap-4 border-b border-default/40 p-4 sm:p-5">
-          <div class="flex min-w-0 items-start gap-3">
-            <div class="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-              <UIcon name="i-lucide-message-circle-question" class="size-5" />
-            </div>
-            <div class="min-w-0">
-              <p class="font-semibold text-highlighted">ยืนยันการรับผ้ารอบถัดไป</p>
-              <p class="mt-1 text-xs leading-5 text-muted">ถามลูกค้าก่อนนำผ้าสะอาดไปส่ง เฉพาะออเดอร์ที่เลือกใช้บริการรับ–ส่ง</p>
-            </div>
-          </div>
-          <div class="flex shrink-0 flex-col items-end gap-1">
-            <USwitch v-model="pickupForm.pickupConfirmationEnabled" />
-            <span class="text-[11px] text-muted">{{ pickupForm.pickupConfirmationEnabled ? "เปิดใช้งาน" : "ปิดใช้งาน" }}</span>
-          </div>
-        </div>
-
-        <div class="space-y-4 p-4 sm:p-5">
-          <div class="grid gap-4 lg:grid-cols-2">
-            <div class="rounded-lg border border-default/50 bg-elevated/45 p-4">
-              <div class="mb-4 flex items-center gap-2">
-                <UBadge label="1" color="primary" variant="solid" size="xs" />
-                <div>
-                  <p class="text-sm font-semibold text-highlighted">ข้อความถามครั้งแรก</p>
-                  <p class="text-xs text-muted">กำหนดวันและเวลาที่เริ่มถามลูกค้า</p>
-                </div>
-              </div>
-              <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
-                <UFormField label="ล่วงหน้าก่อนวันนัด">
-                  <UInput
-                    v-model.number="pickupForm.pickupInitialDaysBefore"
-                    type="number"
-                    :min="0"
-                    :max="30"
-                    :disabled="!pickupForm.pickupConfirmationEnabled"
-                    class="w-full"
-                  >
-                    <template #trailing><span class="text-xs text-muted">วัน</span></template>
-                  </UInput>
-                </UFormField>
-                <UFormField label="เวลาส่งข้อความ">
-                  <UInput
-                    v-model="pickupForm.pickupInitialTime"
-                    type="time"
-                    :disabled="!pickupForm.pickupConfirmationEnabled"
-                    class="w-full"
-                  />
-                </UFormField>
-              </div>
-            </div>
-
-            <div class="rounded-lg border border-default/50 bg-elevated/45 p-4">
-              <div class="mb-4 flex items-start justify-between gap-3">
-                <div class="flex items-center gap-2">
-                  <UBadge label="2" color="neutral" variant="solid" size="xs" />
-                  <div>
-                    <p class="text-sm font-semibold text-highlighted">ข้อความเตือนซ้ำ</p>
-                    <p class="text-xs text-muted">ส่งเมื่อข้อความแรกสำเร็จและลูกค้ายังไม่ตอบ</p>
-                  </div>
-                </div>
-                <USwitch
-                  v-model="pickupForm.pickupReminderEnabled"
-                  :disabled="!pickupForm.pickupConfirmationEnabled"
-                  size="sm"
-                />
-              </div>
-              <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
-                <UFormField label="ล่วงหน้าก่อนวันนัด">
-                  <UInput
-                    v-model.number="pickupForm.pickupReminderDaysBefore"
-                    type="number"
-                    :min="0"
-                    :max="30"
-                    :disabled="!pickupForm.pickupConfirmationEnabled || !pickupForm.pickupReminderEnabled"
-                    class="w-full"
-                  >
-                    <template #trailing><span class="text-xs text-muted">วัน</span></template>
-                  </UInput>
-                </UFormField>
-                <UFormField label="เวลาเตือนซ้ำ">
-                  <UInput
-                    v-model="pickupForm.pickupReminderTime"
-                    type="time"
-                    :disabled="!pickupForm.pickupConfirmationEnabled || !pickupForm.pickupReminderEnabled"
-                    class="w-full"
-                  />
-                </UFormField>
-              </div>
-            </div>
-          </div>
-
-          <div class="grid gap-4 lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]">
-            <div class="rounded-lg border border-default/50 p-4">
-              <UFormField label="เวลาเตรียมงานขั้นต่ำก่อนส่ง">
-                <USelect
-                  v-model="pickupForm.pickupMinimumLeadMinutes"
-                  :items="minimumLeadItems"
-                  value-key="value"
-                  :disabled="!pickupForm.pickupConfirmationEnabled"
-                  class="w-full"
-                />
-              </UFormField>
-              <p class="mt-2 text-xs leading-5 text-muted">ระบบจะไม่ส่งคำถามช้าจนร้านเหลือเวลาเตรียมงานน้อยกว่าค่านี้</p>
-            </div>
-
-            <div class="rounded-lg border border-primary/25 bg-primary/5 p-4">
-              <div class="flex items-start gap-3">
-                <UIcon name="i-lucide-calendar-clock" class="mt-0.5 size-5 shrink-0 text-primary" />
-                <div>
-                  <p class="text-xs font-semibold uppercase tracking-wide text-primary">ตัวอย่างตารางส่ง</p>
-                  <p class="mt-1 text-sm font-medium leading-6 text-highlighted">{{ pickupPreview }}</p>
-                  <p class="mt-1 text-xs leading-5 text-muted">ออเดอร์รอบเช้าอาจถูกเลื่อนเวลาเตือนให้เร็วขึ้น เพื่อให้ร้านมีเวลาเตรียมงานเพียงพอ</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div class="flex items-center justify-between gap-3 border-t border-default/40 bg-elevated/30 px-4 py-3 sm:px-5">
-          <p class="hidden text-xs text-muted sm:block">การเปลี่ยนค่านี้จะปรับเฉพาะข้อความที่ยังไม่ถูกส่ง</p>
-          <UButton icon="i-lucide-save" :loading="isSavingPickup" class="w-full justify-center sm:ml-auto sm:w-auto" @click="onSavePickupSetting">
-            บันทึกการตั้งค่า
-          </UButton>
-        </div>
-      </section>
-
       <section class="-mx-2 border border-default/30 bg-default p-4 dark:border-default/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg">
         <div class="mb-4 flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div class="min-w-0">
@@ -605,14 +420,6 @@ const roleLabel = (role: "ADMIN" | "EMPLOYEE" | "USER") =>
                   :model-value="sub.receiveReceipt"
                   :disabled="!sub.isActive"
                   @update:model-value="(v: boolean) => onUpdateSubscriber(sub, { receiveReceipt: v })"
-                />
-              </div>
-              <div class="flex items-center justify-between">
-                <span class="text-sm">คำตอบรับผ้ารอบถัดไป</span>
-                <USwitch
-                  :model-value="sub.receivePickupResponse"
-                  :disabled="!sub.isActive"
-                  @update:model-value="(v: boolean) => onUpdateSubscriber(sub, { receivePickupResponse: v })"
                 />
               </div>
             </div>

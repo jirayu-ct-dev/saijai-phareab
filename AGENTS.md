@@ -31,7 +31,7 @@
 - `shared/types/`, `shared/config/`, `shared/utils/`: contracts, label/status configuration, and utilities shared by client and server. Prefer these over duplicate local definitions.
 - `prisma/schema.prisma`: PostgreSQL schema; `prisma/migrations/`: migration history; `prisma/seed.ts`: normal catalog/package seed; `prisma/seed-full.ts`: larger development/demo dataset.
 - `tests/server/`, `tests/shared/`: Node-environment Vitest coverage for domain transitions and shared utilities.
-- `richmenu/`: checked-in LINE rich-menu JSON and images. `public/` contains static web assets.
+- `public/` contains static web assets.
 
 ## Architecture and conventions
 

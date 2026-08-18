@@ -6,12 +6,6 @@ import {
   type LineWebhookEvent,
   type LineWebhookPayload,
 } from "~~/server/utils/line-messaging";
-import { parsePickupConfirmationPostback } from "~~/shared/utils/pickupConfirmationPostback";
-import {
-  notifyPickupResponseEvent,
-  pickupResponseLabels,
-  recordPickupResponse,
-} from "~~/server/utils/pickupConfirmationResponse";
 
 const getShopName = async (): Promise<string> => {
   const shop = await prisma.shopSetting.findUnique({ where: { id: "singleton" } });
@@ -30,47 +24,6 @@ const handleFollowEvent = async (ev: LineWebhookEvent): Promise<void> => {
       },
     ],
   });
-};
-
-const replyText = async (ev: LineWebhookEvent, text: string): Promise<void> => {
-  if (!ev.replyToken) return;
-  await replyMessage({ replyToken: ev.replyToken, messages: [{ type: "text", text }] });
-};
-
-const handlePickupConfirmationPostback = async (ev: LineWebhookEvent): Promise<void> => {
-  const parsed = parsePickupConfirmationPostback(ev.postback?.data || "");
-  if (!parsed) {
-    await replyText(ev, "คำตอบนี้ไม่ถูกต้อง กรุณาใช้ปุ่มจากข้อความล่าสุดอีกครั้งค่ะ/ครับ");
-    return;
-  }
-  const lineUserId = ev.source?.type === "user" ? ev.source.userId : undefined;
-  if (!lineUserId || !ev.webhookEventId) {
-    await replyText(ev, "ไม่สามารถยืนยันตัวตนจากข้อความนี้ได้ กรุณาติดต่อร้านค่ะ/ครับ");
-    return;
-  }
-
-  const result = await recordPickupResponse({
-    webhookEventId: ev.webhookEventId,
-    confirmationId: parsed.confirmationId,
-    revision: parsed.revision,
-    response: parsed.response,
-    respondedByLineId: lineUserId,
-  });
-  if (!result.ok) {
-    const text = result.reason === "UNAUTHORIZED"
-      ? "บัญชี LINE นี้ไม่ใช่เจ้าของออเดอร์ค่ะ/ครับ"
-      : result.reason === "STALE"
-        ? "ข้อความนี้เป็นรอบเก่า กรุณาใช้ปุ่มจากข้อความล่าสุดค่ะ/ครับ"
-        : "รายการนี้ปิดรับคำตอบแล้ว กรุณาติดต่อร้านค่ะ/ครับ";
-    await replyText(ev, text);
-    return;
-  }
-
-  await notifyPickupResponseEvent(result.eventId);
-  const prefix = result.duplicate
-    ? "ระบบได้รับคำตอบนี้แล้ว"
-    : result.responseCount > 1 ? "แก้ไขคำตอบเรียบร้อยแล้ว" : "บันทึกคำตอบเรียบร้อยแล้ว";
-  await replyText(ev, `${prefix}\n${pickupResponseLabels[parsed.response]}\nขอบคุณค่ะ/ครับ`);
 };
 
 export default defineEventHandler(async (event) => {
@@ -105,9 +58,6 @@ export default defineEventHandler(async (event) => {
       void handleFollowEvent(ev).catch((err) =>
         console.error("[POST /api/line/webhook] follow handler error", err),
       );
-    }
-    if (ev.type === "postback" && ev.postback?.data?.startsWith("action=pickup_confirmation")) {
-      await handlePickupConfirmationPostback(ev);
     }
   }
 
