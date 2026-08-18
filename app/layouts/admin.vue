@@ -41,15 +41,15 @@ const adminMenu = [
       onSelect: closeSidebar,
     },
     {
-      label: "คำตอบรับผ้ารอบถัดไป",
-      icon: "i-lucide-messages-square",
-      to: "/admin/pickup-confirmations",
-      onSelect: closeSidebar,
-    },
-    {
       label: "ประวัติการชำระเงิน",
       icon: "i-lucide-receipt",
       to: "/admin/payment",
+      onSelect: closeSidebar,
+    },
+    {
+      label: "รายรับ–รายจ่าย",
+      icon: "i-lucide-badge-dollar-sign",
+      to: "/admin/finance",
       onSelect: closeSidebar,
     },
     {
@@ -179,12 +179,6 @@ const employeeMenu = [
       label: "รายการรับผ้า",
       icon: "i-lucide-shopping-basket",
       to: "/admin/service-orders",
-      onSelect: closeSidebar,
-    },
-    {
-      label: "คำตอบรับผ้ารอบถัดไป",
-      icon: "i-lucide-messages-square",
-      to: "/admin/pickup-confirmations",
       onSelect: closeSidebar,
     },
     {

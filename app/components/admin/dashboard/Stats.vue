@@ -14,10 +14,7 @@ interface StatItem {
   value: number
   variation: number
   isCurrency?: boolean
-}
-
-interface DisplayStat extends StatItem {
-  isTotal?: boolean
+  statType?: 'users' | 'income' | 'expense' | 'net'
 }
 
 const { data: stats, status } = useAsyncData<StatItem[]>(
@@ -37,27 +34,37 @@ const { data: stats, status } = useAsyncData<StatItem[]>(
 
 const isPending = computed(() => status.value === 'pending')
 
-// ลำดับ: ลูกค้าใหม่ → ยอดซื้อแพ็กเกจ → ยอดออเดอร์ → ยอดรวม
-const displayStats = computed<DisplayStat[]>(() => {
-  const list = stats.value ?? []
-  const totalRevenue = list
-    .filter((s) => s.isCurrency)
-    .reduce((sum, s) => sum + s.value, 0)
+const getBadgeColor = (stat: StatItem): 'success' | 'error' | 'warning' | 'neutral' => {
+  if (stat.statType === 'expense') {
+    // รายจ่ายเพิ่ม = error/warning, รายจ่ายลด = success
+    if (stat.variation > 0) return 'error'
+    if (stat.variation < 0) return 'success'
+    return 'neutral'
+  }
 
-  return [
-    ...list,
-    {
-      title: 'ยอดรวม',
-      icon: 'i-lucide-wallet',
-      to: '/admin/payment',
-      value: totalRevenue,
-      variation: 0,
-      isCurrency: true,
-      isTotal: true,
-    },
-  ]
-})
+  if (stat.statType === 'net') {
+    if (stat.value < 0) return 'error'
+    if (stat.variation > 0) return 'success'
+    if (stat.variation < 0) return 'error'
+    return 'neutral'
+  }
 
+  if (stat.variation > 0) return 'success'
+  if (stat.variation < 0) return 'error'
+  return 'neutral'
+}
+
+const getIconColorClass = (stat: StatItem): string => {
+  if (stat.statType === 'expense') {
+    return 'bg-amber-500/10 text-amber-600 dark:text-amber-400 ring-amber-500/25'
+  }
+  if (stat.statType === 'net') {
+    return stat.value >= 0
+      ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 ring-emerald-500/25'
+      : 'bg-rose-500/10 text-rose-600 dark:text-rose-400 ring-rose-500/25'
+  }
+  return 'bg-primary/10 text-primary ring-primary/25'
+}
 </script>
 
 <template>
@@ -78,22 +85,24 @@ const displayStats = computed<DisplayStat[]>(() => {
     <!-- Stats cards -->
     <template v-else>
       <NuxtLink
-        v-for="(stat, index) in displayStats"
+        v-for="(stat, index) in stats"
         :key="index"
         :to="stat.to"
         class="min-h-28 border border-default/30 bg-default p-3 transition-[background-color,border-color] duration-200 hover:border-default/45 hover:bg-default dark:border-default/20 dark:bg-elevated/55 dark:hover:bg-elevated/70 sm:rounded-lg"
       >
-        <div class="flex size-10 items-center justify-center rounded-full bg-primary/10 text-primary ring ring-inset ring-primary/25">
+        <div :class="['flex size-10 items-center justify-center rounded-full ring ring-inset', getIconColorClass(stat)]">
           <UIcon :name="stat.icon" class="size-5" />
         </div>
         <p class="mt-3 truncate text-xs font-normal text-muted">{{ stat.title }}</p>
         <div class="flex min-w-0 flex-col items-start gap-1 sm:flex-row sm:items-center sm:gap-2">
-          <span class="min-w-0 wrap-break-word text-lg font-semibold leading-tight text-highlighted sm:text-2xl">
+          <span
+            class="min-w-0 wrap-break-word text-lg font-semibold leading-tight text-highlighted sm:text-2xl"
+            :class="{ 'text-rose-600 dark:text-rose-400': stat.statType === 'net' && stat.value < 0 }"
+          >
             {{ stat.isCurrency ? formatCurrency(stat.value) : formatNumber(stat.value) }}
           </span>
           <UBadge
-            v-if="!stat.isTotal"
-            :color="stat.variation > 0 ? 'success' : stat.variation < 0 ? 'error' : 'neutral'"
+            :color="getBadgeColor(stat)"
             variant="subtle"
             class="text-xs"
           >

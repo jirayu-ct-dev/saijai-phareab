@@ -25,6 +25,11 @@ const items = [[
     to: "/admin/payment",
   },
   {
+    label: "บันทึกรายจ่าย",
+    icon: "i-lucide-badge-dollar-sign",
+    to: "/admin/finance",
+  },
+  {
     label: "เพิ่มผู้ใช้",
     icon: "i-lucide-user-plus",
     to: "/admin/users",
