@@ -1,5 +1,4 @@
 <script setup lang="ts">
-const { user } = useUser()
 const notify = useNotify()
 const router = useRouter()
 
@@ -7,7 +6,6 @@ const isOpen = ref(false)
 const password = ref('')
 const isDeleting = ref(false)
 
-const isWalkIn = computed(() => user.value?.email === 'walkin@saijai.local')
 
 const open = () => {
   password.value = ''
@@ -55,7 +53,6 @@ const handleDelete = async () => {
         label="ลบบัญชี"
         icon="i-lucide-trash-2"
         class="shrink-0"
-        :disabled="isWalkIn"
         @click="open"
       />
     </div>

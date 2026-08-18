@@ -2,6 +2,7 @@ import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import { prisma } from "~~/server/utils/prisma";
 import { renderResetPasswordEmail, renderVerificationEmail, sendEmail } from "~~/server/utils/email";
+import { isInternalCustomerEmail } from "~~/server/utils/customerAccount";
 
 const extraOrigins = process.env.BETTER_AUTH_TRUSTED_ORIGINS
   ? process.env.BETTER_AUTH_TRUSTED_ORIGINS.split(",").map((s) => s.trim())
@@ -33,6 +34,13 @@ export const auth = betterAuth({
       await sendEmail({ to: user.email, subject, html, text });
     },
   },
+  account: {
+    accountLinking: {
+      // Customers created at the POS must claim their existing User explicitly.
+      // A normal LINE sign-in must never merge by a matching provider email.
+      disableImplicitLinking: true,
+    },
+  },
   socialProviders: {
     line: {
       clientId: process.env.LINE_LIFF_CLIENT_ID as string,
@@ -40,12 +48,20 @@ export const auth = betterAuth({
     },
   },
   user: {
+    changeEmail: {
+      enabled: true,
+      updateEmailWithoutVerification: false,
+    },
     additionalFields: {
       role: {
         type: "string",
         required: true,
       },
       phoneNumber: {
+        type: "string",
+        required: false,
+      },
+      normalizedPhoneNumber: {
         type: "string",
         required: false,
       },
@@ -60,6 +76,24 @@ export const auth = betterAuth({
       deletedById: {
         type: "string",
         required: false,
+      },
+    },
+  },
+  databaseHooks: {
+    user: {
+      create: {
+        before: async (user) => {
+          if (isInternalCustomerEmail(user.email)) {
+            throw new Error("Internal customer email cannot be registered");
+          }
+        },
+      },
+      update: {
+        before: async (user) => {
+          if (typeof user.email === "string" && isInternalCustomerEmail(user.email)) {
+            throw new Error("Internal customer email cannot be used as a real email");
+          }
+        },
       },
     },
   },

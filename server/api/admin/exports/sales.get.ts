@@ -2,6 +2,7 @@ import { prisma } from "~~/server/utils/prisma";
 import { requireRole } from "~~/server/utils/auth";
 import { buildCsv, formatBangkokDateTag, formatBangkokDateTime, parseDateRange, sendCsv } from "~~/server/utils/csv";
 import { paymentMethodLabels } from "~~/shared/config/paymentConfig";
+import { isInternalCustomerEmail } from "~~/server/utils/customerAccount";
 
 export default defineEventHandler(async (event) => {
   requireRole(event, ["ADMIN"]);
@@ -33,7 +34,7 @@ export default defineEventHandler(async (event) => {
     "วิธีชำระเงิน": p.method ? paymentMethodLabels[p.method] : "",
     "ประเภท": p.packageSaleId ? "ขายแพ็กเกจ" : "บริการซักผ้า",
     "ลูกค้า": p.user.name ?? "",
-    "อีเมล": p.user.email,
+    "อีเมล": isInternalCustomerEmail(p.user.email) ? "" : p.user.email,
     "เบอร์": p.user.phoneNumber ?? "",
     "ยอด": Number(p.amount),
     "หมายเหตุ": p.note ?? "",

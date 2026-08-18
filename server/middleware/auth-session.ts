@@ -22,6 +22,7 @@ const ACCESS_POLICIES: AccessPolicy[] = [
   { prefix: "/api/admin/expenses", roles: ["ADMIN"] },
   { prefix: "/api/admin/finance", roles: ["ADMIN"] },
   { prefix: "/api/admin/customer-options", roles: ["EMPLOYEE", "ADMIN"] },
+  { prefix: "/api/admin/customers", roles: ["EMPLOYEE", "ADMIN"] },
   { prefix: "/api/admin/package-catalog", roles: ["EMPLOYEE", "ADMIN"] },
   { prefix: "/api/admin/storefront-catalog", roles: ["EMPLOYEE", "ADMIN"] },
   { prefix: "/api/admin/package-sales", roles: ["EMPLOYEE", "ADMIN"] },

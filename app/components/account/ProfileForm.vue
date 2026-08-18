@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { Photo } from "~~/app/components/UI/PhotoUpload.vue";
+import { authClient } from "~~/app/utils/auth-client";
 
 type ProfileResponse = {
   id: string;
@@ -12,9 +13,12 @@ type ProfileResponse = {
   createdAt: string;
   hasLineLinked: boolean;
   hasPasswordCredential: boolean;
+  customerAccountStatus?: "OFFLINE" | "ACTIVE";
 };
 
 const notify = useNotify();
+const route = useRoute();
+const router = useRouter();
 const { refreshSession } = useUser();
 
 const { data, status, refresh } = useFetch<ProfileResponse>("/api/me/profile", {
@@ -54,6 +58,50 @@ const onAvatarChange = (photos: Photo[]) => {
 };
 
 const isSaving = ref(false);
+const emailChangeOpen = ref(false);
+const newEmail = ref("");
+const pendingEmail = ref<string | null>(null);
+const isChangingEmail = ref(false);
+
+const changeEmail = async () => {
+  const email = newEmail.value.trim().toLowerCase();
+  if (!email) return notify.validationError("กรุณากรอกอีเมลใหม่");
+  if (email.endsWith("@saijai.local")) return notify.validationError("ไม่สามารถใช้อีเมลภายในของระบบได้");
+  if (email === data.value?.email.toLowerCase()) return notify.validationError("อีเมลใหม่ต้องต่างจากอีเมลปัจจุบัน");
+  isChangingEmail.value = true;
+  try {
+    const { error } = await authClient.changeEmail({
+      newEmail: email,
+      callbackURL: "/me/settings/profile?emailChanged=1",
+    });
+    if (error) throw new Error(error.message || "ไม่สามารถเปลี่ยนอีเมลได้");
+    pendingEmail.value = email;
+    notify.success("ส่งลิงก์ยืนยันไปยังอีเมลใหม่แล้ว");
+    emailChangeOpen.value = false;
+    newEmail.value = "";
+  } catch (error: unknown) {
+    notify.error(error instanceof Error ? error.message : "ไม่สามารถเปลี่ยนอีเมลได้");
+  } finally {
+    isChangingEmail.value = false;
+  }
+};
+
+onMounted(async () => {
+  if (route.query.emailChanged !== "1") return;
+  try {
+    const { error } = await authClient.revokeOtherSessions();
+    if (error) throw new Error(error.message || "ไม่สามารถยกเลิกเซสชันอื่นได้");
+    pendingEmail.value = null;
+    await Promise.all([refresh(), refreshSession()]);
+    notify.success("ยืนยันอีเมลใหม่แล้ว และออกจากระบบบนอุปกรณ์อื่นเรียบร้อยแล้ว");
+  } catch (error: unknown) {
+    notify.error(error instanceof Error ? error.message : "เปลี่ยนอีเมลแล้ว แต่ไม่สามารถยกเลิกเซสชันอื่นได้");
+  } finally {
+    const nextQuery = { ...route.query };
+    delete nextQuery.emailChanged;
+    await router.replace({ query: nextQuery });
+  }
+});
 
 const onSubmit = async () => {
   isSaving.value = true;
@@ -77,8 +125,12 @@ const onSubmit = async () => {
 
     notify.updated();
     await Promise.all([refresh(), refreshSession()]);
-  } catch {
-    notify.serverError();
+  } catch (error: unknown) {
+    const message = error && typeof error === "object" && "data" in error
+      ? (error as { data?: { statusMessage?: string; message?: string } }).data?.statusMessage
+        || (error as { data?: { message?: string } }).data?.message
+      : null;
+    notify.error(message || "ไม่สามารถบันทึกข้อมูลได้ กรุณาลองใหม่อีกครั้ง");
   } finally {
     isSaving.value = false;
   }
@@ -118,11 +170,19 @@ const onSubmit = async () => {
         </UFormField>
 
         <UFormField label="อีเมล" name="email" class="sm:col-span-2">
-          <UInput :model-value="data?.email" disabled class="w-full" />
+          <div class="flex gap-2">
+            <UInput :model-value="data?.email" disabled class="min-w-0 flex-1" />
+            <UButton color="neutral" variant="outline" icon="i-lucide-mail" @click="emailChangeOpen = true">เปลี่ยนอีเมล</UButton>
+          </div>
           <template #help>
-            <span class="text-xs text-muted">อีเมลใช้สำหรับเข้าสู่ระบบ ไม่สามารถเปลี่ยนได้</span>
+            <span class="text-xs text-muted">ระบบจะเปลี่ยนอีเมลหลังจากคุณยืนยันอีเมลใหม่แล้ว</span>
           </template>
         </UFormField>
+
+        <div v-if="pendingEmail" class="sm:col-span-2 rounded-lg border border-warning/30 bg-warning/5 px-3 py-2 text-sm text-toned">
+          รอยืนยันอีเมลใหม่ <span class="font-medium text-highlighted">{{ pendingEmail }}</span>
+          กรุณาเปิดลิงก์ที่ส่งไปยังอีเมลนี้ อีเมลปัจจุบันยังใช้เข้าสู่ระบบได้จนกว่าจะยืนยันสำเร็จ
+        </div>
       </div>
     </UForm>
 
@@ -130,4 +190,23 @@ const onSubmit = async () => {
       <UButton :loading="isSaving" icon="i-lucide-save" @click="onSubmit">บันทึก</UButton>
     </div>
   </section>
+
+  <UModal v-model:open="emailChangeOpen" title="เปลี่ยนอีเมล" description="เราจะส่งลิงก์ยืนยันไปยังอีเมลใหม่">
+    <template #body>
+      <UForm :state="{ newEmail }" class="space-y-4" @submit="changeEmail">
+        <UFormField label="อีเมลปัจจุบัน">
+          <UInput :model-value="data?.email" disabled class="w-full" />
+        </UFormField>
+        <UFormField label="อีเมลใหม่" required>
+          <UInput v-model="newEmail" type="email" autocomplete="email" class="w-full" placeholder="new-email@example.com" />
+        </UFormField>
+      </UForm>
+    </template>
+    <template #footer>
+      <div class="flex w-full justify-end gap-2">
+        <UButton color="neutral" variant="ghost" @click="emailChangeOpen = false">ยกเลิก</UButton>
+        <UButton icon="i-lucide-send" :loading="isChangingEmail" @click="changeEmail">ส่งลิงก์ยืนยัน</UButton>
+      </div>
+    </template>
+  </UModal>
 </template>

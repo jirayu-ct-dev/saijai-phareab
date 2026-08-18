@@ -10,7 +10,6 @@ export default defineEventHandler(async (event) => {
     where: { id, deletedAt: null, role: "USER" },
     select: {
       id: true,
-      email: true,
       memberEntitlements: {
         where: { deletedAt: null },
         select: {
@@ -29,9 +28,6 @@ export default defineEventHandler(async (event) => {
     },
   });
   if (!target) throw createError({ statusCode: 404, statusMessage: "ไม่พบลูกค้า" });
-  if (target.email === "walkin@saijai.local") {
-    throw createError({ statusCode: 400, statusMessage: "ห้ามลบลูกค้าหน้าร้าน" });
-  }
 
   const hasUsedEntitlement = target.memberEntitlements.some(
     (e) => e.serviceOrders.length > 0 || e.serviceOrderAddonUsages.length > 0,

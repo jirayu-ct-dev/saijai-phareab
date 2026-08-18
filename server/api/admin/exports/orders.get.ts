@@ -1,6 +1,7 @@
 import { prisma } from "~~/server/utils/prisma";
 import { requireRole } from "~~/server/utils/auth";
 import { buildCsv, formatBangkokDateTag, formatBangkokDateTime, parseDateRange, sendCsv } from "~~/server/utils/csv";
+import { isInternalCustomerEmail } from "~~/server/utils/customerAccount";
 
 const statusLabel: Record<string, string> = {
   RECEIVED: "รับผ้าแล้ว",
@@ -26,8 +27,6 @@ export default defineEventHandler(async (event) => {
       receivedAt: true,
       dueAt: true,
       updatedAt: true,
-      isWalkIn: true,
-      walkInName: true,
       subtotalAmount: true,
       discountAmount: true,
       totalAmount: true,
@@ -66,9 +65,9 @@ export default defineEventHandler(async (event) => {
       "นัดรับ": formatBangkokDateTime(o.dueAt),
       "วันที่ส่ง": o.status === "COMPLETED" ? formatBangkokDateTime(o.updatedAt) : "",
       "สถานะ": statusLabel[o.status] ?? o.status,
-      "ลูกค้า": o.isWalkIn ? o.walkInName || "ลูกค้าหน้าร้าน" : o.customer.name ?? "",
-      "อีเมล": o.isWalkIn ? "" : o.customer.email,
-      "เบอร์": o.isWalkIn ? "" : (o.customer.phoneNumber ?? ""),
+      "ลูกค้า": o.customer.name ?? "",
+      "อีเมล": isInternalCustomerEmail(o.customer.email) ? "" : o.customer.email,
+      "เบอร์": o.customer.phoneNumber ?? "",
       "รูปแบบ": isWashFold ? "ซัก-พับ ชั่งกิโล" : (o.memberEntitlement ? "แพ็กเกจรายเดือน" : "ราคาหน้าร้าน"),
       "แพ็กเกจ": o.memberEntitlement?.product.name ?? "",
       "แพ็กเกจเสริม": addonNames.join(", "),

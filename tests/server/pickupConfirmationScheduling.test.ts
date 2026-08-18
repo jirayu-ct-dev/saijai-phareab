@@ -79,7 +79,6 @@ describe("pickup confirmation scheduling", () => {
 
   it("uses the normalized delivery usage snapshot as an eligibility requirement", () => {
     const eligible = {
-      isWalkIn: false,
       deletedAt: null,
       status: "PROCESSING",
       hasDeliveryUsage: true,

@@ -7,7 +7,7 @@ import { createReceiptNo } from "~~/server/utils/receiptNo";
 import { createQuotationNo } from "~~/server/utils/quotationNo";
 import { prisma } from "~~/server/utils/prisma";
 import { createServiceOrderNo } from "~~/server/utils/serviceOrderNo";
-import { ensureWalkInCustomer } from "~~/server/utils/walkInCustomer";
+import { createOfflineCustomer, isCustomerUniqueConflict, resolveOfflineCustomerConflict } from "~~/server/utils/customerAccount";
 import { notifyQuotationCreated, notifyServiceOrderCreated, notifyServiceOrderStatusChanged } from "~~/server/utils/notify";
 import { createAddonUsageRecords } from "~~/server/utils/serviceOrderCredits";
 import { isServiceOrderStatus } from "~~/server/utils/serviceOrderStatusTransition";
@@ -16,9 +16,7 @@ import { dispatchPickupInitialFallback, reconcilePickupConfirmation } from "~~/s
 
 type CreateServiceOrderBody = {
   customerId?: string | null;
-  isWalkIn?: boolean;
-  walkInName?: string | null;
-  walkInPhone?: string | null;
+  newCustomer?: { name?: string | null; phoneNumber?: string | null; email?: string | null } | null;
   memberEntitlementId?: string | null;
   addonEntitlements?: Array<{ entitlementId: string; credits: number }>;
   orderImageId?: string | null;
@@ -48,23 +46,19 @@ export default defineEventHandler(async (event) => {
   const actor = requireRole(event, ["EMPLOYEE", "ADMIN"]);
   const body = await readBody<CreateServiceOrderBody>(event);
 
-  const isWalkIn = Boolean(body.isWalkIn);
   const customerId = body.customerId?.trim() || null;
-  const walkInName = body.walkInName?.trim() || null;
-  const walkInPhone = body.walkInPhone?.trim() || null;
+  const newCustomer = body.newCustomer ?? null;
   const requestedEntitlementId = body.memberEntitlementId?.trim() || null;
   const orderImageId = body.orderImageId?.trim() || null;
 
-  if (!isWalkIn && !customerId) {
-    throw createError({ statusCode: 400, statusMessage: "กรุณาเลือกลูกค้า" });
+  if ((!customerId && !newCustomer) || (customerId && newCustomer)) {
+    throw createError({ statusCode: 400, statusMessage: "กรุณาเลือกลูกค้าเดิมหรือเพิ่มลูกค้าใหม่อย่างใดอย่างหนึ่ง" });
   }
-
-  if (isWalkIn && requestedEntitlementId) {
-    throw createError({ statusCode: 400, statusMessage: "ลูกค้าหน้าร้านไม่สามารถใช้เครดิตแพ็กเกจได้" });
+  if (newCustomer && requestedEntitlementId) {
+    throw createError({ statusCode: 400, statusMessage: "ลูกค้าใหม่ยังไม่มีสิทธิ์แพ็กเกจให้เลือก" });
   }
-
-  if (isWalkIn && Array.isArray(body.addonEntitlements) && body.addonEntitlements.length > 0) {
-    throw createError({ statusCode: 400, statusMessage: "ลูกค้าหน้าร้านไม่สามารถใช้แพ็กเกจเสริมได้" });
+  if (newCustomer && Array.isArray(body.addonEntitlements) && body.addonEntitlements.length > 0) {
+    throw createError({ statusCode: 400, statusMessage: "ลูกค้าใหม่ยังไม่มีแพ็กเกจเสริมให้เลือก" });
   }
 
   const washFoldInput = body.washFold && Number.isFinite(Number(body.washFold.weightKg))
@@ -130,25 +124,6 @@ export default defineEventHandler(async (event) => {
   }
 
   try {
-    let paymentUserId = customerId;
-
-    if (isWalkIn) {
-      const walkInCustomer = await ensureWalkInCustomer(prisma);
-      paymentUserId = walkInCustomer.id;
-    } else {
-      const customer = await prisma.user.findFirst({
-        where: {
-          id: customerId!,
-          deletedAt: null,
-        },
-        select: { id: true },
-      });
-
-      if (!customer) {
-        throw createError({ statusCode: 404, statusMessage: "ไม่พบลูกค้าที่เลือก" });
-      }
-    }
-
     const priceIds = [...new Set(normalizedItems.map((item) => item.storefrontPriceId))];
     const storefrontPrices = await prisma.storefrontPrice.findMany({
       where: {
@@ -228,7 +203,26 @@ export default defineEventHandler(async (event) => {
 
     type AllocatedItem = typeof orderItems[number] & { cashQuantity: number; creditQuantity: number };
 
+    let activationToken: string | null = null;
     const created = await prisma.$transaction(async (tx) => {
+      let paymentUserId = customerId;
+      if (newCustomer) {
+        const offlineCustomer = await createOfflineCustomer(tx, {
+          name: newCustomer.name,
+          phoneNumber: newCustomer.phoneNumber,
+          email: newCustomer.email,
+          createdByStaffId: actor.id,
+        });
+        paymentUserId = offlineCustomer.customer.id;
+        activationToken = offlineCustomer.activationToken;
+      } else {
+        const customer = await tx.user.findFirst({
+          where: { id: customerId!, role: "USER", deletedAt: null },
+          select: { id: true },
+        });
+        if (!customer) throw createError({ statusCode: 404, statusMessage: "ไม่พบลูกค้าที่เลือก" });
+      }
+
       let memberEntitlement = null as null | {
         id: string;
         customerId: string;
@@ -239,7 +233,7 @@ export default defineEventHandler(async (event) => {
         memberEntitlement = await tx.memberEntitlement.findFirst({
           where: {
             id: requestedEntitlementId,
-            customerId: customerId!,
+            customerId: paymentUserId!,
             deletedAt: null,
             status: "ACTIVE",
           },
@@ -315,7 +309,7 @@ export default defineEventHandler(async (event) => {
         const addonEnt = await tx.memberEntitlement.findFirst({
           where: {
             id: entry.entitlementId,
-            customerId: customerId!,
+            customerId: paymentUserId!,
             status: "ACTIVE",
             deletedAt: null,
             product: { packageType: "ADDON" },
@@ -363,9 +357,6 @@ export default defineEventHandler(async (event) => {
           customerId: paymentUserId!,
           employeeId: actor.id,
           status: serviceOrderStatus,
-          isWalkIn,
-          walkInName,
-          walkInPhone,
           memberEntitlementId: memberEntitlement?.id ?? null,
           creditUsed: memberEntitlement ? creditUsed : null,
           receivedAt,
@@ -456,9 +447,6 @@ export default defineEventHandler(async (event) => {
             },
             receivedAt,
             dueAt,
-            isWalkIn,
-            walkInName,
-            walkInPhone,
             memberEntitlementId: memberEntitlement?.id ?? null,
             creditUsed: memberEntitlement ? creditUsed : null,
             orderImageId,
@@ -509,10 +497,22 @@ export default defineEventHandler(async (event) => {
       }
     }
 
-    return created;
+    return { ...created, activationToken };
   } catch (error) {
     if (error && typeof error === "object" && "statusCode" in error) {
       throw error;
+    }
+
+    const duplicateCustomer = await resolveOfflineCustomerConflict(error, newCustomer ?? undefined);
+    if (duplicateCustomer) {
+      throw createError({
+        statusCode: 409,
+        statusMessage: "เบอร์โทรหรืออีเมลนี้มีบัญชีลูกค้าอยู่แล้ว",
+        data: { customer: duplicateCustomer },
+      });
+    }
+    if (isCustomerUniqueConflict(error)) {
+      throw createError({ statusCode: 409, statusMessage: "เบอร์โทรหรืออีเมลนี้มีบัญชีอยู่แล้ว" });
     }
 
     console.error("[POST /api/admin/service-orders]", error);

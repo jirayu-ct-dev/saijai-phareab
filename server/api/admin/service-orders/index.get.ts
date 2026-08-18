@@ -1,5 +1,6 @@
 import { requireRole } from "~~/server/utils/auth";
 import { prisma } from "~~/server/utils/prisma";
+import { isInternalCustomerEmail } from "~~/server/utils/customerAccount";
 
 const toNumber = (value: unknown) => Number(value ?? 0);
 
@@ -19,6 +20,7 @@ export default defineEventHandler(async (event) => {
             email: true,
             phoneNumber: true,
             image: true,
+            customerAccountStatus: true,
           },
         },
         employee: {
@@ -144,9 +146,6 @@ export default defineEventHandler(async (event) => {
         id: row.id,
         orderNo: row.orderNo,
         status: row.status,
-        isWalkIn: row.isWalkIn,
-        walkInName: row.walkInName,
-        walkInPhone: row.walkInPhone,
         note: row.note,
         creditUsed: row.creditUsed,
         receivedAt: row.receivedAt.toISOString(),
@@ -199,10 +198,11 @@ export default defineEventHandler(async (event) => {
           : null,
         customer: {
           id: row.customer.id,
-          name: row.isWalkIn ? row.walkInName || "ลูกค้าหน้าร้าน" : row.customer.name,
-          email: row.isWalkIn ? "ลูกค้าหน้าร้าน" : row.customer.email,
-          phoneNumber: row.isWalkIn ? row.walkInPhone || null : row.customer.phoneNumber,
-          image: row.isWalkIn ? null : row.customer.image,
+          name: row.customer.name,
+          email: isInternalCustomerEmail(row.customer.email) ? null : row.customer.email,
+          phoneNumber: row.customer.phoneNumber,
+          image: row.customer.image,
+          customerAccountStatus: row.customer.customerAccountStatus,
         },
         employee: row.employee,
         items: row.serviceOrderItems.map((item) => ({

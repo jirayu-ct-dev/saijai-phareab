@@ -1,5 +1,6 @@
 import { requireRole } from "~~/server/utils/auth";
 import { prisma } from "~~/server/utils/prisma";
+import { isInternalCustomerEmail } from "~~/server/utils/customerAccount";
 
 const formatAddress = (address: {
   address: string | null;
@@ -40,9 +41,6 @@ export default defineEventHandler(async (event) => {
           orderNo: true,
           status: true,
           dueAt: true,
-          isWalkIn: true,
-          walkInName: true,
-          walkInPhone: true,
           customer: {
             select: {
               id: true,
@@ -118,12 +116,12 @@ export default defineEventHandler(async (event) => {
       },
       customer: {
         id: customer.id,
-        name: order.isWalkIn ? order.walkInName || "ลูกค้าหน้าร้าน" : customer.name || "ไม่ระบุชื่อ",
-        email: customer.email,
-        phoneNumber: order.isWalkIn ? order.walkInPhone : customer.phoneNumber,
-        image: order.isWalkIn ? null : customer.image,
-        lineUserId: order.isWalkIn ? null : customer.accounts[0]?.accountId ?? null,
-        address: order.isWalkIn ? null : formatAddress(customer.userAddresses[0]),
+        name: customer.name || "ไม่ระบุชื่อ",
+        email: isInternalCustomerEmail(customer.email) ? null : customer.email,
+        phoneNumber: customer.phoneNumber,
+        image: customer.image,
+        lineUserId: customer.accounts[0]?.accountId ?? null,
+        address: formatAddress(customer.userAddresses[0]),
       },
       initialNotification: initialNotification
         ? {

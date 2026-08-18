@@ -221,10 +221,10 @@ export default defineEventHandler(async (event) => {
       : null,
     customer: {
       id: payment.user.id,
-      name: payment.serviceOrder?.isWalkIn ? payment.serviceOrder.walkInName || "ลูกค้าหน้าร้าน" : payment.user.name,
-      email: payment.serviceOrder?.isWalkIn ? "ลูกค้าหน้าร้าน" : payment.user.email,
-      phoneNumber: payment.serviceOrder?.isWalkIn ? payment.serviceOrder.walkInPhone : payment.user.phoneNumber,
-      image: payment.serviceOrder?.isWalkIn ? null : payment.user.image,
+      name: payment.user.name,
+      email: payment.user.email,
+      phoneNumber: payment.user.phoneNumber,
+      image: payment.user.image,
     },
     packageSale: payment.packageSale
       ? {
@@ -248,9 +248,6 @@ export default defineEventHandler(async (event) => {
       ? {
           id: payment.serviceOrder.id,
           orderNo: payment.serviceOrder.orderNo,
-          isWalkIn: payment.serviceOrder.isWalkIn,
-          walkInName: payment.serviceOrder.walkInName,
-          walkInPhone: payment.serviceOrder.walkInPhone,
           status: payment.serviceOrder.status,
           note: payment.serviceOrder.note,
           receivedAt: payment.serviceOrder.receivedAt.toISOString(),

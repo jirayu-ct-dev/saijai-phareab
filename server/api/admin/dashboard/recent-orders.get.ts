@@ -15,9 +15,6 @@ export default defineEventHandler(async (event) => {
       creditUsed: true,
       hangerCharge: true,
       totalAmount: true,
-      isWalkIn: true,
-      walkInName: true,
-      walkInPhone: true,
       createdAt: true,
       customer: {
         select: {
@@ -44,14 +41,12 @@ export default defineEventHandler(async (event) => {
     hangerCharge: o.hangerCharge as { count: number; pricePerUnit: number; total: number } | null,
     totalAmount: Number(o.totalAmount ?? 0),
     createdAt: o.createdAt,
-    customer: o.isWalkIn
-      ? { id: o.customer.id, name: o.walkInName ?? "ลูกค้าทั่วไป", image: null, phoneNumber: o.walkInPhone, lineUserId: null }
-      : {
-          id: o.customer.id,
-          name: o.customer.name ?? "ไม่ระบุชื่อ",
-          image: o.customer.image,
-          phoneNumber: o.customer.phoneNumber,
-          lineUserId: o.customer.accounts[0]?.accountId ?? null,
-        },
+    customer: {
+      id: o.customer.id,
+      name: o.customer.name ?? "ไม่ระบุชื่อ",
+      image: o.customer.image,
+      phoneNumber: o.customer.phoneNumber,
+      lineUserId: o.customer.accounts[0]?.accountId ?? null,
+    },
   }));
 });

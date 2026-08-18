@@ -18,7 +18,7 @@ type PickupConfirmationRow = {
   customer: {
     id: string;
     name: string;
-    email: string;
+    email: string | null;
     phoneNumber: string | null;
     image: string | null;
     lineUserId: string | null;

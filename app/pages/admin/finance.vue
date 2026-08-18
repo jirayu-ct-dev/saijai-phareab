@@ -206,7 +206,7 @@ const editingExpenseId = ref<string | null>(null)
 const expenseSubmitting = ref(false)
 const expenseForm = reactive({
   categoryId: '',
-  amount: '' as string | number,
+  amount: '',
   expenseAt: format(new Date(), "yyyy-MM-dd'T'HH:mm"),
   description: '',
 })
@@ -229,7 +229,7 @@ const openEditExpenseModal = (item: ExpenseItem) => {
   isEditingExpense.value = true
   editingExpenseId.value = item.id
   expenseForm.categoryId = item.categoryId
-  expenseForm.amount = item.amount
+  expenseForm.amount = String(item.amount)
   expenseForm.expenseAt = format(new Date(item.expenseAt), "yyyy-MM-dd'T'HH:mm")
   expenseForm.description = item.description || ''
   expenseErrors.categoryId = undefined
@@ -638,7 +638,7 @@ onMounted(() => {
                 variant="subtle"
                 title="รีเฟรชตาราง"
                 :loading="isExpensePending"
-                @click="refreshExpenses"
+                @click="() => refreshExpenses()"
               />
             </div>
           </div>
@@ -918,7 +918,7 @@ onMounted(() => {
           <UTextarea
             v-model="expenseForm.description"
             placeholder="ระบุรายละเอียด (ถ้ามี)..."
-            rows="3"
+            :rows="3"
             class="w-full"
           />
         </UFormField>

@@ -20,7 +20,6 @@ export type PickupScheduleSettings = {
 };
 
 export type PickupEligibilityInput = {
-  isWalkIn: boolean;
   deletedAt: Date | null;
   status: string;
   hasDeliveryUsage: boolean;
@@ -109,7 +108,6 @@ export function shouldSkipPickupReminder(input: {
 
 export function isPickupConfirmationEligible(input: PickupEligibilityInput): boolean {
   return input.pickupConfirmationEnabled
-    && !input.isWalkIn
     && input.deletedAt === null
     && ["RECEIVED", "PROCESSING", "DELIVERING"].includes(input.status)
     && input.hasDeliveryUsage

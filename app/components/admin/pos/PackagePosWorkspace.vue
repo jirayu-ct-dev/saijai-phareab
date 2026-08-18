@@ -38,7 +38,7 @@ const packageTypeBadges: Record<PackageType, { label: string; color: "primary" |
 
 const notify = useNotify();
 const { createSale } = useAdminSales();
-const { customers, isLoading: isCustomersLoading } = useAdminCustomerOptions();
+const { customers, isLoading: isCustomersLoading, setSearch: setCustomerSearch } = useAdminCustomerOptions();
 const { products, isLoading: isCatalogLoading, refresh } = usePackageCatalog();
 const { uploadSlip } = useAdminPayments({ fetchList: false, refreshAfterMutation: false });
 const { vatRate, vatIncluded, computeVatPreview } = useBusinessSetting();
@@ -55,6 +55,7 @@ const customerOptions = computed(() =>
     name: customer.name,
     email: customer.email,
     phoneNumber: customer.phoneNumber,
+    customerAccountStatus: customer.customerAccountStatus,
   })),
 );
 
@@ -351,6 +352,7 @@ const handleSubmit = async () => {
           :uploaded-slip-url="uploadedSlip?.secureUrl || uploadedSlip?.url"
           :uploaded-slip-label="uploadedSlip?.secureUrl || uploadedSlip?.url || null"
           @update:customer-id="form.customerId = $event"
+          @search-customer="setCustomerSearch"
           @update:note="form.note = $event"
           @update:slip-file="slipFile = $event"
           @remove-slip="resetSlip"

@@ -1,5 +1,6 @@
 import { prisma } from "~~/server/utils/prisma";
 import { requireRole } from "~~/server/utils/auth";
+import { isInternalCustomerEmail } from "~~/server/utils/customerAccount";
 
 export default defineEventHandler(async (event) => {
   await requireRole(event, ["ADMIN"]);
@@ -15,6 +16,7 @@ export default defineEventHandler(async (event) => {
         image: true,
         role: true,
         phoneNumber: true,
+        customerAccountStatus: true,
         emailVerified: true,
         isActive: true,
         createdAt: true,
@@ -59,6 +61,7 @@ export default defineEventHandler(async (event) => {
       const entitlement = memberEntitlements[0] ?? null;
       return {
         ...rest,
+        email: isInternalCustomerEmail(rest.email) ? null : rest.email,
         memberEntitlements: memberEntitlements.map((entitlement) => ({
           id: entitlement.id,
           creditRemaining: entitlement.creditRemaining,

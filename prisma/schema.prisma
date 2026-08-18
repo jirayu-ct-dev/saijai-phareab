@@ -13,6 +13,11 @@ enum Role {
   ADMIN
 }
 
+enum CustomerAccountStatus {
+  OFFLINE
+  ACTIVE
+}
+
 enum PackageType {
   MAIN
   ADDON
@@ -100,24 +105,32 @@ enum PickupNotificationStatus {
 }
 
 model User {
-  id                String    @id @default(cuid())
-  email             String    @unique
-  name              String?
-  emailVerified     Boolean   @default(false)
-  image             String?
-  role              Role      @default(USER)
-  phoneNumber       String?
-  lineNotifyEnabled Boolean   @default(true)
-  isActive          Boolean   @default(true)
-  createdAt         DateTime  @default(now())
-  updatedAt         DateTime  @updatedAt
-  deletedAt         DateTime?
-  deletedById       String?
-  deletedBy         User?     @relation("DeletedByUser", fields: [deletedById], references: [id])
-  deletedUsers      User[]    @relation("DeletedByUser")
+  id                    String                @id @default(cuid())
+  email                 String                @unique
+  name                  String?
+  emailVerified         Boolean               @default(false)
+  image                 String?
+  role                  Role                  @default(USER)
+  phoneNumber           String?
+  normalizedPhoneNumber String?
+  customerAccountStatus CustomerAccountStatus @default(ACTIVE)
+  claimedAt             DateTime?
+  createdByStaffId      String?
+  lineNotifyEnabled     Boolean               @default(true)
+  isActive              Boolean               @default(true)
+  createdAt             DateTime              @default(now())
+  updatedAt             DateTime              @updatedAt
+  deletedAt             DateTime?
+  deletedById           String?
+  deletedBy             User?                 @relation("DeletedByUser", fields: [deletedById], references: [id])
+  deletedUsers          User[]                @relation("DeletedByUser")
+  createdByStaff        User?                 @relation("CustomerCreatedByStaff", fields: [createdByStaffId], references: [id], onDelete: SetNull)
+  createdCustomers      User[]                @relation("CustomerCreatedByStaff")
 
-  sessions Session[]
-  accounts Account[]
+  sessions                   Session[]
+  accounts                   Account[]
+  claimTokens                CustomerClaimToken[] @relation("CustomerClaimTokenUser")
+  createdCustomerClaimTokens CustomerClaimToken[] @relation("CustomerClaimTokenCreatedBy")
 
   packageSales          PackageSale[]       @relation("PackageSaleCustomer")
   soldPackageSales      PackageSale[]       @relation("PackageSaleSeller")
@@ -150,7 +163,25 @@ model User {
 
   notificationSubscriber NotificationSubscriber?
 
+  @@index([createdByStaffId])
   @@map("user")
+}
+
+model CustomerClaimToken {
+  id          String    @id @default(cuid())
+  userId      String
+  user        User      @relation("CustomerClaimTokenUser", fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash   String    @unique
+  expiresAt   DateTime
+  usedAt      DateTime?
+  revokedAt   DateTime?
+  createdById String?
+  createdBy   User?     @relation("CustomerClaimTokenCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt   DateTime  @default(now())
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("customer_claim_token")
 }
 
 model Session {
@@ -408,9 +439,6 @@ model ServiceOrder {
   employeeId                 String?
   employee                   User?              @relation("ServiceOrderEmployee", fields: [employeeId], references: [id])
   status                     ServiceOrderStatus @default(RECEIVED)
-  isWalkIn                   Boolean            @default(false)
-  walkInName                 String?
-  walkInPhone                String?
   memberEntitlementId        String?
   memberEntitlement          MemberEntitlement? @relation(fields: [memberEntitlementId], references: [id])
   creditUsed                 Int?

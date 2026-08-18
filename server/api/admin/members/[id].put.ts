@@ -1,6 +1,7 @@
 import { z } from "zod/v4";
 import { prisma } from "~~/server/utils/prisma";
 import { requireRole } from "~~/server/utils/auth";
+import { normalizeThaiPhoneNumber } from "~~/shared/utils/phone";
 
 const schema = z.object({
   name: z.string().trim().min(1).max(100).optional(),
@@ -17,17 +18,19 @@ export default defineEventHandler(async (event) => {
     select: { id: true, email: true },
   });
   if (!target) throw createError({ statusCode: 404, statusMessage: "ไม่พบลูกค้า" });
-  if (target.email === "walkin@saijai.local") {
-    throw createError({ statusCode: 400, statusMessage: "ห้ามแก้ไขข้อมูลลูกค้าหน้าร้าน" });
-  }
-
   const body = await readValidatedBody(event, schema.parse);
+  const phoneNumber = body.phoneNumber === undefined ? undefined : body.phoneNumber?.trim() || null;
+  const normalizedPhoneNumber = phoneNumber ? normalizeThaiPhoneNumber(phoneNumber) : phoneNumber;
+  if (phoneNumber && !normalizedPhoneNumber) {
+    throw createError({ statusCode: 400, statusMessage: "เบอร์โทรศัพท์ไม่ถูกต้อง" });
+  }
 
   await prisma.user.update({
     where: { id },
     data: {
       name: body.name ?? undefined,
-      phoneNumber: body.phoneNumber ?? undefined,
+      phoneNumber,
+      normalizedPhoneNumber,
     },
   });
 

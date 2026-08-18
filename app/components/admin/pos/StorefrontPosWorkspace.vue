@@ -31,14 +31,14 @@ type FormItemState = {
 const BANGKOK_OFFSET_MS = 7 * 60 * 60 * 1000;
 
 const emit = defineEmits<{
-  completed: [payload: { paymentId: string; serviceOrderId: string; orderNo: string | null; saleType: "STOREFRONT"; title: string }];
+  completed: [payload: { paymentId: string; serviceOrderId: string; orderNo: string | null; activationToken?: string | null; saleType: "STOREFRONT"; title: string }];
 }>();
 
 const notify = useNotify();
-const { customers, isLoading: isCustomersLoading } = useAdminCustomerOptions();
+const { customers, isLoading: isCustomersLoading, setSearch: setCustomerSearch } = useAdminCustomerOptions();
 const { hangerPricePerUnit, washFoldPricePerKg, washFoldMinKg, vatRate, vatIncluded, computeVatPreview } = useBusinessSetting();
 const { items, isLoading: isCatalogLoading, refresh } = useStorefrontCatalog();
-const { createServiceOrder, uploadOrderImage } = useAdminServiceOrders({
+const { createServiceOrderOrThrow, uploadOrderImage } = useAdminServiceOrders({
   fetchList: false,
   refreshAfterMutation: false,
 });
@@ -125,6 +125,7 @@ const customerOptions = computed(() =>
     name: customer.name,
     email: customer.email,
     phoneNumber: customer.phoneNumber,
+    customerAccountStatus: customer.customerAccountStatus,
     activeMemberEntitlement: customer.activeMemberEntitlement ?? null,
     addonEntitlements: customer.addonEntitlements ?? [],
   })),
@@ -132,8 +133,8 @@ const customerOptions = computed(() =>
 const selectedCustomer = computed(() => customerOptions.value.find((customer) => customer.value === form.customerId) ?? null);
 const activeMemberEntitlement = computed(() => selectedCustomer.value?.activeMemberEntitlement ?? null);
 const activeAddonEntitlements = computed(() => selectedCustomer.value?.addonEntitlements ?? []);
-const canUseMemberPackage = computed(() => !form.isWalkIn && Boolean(activeMemberEntitlement.value));
-const canUseAddonPackages = computed(() => !form.isWalkIn && activeAddonEntitlements.value.length > 0);
+const canUseMemberPackage = computed(() => form.customerMode === "existing" && Boolean(activeMemberEntitlement.value));
+const canUseAddonPackages = computed(() => form.customerMode === "existing" && activeAddonEntitlements.value.length > 0);
 
 const filteredCatalog = computed(() => {
   const keyword = searchQuery.value.trim().toLowerCase();
@@ -150,9 +151,10 @@ const createItemKey = () => `service-pos-item-${++itemKeySeed}`;
 
 const createEmptyForm = () => ({
   customerId: "",
-  isWalkIn: false,
-  walkInName: "",
-  walkInPhone: "",
+  customerMode: "existing" as "existing" | "new",
+  newCustomerName: "",
+  newCustomerPhone: "",
+  newCustomerEmail: "",
   memberEntitlementId: null as string | null,
   addonEntitlements: [] as Array<{ entitlementId: string; credits: number }>,
   items: [] as FormItemState[],
@@ -171,6 +173,15 @@ const form = reactive(createEmptyForm());
 const dueDate = shallowRef<CalendarDate | null>(null);
 const dueTime = ref("00:00");
 const isSubmitting = ref(false);
+const duplicateCustomerOpen = ref(false);
+type DuplicateCustomerSummary = {
+  id: string;
+  name: string | null;
+  email?: string | null;
+  phoneNumber: string | null;
+  customerAccountStatus?: "OFFLINE" | "ACTIVE";
+};
+const duplicateCustomer = ref<DuplicateCustomerSummary | null>(null);
 const slipFile = ref<File | null>(null);
 const uploadedSlip = ref<AdminSaleSlipImage | null>(null);
 const orderImageFile = ref<File | null>(null);
@@ -552,15 +563,15 @@ const uploadOrderImagesIfNeeded = async () => {
 };
 
 watch(
-  [() => form.isWalkIn, activeMemberEntitlement],
-  ([isWalkIn, entitlement]) => {
-    if (isWalkIn || !entitlement) { form.memberEntitlementId = null; return; }
+  [() => form.customerMode, activeMemberEntitlement],
+  ([customerMode, entitlement]) => {
+    if (customerMode !== "existing" || !entitlement) { form.memberEntitlementId = null; return; }
     form.memberEntitlementId = (entitlement.creditRemaining ?? 0) > 0 ? entitlement.id : null;
   },
   { immediate: true },
 );
-watch([() => form.isWalkIn, activeAddonEntitlements], ([isWalkIn, addons]) => {
-  if (isWalkIn || addons.length === 0) {
+watch([() => form.customerMode, activeAddonEntitlements], ([customerMode, addons]) => {
+  if (customerMode !== "existing" || addons.length === 0) {
     form.addonEntitlements = [];
     return;
   }
@@ -583,7 +594,9 @@ watch(() => form.hangerCount, (raw) => { const v = Number.isFinite(raw) ? raw : 
 watch(() => form.missingHangerCount, (raw) => { const v = Number.isFinite(raw) ? raw : 0; form.missingHangerCount = v; if (v !== form.hangerCount) form.hangerCount = v; });
 
 const handleSubmit = async () => {
-  if (!form.isWalkIn && !form.customerId) return notify.validationError("กรุณาเลือกลูกค้า");
+  if (form.customerMode === "existing" && !form.customerId) return notify.validationError("กรุณาเลือกลูกค้า");
+  if (form.customerMode === "new" && !form.newCustomerName.trim()) return notify.validationError("กรุณากรอกชื่อลูกค้า");
+  if (form.customerMode === "new" && !form.newCustomerPhone.trim()) return notify.validationError("กรุณากรอกเบอร์โทรลูกค้า");
   if (normalizedItems.value.length === 0) return notify.validationError("กรุณาเลือกบริการอย่างน้อย 1 รายการ");
 
   if (form.washFoldMode) {
@@ -599,13 +612,15 @@ const handleSubmit = async () => {
     await uploadSlipIfNeeded();
     await uploadOrderImagesIfNeeded();
 
-    const result = await createServiceOrder({
-      customerId: form.isWalkIn ? null : form.customerId,
-      isWalkIn: form.isWalkIn,
-      walkInName: form.isWalkIn ? form.walkInName.trim() || null : null,
-      walkInPhone: form.isWalkIn ? form.walkInPhone.trim() || null : null,
+    const result = await createServiceOrderOrThrow({
+      customerId: form.customerMode === "existing" ? form.customerId : undefined,
+      newCustomer: form.customerMode === "new" ? {
+        name: form.newCustomerName.trim(),
+        phoneNumber: form.newCustomerPhone.trim(),
+        email: form.newCustomerEmail.trim() || null,
+      } : undefined,
       memberEntitlementId: form.washFoldMode ? null : form.memberEntitlementId,
-      addonEntitlements: form.isWalkIn ? [] : selectedAddonEntitlements.value,
+      addonEntitlements: form.customerMode === "existing" ? selectedAddonEntitlements.value : [],
       orderImageId: form.orderImageId,
       items: normalizedItems.value,
       washFold: form.washFoldMode
@@ -625,17 +640,49 @@ const handleSubmit = async () => {
         paymentId: result.paymentId,
         serviceOrderId: result.id,
         orderNo: result.orderNo,
+        activationToken: result.activationToken,
         saleType: "STOREFRONT",
         title: "บันทึกรายการรับผ้าสำเร็จ",
       });
       resetForm();
       await refresh();
     }
-  } catch {
-    notify.error("ไม่สามารถอัปโหลดสลิปได้");
+  } catch (error: unknown) {
+    const fetchError = error as { statusCode?: number; data?: { statusCode?: number; statusMessage?: string; customer?: DuplicateCustomerSummary; data?: { customer?: DuplicateCustomerSummary } } };
+    const statusCode = fetchError.statusCode ?? fetchError.data?.statusCode;
+    const conflictCustomer = fetchError.data?.customer ?? fetchError.data?.data?.customer;
+    if (statusCode === 409 && conflictCustomer) {
+      duplicateCustomer.value = conflictCustomer;
+      duplicateCustomerOpen.value = true;
+    } else {
+      notify.error(fetchError.data?.statusMessage || "ไม่สามารถบันทึกรายการรับผ้าได้");
+    }
   } finally {
     isSubmitting.value = false;
   }
+};
+
+const useDuplicateCustomer = async () => {
+  const customer = duplicateCustomer.value;
+  if (!customer) return;
+  if (!(customers.value ?? []).some((item) => item.id === customer.id)) {
+    customers.value = [
+      ...(customers.value ?? []),
+      {
+        id: customer.id,
+        label: customer.name || customer.phoneNumber || "ลูกค้าเดิม",
+        name: customer.name,
+        phoneNumber: customer.phoneNumber,
+        email: customer.email ?? null,
+        customerAccountStatus: customer.customerAccountStatus ?? "ACTIVE",
+      },
+    ];
+  }
+  form.customerId = customer.id;
+  form.customerMode = "existing";
+  duplicateCustomerOpen.value = false;
+  await nextTick();
+  await handleSubmit();
 };
 </script>
 
@@ -824,10 +871,11 @@ const handleSubmit = async () => {
         :customer-id="form.customerId"
         :customer-options="customerOptions"
         :customer-loading="isCustomersLoading"
-        allow-walk-in
-        :is-walk-in="form.isWalkIn"
-        :walk-in-name="form.walkInName"
-        :walk-in-phone="form.walkInPhone"
+        allow-new-customer
+        :customer-mode="form.customerMode"
+        :new-customer-name="form.newCustomerName"
+        :new-customer-phone="form.newCustomerPhone"
+        :new-customer-email="form.newCustomerEmail"
         :note="form.note"
         total-label="ยอดรวมสุทธิ"
         :total-value="formatCurrency(totalAmount)"
@@ -839,9 +887,11 @@ const handleSubmit = async () => {
         :uploaded-slip-label="uploadedSlip?.secureUrl || uploadedSlip?.url || null"
         :hide-payment-fields="isMemberWithZeroTotal"
         @update:customer-id="form.customerId = $event"
-        @update:is-walk-in="form.isWalkIn = $event"
-        @update:walk-in-name="form.walkInName = $event"
-        @update:walk-in-phone="form.walkInPhone = $event"
+        @update:customer-mode="form.customerMode = $event"
+        @update:new-customer-name="form.newCustomerName = $event"
+        @update:new-customer-phone="form.newCustomerPhone = $event"
+        @update:new-customer-email="form.newCustomerEmail = $event"
+        @search-customer="setCustomerSearch"
         @update:note="form.note = $event"
         @update:slip-file="slipFile = $event"
         @remove-slip="resetSlip"
@@ -1174,6 +1224,24 @@ const handleSubmit = async () => {
           :disabled="!newItemData.name.trim()"
           @click="saveNewItem"
         />
+      </div>
+    </template>
+  </UModal>
+
+  <UModal v-model:open="duplicateCustomerOpen" title="พบลูกค้าเดิมในระบบ" :ui="{ content: 'max-w-md' }">
+    <template #body>
+      <div class="space-y-3">
+        <p class="text-sm text-muted">เบอร์โทรนี้ถูกใช้กับลูกค้าเดิมแล้ว กรุณาตรวจสอบก่อนใช้บัญชีเดิมกับออเดอร์นี้</p>
+        <div class="rounded-lg border border-default bg-elevated/50 p-4">
+          <p class="font-medium text-highlighted">{{ duplicateCustomer?.name || "ไม่ระบุชื่อ" }}</p>
+          <p class="mt-1 text-sm text-muted">{{ duplicateCustomer?.phoneNumber || "ไม่ระบุเบอร์" }}</p>
+        </div>
+      </div>
+    </template>
+    <template #footer>
+      <div class="flex w-full justify-end gap-2">
+        <UButton color="neutral" variant="ghost" @click="duplicateCustomerOpen = false">กลับไปแก้ไข</UButton>
+        <UButton icon="i-lucide-user-check" :loading="isSubmitting" @click="useDuplicateCustomer">ใช้ลูกค้าเดิม</UButton>
       </div>
     </template>
   </UModal>

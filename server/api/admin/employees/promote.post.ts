@@ -13,17 +13,17 @@ export default defineEventHandler(async (event) => {
 
   const user = await prisma.user.findFirst({
     where: { id: body.userId, deletedAt: null },
-    select: { id: true, role: true, email: true },
+    select: { id: true, role: true, customerAccountStatus: true },
   });
 
   if (!user) {
     throw createError({ statusCode: 404, statusMessage: "ไม่พบผู้ใช้งาน" });
   }
-  if (user.email === "walkin@saijai.local") {
-    throw createError({ statusCode: 400, statusMessage: "ไม่สามารถเปลี่ยนสิทธิ์ผู้ใช้นี้ได้" });
-  }
   if (user.role !== "USER") {
     throw createError({ statusCode: 400, statusMessage: "ผู้ใช้นี้ไม่ใช่ลูกค้าทั่วไป" });
+  }
+  if (user.customerAccountStatus === "OFFLINE") {
+    throw createError({ statusCode: 409, statusMessage: "ต้องเปิดใช้งานบัญชีลูกค้าก่อนเปลี่ยนเป็นพนักงาน" });
   }
 
   const updated = await prisma.user.update({
