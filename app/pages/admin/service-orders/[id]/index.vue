@@ -7,6 +7,7 @@ import type { AdminServiceOrder } from "~~/app/composables/useAdminServiceOrders
 import ImagePreviewModal from "~~/app/components/UI/ImagePreviewModal.vue";
 import EditPaymentStateModal from "~~/app/components/admin/payment/EditPaymentStateModal.vue";
 import EditServiceOrderModal from "~~/app/components/admin/service-orders/EditServiceOrderModal.vue";
+import EditServiceOrderStatusModal from "~~/app/components/admin/service-orders/EditServiceOrderStatusModal.vue";
 
 type BadgeColor = "success" | "info" | "error" | "neutral" | "primary" | "secondary" | "warning";
 type InfoRow = { label: string; value: string; valueClass?: string; dividerBefore?: boolean };
@@ -335,6 +336,7 @@ const onPaymentUpdated = async () => {
 };
 
 const isEditItemsOpen = ref(false);
+const editStatusOpen = ref(false);
 const openEditItemsModal = () => {
   if (!order.value) return;
   isEditItemsOpen.value = true;
@@ -391,6 +393,17 @@ const getItemPhotos = (item: ServiceOrderDetailItem) =>
               aria-label="แก้ไขรายการ"
               :ui="{ label: 'hidden sm:inline' }"
               @click="openEditItemsModal"
+            />
+            <UButton
+              v-if="order"
+              label="แก้ไขสถานะผ้า"
+              color="primary"
+              variant="subtle"
+              icon="i-lucide-refresh-cw"
+              class="shrink-0"
+              aria-label="แก้ไขสถานะผ้า"
+              :ui="{ label: 'hidden sm:inline' }"
+              @click="editStatusOpen = true"
             />
             <UButton
               v-if="canEditPayment"
@@ -869,6 +882,12 @@ const getItemPhotos = (item: ServiceOrderDetailItem) =>
 
   <EditServiceOrderModal
     v-model:open="isEditItemsOpen"
+    :order="orderForEdit"
+    @updated="refresh"
+  />
+
+  <EditServiceOrderStatusModal
+    v-model:open="editStatusOpen"
     :order="orderForEdit"
     @updated="refresh"
   />

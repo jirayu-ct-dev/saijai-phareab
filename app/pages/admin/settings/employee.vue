@@ -37,6 +37,38 @@ const isLoading = computed(() => status.value === "pending");
 const isCreateOpen = ref(false);
 const createForm = reactive({ email: "", name: "", phoneNumber: "", password: "", role: "EMPLOYEE" as "ADMIN" | "EMPLOYEE" });
 const isCreating = ref(false);
+const showCreatePassword = ref(false);
+
+const openCreateEmployee = () => {
+  showCreatePassword.value = false;
+  isCreateOpen.value = true;
+};
+
+const openPromoteEmployee = () => {
+  isPromoteOpen.value = true;
+};
+
+const toggleCreatePassword = () => {
+  showCreatePassword.value = !showCreatePassword.value;
+};
+
+const closeCreateEmployee = () => {
+  isCreateOpen.value = false;
+};
+
+const generateCreatePassword = () => {
+  createForm.password = randomPassword(12, { symbols: false });
+};
+
+const copyCreatePassword = async () => {
+  if (!createForm.password) return notify.warning("กรุณาสร้างรหัสผ่านก่อน");
+  try {
+    await navigator.clipboard.writeText(createForm.password);
+    notify.success("คัดลอกรหัสผ่านแล้ว");
+  } catch {
+    notify.error("ไม่สามารถคัดลอกรหัสผ่านได้");
+  }
+};
 
 const resetCreate = () => {
   createForm.email = "";
@@ -229,11 +261,11 @@ const onToggleActive = async (emp: Employee) => {
           color="neutral"
           variant="outline"
           class="justify-center"
-          @click="isPromoteOpen = true"
+          @click="openPromoteEmployee"
         >
           เลือกผู้ใช้ในระบบ
         </UButton>
-        <UButton icon="i-lucide-plus" class="justify-center" @click="isCreateOpen = true">
+        <UButton icon="i-lucide-plus" class="justify-center" @click="openCreateEmployee">
           สร้างพนักงานใหม่
         </UButton>
       </div>
@@ -320,23 +352,36 @@ const onToggleActive = async (emp: Employee) => {
     <UModal
       v-model:open="isCreateOpen"
       title="สร้างพนักงานใหม่"
-      :ui="{ body: '!bg-default p-4! dark:!bg-elevated/55' }"
+      description="สร้างบัญชีพนักงานหรือผู้ดูแลสำหรับเข้าใช้งานระบบ"
     >
       <template #body>
-        <div class="space-y-3">
-          <UFormField label="ชื่อ" required>
-            <UInput v-model="createForm.name" placeholder="ชื่อ-นามสกุล" class="w-full" />
+        <UForm :state="createForm" class="space-y-4">
+          <UFormField name="name" label="ชื่อผู้ใช้งาน" required>
+            <UInput v-model="createForm.name" placeholder="เช่น สมชาย ใจดี" class="w-full" />
           </UFormField>
-          <UFormField label="อีเมล" required>
-            <UInput v-model="createForm.email" type="email" placeholder="email@example.com" class="w-full" />
+          <UFormField name="email" label="อีเมล" required>
+            <UInput v-model="createForm.email" type="email" placeholder="someone@example.com" class="w-full" />
           </UFormField>
-          <UFormField label="เบอร์โทรศัพท์">
+          <UFormField name="phoneNumber" label="เบอร์โทรศัพท์">
             <UInput v-model="createForm.phoneNumber" placeholder="081-234-5678" class="w-full" />
           </UFormField>
-          <UFormField label="รหัสผ่าน" required help="อย่างน้อย 8 ตัวอักษร">
-            <UInput v-model="createForm.password" type="password" class="w-full" />
+          <UFormField name="password" label="รหัสผ่าน" :ui="{ label: 'w-full' }">
+            <template #label>
+              <div class="flex w-full items-center justify-between gap-2">
+                <span class="text-sm font-medium text-highlighted">รหัสผ่าน <span class="text-error">*</span></span>
+                <div class="flex shrink-0 items-center gap-1.5">
+                  <UButton label="สุ่มรหัสผ่าน" size="xs" variant="ghost" icon="i-lucide-wand-2" @click="generateCreatePassword" />
+                  <UButton label="คัดลอก" size="xs" variant="ghost" icon="i-lucide-copy" @click="copyCreatePassword" />
+                </div>
+              </div>
+            </template>
+            <UInput v-model="createForm.password" :type="showCreatePassword ? 'text' : 'password'" placeholder="สร้างหรือสุ่มรหัสผ่าน" class="w-full">
+              <template #trailing>
+                <UButton :icon="showCreatePassword ? 'i-lucide-eye-off' : 'i-lucide-eye'" color="neutral" variant="link" size="sm" :aria-label="showCreatePassword ? 'ซ่อนรหัสผ่าน' : 'แสดงรหัสผ่าน'" @click="toggleCreatePassword" />
+              </template>
+            </UInput>
           </UFormField>
-          <UFormField label="Role" required>
+          <UFormField name="role" label="สิทธิ์" required>
             <USelect
               v-model="createForm.role"
               :items="[
@@ -347,12 +392,12 @@ const onToggleActive = async (emp: Employee) => {
               class="w-full"
             />
           </UFormField>
-        </div>
+        </UForm>
       </template>
       <template #footer>
-        <div class="flex w-full justify-between gap-2">
-          <UButton color="neutral" variant="ghost" @click="isCreateOpen = false">ยกเลิก</UButton>
-          <UButton :loading="isCreating" icon="i-lucide-user-plus" @click="onCreate">เพิ่มพนักงาน</UButton>
+        <div class="flex w-full justify-end gap-3">
+          <UButton color="neutral" variant="outline" @click="closeCreateEmployee">ยกเลิก</UButton>
+          <UButton :loading="isCreating" icon="i-lucide-check" @click="onCreate">สร้างพนักงาน</UButton>
         </div>
       </template>
     </UModal>

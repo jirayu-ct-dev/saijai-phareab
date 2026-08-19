@@ -26,6 +26,13 @@ const toDate = ref(formatDateInput(today));
 
 const reports = [
   {
+    key: "customers",
+    label: "รายงานลูกค้า",
+    description: "บัญชีลูกค้าหน้าร้านและลูกค้าที่เปิดใช้งานแล้ว พร้อมจำนวนออเดอร์และสถานะ LINE",
+    icon: "i-lucide-users-round",
+    endpoint: "/api/admin/exports/customers",
+  },
+  {
     key: "sales",
     label: "รายงานยอดขาย",
     description: "ประวัติการชำระเงินทั้งหมดในช่วงเวลา (เลขที่บิล, ลูกค้า, ยอด, วิธีชำระเงิน)",
@@ -59,6 +66,13 @@ const reports = [
     description: "สรุปออเดอร์ที่แต่ละคนรับและยอดรวม สำหรับคำนวณค่าคอมมิชชั่น",
     icon: "i-lucide-users",
     endpoint: "/api/admin/exports/employee-performance",
+  },
+  {
+    key: "expenses",
+    label: "รายงานรายจ่าย",
+    description: "รายจ่ายร้านแยกตามวันที่ หมวดหมู่ จำนวนเงิน และผู้บันทึก",
+    icon: "i-lucide-badge-minus",
+    endpoint: "/api/admin/exports/expenses",
   },
 ];
 

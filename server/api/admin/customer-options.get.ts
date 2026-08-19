@@ -19,6 +19,10 @@ export default defineEventHandler(async (event) => {
       where: {
         deletedAt: null,
         role: "USER",
+        AND: [
+          { OR: [{ normalizedPhoneNumber: null }, { NOT: { normalizedPhoneNumber: { startsWith: "000000" } } }] },
+          { OR: [{ name: null }, { NOT: { name: { startsWith: "ลูกค้าเดิมไม่ระบุ" } } }] },
+        ],
         ...(q
           ? {
               OR: [

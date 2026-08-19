@@ -4,7 +4,7 @@ import { getPaginationRowModel } from '@tanstack/table-core'
 import type { TableColumn } from '@nuxt/ui'
 import type { AdminUser, CreateAdminUserBody, UpdateAdminUserBody } from '~~/app/composables/useAdminUsers'
 import type { Role } from '~~/shared/types/enums'
-import { cycleColumnSorting } from '~~/shared/utils/table'
+import { columnSortIcon, cycleColumnSorting } from '~~/shared/utils/table'
 import { randomPassword } from '~~/shared/utils/random'
 import { formatDate } from '~~/shared/utils/format'
 
@@ -20,6 +20,17 @@ const UCheckbox = resolveComponent('UCheckbox')
 const UDropdownMenu = resolveComponent('UDropdownMenu')
 const UIButtonChatLine = resolveComponent('UIButtonChatLine')
 const UPopover = resolveComponent('UPopover')
+const UIcon = resolveComponent('UIcon')
+
+const sortableHeader = (
+  label: string,
+  column: { getIsSorted: () => false | 'asc' | 'desc'; toggleSorting: (descending: boolean) => void; clearSorting: () => void },
+  align = 'left'
+) => h('button', {
+  type: 'button',
+  class: ['inline-flex w-full items-center gap-1.5', align === 'right' ? 'justify-end' : 'justify-start'],
+  onClick: () => cycleColumnSorting(column)
+}, [label, h(UIcon, { name: columnSortIcon(column.getIsSorted()), class: 'size-3.5 text-dimmed' })])
 
 const notify = useNotify()
 const { users, isLoading, refresh, createUser, updateUser, deleteUser, toggleActive } = useAdminUsers()
@@ -426,19 +437,7 @@ const columns: TableColumn<AdminUser>[] = [
   },
   {
     accessorKey: 'name',
-    header: ({ column }) => {
-      const isSorted = column.getIsSorted()
-      const icon = !isSorted ? 'i-lucide-arrow-up-down' : isSorted === 'asc' ? 'i-lucide-arrow-up-narrow-wide' : 'i-lucide-arrow-down-wide-narrow'
-
-      return h(UButton, {
-        label: 'ลูกค้า',
-        color: 'neutral',
-        variant: 'ghost',
-        class: '-mx-2.5',
-        icon,
-        onClick: () => cycleColumnSorting(column)
-      })
-    },
+    header: ({ column }) => sortableHeader('ลูกค้า', column),
     cell: ({ row }) => {
       const user = row.original
       return h(
@@ -461,7 +460,7 @@ const columns: TableColumn<AdminUser>[] = [
   },
   {
     accessorKey: 'role',
-    header: 'สิทธิ์',
+    header: ({ column }) => sortableHeader('สิทธิ์', column),
     cell: ({ row }) => {
       const user = row.original
       const badge = ROLE_BADGE_MAP[user.role]
@@ -493,7 +492,7 @@ const columns: TableColumn<AdminUser>[] = [
   },
   {
     accessorKey: 'isActive',
-    header: 'สถานะ',
+    header: ({ column }) => sortableHeader('สถานะ', column),
     cell: ({ row }) => {
       const user = row.original
       if (user.role === 'USER') return null
@@ -509,7 +508,7 @@ const columns: TableColumn<AdminUser>[] = [
   },
   {
     accessorKey: 'phoneNumber',
-    header: 'เบอร์โทร',
+    header: ({ column }) => sortableHeader('เบอร์โทร', column),
     cell: ({ row }) => {
       const user = row.original
       if (!user.phoneNumber) return h('span', { class: 'text-muted' }, '-')
@@ -517,20 +516,9 @@ const columns: TableColumn<AdminUser>[] = [
     }
   },
   {
-    accessorKey: 'memberEntitlements',
-    header: ({ column }) => {
-      const isSorted = column.getIsSorted()
-      const icon = !isSorted ? 'i-lucide-arrow-up-down' : isSorted === 'asc' ? 'i-lucide-arrow-up-narrow-wide' : 'i-lucide-arrow-down-wide-narrow'
-
-      return h(UButton, {
-        label: 'แพ็กเกจปัจจุบัน',
-        color: 'neutral',
-        variant: 'ghost',
-        class: '-mx-2.5',
-        icon,
-        onClick: () => cycleColumnSorting(column)
-      })
-    },
+    id: 'memberEntitlements',
+    accessorFn: (user) => getCurrentPackages(user).map((entitlement) => entitlement.product.name).join(' '),
+    header: ({ column }) => sortableHeader('แพ็กเกจปัจจุบัน', column),
     cell: ({ row }) => {
       const user = row.original
       const currentPackages = getCurrentPackages(user)
@@ -551,7 +539,7 @@ const columns: TableColumn<AdminUser>[] = [
   },
   {
     accessorKey: 'emailVerified',
-    header: 'อีเมล',
+    header: ({ column }) => sortableHeader('อีเมล', column),
     cell: ({ row }) => {
       const user = row.original
       if (user.customerAccountStatus === 'OFFLINE') {

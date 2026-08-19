@@ -6,6 +6,7 @@ import type { AdminServiceOrder, CreateAdminServiceOrderBody } from "~~/app/comp
 import { useBusinessSetting } from "~~/app/composables/useBusinessSetting";
 import { formatCurrency } from "~~/shared/utils/format";
 import type { ServiceOrderStatus } from "~~/shared/types/enums";
+import { isUnidentifiableLegacyCustomer } from "~~/shared/utils/customer";
 
 const adminDashboardCardClass = "rounded-md border border-default/30 bg-default p-4 shadow-[0_1px_2px_rgb(15_23_42/0.04),0_6px_18px_-10px_rgb(15_23_42/0.08)] dark:border-default/20 dark:bg-elevated/55 dark:shadow-[0_1px_2px_rgb(0_0_0/0.16),0_8px_22px_-12px_rgb(0_0_0/0.26)]";
 
@@ -123,8 +124,32 @@ const getAvatarProps = (customer?: Pick<CustomerOption, "image" | "name" | "emai
   loading: "lazy" as const,
 });
 
-const customerOptions = computed<CustomerOption[]>(() =>
-  (customers.value ?? []).map((customer) => ({
+const currentOrderCustomer = computed<CustomerOption | null>(() => {
+  const customer = props.order?.customer;
+  if (!customer || isUnidentifiableLegacyCustomer(customer)) return null;
+  return {
+    label: `${customer.name || customer.email || "ลูกค้า"}${customer.phoneNumber ? ` (${customer.phoneNumber})` : ""}`,
+    value: customer.id,
+    image: customer.image,
+    name: customer.name,
+    email: customer.email,
+    phoneNumber: customer.phoneNumber,
+    customerAccountStatus: customer.customerAccountStatus,
+    activeMemberEntitlement: props.order?.memberEntitlement
+      ? {
+          id: props.order.memberEntitlement.id,
+          productName: props.order.memberEntitlement.product.name,
+          creditInitial: props.order.memberEntitlement.creditInitial,
+          creditRemaining: props.order.memberEntitlement.creditRemaining,
+          endAt: props.order.memberEntitlement.endAt,
+        }
+      : null,
+    addonEntitlements: [],
+  };
+});
+
+const customerOptions = computed<CustomerOption[]>(() => {
+  const options: CustomerOption[] = (customers.value ?? []).map((customer) => ({
     label: customer.label,
     value: customer.id,
     image: customer.image,
@@ -134,8 +159,11 @@ const customerOptions = computed<CustomerOption[]>(() =>
     customerAccountStatus: customer.customerAccountStatus,
     activeMemberEntitlement: customer.activeMemberEntitlement ?? null,
     addonEntitlements: customer.addonEntitlements ?? [],
-  })),
-);
+  }));
+  const current = currentOrderCustomer.value;
+  if (current && !options.some((option) => option.value === current.value)) options.unshift(current);
+  return options;
+});
 const selectedCustomer = computed(() => customerOptions.value.find((item) => item.value === form.customerId) ?? null);
 const activeMemberEntitlement = computed(() => selectedCustomer.value?.activeMemberEntitlement ?? null);
 const activeAddonEntitlements = computed(() => selectedCustomer.value?.addonEntitlements ?? []);
@@ -733,6 +761,12 @@ const handleSubmit = async () => {
             </div>
 
             <div class="mt-4 grid gap-4 md:grid-cols-2">
+              <div
+                v-if="props.order?.customer && isUnidentifiableLegacyCustomer(props.order.customer)"
+                class="rounded-md border border-warning/30 bg-warning/5 p-3 text-xs text-warning md:col-span-2"
+              >
+                ลูกค้าปัจจุบันเป็นข้อมูลเก่าที่ระบุตัวตนไม่ได้ จึงไม่แสดงเป็นตัวเลือกสำหรับออเดอร์ใหม่ กรุณาเลือกลูกค้าที่มีชื่อและเบอร์จริงหากต้องการเปลี่ยนเจ้าของออเดอร์
+              </div>
               <UFormField label="ลูกค้า" required>
                 <USelectMenu
                   v-model="form.customerId"

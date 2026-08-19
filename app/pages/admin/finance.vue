@@ -3,6 +3,7 @@ import { sub, format } from 'date-fns'
 import type { Period, Range } from '~~/shared/types/dashboard'
 import type { ExpenseItem, ExpenseCategory, FinanceSummary, ExpenseListResponse } from '~~/shared/types/expense'
 import { formatCurrency, formatDateTime } from '~~/shared/utils/format'
+import { columnSortIcon, cycleSortState, type SortState } from '~~/shared/utils/table'
 
 definePageMeta({
   middleware: ['role-admin'],
@@ -36,7 +37,18 @@ const period = ref<Period>('daily')
 const page = ref(1)
 const pageSize = ref(10)
 const search = ref('')
+const debouncedSearch = refDebounced(search, 250)
 const selectedCategoryId = ref<string>('all')
+type ExpenseSortColumn = 'expenseAt' | 'category' | 'description' | 'amount' | 'createdBy'
+const expenseSort = ref<SortState<ExpenseSortColumn>>({ column: null, direction: null })
+
+const toggleExpenseSort = (column: ExpenseSortColumn) => {
+  expenseSort.value = cycleSortState(expenseSort.value, column)
+  page.value = 1
+}
+
+const expenseSortIcon = (column: ExpenseSortColumn) =>
+  columnSortIcon(expenseSort.value.column === column ? expenseSort.value.direction : null)
 
 const isRefreshing = ref(false)
 
@@ -129,15 +141,17 @@ const {
       query: {
         page: page.value,
         pageSize: pageSize.value,
-        search: search.value || undefined,
+        search: debouncedSearch.value || undefined,
         categoryId: selectedCategoryId.value !== 'all' ? selectedCategoryId.value : undefined,
         from: range.value.start.toISOString(),
         to: range.value.end.toISOString(),
+        sortBy: expenseSort.value.column || undefined,
+        sortDirection: expenseSort.value.direction || undefined,
       },
     }),
   {
     server: false,
-    watch: [() => range.value, () => page.value, () => pageSize.value, () => selectedCategoryId.value],
+    watch: [() => range.value, () => page.value, () => pageSize.value, () => selectedCategoryId.value, debouncedSearch, expenseSort],
     default: () => ({
       items: [],
       total: 0,
@@ -148,18 +162,16 @@ const {
   }
 )
 
-watch([() => range.value, () => page.value, () => pageSize.value, () => selectedCategoryId.value], () => {
+watch([() => range.value, () => page.value, () => pageSize.value, () => selectedCategoryId.value, debouncedSearch, expenseSort], () => {
   resetSelection()
+})
+
+watch(debouncedSearch, () => {
+  page.value = 1
 })
 
 const isSummaryPending = computed(() => summaryStatus.value === 'pending')
 const isExpensePending = computed(() => expenseStatus.value === 'pending')
-
-const handleSearch = () => {
-  page.value = 1
-  resetSelection()
-  refreshExpenses()
-}
 
 const handleRefreshAll = async () => {
   isRefreshing.value = true
@@ -394,25 +406,6 @@ const handleDeleteCategory = async (cat: ExpenseCategory) => {
   }
 }
 
-// Action items for expense rows
-const getExpenseActionItems = (item: ExpenseItem) => [
-  [
-    {
-      label: 'แก้ไขรายการ',
-      icon: 'i-lucide-pencil',
-      onSelect: () => openEditExpenseModal(item),
-    },
-  ],
-  [
-    {
-      label: 'ลบรายการ',
-      icon: 'i-lucide-trash-2',
-      color: 'error' as const,
-      onSelect: () => openDeleteExpenseModal(item),
-    },
-  ],
-]
-
 // Initial fetch
 onMounted(() => {
   fetchCategories()
@@ -431,31 +424,12 @@ onMounted(() => {
         </template>
 
         <template #right>
-          <UButton
-            icon="i-lucide-refresh-cw"
-            color="neutral"
-            variant="outline"
-            size="md"
-            title="รีเฟรชข้อมูล"
-            aria-label="รีเฟรชข้อมูล"
-            :loading="isRefreshing"
-            @click="handleRefreshAll"
-          />
-          <UButton
-            icon="i-lucide-tags"
-            color="neutral"
-            variant="subtle"
-            size="md"
-            label="จัดการหมวดหมู่"
-            @click="isCategoryModalOpen = true"
-          />
-          <UButton
-            icon="i-lucide-plus"
-            color="primary"
-            size="md"
-            label="บันทึกรายจ่าย"
-            @click="openCreateExpenseModal"
-          />
+          <UButton icon="i-lucide-refresh-cw" color="neutral" variant="outline" size="md" title="รีเฟรชข้อมูล"
+            aria-label="รีเฟรชข้อมูล" :loading="isRefreshing" @click="handleRefreshAll" />
+          <UButton icon="i-lucide-tags" color="neutral" variant="outline" size="md" label="จัดการหมวดหมู่"
+            @click="() => { isCategoryModalOpen = true }" />
+          <UButton icon="i-lucide-plus" color="primary" size="md" label="บันทึกรายจ่าย"
+            @click="openCreateExpenseModal" />
         </template>
       </UDashboardNavbar>
 
@@ -476,10 +450,12 @@ onMounted(() => {
         <!-- 3 Main Summary Cards -->
         <div class="grid grid-cols-1 gap-2 sm:grid-cols-3 sm:gap-3">
           <!-- Income Card -->
-          <div class="min-h-28 rounded-lg border border-default/30 bg-default p-3 dark:border-default/20 dark:bg-elevated/55">
+          <div
+            class="min-h-28 rounded-lg border border-default/30 bg-default p-3 dark:border-default/20 dark:bg-elevated/55">
             <div class="flex items-center justify-between">
               <span class="text-xs font-normal text-muted">รายรับรวม</span>
-              <div class="flex size-9 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-600 ring ring-inset ring-emerald-500/25 dark:text-emerald-400">
+              <div
+                class="flex size-9 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-600 ring ring-inset ring-emerald-500/25 dark:text-emerald-400">
                 <UIcon name="i-lucide-wallet" class="size-5" />
               </div>
             </div>
@@ -490,10 +466,12 @@ onMounted(() => {
           </div>
 
           <!-- Expense Card -->
-          <div class="min-h-28 rounded-lg border border-default/30 bg-default p-3 dark:border-default/20 dark:bg-elevated/55">
+          <div
+            class="min-h-28 rounded-lg border border-default/30 bg-default p-3 dark:border-default/20 dark:bg-elevated/55">
             <div class="flex items-center justify-between">
               <span class="text-xs font-normal text-muted">รายจ่ายรวม</span>
-              <div class="flex size-9 items-center justify-center rounded-full bg-amber-500/10 text-amber-600 ring ring-inset ring-amber-500/25 dark:text-amber-400">
+              <div
+                class="flex size-9 items-center justify-center rounded-full bg-amber-500/10 text-amber-600 ring ring-inset ring-amber-500/25 dark:text-amber-400">
                 <UIcon name="i-lucide-receipt" class="size-5" />
               </div>
             </div>
@@ -504,24 +482,21 @@ onMounted(() => {
           </div>
 
           <!-- Net Cashflow Card -->
-          <div class="min-h-28 rounded-lg border border-default/30 bg-default p-3 dark:border-default/20 dark:bg-elevated/55">
+          <div
+            class="min-h-28 rounded-lg border border-default/30 bg-default p-3 dark:border-default/20 dark:bg-elevated/55">
             <div class="flex items-center justify-between">
               <span class="text-xs font-normal text-muted">ยอดสุทธิ (รายรับ - รายจ่าย)</span>
-              <div
-                :class="[
-                  'flex size-9 items-center justify-center rounded-full ring ring-inset',
-                  (summaryData?.net ?? 0) >= 0
-                    ? 'bg-emerald-500/10 text-emerald-600 ring-emerald-500/25 dark:text-emerald-400'
-                    : 'bg-rose-500/10 text-rose-600 ring-rose-500/25 dark:text-rose-400',
-                ]"
-              >
+              <div :class="[
+                'flex size-9 items-center justify-center rounded-full ring ring-inset',
+                (summaryData?.net ?? 0) >= 0
+                  ? 'bg-emerald-500/10 text-emerald-600 ring-emerald-500/25 dark:text-emerald-400'
+                  : 'bg-rose-500/10 text-rose-600 ring-rose-500/25 dark:text-rose-400',
+              ]">
                 <UIcon name="i-lucide-coins" class="size-5" />
               </div>
             </div>
-            <p
-              class="mt-2 text-2xl font-bold sm:text-3xl"
-              :class="(summaryData?.net ?? 0) >= 0 ? 'text-highlighted' : 'text-rose-600 dark:text-rose-400'"
-            >
+            <p class="mt-2 text-2xl font-bold sm:text-3xl"
+              :class="(summaryData?.net ?? 0) >= 0 ? 'text-highlighted' : 'text-rose-600 dark:text-rose-400'">
               {{ isSummaryPending ? '...' : formatCurrency(summaryData?.net ?? 0) }}
             </p>
             <span class="mt-1 text-xs text-muted">สรุปกระแสเงินสดสุทธิ</span>
@@ -577,69 +552,37 @@ onMounted(() => {
         <!-- Expense Table & Management Section (Styled like service-orders / users) -->
         <section class="flex flex-col gap-1 mt-1">
           <!-- Toolbar Filter Box -->
-          <div class="-mx-2 rounded-lg border border-default/30 bg-default p-2 px-3! py-3! dark:border-default/40 dark:bg-default/80 space-y-2 sm:mx-0 md:flex md:items-center md:justify-between md:gap-3 md:space-y-0">
+          <div
+            class="-mx-2 rounded-lg border border-default/30 bg-default p-2 px-3! py-3! dark:border-default/40 dark:bg-default/80 space-y-2 sm:mx-0 md:flex md:items-center md:justify-between md:gap-3 md:space-y-0">
             <div class="flex min-w-0 items-center gap-2 md:flex-1 md:max-w-md">
-              <UInput
-                v-model="search"
-                class="min-w-0 flex-1"
-                icon="i-lucide-search"
-                placeholder="ค้นหารายละเอียด หรือชื่อหมวดหมู่..."
-                @keyup.enter="handleSearch"
-              />
-              <UButton
-                color="neutral"
-                variant="subtle"
-                label="ค้นหา"
-                @click="handleSearch"
-              />
+              <UInput v-model="search" class="min-w-0 flex-1" icon="i-lucide-search"
+                placeholder="ค้นหารายละเอียด หรือชื่อหมวดหมู่..." />
 
               <!-- Mobile Bulk Delete Button -->
-              <UButton
-                v-if="selectedRowsCount"
-                label="ลบ"
-                color="error"
-                variant="subtle"
-                icon="i-lucide-trash"
-                class="shrink-0 md:hidden"
-                @click="isBulkDeleteModalOpen = true"
-              >
+              <UButton v-if="selectedRowsCount" label="ลบ" color="error" variant="subtle" icon="i-lucide-trash"
+                class="shrink-0 md:hidden" @click="() => { isBulkDeleteModalOpen = true }">
                 <template #trailing>
                   <UKbd>{{ selectedRowsCount }}</UKbd>
                 </template>
               </UButton>
+
+              <UIButtonRefresh class="shrink-0 md:hidden" :loading="isExpensePending" @refresh="refreshExpenses" />
             </div>
 
             <div class="grid grid-cols-1 gap-2 sm:flex sm:flex-wrap sm:items-center md:justify-end">
-              <USelect
-                v-model="selectedCategoryId"
-                :items="categoryFilterOptions"
-                value-key="value"
-                class="min-w-0 sm:w-56"
-              />
+              <USelect v-model="selectedCategoryId" :items="categoryFilterOptions" value-key="value"
+                class="min-w-0 sm:w-56" />
 
               <!-- Desktop Bulk Delete Button (Matching admin/users pattern) -->
-              <UButton
-                v-if="selectedRowsCount"
-                label="ลบ"
-                color="error"
-                variant="subtle"
-                icon="i-lucide-trash"
-                class="hidden shrink-0 md:inline-flex"
-                @click="isBulkDeleteModalOpen = true"
-              >
+              <UButton v-if="selectedRowsCount" label="ลบ" color="error" variant="subtle" icon="i-lucide-trash"
+                class="hidden shrink-0 md:inline-flex" @click="() => { isBulkDeleteModalOpen = true }">
                 <template #trailing>
                   <UKbd>{{ selectedRowsCount }}</UKbd>
                 </template>
               </UButton>
 
-              <UButton
-                icon="i-lucide-refresh-cw"
-                color="neutral"
-                variant="subtle"
-                title="รีเฟรชตาราง"
-                :loading="isExpensePending"
-                @click="() => refreshExpenses()"
-              />
+              <UButton icon="i-lucide-refresh-cw" color="neutral" variant="outline" title="รีเฟรชตาราง"
+                :loading="isExpensePending" @click="() => refreshExpenses()" />
             </div>
           </div>
 
@@ -647,11 +590,8 @@ onMounted(() => {
           <template v-if="isExpensePending">
             <!-- Mobile Skeleton -->
             <div class="-mx-2 space-y-1 sm:mx-0 md:hidden">
-              <div
-                v-for="i in 5"
-                :key="`exp-mob-sk-${i}`"
-                class="overflow-hidden border border-default/30 bg-default p-3 dark:border-default/20 dark:bg-elevated/55"
-              >
+              <div v-for="i in 5" :key="`exp-mob-sk-${i}`"
+                class="overflow-hidden border border-default/30 bg-default p-3 dark:border-default/20 dark:bg-elevated/55">
                 <div class="flex items-center gap-2">
                   <USkeleton class="size-4 rounded shrink-0" />
                   <div class="min-w-0 flex-1 space-y-2">
@@ -666,7 +606,8 @@ onMounted(() => {
             </div>
 
             <!-- Desktop Skeleton -->
-            <div class="hidden rounded-lg border border-default/30 bg-default p-3 dark:border-default/20 dark:bg-elevated/55 md:block">
+            <div
+              class="hidden rounded-lg border border-default/30 bg-default p-3 dark:border-default/20 dark:bg-elevated/55 md:block">
               <div class="space-y-2">
                 <USkeleton v-for="i in 6" :key="`exp-dt-sk-${i}`" class="h-11 w-full rounded-lg" />
               </div>
@@ -677,76 +618,46 @@ onMounted(() => {
           <template v-else>
             <!-- Mobile Card List -->
             <div class="md:hidden">
-              <div
-                v-if="!expenseData?.items?.length"
-                class="flex flex-col items-center justify-center rounded-lg border border-dashed border-default/30 bg-default/55 px-3 py-8 text-center text-muted dark:border-default/20 dark:bg-elevated/30"
-              >
+              <div v-if="!expenseData?.items?.length"
+                class="flex flex-col items-center justify-center rounded-lg border border-dashed border-default/30 bg-default/55 px-3 py-8 text-center text-muted dark:border-default/20 dark:bg-elevated/30">
                 <UIcon name="i-lucide-receipt" class="mb-3 size-10 opacity-60" />
                 <p class="text-sm font-medium">ไม่พบรายการรายจ่าย</p>
                 <p class="mt-1 text-xs">ไม่มีรายการรายจ่ายในช่วงเวลาหรือเงื่อนไขที่เลือก</p>
-                <UButton
-                  icon="i-lucide-plus"
-                  color="primary"
-                  variant="subtle"
-                  size="xs"
-                  class="mt-3"
-                  label="บันทึกรายจ่ายใหม่"
-                  @click="openCreateExpenseModal"
-                />
+                <UButton icon="i-lucide-plus" color="primary" variant="subtle" size="xs" class="mt-3"
+                  label="บันทึกรายจ่ายใหม่" @click="openCreateExpenseModal" />
               </div>
 
               <div v-else class="-mx-2 space-y-1 sm:mx-0">
-                <div
-                  v-for="item in expenseData.items"
-                  :key="item.id"
-                  class="overflow-hidden border border-default/30 bg-default p-3 transition-[background-color,border-color] duration-200 hover:border-default/45 hover:bg-default dark:border-default/20 dark:bg-elevated/55 dark:hover:bg-elevated/70"
-                >
+                <div v-for="item in expenseData.items" :key="item.id"
+                  class="overflow-hidden border border-default/30 bg-default p-3 transition-[background-color,border-color] duration-200 hover:border-default/45 hover:bg-default dark:border-default/20 dark:bg-elevated/55 dark:hover:bg-elevated/70">
                   <div class="flex items-center gap-2">
-                    <UCheckbox
-                      :model-value="!!selectedRows[item.id]"
-                      aria-label="เลือกรายการ"
-                      class="shrink-0"
-                      @update:model-value="(val) => toggleRowSelection(item.id, val)"
-                    />
+                    <UCheckbox :model-value="!!selectedRows[item.id]" aria-label="เลือกรายการ" class="shrink-0"
+                      @update:model-value="(val) => toggleRowSelection(item.id, val)" />
 
                     <div class="min-w-0 flex-1">
                       <div class="flex items-start justify-between gap-2">
                         <div>
-                          <UBadge
-                            :color="item.category.isActive ? 'primary' : 'neutral'"
-                            variant="subtle"
-                            size="xs"
-                          >
+                          <UBadge :color="item.category.isActive ? 'primary' : 'neutral'" variant="subtle" size="xs">
                             {{ item.category.name }}
                           </UBadge>
                           <span class="ml-2 text-xs text-muted">{{ formatDateTime(item.expenseAt) }}</span>
                         </div>
-                        <span class="text-base font-bold tabular-nums text-highlighted">{{ formatCurrency(item.amount) }}</span>
+                        <span class="text-base font-bold tabular-nums text-highlighted">{{ formatCurrency(item.amount)
+                          }}</span>
                       </div>
 
                       <p v-if="item.description" class="mt-2 text-sm text-highlighted">
                         {{ item.description }}
                       </p>
 
-                      <div class="mt-3 flex items-center justify-between border-t border-default/20 pt-2 text-xs text-muted">
+                      <div
+                        class="mt-3 flex items-center justify-between border-t border-default/20 pt-2 text-xs text-muted">
                         <span>ผู้บันทึก: {{ item.createdBy.name || item.createdBy.email }}</span>
                         <div class="flex items-center gap-1">
-                          <UButton
-                            icon="i-lucide-pencil"
-                            color="neutral"
-                            variant="ghost"
-                            size="xs"
-                            aria-label="แก้ไข"
-                            @click="openEditExpenseModal(item)"
-                          />
-                          <UButton
-                            icon="i-lucide-trash-2"
-                            color="error"
-                            variant="ghost"
-                            size="xs"
-                            aria-label="ลบ"
-                            @click="openDeleteExpenseModal(item)"
-                          />
+                          <UButton icon="i-lucide-pencil" color="neutral" variant="ghost" size="xs" aria-label="แก้ไข"
+                            @click="openEditExpenseModal(item)" />
+                          <UButton icon="i-lucide-trash-2" color="error" variant="ghost" size="xs" aria-label="ลบ"
+                            @click="openDeleteExpenseModal(item)" />
                         </div>
                       </div>
                     </div>
@@ -756,20 +667,15 @@ onMounted(() => {
             </div>
 
             <!-- Desktop Table (Matching service-orders and users style) -->
-            <div class="hidden overflow-hidden rounded-lg border border-default/30 bg-default p-0! dark:border-default/20 dark:bg-elevated/55 md:block">
-              <div v-if="!expenseData?.items?.length" class="flex flex-col items-center justify-center rounded-lg border border-dashed border-default/30 bg-default/55 px-3 py-10 text-center text-muted dark:border-default/20 dark:bg-elevated/30">
+            <div
+              class="hidden overflow-hidden rounded-lg border border-default/30 bg-default p-0! dark:border-default/20 dark:bg-elevated/55 md:block">
+              <div v-if="!expenseData?.items?.length"
+                class="flex flex-col items-center justify-center rounded-lg border border-dashed border-default/30 bg-default/55 px-3 py-10 text-center text-muted dark:border-default/20 dark:bg-elevated/30">
                 <UIcon name="i-lucide-receipt" class="mb-3 size-10 opacity-60" />
                 <p class="text-sm font-medium">ไม่พบรายการรายจ่าย</p>
                 <p class="mt-1 text-xs">ไม่มีรายการรายจ่ายในช่วงเวลาหรือเงื่อนไขที่เลือก</p>
-                <UButton
-                  icon="i-lucide-plus"
-                  color="primary"
-                  variant="subtle"
-                  size="sm"
-                  class="mt-3"
-                  label="บันทึกรายจ่ายแรก"
-                  @click="openCreateExpenseModal"
-                />
+                <UButton icon="i-lucide-plus" color="primary" variant="subtle" size="sm" class="mt-3"
+                  label="บันทึกรายจ่ายแรก" @click="openCreateExpenseModal" />
               </div>
 
               <div v-else class="relative overflow-x-auto">
@@ -777,73 +683,88 @@ onMounted(() => {
                   <thead class="sticky top-0 z-1 [&>tr]:bg-default dark:[&>tr]:bg-default/80">
                     <tr>
                       <!-- Select All Checkbox Column -->
-                      <th class="w-12 border-b border-default bg-default py-2.5 px-3 text-xs font-semibold uppercase tracking-wide text-toned dark:border-default/40 dark:bg-default/80">
-                        <UCheckbox
-                          :model-value="isSomeSelected ? 'indeterminate' : isAllSelected"
-                          aria-label="เลือกทั้งหมด"
-                          @update:model-value="toggleSelectAll"
-                        />
+                      <th
+                        class="w-12 border-b border-default bg-default py-2.5 px-3 text-xs font-semibold uppercase tracking-wide text-toned dark:border-default/40 dark:bg-default/80">
+                        <UCheckbox :model-value="isSomeSelected ? 'indeterminate' : isAllSelected"
+                          aria-label="เลือกทั้งหมด" @update:model-value="toggleSelectAll" />
                       </th>
-                      <th class="w-40 border-b border-default bg-default py-2.5 px-3 text-xs font-semibold uppercase tracking-wide text-toned dark:border-default/40 dark:bg-default/80">
-                        วันที่
+                      <th
+                        class="w-40 border-b border-default bg-default py-2.5 px-3 text-xs font-semibold uppercase tracking-wide text-toned dark:border-default/40 dark:bg-default/80">
+                        <button type="button" class="inline-flex items-center gap-1.5"
+                          @click="toggleExpenseSort('expenseAt')">วันที่
+                          <UIcon :name="expenseSortIcon('expenseAt')" class="size-3.5 text-dimmed" />
+                        </button>
                       </th>
-                      <th class="w-48 border-b border-default bg-default py-2.5 px-3 text-xs font-semibold uppercase tracking-wide text-toned dark:border-default/40 dark:bg-default/80">
-                        หมวดหมู่
+                      <th
+                        class="w-48 border-b border-default bg-default py-2.5 px-3 text-xs font-semibold uppercase tracking-wide text-toned dark:border-default/40 dark:bg-default/80">
+                        <button type="button" class="inline-flex items-center gap-1.5"
+                          @click="toggleExpenseSort('category')">หมวดหมู่
+                          <UIcon :name="expenseSortIcon('category')" class="size-3.5 text-dimmed" />
+                        </button>
                       </th>
-                      <th class="border-b border-default bg-default py-2.5 px-3 text-xs font-semibold uppercase tracking-wide text-toned dark:border-default/40 dark:bg-default/80">
-                        รายละเอียด
+                      <th
+                        class="border-b border-default bg-default py-2.5 px-3 text-xs font-semibold uppercase tracking-wide text-toned dark:border-default/40 dark:bg-default/80">
+                        <button type="button" class="inline-flex items-center gap-1.5"
+                          @click="toggleExpenseSort('description')">รายละเอียด
+                          <UIcon :name="expenseSortIcon('description')" class="size-3.5 text-dimmed" />
+                        </button>
                       </th>
-                      <th class="w-36 border-b border-default bg-default py-2.5 px-3 text-right text-xs font-semibold uppercase tracking-wide text-toned dark:border-default/40 dark:bg-default/80">
-                        จำนวนเงิน
+                      <th
+                        class="w-36 border-b border-default bg-default py-2.5 px-3 text-right text-xs font-semibold uppercase tracking-wide text-toned dark:border-default/40 dark:bg-default/80">
+                        <button type="button" class="inline-flex w-full items-center justify-end gap-1.5"
+                          @click="toggleExpenseSort('amount')">จำนวนเงิน
+                          <UIcon :name="expenseSortIcon('amount')" class="size-3.5 text-dimmed" />
+                        </button>
                       </th>
-                      <th class="w-44 border-b border-default bg-default py-2.5 px-3 text-xs font-semibold uppercase tracking-wide text-toned dark:border-default/40 dark:bg-default/80">
-                        ผู้บันทึก
+                      <th
+                        class="w-44 border-b border-default bg-default py-2.5 px-3 text-xs font-semibold uppercase tracking-wide text-toned dark:border-default/40 dark:bg-default/80">
+                        <button type="button" class="inline-flex items-center gap-1.5"
+                          @click="toggleExpenseSort('createdBy')">ผู้บันทึก
+                          <UIcon :name="expenseSortIcon('createdBy')" class="size-3.5 text-dimmed" />
+                        </button>
                       </th>
-                      <th class="w-24 border-b border-default bg-default py-2.5 px-3 text-right text-xs font-semibold uppercase tracking-wide text-toned dark:border-default/40 dark:bg-default/80">
+                      <th
+                        class="w-28 border-b border-default bg-default py-2.5 px-3 text-right text-xs font-semibold uppercase tracking-wide text-toned dark:border-default/40 dark:bg-default/80">
                         จัดการ
                       </th>
                     </tr>
                   </thead>
-                  <tbody class="divide-y divide-default/20 [&>tr:hover>td]:bg-primary/5 dark:[&>tr:hover>td]:bg-elevated/45">
-                    <tr
-                      v-for="item in expenseData.items"
-                      :key="item.id"
-                      class="transition-colors"
-                      :class="selectedRows[item.id] ? 'bg-primary/5 dark:bg-elevated/60' : ''"
-                    >
+                  <tbody
+                    class="divide-y divide-default/20 [&>tr:hover>td]:bg-primary/5 dark:[&>tr:hover>td]:bg-elevated/45">
+                    <tr v-for="item in expenseData.items" :key="item.id" class="transition-colors"
+                      :class="selectedRows[item.id] ? 'bg-primary/5 dark:bg-elevated/60' : ''">
                       <!-- Row Checkbox Column -->
                       <td class="border-b border-default py-2.5 px-3 dark:border-default/25">
-                        <UCheckbox
-                          :model-value="!!selectedRows[item.id]"
-                          aria-label="เลือกรายการ"
-                          @update:model-value="(val) => toggleRowSelection(item.id, val)"
-                        />
+                        <UCheckbox :model-value="!!selectedRows[item.id]" aria-label="เลือกรายการ"
+                          @update:model-value="(val) => toggleRowSelection(item.id, val)" />
                       </td>
-                      <td class="whitespace-nowrap border-b border-default py-2.5 px-3 text-xs text-muted dark:border-default/25">
+                      <td
+                        class="whitespace-nowrap border-b border-default py-3 px-3 text-sm text-muted dark:border-default/25">
                         {{ formatDateTime(item.expenseAt) }}
                       </td>
-                      <td class="border-b border-default py-2.5 px-3 dark:border-default/25">
-                        <UBadge
-                          :color="item.category.isActive ? 'primary' : 'neutral'"
-                          variant="subtle"
-                          size="xs"
-                        >
+                      <td class="border-b border-default py-3 px-3 text-sm dark:border-default/25">
+                        <UBadge :color="item.category.isActive ? 'primary' : 'neutral'" variant="subtle" size="md">
                           {{ item.category.name }}
                         </UBadge>
                       </td>
-                      <td class="truncate border-b border-default py-2.5 px-3 text-highlighted dark:border-default/25">
+                      <td
+                        class="truncate border-b border-default py-3 px-3 text-sm text-highlighted dark:border-default/25">
                         {{ item.description || '-' }}
                       </td>
-                      <td class="whitespace-nowrap border-b border-default py-2.5 px-3 text-right font-semibold tabular-nums text-highlighted dark:border-default/25">
+                      <td
+                        class="whitespace-nowrap border-b border-default py-3 px-3 text-right text-sm font-semibold tabular-nums text-highlighted dark:border-default/25">
                         {{ formatCurrency(item.amount) }}
                       </td>
-                      <td class="truncate border-b border-default py-2.5 px-3 text-xs text-muted dark:border-default/25">
+                      <td class="truncate border-b border-default py-3 px-3 text-sm text-muted dark:border-default/25">
                         {{ item.createdBy.name || item.createdBy.email }}
                       </td>
-                      <td class="whitespace-nowrap border-b border-default py-2.5 px-3 text-right dark:border-default/25">
-                        <UDropdownMenu :items="getExpenseActionItems(item)" :content="{ align: 'end' }">
-                          <UButton icon="i-lucide-ellipsis" size="xs" color="neutral" variant="ghost" aria-label="เมนูเพิ่มเติม" />
-                        </UDropdownMenu>
+                      <td class="whitespace-nowrap border-b border-default py-3 px-3 text-right dark:border-default/25">
+                        <div class="flex items-center justify-end gap-1">
+                          <UButton icon="i-lucide-pencil" size="sm" color="neutral" variant="ghost"
+                            aria-label="แก้ไขรายการ" title="แก้ไขรายการ" @click="openEditExpenseModal(item)" />
+                          <UButton icon="i-lucide-trash-2" size="sm" color="error" variant="ghost" aria-label="ลบรายการ"
+                            title="ลบรายการ" @click="openDeleteExpenseModal(item)" />
+                        </div>
                       </td>
                     </tr>
                   </tbody>
@@ -864,13 +785,8 @@ onMounted(() => {
               <template v-else>{{ paginationSummary }}</template>
             </div>
 
-            <UPagination
-              v-if="!isExpensePending && (expenseData?.total ?? 0) > pageSize"
-              v-model:page="page"
-              :items-per-page="pageSize"
-              :total="expenseData?.total ?? 0"
-              size="sm"
-            />
+            <UPagination v-if="!isExpensePending && (expenseData?.total ?? 0) > pageSize" v-model:page="page"
+              :items-per-page="pageSize" :total="expenseData?.total ?? 0" size="sm" />
           </div>
         </section>
       </div>
@@ -878,75 +794,38 @@ onMounted(() => {
   </UDashboardPanel>
 
   <!-- Create/Edit Expense Modal -->
-  <UModal
-    v-model:open="isExpenseModalOpen"
-    :title="isEditingExpense ? 'แก้ไขรายการรายจ่าย' : 'บันทึกรายจ่ายใหม่'"
-    :ui="{ content: 'max-w-md' }"
-  >
+  <UModal v-model:open="isExpenseModalOpen" :title="isEditingExpense ? 'แก้ไขรายการรายจ่าย' : 'บันทึกรายจ่ายใหม่'"
+    :ui="{ content: 'max-w-md' }">
     <template #body>
       <form class="flex flex-col gap-4" @submit.prevent="handleSubmitExpense">
         <UFormField label="หมวดหมู่รายจ่าย" required :error="expenseErrors.categoryId">
-          <USelect
-            v-model="expenseForm.categoryId"
-            :items="categoryFormOptions"
-            value-key="value"
-            placeholder="-- เลือกหมวดหมู่ --"
-            class="w-full"
-          />
+          <USelect v-model="expenseForm.categoryId" :items="categoryFormOptions" value-key="value"
+            placeholder="-- เลือกหมวดหมู่ --" class="w-full" />
         </UFormField>
 
         <UFormField label="จำนวนเงิน (บาท)" required :error="expenseErrors.amount">
-          <UInput
-            v-model="expenseForm.amount"
-            type="number"
-            step="any"
-            min="0.01"
-            placeholder="0.00"
-            class="w-full"
-          />
+          <UInput v-model="expenseForm.amount" type="number" step="any" min="0.01" placeholder="0.00" class="w-full" />
         </UFormField>
 
         <UFormField label="วันที่และเวลา" required :error="expenseErrors.expenseAt">
-          <UInput
-            v-model="expenseForm.expenseAt"
-            type="datetime-local"
-            class="w-full"
-          />
+          <UInput v-model="expenseForm.expenseAt" type="datetime-local" class="w-full" />
         </UFormField>
 
         <UFormField label="รายละเอียดเพิ่มเติม">
-          <UTextarea
-            v-model="expenseForm.description"
-            placeholder="ระบุรายละเอียด (ถ้ามี)..."
-            :rows="3"
-            class="w-full"
-          />
+          <UTextarea v-model="expenseForm.description" placeholder="ระบุรายละเอียด (ถ้ามี)..." :rows="3"
+            class="w-full" />
         </UFormField>
 
         <div class="mt-2 flex justify-end gap-2">
-          <UButton
-            label="ยกเลิก"
-            color="neutral"
-            variant="ghost"
-            @click="isExpenseModalOpen = false"
-          />
-          <UButton
-            type="submit"
-            label="บันทึก"
-            color="primary"
-            :loading="expenseSubmitting"
-          />
+          <UButton label="ยกเลิก" color="neutral" variant="ghost" @click="() => { isExpenseModalOpen = false }" />
+          <UButton type="submit" label="บันทึก" color="primary" :loading="expenseSubmitting" />
         </div>
       </form>
     </template>
   </UModal>
 
   <!-- Single Delete Expense Confirmation Modal -->
-  <UModal
-    v-model:open="isDeleteExpenseModalOpen"
-    title="ยืนยันการลบรายการรายจ่าย"
-    :ui="{ content: 'max-w-sm' }"
-  >
+  <UModal v-model:open="isDeleteExpenseModalOpen" title="ยืนยันการลบรายการรายจ่าย" :ui="{ content: 'max-w-sm' }">
     <template #body>
       <div class="flex flex-col gap-4">
         <p class="text-sm text-muted">
@@ -955,29 +834,15 @@ onMounted(() => {
           ({{ deletingExpense?.category.name }}) ใช่หรือไม่?
         </p>
         <div class="flex justify-end gap-2">
-          <UButton
-            label="ยกเลิก"
-            color="neutral"
-            variant="ghost"
-            @click="isDeleteExpenseModalOpen = false"
-          />
-          <UButton
-            label="ยืนยันการลบ"
-            color="error"
-            :loading="expenseDeleting"
-            @click="handleConfirmDeleteExpense"
-          />
+          <UButton label="ยกเลิก" color="neutral" variant="ghost" @click="() => { isDeleteExpenseModalOpen = false }" />
+          <UButton label="ยืนยันการลบ" color="error" :loading="expenseDeleting" @click="handleConfirmDeleteExpense" />
         </div>
       </div>
     </template>
   </UModal>
 
   <!-- Bulk Delete Confirmation Modal (Matching admin/users pattern) -->
-  <UModal
-    v-model:open="isBulkDeleteModalOpen"
-    title="ยืนยันการลบรายการรายจ่ายที่เลือก"
-    :ui="{ content: 'max-w-md' }"
-  >
+  <UModal v-model:open="isBulkDeleteModalOpen" title="ยืนยันการลบรายการรายจ่ายที่เลือก" :ui="{ content: 'max-w-md' }">
     <template #body>
       <div class="flex flex-col gap-4">
         <p class="text-sm text-muted">
@@ -988,11 +853,7 @@ onMounted(() => {
         </p>
 
         <div class="max-h-48 overflow-y-auto divide-y divide-default/20 rounded border border-default/20 p-2 text-xs">
-          <div
-            v-for="item in selectedExpenses"
-            :key="item.id"
-            class="flex items-center justify-between py-1.5 px-1"
-          >
+          <div v-for="item in selectedExpenses" :key="item.id" class="flex items-center justify-between py-1.5 px-1">
             <div class="min-w-0 flex-1 truncate pr-2">
               <span class="font-medium text-highlighted">[{{ item.category.name }}]</span>
               <span class="text-muted ml-1">{{ item.description || '-' }}</span>
@@ -1002,46 +863,23 @@ onMounted(() => {
         </div>
 
         <div class="flex justify-end gap-2">
-          <UButton
-            label="ยกเลิก"
-            color="neutral"
-            variant="ghost"
-            @click="isBulkDeleteModalOpen = false"
-          />
-          <UButton
-            label="ยืนยันการลบทั้งหมด"
-            color="error"
-            :loading="bulkDeleting"
-            @click="handleConfirmBulkDelete"
-          />
+          <UButton label="ยกเลิก" color="neutral" variant="ghost" @click="() => { isBulkDeleteModalOpen = false }" />
+          <UButton label="ยืนยันการลบทั้งหมด" color="error" :loading="bulkDeleting" @click="handleConfirmBulkDelete" />
         </div>
       </div>
     </template>
   </UModal>
 
   <!-- Manage Categories Modal -->
-  <UModal
-    v-model:open="isCategoryModalOpen"
-    title="จัดการหมวดหมู่รายจ่าย"
-    :ui="{ content: 'max-w-lg' }"
-  >
+  <UModal v-model:open="isCategoryModalOpen" title="จัดการหมวดหมู่รายจ่าย" :ui="{ content: 'max-w-lg' }">
     <template #body>
       <div class="flex flex-col gap-4">
         <!-- Add Category Form -->
         <div class="flex items-center gap-2">
-          <UInput
-            v-model="newCategoryName"
-            placeholder="เพิ่มหมวดหมู่ใหม่..."
-            class="flex-1"
-            @keyup.enter="handleCreateCategory"
-          />
-          <UButton
-            label="เพิ่มหมวดหมู่"
-            icon="i-lucide-plus"
-            color="primary"
-            :loading="newCategorySubmitting"
-            @click="handleCreateCategory"
-          />
+          <UInput v-model="newCategoryName" placeholder="เพิ่มหมวดหมู่ใหม่..." class="flex-1"
+            @keyup.enter="handleCreateCategory" />
+          <UButton label="เพิ่มหมวดหมู่" icon="i-lucide-plus" color="primary" :loading="newCategorySubmitting"
+            @click="handleCreateCategory" />
         </div>
 
         <!-- Categories List -->
@@ -1050,40 +888,17 @@ onMounted(() => {
             <USkeleton v-for="i in 3" :key="i" class="h-10 w-full rounded" />
           </div>
 
-          <div
-            v-else-if="!categories.length"
-            class="py-6 text-center text-xs text-muted"
-          >
+          <div v-else-if="!categories.length" class="py-6 text-center text-xs text-muted">
             ยังไม่มีหมวดหมู่รายจ่ายในระบบ
           </div>
 
-          <div
-            v-for="cat in categories"
-            v-else
-            :key="cat.id"
-            class="flex items-center justify-between py-2.5 px-2"
-          >
+          <div v-for="cat in categories" v-else :key="cat.id" class="flex items-center justify-between py-2.5 px-2">
             <!-- Name Editing Mode -->
             <div v-if="editingCategoryId === cat.id" class="flex flex-1 items-center gap-2 mr-2">
-              <UInput
-                v-model="editingCategoryName"
-                size="sm"
-                class="flex-1"
-                @keyup.enter="handleSaveCategoryName(cat.id)"
-              />
-              <UButton
-                icon="i-lucide-check"
-                color="primary"
-                size="xs"
-                @click="handleSaveCategoryName(cat.id)"
-              />
-              <UButton
-                icon="i-lucide-x"
-                color="neutral"
-                variant="ghost"
-                size="xs"
-                @click="cancelEditCategory"
-              />
+              <UInput v-model="editingCategoryName" size="sm" class="flex-1"
+                @keyup.enter="handleSaveCategoryName(cat.id)" />
+              <UButton icon="i-lucide-check" color="primary" size="xs" @click="handleSaveCategoryName(cat.id)" />
+              <UButton icon="i-lucide-x" color="neutral" variant="ghost" size="xs" @click="cancelEditCategory" />
             </div>
 
             <!-- Normal Display Mode -->
@@ -1097,41 +912,19 @@ onMounted(() => {
 
             <!-- Actions -->
             <div v-if="editingCategoryId !== cat.id" class="flex items-center gap-1.5">
-              <UButton
-                :icon="cat.isActive ? 'i-lucide-eye-off' : 'i-lucide-eye'"
-                :color="cat.isActive ? 'neutral' : 'success'"
-                variant="ghost"
-                size="xs"
-                :title="cat.isActive ? 'ปิดใช้งาน' : 'เปิดใช้งาน'"
-                @click="handleToggleCategoryActive(cat)"
-              />
-              <UButton
-                icon="i-lucide-pencil"
-                color="neutral"
-                variant="ghost"
-                size="xs"
-                title="เปลี่ยนชื่อ"
-                @click="startEditCategory(cat)"
-              />
-              <UButton
-                icon="i-lucide-trash-2"
-                color="error"
-                variant="ghost"
-                size="xs"
-                title="ลบหมวดหมู่"
-                @click="handleDeleteCategory(cat)"
-              />
+              <UButton :icon="cat.isActive ? 'i-lucide-eye-off' : 'i-lucide-eye'"
+                :color="cat.isActive ? 'neutral' : 'success'" variant="ghost" size="xs"
+                :title="cat.isActive ? 'ปิดใช้งาน' : 'เปิดใช้งาน'" @click="handleToggleCategoryActive(cat)" />
+              <UButton icon="i-lucide-pencil" color="neutral" variant="ghost" size="xs" title="เปลี่ยนชื่อ"
+                @click="startEditCategory(cat)" />
+              <UButton icon="i-lucide-trash-2" color="error" variant="ghost" size="xs" title="ลบหมวดหมู่"
+                @click="handleDeleteCategory(cat)" />
             </div>
           </div>
         </div>
 
         <div class="flex justify-end">
-          <UButton
-            label="ปิด"
-            color="neutral"
-            variant="subtle"
-            @click="isCategoryModalOpen = false"
-          />
+          <UButton label="ปิด" color="neutral" variant="subtle" @click="() => { isCategoryModalOpen = false }" />
         </div>
       </div>
     </template>

@@ -7,6 +7,7 @@ defineProps<{
 
 const colorMode = useColorMode();
 const { user, userAvatar, logout } = useUser();
+const route = useRoute();
 
 const userMenuName = computed(() => user.value?.name || "ผู้ใช้งาน");
 const isStaff = computed(() => {
@@ -20,6 +21,7 @@ const homeRoute = computed(() => "/");
 const adminHomeRoute = computed(() =>
   user.value?.role === "ADMIN" ? "/admin" : "/admin/employee-dashboard",
 );
+const isAdminArea = computed(() => route.path.startsWith("/admin"));
 
 const handleLogout = async (e: Event) => {
   e.preventDefault();
@@ -55,17 +57,10 @@ const items = computed<DropdownMenuItem[][]>(() => [
     ? [
         [
           {
-            label: "หน้าผู้ดูแลระบบ",
-            icon: "i-lucide-shield",
+            label: isAdminArea.value ? "สลับไปหน้าลูกค้า" : "สลับไปหน้าผู้ดูแล",
+            icon: isAdminArea.value ? "i-lucide-layout-dashboard" : "i-lucide-shield",
             onSelect() {
-              navigateTo(adminHomeRoute.value);
-            },
-          },
-          {
-            label: "แดชบอร์ดเมมเบอร์",
-            icon: "i-lucide-layout-dashboard",
-            onSelect() {
-              navigateTo("/me");
+              navigateTo(isAdminArea.value ? "/me" : adminHomeRoute.value);
             },
           },
         ],
@@ -82,33 +77,12 @@ const items = computed<DropdownMenuItem[][]>(() => [
   ],
   [
     {
-      label: "ธีม",
-      icon: "i-lucide-sun-moon",
+      label: colorMode.value === "dark" ? "เปลี่ยนเป็นธีมสว่าง" : "เปลี่ยนเป็นธีมมืด",
+      icon: colorMode.value === "dark" ? "i-lucide-sun" : "i-lucide-moon",
       class: "cursor-pointer",
-      children: [
-        {
-          label: "สว่าง",
-          icon: "i-lucide-sun",
-          type: "checkbox",
-          checked: colorMode.value === "light",
-          class: "cursor-pointer",
-          onSelect(e: Event) {
-            e.preventDefault();
-            colorMode.preference = "light";
-          },
-        },
-        {
-          label: "มืด",
-          icon: "i-lucide-moon",
-          type: "checkbox",
-          checked: colorMode.value === "dark",
-          class: "cursor-pointer",
-          onSelect(e: Event) {
-            e.preventDefault();
-            colorMode.preference = "dark";
-          },
-        },
-      ],
+      onSelect() {
+        colorMode.preference = colorMode.value === "dark" ? "light" : "dark";
+      },
     },
   ],
   [
@@ -126,7 +100,7 @@ const items = computed<DropdownMenuItem[][]>(() => [
 <template>
   <UDropdownMenu
     :items="items"
-    :content="{ align: 'center', collisionPadding: 12 }"
+    :content="{ align: collapsed ? 'end' : 'center', collisionPadding: 12 }"
     :ui="{ content: collapsed ? 'w-48' : 'w-(--reka-dropdown-menu-trigger-width)' }"
   >
     <UButton

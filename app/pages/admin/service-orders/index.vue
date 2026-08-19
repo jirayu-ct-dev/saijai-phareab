@@ -9,6 +9,7 @@ import type { AdminServiceOrder } from "~~/app/composables/useAdminServiceOrders
 import { orderStatusColors, orderStatusLabels } from "~~/shared/config/orderConfig";
 import { formatCurrency, formatDate, formatDateTime } from "~~/shared/utils/format";
 import type { ServiceOrderStatus } from "~~/shared/types/enums";
+import { columnSortIcon, cycleColumnSorting } from "~~/shared/utils/table";
 
 definePageMeta({
   layout: "admin",
@@ -20,6 +21,14 @@ const UBadge = resolveComponent("UBadge");
 const UButton = resolveComponent("UButton");
 const UCheckbox = resolveComponent("UCheckbox");
 const UDropdownMenu = resolveComponent("UDropdownMenu");
+const UIcon = resolveComponent("UIcon");
+
+const sortableHeader = (label: string, column: { getIsSorted: () => false | "asc" | "desc"; toggleSorting: (descending: boolean) => void; clearSorting: () => void }, align = "left") =>
+  h("button", {
+    type: "button",
+    class: ["inline-flex w-full items-center gap-1.5", align === "right" ? "justify-end" : "justify-start"],
+    onClick: () => cycleColumnSorting(column),
+  }, [label, h(UIcon, { name: columnSortIcon(column.getIsSorted()), class: "size-3.5 text-dimmed" })]);
 
 type TableRow<T> = { original: T; toggleSelected: (value: boolean) => void };
 type TableApi = {
@@ -362,12 +371,13 @@ const columns: TableColumn<AdminServiceOrder>[] = [
   },
   {
     accessorKey: "orderNo",
-    header: "เลขรับผ้า",
+    header: ({ column }) => sortableHeader("เลขรับผ้า", column),
     cell: ({ row }) => h("div", { class: "font-mono text-xs text-muted cursor-pointer hover:underline", onClick: (e: MouseEvent) => { e.stopPropagation(); openDetailPage(row.original); } }, row.original.orderNo || row.original.id),
   },
   {
-    accessorKey: "customer",
-    header: "ลูกค้า",
+    id: "customer",
+    accessorFn: (order) => order.customer.name || order.customer.phoneNumber || order.customer.email || "",
+    header: ({ column }) => sortableHeader("ลูกค้า", column),
     cell: ({ row }) => {
       const customer = row.original.customer;
       const entitlement = row.original.memberEntitlement;
@@ -390,14 +400,19 @@ const columns: TableColumn<AdminServiceOrder>[] = [
     header: "รายการ",
     cell: ({ row }) =>
       h(
-        "div",
-        { class: "space-y-1" },
+        "button",
+        {
+          type: "button",
+          class: "block w-full space-y-1 text-left cursor-pointer hover:underline focus-visible:outline-2 focus-visible:outline-primary",
+          onClick: (event: MouseEvent) => { event.stopPropagation(); openDetailPage(row.original); },
+        },
         formatItemSummary(row.original).map((item) => h("p", { class: "text-sm text-highlighted" }, item)),
       ),
   },
   {
     id: "amount",
-    header: () => h("div", { class: "text-right" }, "ยอด / เครดิต"),
+    accessorFn: (order) => Number(order.totalAmount ?? 0),
+    header: ({ column }) => sortableHeader("ยอด / เครดิต", column, "right"),
     cell: ({ row }) => {
       const order = row.original;
       const entitlement = order.memberEntitlement;
@@ -421,7 +436,8 @@ const columns: TableColumn<AdminServiceOrder>[] = [
   },
   {
     id: "status",
-    header: "สถานะ",
+    accessorFn: (order) => order.status,
+    header: ({ column }) => sortableHeader("สถานะ", column),
     cell: ({ row }) => {
       const order = row.original;
       return h(
@@ -440,7 +456,8 @@ const columns: TableColumn<AdminServiceOrder>[] = [
   },
   {
     id: "dates",
-    header: "วัน",
+    accessorFn: (order) => new Date(order.receivedAt).getTime(),
+    header: ({ column }) => sortableHeader("วัน", column),
     cell: ({ row }) => {
       const order = row.original;
       const isCompleted = order.status === "COMPLETED";
