@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { h, resolveComponent, ref, computed, watch } from 'vue'
 import type { TableColumn } from '@nuxt/ui'
-import { cycleColumnSorting } from '~~/shared/utils/table'
+import { columnSortIcon, cycleColumnSorting } from '~~/shared/utils/table'
 
 type PricingCategory = {
   id: string
@@ -69,6 +69,16 @@ const UBadge = resolveComponent('UBadge')
 const UButton = resolveComponent('UButton')
 const UIcon = resolveComponent('UIcon')
 const UCheckbox = resolveComponent('UCheckbox')
+
+const sortableHeader = (
+  label: string,
+  column: { getIsSorted: () => false | 'asc' | 'desc'; toggleSorting: (descending: boolean) => void; clearSorting: () => void },
+  align = 'left'
+) => h('button', {
+  type: 'button',
+  class: ['inline-flex w-full items-center gap-1.5', align === 'right' ? 'justify-end' : 'justify-start'],
+  onClick: () => cycleColumnSorting(column)
+}, [label, h(UIcon, { name: columnSortIcon(column.getIsSorted()), class: 'size-3.5 text-dimmed' })])
 
 const notify = useNotify()
 
@@ -299,18 +309,7 @@ const handleBulkDelete = async () => {
 const columns = computed<TableColumn<PricingTableRow>[]>(() => {
   const serviceColumns: TableColumn<PricingTableRow>[] = visibleServices.value.map((service) => ({
     accessorKey: `service_${service.id}`,
-    header: ({ column }) => {
-      const isSorted = column.getIsSorted()
-      const icon = !isSorted ? 'i-lucide-arrow-up-down' : isSorted === 'asc' ? 'i-lucide-arrow-up-narrow-wide' : 'i-lucide-arrow-down-wide-narrow'
-      return h(UButton, {
-        label: service.name,
-        color: 'neutral',
-        variant: 'ghost',
-        class: '-mx-2.5',
-        icon,
-        onClick: () => cycleColumnSorting(column)
-      })
-    },
+    header: ({ column }) => sortableHeader(service.name, column),
     cell: ({ row }) => {
       const price = row.getValue(`service_${service.id}`)
       if (price === null || price === undefined) return h('span', { class: 'text-muted' }, '-')
@@ -341,18 +340,7 @@ const columns = computed<TableColumn<PricingTableRow>[]>(() => {
     },
     {
       accessorKey: 'name',
-      header: ({ column }) => {
-        const isSorted = column.getIsSorted()
-        const icon = !isSorted ? 'i-lucide-arrow-up-down' : isSorted === 'asc' ? 'i-lucide-arrow-up-narrow-wide' : 'i-lucide-arrow-down-wide-narrow'
-        return h(UButton, {
-          label: 'รายการ',
-          color: 'neutral',
-          variant: 'ghost',
-          class: '-mx-2.5',
-          icon,
-          onClick: () => cycleColumnSorting(column)
-        })
-      },
+      header: ({ column }) => sortableHeader('รายการ', column),
       cell: ({ row }) =>
         h('div', { class: 'flex items-center gap-2 px-2 py-1.5' }, [
           h(UIcon, { name: 'i-lucide-shirt', class: 'size-4 text-primary shrink-0 opacity-70' }),
@@ -361,14 +349,14 @@ const columns = computed<TableColumn<PricingTableRow>[]>(() => {
     },
     {
       accessorKey: 'categoryName',
-      header: 'ประเภท',
+      header: ({ column }) => sortableHeader('ประเภท', column),
       cell: ({ row }) =>
         h(UBadge, { variant: 'subtle', color: 'primary' }, () => row.getValue('categoryName'))
     },
     ...serviceColumns,
     {
       accessorKey: 'description',
-      header: 'หมายเหตุ',
+      header: ({ column }) => sortableHeader('หมายเหตุ', column),
       cell: ({ row }) => {
         const desc = row.getValue('description') as string | null | undefined
         return h('span', { class: 'text-muted truncate block max-w-44', title: desc ?? '' }, desc || '-')

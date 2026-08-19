@@ -12,6 +12,10 @@ export default defineEventHandler(async (event): Promise<ExpenseListResponse> =>
   const pageSize = Math.min(100, Math.max(1, Number(query.pageSize) || 20))
   const search = String(query.search ?? '').trim()
   const categoryId = String(query.categoryId ?? '').trim()
+  const sortBy = String(query.sortBy ?? '')
+  const sortDirection = query.sortDirection === 'asc' || query.sortDirection === 'desc'
+    ? query.sortDirection
+    : null
 
   const where: Prisma.ExpenseWhereInput = {
     deletedAt: null,
@@ -33,6 +37,17 @@ export default defineEventHandler(async (event): Promise<ExpenseListResponse> =>
     ]
   }
 
+  const sortableOrderBy: Record<string, Prisma.ExpenseOrderByWithRelationInput> = {
+    expenseAt: { expenseAt: sortDirection ?? 'desc' },
+    category: { category: { name: sortDirection ?? 'asc' } },
+    description: { description: sortDirection ?? 'asc' },
+    amount: { amount: sortDirection ?? 'asc' },
+    createdBy: { createdBy: { name: sortDirection ?? 'asc' } },
+  }
+  const orderBy: Prisma.ExpenseOrderByWithRelationInput[] = sortDirection && sortableOrderBy[sortBy]
+    ? [sortableOrderBy[sortBy], { createdAt: 'desc' }]
+    : [{ expenseAt: 'desc' }, { createdAt: 'desc' }]
+
   const [total, totalSum, expenses] = await Promise.all([
     prisma.expense.count({ where }),
     prisma.expense.aggregate({
@@ -43,7 +58,7 @@ export default defineEventHandler(async (event): Promise<ExpenseListResponse> =>
       where,
       skip: (page - 1) * pageSize,
       take: pageSize,
-      orderBy: [{ expenseAt: 'desc' }, { createdAt: 'desc' }],
+      orderBy,
       include: {
         category: {
           select: {

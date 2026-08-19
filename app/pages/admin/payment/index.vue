@@ -7,6 +7,7 @@ import { formatCurrency, formatDate, formatDateTime } from "~~/shared/utils/form
 import type { Role } from "~~/shared/types/enums";
 import { paymentMethodLabels, paymentStatusColors, paymentStatusLabels } from "~~/shared/config/paymentConfig";
 import EditPaymentStateModal from "~~/app/components/admin/payment/EditPaymentStateModal.vue";
+import { columnSortIcon, cycleColumnSorting } from "~~/shared/utils/table";
 
 definePageMeta({
   layout: "admin",
@@ -18,6 +19,17 @@ const UBadge = resolveComponent("UBadge");
 const UButton = resolveComponent("UButton");
 const UCheckbox = resolveComponent("UCheckbox");
 const UDropdownMenu = resolveComponent("UDropdownMenu");
+const UIcon = resolveComponent("UIcon");
+
+const sortableHeader = (
+  label: string,
+  column: { getIsSorted: () => false | "asc" | "desc"; toggleSorting: (descending: boolean) => void; clearSorting: () => void },
+  align = "left",
+) => h("button", {
+  type: "button",
+  class: ["inline-flex w-full items-center gap-1.5", align === "right" ? "justify-end" : "justify-start"],
+  onClick: () => cycleColumnSorting(column),
+}, [label, h(UIcon, { name: columnSortIcon(column.getIsSorted()), class: "size-3.5 text-dimmed" })]);
 
 const { user } = useUser();
 const isAdmin = computed(() => (user.value?.role as Role | undefined) === "ADMIN");
@@ -331,12 +343,13 @@ const columns: TableColumn<AdminPaymentRecord>[] = [
   },
   {
     accessorKey: "paymentNo",
-    header: "เลขชำระ",
+    header: ({ column }) => sortableHeader("เลขชำระ", column),
     cell: ({ row }) => h("div", { class: "font-mono text-xs text-muted cursor-pointer hover:underline", onClick: (e: MouseEvent) => { e.stopPropagation(); openPaymentDetail(row.original); } }, row.original.paymentNo || "-"),
   },
   {
-    accessorKey: "customer",
-    header: "ลูกค้า",
+    id: "customer",
+    accessorFn: (payment) => payment.customer.name || payment.customer.phoneNumber || payment.customer.email || "",
+    header: ({ column }) => sortableHeader("ลูกค้า", column),
     cell: ({ row }) => {
       const customer = row.original.customer;
       return h("div", { class: "flex min-w-0 items-center gap-3 cursor-pointer", onClick: (e: MouseEvent) => { e.stopPropagation(); openMemberDetail(row.original); } }, [
@@ -350,12 +363,14 @@ const columns: TableColumn<AdminPaymentRecord>[] = [
   },
   {
     id: "saleType",
-    header: "ประเภท",
+    accessorFn: (payment) => getSaleTypeLabel(payment),
+    header: ({ column }) => sortableHeader("ประเภท", column),
     cell: ({ row }) => h(UBadge, { color: getSaleTypeColor(row.original), variant: "subtle" }, () => getSaleTypeLabel(row.original)),
   },
   {
-    accessorKey: "packageSale.items",
-    header: "รายการขาย",
+    id: "saleItems",
+    accessorFn: (payment) => payment.packageSale.items.map((item) => item.productName).join(" ") || "รายการผ้า",
+    header: ({ column }) => sortableHeader("รายการขาย", column),
     cell: ({ row }) => {
       const payment = row.original;
       const items = payment.packageSale.items;
@@ -388,7 +403,7 @@ const columns: TableColumn<AdminPaymentRecord>[] = [
   },
   {
     accessorKey: "amount",
-    header: () => h("div", { class: "text-right" }, "จำนวนเงิน"),
+    header: ({ column }) => sortableHeader("จำนวนเงิน", column, "right"),
     cell: ({ row }) => {
       const payment = row.original;
       const isMemberZero = isServiceMember(payment) && Number(payment.amount ?? 0) === 0;
@@ -404,7 +419,7 @@ const columns: TableColumn<AdminPaymentRecord>[] = [
   },
   {
     accessorKey: "status",
-    header: "สถานะ",
+    header: ({ column }) => sortableHeader("สถานะ", column),
     cell: ({ row }) => {
       const payment = row.original;
       const color = paymentStatusColors[payment.status] ?? "neutral";
@@ -425,12 +440,13 @@ const columns: TableColumn<AdminPaymentRecord>[] = [
   },
   {
     accessorKey: "method",
-    header: "วิธีชำระ",
+    header: ({ column }) => sortableHeader("วิธีชำระ", column),
     cell: ({ row }) => h("span", { class: "text-sm text-muted" }, getPaymentMethodLabel(row.original)),
   },
   {
-    accessorKey: "createdAt",
-    header: "วันที่สร้าง",
+    id: "createdAt",
+    accessorFn: (payment) => new Date(payment.createdAt).getTime(),
+    header: ({ column }) => sortableHeader("วันที่สร้าง", column),
     cell: ({ row }) => h("p", { class: "text-sm" }, formatDateTime(row.original.createdAt)),
   },
   {

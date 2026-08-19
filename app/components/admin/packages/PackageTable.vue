@@ -16,7 +16,7 @@ import {
   formatDays,
   formatDateTime,
 } from "~~/shared/utils/format";
-import { cycleColumnSorting } from "~~/shared/utils/table";
+import { columnSortIcon, cycleColumnSorting } from "~~/shared/utils/table";
 
 const props = defineProps<{
   packages: Package[];
@@ -38,6 +38,16 @@ const UBadge = resolveComponent("UBadge");
 const UButton = resolveComponent("UButton");
 const UCheckbox = resolveComponent("UCheckbox");
 const UIcon = resolveComponent("UIcon");
+
+const sortableHeader = (
+  label: string,
+  column: { getIsSorted: () => false | "asc" | "desc"; toggleSorting: (descending: boolean) => void; clearSorting: () => void },
+  align = "left",
+) => h("button", {
+  type: "button",
+  class: ["inline-flex w-full items-center gap-1.5", align === "right" ? "justify-end" : "justify-start"],
+  onClick: () => cycleColumnSorting(column),
+}, [label, h(UIcon, { name: columnSortIcon(column.getIsSorted()), class: "size-3.5 text-dimmed" })]);
 
 type TableRow<T> = { original: T };
 type TableApi = {
@@ -158,23 +168,7 @@ const columns: TableColumn<Package>[] = [
   },
   {
     accessorKey: "name",
-    header: ({ column }) => {
-      const isSorted = column.getIsSorted();
-      const icon = !isSorted
-        ? "i-lucide-arrow-up-down"
-        : isSorted === "asc"
-          ? "i-lucide-arrow-up-narrow-wide"
-          : "i-lucide-arrow-down-wide-narrow";
-
-      return h(UButton, {
-        label: "ชื่อแพ็กเกจ",
-        color: "neutral",
-        variant: "ghost",
-        class: "-mx-2.5",
-        icon,
-        onClick: () => cycleColumnSorting(column),
-      });
-    },
+    header: ({ column }) => sortableHeader("ชื่อแพ็กเกจ", column),
     cell: ({ row }) => {
       const pkg = row.original;
 
@@ -212,31 +206,16 @@ const columns: TableColumn<Package>[] = [
   },
   {
     accessorKey: "packageType",
-    header: "ประเภท",
+    header: ({ column }) => sortableHeader("ประเภท", column),
     cell: ({ row }) => {
       const type = row.getValue("packageType") as PackageType;
       return h(UBadge, { variant: "subtle", color: packageTypeColors[type] }, () => packageTypeLabels[type]);
     },
   },
   {
-    accessorKey: "price",
-    header: ({ column }) => {
-      const isSorted = column.getIsSorted();
-      const icon = !isSorted
-        ? "i-lucide-arrow-up-down"
-        : isSorted === "asc"
-          ? "i-lucide-arrow-up-narrow-wide"
-          : "i-lucide-arrow-down-wide-narrow";
-
-      return h(UButton, {
-        label: "ราคา",
-        color: "neutral",
-        variant: "ghost",
-        class: "-mx-2.5",
-        icon,
-        onClick: () => cycleColumnSorting(column),
-      });
-    },
+    id: "price",
+    accessorFn: (pkg) => Number(pkg.price),
+    header: ({ column }) => sortableHeader("ราคา", column),
     cell: ({ row }) => {
       const price = Number(row.original.price);
       return h(
@@ -248,19 +227,19 @@ const columns: TableColumn<Package>[] = [
   },
   {
     accessorKey: "credits",
-    header: "เครดิต",
+    header: ({ column }) => sortableHeader("เครดิต", column),
     cell: ({ row }) =>
       h("span", { class: "font-medium text-primary" }, formatCredits(row.original.credits)),
   },
   {
     accessorKey: "validityDays",
-    header: "ระยะเวลา",
+    header: ({ column }) => sortableHeader("ระยะเวลา", column),
     cell: ({ row }) =>
       h("span", { class: "text-muted" }, formatDays(row.getValue("validityDays") as number | null)),
   },
   {
     accessorKey: "deductOn",
-    header: "หักเครดิตเมื่อ",
+    header: ({ column }) => sortableHeader("หักเครดิตเมื่อ", column),
     cell: ({ row }) => {
       const pkg = row.original;
       if (pkg.packageType !== "ADDON") return h("span", { class: "text-muted text-xs" }, "—");
@@ -272,7 +251,7 @@ const columns: TableColumn<Package>[] = [
   },
   {
     accessorKey: "isActive",
-    header: "สถานะ",
+    header: ({ column }) => sortableHeader("สถานะ", column),
     cell: ({ row }) => {
       const isActive = row.getValue("isActive") as boolean;
       const config = isActive ? packageActiveConfig.active : packageActiveConfig.inactive;
