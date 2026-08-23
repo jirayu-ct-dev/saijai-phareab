@@ -153,7 +153,9 @@ const sendWithRetry = async (lineUserId: string, msg: LineMessage, attempts = 2)
       await pushMessage({ to: lineUserId, messages: [msg] });
       return true;
     } catch (error) {
-      console.error("[notifyExpiring] LINE push failed", { lineUserId, attempt: i + 1, error });
+      // Log only the tail of the LINE user id — enough to correlate, without
+      // writing a full customer identifier into logs.
+      console.error("[notifyExpiring] LINE push failed", { lineUserIdTail: lineUserId.slice(-6), attempt: i + 1, error });
       if (i === attempts - 1) return false;
       await new Promise((r) => setTimeout(r, 500 * (i + 1)));
     }

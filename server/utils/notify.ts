@@ -133,7 +133,9 @@ const safePush = async (lineUserId: string, messages: LineMessage[]): Promise<vo
     try {
       await pushMessage({ to: lineUserId, messages: chunk });
     } catch (error) {
-      console.error("[notify] LINE push failed", { lineUserId, error });
+      // Log only the tail of the LINE user id — enough to correlate, without
+      // writing a full customer identifier into logs.
+      console.error("[notify] LINE push failed", { lineUserIdTail: lineUserId.slice(-6), error });
       return;
     }
   }
