@@ -29,12 +29,10 @@ export default defineNuxtRouteMiddleware(async () => {
     return navigateTo("/");
   }
 
-  if (user.isActive === false && PRIVILEGED_ROLES.includes(user.role)) {
-    return navigateTo("/me");
-  }
-
-  // EMPLOYEE / ADMIN can access member pages without package check.
-  if (PRIVILEGED_ROLES.includes(user.role)) {
+  // Active EMPLOYEE / ADMIN can access member pages without a package check.
+  // Suspended staff are treated like regular users and must actually have an
+  // active entitlement.
+  if (PRIVILEGED_ROLES.includes(user.role) && user.isActive !== false) {
     return;
   }
 

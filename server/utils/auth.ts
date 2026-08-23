@@ -20,18 +20,28 @@ export const requireUser = (event: H3Event): User => {
     });
   }
 
-  if (user.deletedAt || user.isActive === false) {
+  if (user.deletedAt) {
     throw createError({
       statusCode: 403,
-      statusMessage: user.deletedAt ? "Account deleted" : "บัญชีนี้ถูกพักการใช้งาน",
+      statusMessage: "Account deleted",
     });
   }
 
+  // Suspended users (isActive === false) deliberately pass requireUser:
+  // suspension removes staff privileges (see requireRole) but must not lock
+  // them out of their own customer data under /api/me.
   return user;
 }
 
 export const requireRole = (event: H3Event, allowedRoles: Role[]): User => {
   const user = requireUser(event);
+
+  if (user.isActive === false) {
+    throw createError({
+      statusCode: 403,
+      statusMessage: "บัญชีนี้ถูกพักการใช้งาน",
+    });
+  }
 
   if (!allowedRoles.includes(user.role)) {
     throw createError({
