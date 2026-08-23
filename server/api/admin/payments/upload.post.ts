@@ -1,4 +1,5 @@
 import { uploadImageBufferToCloudinary } from "~~/server/utils/cloudinary";
+import { validateImageUpload } from "~~/server/utils/imageUpload";
 import { requireRole } from "~~/server/utils/auth";
 import { prisma } from "~~/server/utils/prisma";
 
@@ -13,13 +14,9 @@ export default defineEventHandler(async (event) => {
       statusMessage: "กรุณาเลือกไฟล์สลิป",
     });
   }
-
-  const mime = file.type || "";
-  if (!/^image\/(jpe?g|png|webp)$/i.test(mime)) {
-    throw createError({ statusCode: 400, statusMessage: "รองรับเฉพาะไฟล์ภาพ JPEG / PNG / WebP" });
-  }
-  if (file.data.length > 5 * 1024 * 1024) {
-    throw createError({ statusCode: 413, statusMessage: "ไฟล์เกินขนาดสูงสุด 5MB" });
+  const rejection = validateImageUpload(file);
+  if (rejection) {
+    throw createError(rejection);
   }
 
   try {

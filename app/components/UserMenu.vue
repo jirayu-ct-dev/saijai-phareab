@@ -10,9 +10,10 @@ const { user, userAvatar, logout } = useUser();
 const route = useRoute();
 
 const userMenuName = computed(() => user.value?.name || "ผู้ใช้งาน");
+// Suspended staff (isActive === false) get the customer menu until reactivated.
 const isStaff = computed(() => {
   const role = user.value?.role;
-  return role === "ADMIN" || role === "EMPLOYEE";
+  return (role === "ADMIN" || role === "EMPLOYEE") && user.value?.isActive !== false;
 });
 
 const profileRoute = computed(() => (isStaff.value ? "/admin/settings/profile" : "/me/settings/profile"));

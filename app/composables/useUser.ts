@@ -75,8 +75,7 @@ export const useUser = () => {
         name,
         email,
         password,
-        role: "USER",
-      } as Parameters<typeof authClient.signUp.email>[0] & { role: "USER" });
+      });
 
       if (error) {
         throw new Error(error.message || "สมัครสมาชิกไม่สำเร็จ");

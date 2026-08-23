@@ -34,7 +34,7 @@ export default defineEventHandler(async (event) => {
   const internalBase = (!process.env.VERCEL && process.env.INTERNAL_BASE_URL)
     || process.env.BETTER_AUTH_URL
     || getRequestURL(event).origin;
-  const url = `${trimTrailingSlash(internalBase)}/print/payment/${id}/${type}?w=${width}`;
+  const url = `${trimTrailingSlash(internalBase)}/print/payment/${encodeURIComponent(id)}/${type}?w=${width}`;
 
   const cookieHeader = getRequestHeader(event, "cookie");
 
@@ -67,12 +67,12 @@ export default defineEventHandler(async (event) => {
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);
     const stack = e instanceof Error ? e.stack : undefined;
-    // Surface to server log AND response so 500s are diagnosable in prod.
+    // Full render context (internal URL, stack) stays in the server log; the
+    // client only gets a generic message so internal topology is not leaked.
     console.error("[document.get] render failed:", { url, format, message, stack });
     throw createError({
       statusCode: 500,
-      statusMessage: message,
-      data: { url, format, message },
+      statusMessage: "ไม่สามารถสร้างเอกสารได้ กรุณาลองอีกครั้ง",
     });
   }
 });

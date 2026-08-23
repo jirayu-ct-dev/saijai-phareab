@@ -86,6 +86,22 @@ export default defineEventHandler(async (event) => {
     const isRoleChanged = payload.role !== undefined && payload.role !== existing.role;
     const isDeactivated = body.isActive === false;
 
+    // Guard against removing the last active admin (demotion or deactivation).
+    const losesAdmin =
+      existing.role === "ADMIN" &&
+      ((payload.role !== undefined && payload.role !== "ADMIN") || isDeactivated);
+    if (losesAdmin) {
+      const otherActiveAdmins = await prisma.user.count({
+        where: { role: "ADMIN", deletedAt: null, isActive: true, id: { not: id } },
+      });
+      if (otherActiveAdmins === 0) {
+        throw createError({
+          statusCode: 409,
+          statusMessage: "ไม่สามารถปลดแอดมินคนสุดท้ายออกจากระบบได้ กรุณาแต่งตั้งแอดมินคนอื่นก่อน",
+        });
+      }
+    }
+
     const result = await prisma.$transaction(async (tx) => {
       const user = await tx.user.update({
         where: { id },

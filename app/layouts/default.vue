@@ -47,10 +47,14 @@ const menu = computed<NavigationMenuItem[]>(() => [
     }
 ])
 
-const itemsDropdown = computed<DropdownMenuItem[][]>(() => {
+    const itemsDropdown = computed<DropdownMenuItem[][]>(() => {
     const roleLinks: DropdownMenuItem[] = []
 
-    if (user.value?.role === 'ADMIN') {
+    // Suspended staff (isActive === false) are treated as regular customers:
+    // no staff links until they are reactivated.
+    const isStaff = user.value?.isActive !== false
+
+    if (user.value?.role === 'ADMIN' && isStaff) {
         roleLinks.push({
             label: 'หน้าหลักผู้ดูแลระบบ',
             icon: 'i-lucide-shield',
@@ -61,7 +65,7 @@ const itemsDropdown = computed<DropdownMenuItem[][]>(() => {
             icon: 'i-lucide-layout-dashboard',
             to: '/me'
         })
-    } else if (user.value?.role === 'EMPLOYEE') {
+    } else if (user.value?.role === 'EMPLOYEE' && isStaff) {
         roleLinks.push({
             label: 'หน้าหลักพนักงาน',
             icon: 'i-lucide-briefcase',

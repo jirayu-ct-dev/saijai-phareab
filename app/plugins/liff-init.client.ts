@@ -1,6 +1,7 @@
 // app/plugins/liff-init.client.ts
 import liff from '@line/liff'
 import { isPotentialLiffLaunch } from '~~/shared/utils/liff'
+import { stripLiffTokensFromUrl } from '~/utils/liff-url'
 
 let isInitialized = false
 let liffPromise: Promise<typeof liff | undefined> | undefined
@@ -33,6 +34,9 @@ export default defineNuxtPlugin((nuxtApp) => {
         try {
             await liff.init({ liffId, withLoginOnExternalBrowser: false })
             isInitialized = true
+            // init() has consumed any tokens returned in the URL hash after a
+            // liff.login() redirect; clear them so they cannot leak onward.
+            stripLiffTokensFromUrl()
             return liff
         } catch (error) {
             console.error('LIFF initialization failed', error)

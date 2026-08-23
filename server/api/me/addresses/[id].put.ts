@@ -14,8 +14,7 @@ export default defineEventHandler(async (event) => {
   const user = requireUser(event);
   const id = getRouterParam(event, 'id');
 
-  const body = await readBody(event);
-  const validated = addressSchema.parse(body);
+  const validated = await readValidatedBody(event, addressSchema.parse);
 
   // Check ownership and not deleted
   const existing = await prisma.userAddress.findFirst({

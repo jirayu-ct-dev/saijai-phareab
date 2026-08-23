@@ -1,4 +1,5 @@
 import { uploadImageBufferToCloudinary } from "~~/server/utils/cloudinary";
+import { validateImageUpload } from "~~/server/utils/imageUpload";
 import { requireRole } from "~~/server/utils/auth";
 import { prisma } from "~~/server/utils/prisma";
 
@@ -12,6 +13,10 @@ export default defineEventHandler(async (event) => {
       statusCode: 400,
       statusMessage: "กรุณาเลือกรูป",
     });
+  }
+  const rejection = validateImageUpload(file);
+  if (rejection) {
+    throw createError(rejection);
   }
 
   try {

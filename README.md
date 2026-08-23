@@ -244,6 +244,24 @@ tests/                       Vitest tests ของ domain logic และ share
 
 รายละเอียดแนวทางสำหรับ AI coding agents และข้อควรระวังในการแก้โค้ดอยู่ใน [`AGENTS.md`](./AGENTS.md)
 
+## ความปลอดภัย
+
+การตั้งค่าหลักที่มีอยู่ในระบบ:
+
+- **LINE login**: LIFF ID token ถูก verify ฝั่ง server กับ LINE (ตรวจ `aud`) ก่อนสร้าง/ผูกบัญชีเสมอ, webhook LINE ตรวจ signature แบบ HMAC + timing-safe และกัน event ซ้ำด้วย `webhookEventId`, token ที่ค้างใน URL hash หลัง LIFF redirect จะถูกล้างหลัง `liff.init()` สำเร็จ
+- **Session/สิทธิ์**: `role`, `isActive`, `deletedAt` ฯลฯ ปิดการตั้งค่าผ่าน auth endpoints ด้วย `input: false` (ดู `app/utils/auth-user-fields.ts` และ regression test ใน `tests/server/authPrivilegeEscalation.test.ts`) — เปลี่ยน role ได้เฉพาะผ่าน admin API, session อายุ 7 วัน refresh วันละครั้ง, role/สถานะถูกอ่านใหม่จากฐานข้อมูลทุก request
+- **การพักงาน (`isActive=false`)**: session ของผู้ถูกพักจะถูกเพิกถอนทันที และถูกกันออกจากทุกหน้า/API ของ `/admin` (ทั้ง middleware และ `requireRole`) แต่ยังใช้งานฝั่งลูกค้า `/me` ได้ตามปกติเหมือนผู้ใช้ทั่วไป เพราะ `requireUser` ไม่บล็อกผู้ที่ถูกพัก (regression test ใน `tests/server/authSuspensionAccess.test.ts`)
+- **HTTP headers**: ทุก response ใส่ CSP (อนุญาต iframe เฉพาะ origin ของ LINE เพื่อ LIFF), HSTS, `X-Content-Type-Options`, `Referrer-Policy`, `Permissions-Policy` ผ่าน `routeRules` ใน `nuxt.config.ts` — inline script ที่ Nuxt ฉีดเอง (color-mode และ `window.__NUXT__` ที่มี buildId เปลี่ยนทุก build) ได้รับอนุญาตผ่าน sha256 hash ที่คำนวณต่อ response โดย `server/plugins/csp-inline-script-hash.ts` โดยไม่ต้องเปิด `'unsafe-inline'`
+- **Rate limiting**: claim บัญชีลูกค้า 20 ครั้ง/10 นาที/IP, แจ้งความสนใจแพ็กเกจ 5 ครั้ง/ชม./ผู้ใช้, อัปโหลด avatar 10 ครั้ง/ชม./ผู้ใช้ (in-memory — เพียงพอสำหรับการ deploy แบบ single instance)
+- **Uploads**: ตรวจ declared MIME + magic bytes จริง (JPEG/PNG/WebP) + ขนาดไม่เกิน 5MB ทุกจุดอัปโหลด (`server/utils/imageUpload.ts`)
+- **Dependencies**: `better-auth` ถูก pin ที่ `1.6.22` เป็นอย่างน้อย (แก้ชุด CVE กลางปี 2026) — การเลื่อนเป็น 1.7.x ต้องเพิ่มคอลัมน์ `issuer` ในตาราง account พร้อม migration ก่อน
+
+ความเสี่ยงที่ยอมรับไว้ (accepted risks):
+
+- ไม่บังคับยืนยันอีเมลก่อน login ด้วย email/password เพื่อให้ลูกค้า POS ที่ claim บัญชีเข้าใช้ได้ทันที (การ login ด้วย LINE ไม่ได้รับผลกระทบ)
+- เบอร์โทรและ LINE user ID เก็บเป็น plaintext ในฐานข้อมูล (ควรคุมการเข้าถึงฐานข้อมูลให้เข้มแทน) และ session token เก็บตาม schema มาตรฐานของ better-auth
+- rate limiter และ webhook dedupe เป็น in-memory — ถ้า scaling เป็นหลาย instance ต้องเปลี่ยนเป็น shared storage เช่น Redis
+
 ## การทดสอบและข้อควรรู้
 
 ก่อนส่งการเปลี่ยนแปลง ควรรันอย่างน้อยคำสั่งที่ตรงกับส่วนที่แก้ เช่น `pnpm test`, `pnpm exec nuxi typecheck` และ `pnpm run build`

@@ -1,4 +1,24 @@
 // https://nuxt.com/docs/api/configuration/nuxt-config
+
+// CSP tuned for LIFF: the SDK is bundled from npm (no CDN script), the app
+// renders inside LINE's in-app iframe (frame-ancestors), LINE profile
+// pictures come from line-scdn, and shop/product images from Cloudinary.
+// Dev needs eval + localhost ws/http for Vite HMR.
+const isDev = process.env.NODE_ENV === 'development'
+const contentSecurityPolicy = [
+  "default-src 'self'",
+  `script-src 'self'${isDev ? " 'unsafe-eval'" : ''}`,
+  "style-src 'self' 'unsafe-inline'",
+  'img-src \'self\' data: blob: https://res.cloudinary.com https://profile.line-scdn.net',
+  "font-src 'self' data:",
+  `connect-src 'self' https://api.line.me${isDev ? ' ws://localhost:* http://localhost:*' : ''}`,
+  // LIFF runs embedded in LINE (liff.line.me / www.line-web.me ancestors).
+  'frame-ancestors https://*.line.me https://*.line-web.me',
+  "object-src 'none'",
+  "base-uri 'self'",
+  "form-action 'self'",
+].join('; ')
+
 export default defineNuxtConfig({
   compatibilityDate: '2025-07-15',
   devtools: { enabled: true },
@@ -39,6 +59,17 @@ export default defineNuxtConfig({
   nitro: {
     experimental: {
       tasks: true,
+    },
+    routeRules: {
+      '/**': {
+        headers: {
+          'Content-Security-Policy': contentSecurityPolicy,
+          'X-Content-Type-Options': 'nosniff',
+          'Referrer-Policy': 'strict-origin-when-cross-origin',
+          'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
+          'Strict-Transport-Security': 'max-age=15552000',
+        },
+      },
     },
     // Cron times are UTC. 02:00 UTC = 09:00 Asia/Bangkok.
     scheduledTasks: {

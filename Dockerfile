@@ -46,13 +46,14 @@ WORKDIR /app
 #   shared/           = mock storefront data ที่ full seed ใช้งาน
 #   prisma.config.ts  = Prisma 7 config
 #   package.json      = metadata
-COPY --from=build /app/.output   ./.output
-COPY --from=build /app/node_modules ./node_modules
-COPY --from=build /app/prisma     ./prisma
-COPY --from=build /app/app/generated ./app/generated
-COPY --from=build /app/shared     ./shared
-COPY --from=build /app/prisma.config.ts ./
-COPY --from=build /app/package.json ./
+# --chown ให้ user node เป็นเจ้าของไฟล์ เพื่อรัน container แบบ non-root
+COPY --chown=node:node --from=build /app/.output   ./.output
+COPY --chown=node:node --from=build /app/node_modules ./node_modules
+COPY --chown=node:node --from=build /app/prisma     ./prisma
+COPY --chown=node:node --from=build /app/app/generated ./app/generated
+COPY --chown=node:node --from=build /app/shared     ./shared
+COPY --chown=node:node --from=build /app/prisma.config.ts ./
+COPY --chown=node:node --from=build /app/package.json ./
 
 # ตั้งค่า environment
 ENV NODE_ENV=production
@@ -60,6 +61,9 @@ ENV HOST=0.0.0.0
 ENV PORT=3000
 
 EXPOSE 3000
+
+# รันด้วย non-root user เพื่อลดความเสียหายหาก process ถูก exploit
+USER node
 
 # รัน Nitro server จาก build output
 CMD ["node", ".output/server/index.mjs"]
