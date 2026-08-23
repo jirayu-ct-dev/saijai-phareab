@@ -13,8 +13,7 @@ const addressSchema = z.object({
 export default defineEventHandler(async (event) => {
   const user = requireUser(event);
 
-  const body = await readBody(event);
-  const validated = addressSchema.parse(body);
+  const validated = await readValidatedBody(event, addressSchema.parse);
 
   // If this is set as default, unset others
   if (validated.isDefault) {

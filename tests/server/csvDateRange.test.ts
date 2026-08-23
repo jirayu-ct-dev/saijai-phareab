@@ -17,4 +17,14 @@ describe("CSV Bangkok date ranges", () => {
     expect(from.toISOString()).toBe("2026-06-09T17:00:00.000Z");
     expect(to.toISOString()).toBe("2026-06-10T16:59:59.999Z");
   });
+
+  it("rejects reversed ranges and ranges longer than 366 days", () => {
+    expect(() => parseDateRange("2026-06-11", "2026-06-10")).toThrow(/วันเริ่มต้นอยู่หลังวันสิ้นสุด/);
+    expect(() => parseDateRange("1900-01-01", "2100-01-01")).toThrow(/ไม่เกิน 366 วัน/);
+  });
+
+  it("accepts a 366-day range", () => {
+    const { from, to } = parseDateRange("2025-01-01", "2026-01-01");
+    expect(to.getTime() - from.getTime()).toBeGreaterThan(365 * 86_400_000);
+  });
 });

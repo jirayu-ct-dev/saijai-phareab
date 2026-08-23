@@ -23,7 +23,8 @@ export default defineEventHandler(async (event) => {
       orderBy: [
         { status: 'asc' },
         { createdAt: 'desc' }
-      ]
+      ],
+      take: 200
     });
 
     return entitlements.map(ent => ({

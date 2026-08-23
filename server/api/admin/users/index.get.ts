@@ -54,6 +54,7 @@ export default defineEventHandler(async (event) => {
         },
       },
       orderBy: { createdAt: "desc" },
+      take: 1000,
     });
 
     return rows.map((user) => {

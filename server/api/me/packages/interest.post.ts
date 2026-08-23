@@ -1,18 +1,25 @@
 import { prisma } from "~~/server/utils/prisma";
 import { requireUser } from "~~/server/utils/auth";
 import { pushMessage } from "~~/server/utils/line-messaging";
+import { createRateLimiter } from "~~/server/utils/rateLimit";
+import { z } from "zod";
+
+const bodySchema = z.object({
+  packageId: z.string().min(1),
+});
+
+// Each LINE push has a real cost; cap how often one user can signal interest.
+const interestLimiter = createRateLimiter({
+  windowMs: 60 * 60 * 1000,
+  max: 5,
+});
 
 export default defineEventHandler(async (event) => {
   const actor = requireUser(event);
-  const body = await readBody(event);
-  const { packageId } = body || {};
-
-  if (!packageId) {
-    throw createError({
-      statusCode: 400,
-      statusMessage: "กรุณาระบุรหัสแพ็กเกจ",
-    });
+  if (!interestLimiter.check(`interest:${actor.id}`)) {
+    throw createError({ statusCode: 429, statusMessage: "ส่งความสนใจบ่อยเกินไป กรุณารอสักครู่แล้วลองอีกครั้ง" });
   }
+  const { packageId } = await readValidatedBody(event, bodySchema.parse);
 
   // 1. Find the package
   const pkg = await prisma.packageProduct.findFirst({

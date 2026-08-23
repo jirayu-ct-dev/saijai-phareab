@@ -43,7 +43,7 @@ type PaymentDetailResponse = {
     subtotalAmount: number;
     discountAmount: number;
     totalAmount: number;
-    soldBy: { id: string; name: string | null; email: string } | null;
+    soldBy: { id: string; name: string | null } | null;
     items: Array<{
       id: string;
       name: string;
@@ -68,7 +68,7 @@ type PaymentDetailResponse = {
     subtotalAmount: number;
     discountAmount: number;
     totalAmount: number;
-    employee: { id: string; name: string | null; email: string } | null;
+    employee: { id: string; name: string | null } | null;
     hangerCharge: { count: number; pricePerUnit: number; total: number } | null;
     creditUsed: number;
     usageHistory: Array<{ sessionIndex: number; orderId: string; orderNo: string | null; receivedAt: string; quantity: number; isCurrent: boolean }>;
@@ -194,7 +194,7 @@ const purchaseInfoRows = computed<InfoRow[]>(() => {
     return [
       { label: "เลขรายการขาย", value: payment.value.packageSale.id },
       { label: "สถานะการขาย", value: packageSaleStatusMap[payment.value.packageSale.status].label },
-      { label: "ผู้ขาย", value: payment.value.packageSale.soldBy?.name || payment.value.packageSale.soldBy?.email || "-" },
+      { label: "ผู้ขาย", value: payment.value.packageSale.soldBy?.name || "-" },
       { label: "หมายเหตุการขาย", value: payment.value.packageSale.note || "-", valueClass: "whitespace-pre-line" },
     ];
   }
@@ -203,7 +203,7 @@ const purchaseInfoRows = computed<InfoRow[]>(() => {
     { label: "สถานะงาน", value: payment.value.serviceOrder ? serviceOrderStatusMap[payment.value.serviceOrder.status].label : "-" },
     { label: "วันที่รับงาน", value: payment.value.serviceOrder?.receivedAt ? formatDateTime(payment.value.serviceOrder.receivedAt) : "-" },
     { label: "วันนัดรับ", value: payment.value.serviceOrder?.dueAt ? formatDateTime(payment.value.serviceOrder.dueAt) : "-" },
-    { label: "ผู้รับงาน", value: payment.value.serviceOrder?.employee?.name || payment.value.serviceOrder?.employee?.email || "-" },
+    { label: "ผู้รับงาน", value: payment.value.serviceOrder?.employee?.name || "-" },
     { label: "ใช้สิทธิ์แพ็กเกจ", value: serviceEntitlementLabel.value },
     { label: "หมายเหตุงาน", value: payment.value.serviceOrder?.note || "-", valueClass: "whitespace-pre-line" },
   ];

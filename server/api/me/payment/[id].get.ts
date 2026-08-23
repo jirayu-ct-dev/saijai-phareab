@@ -1,5 +1,6 @@
 import { requireUser } from "~~/server/utils/auth";
 import { prisma } from "~~/server/utils/prisma";
+import { extractPaymentVat } from "~~/server/utils/paymentMeta";
 
 const toNumber = (value: unknown) => Number(value ?? 0);
 
@@ -40,7 +41,6 @@ export default defineEventHandler(async (event) => {
             select: {
               id: true,
               name: true,
-              email: true,
             },
           },
           items: {
@@ -65,7 +65,6 @@ export default defineEventHandler(async (event) => {
             select: {
               id: true,
               name: true,
-              email: true,
             },
           },
           memberEntitlement: {
@@ -201,17 +200,7 @@ export default defineEventHandler(async (event) => {
     confirmedAt: payment.confirmedAt?.toISOString() ?? null,
     amount: toNumber(payment.amount),
     note: payment.note,
-    vat: (() => {
-      const meta = (payment.metadata ?? null) as { vat?: { rate?: number; amount?: number; included?: boolean; baseAmount?: number } } | null;
-      const v = meta?.vat;
-      if (!v || !Number.isFinite(Number(v.rate)) || Number(v.rate) <= 0) return null;
-      return {
-        rate: Number(v.rate),
-        amount: Number(v.amount ?? 0),
-        included: Boolean(v.included),
-        baseAmount: Number(v.baseAmount ?? 0),
-      };
-    })(),
+    vat: extractPaymentVat(payment.metadata),
     slipImage: payment.slipImage
       ? {
           id: payment.slipImage.id,
@@ -238,7 +227,6 @@ export default defineEventHandler(async (event) => {
             ? {
                 id: payment.packageSale.soldBy.id,
                 name: payment.packageSale.soldBy.name,
-                email: payment.packageSale.soldBy.email,
               }
             : null,
           items: packageItems,
@@ -266,7 +254,6 @@ export default defineEventHandler(async (event) => {
             ? {
                 id: payment.serviceOrder.employee.id,
                 name: payment.serviceOrder.employee.name,
-                email: payment.serviceOrder.employee.email,
               }
             : null,
           hangerCharge: hangerChargeSource

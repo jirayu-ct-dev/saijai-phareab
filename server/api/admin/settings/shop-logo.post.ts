@@ -1,4 +1,5 @@
 import { uploadImageBufferToCloudinary } from "~~/server/utils/cloudinary";
+import { validateImageUpload } from "~~/server/utils/imageUpload";
 import { requireRole } from "~~/server/utils/auth";
 
 export default defineEventHandler(async (event) => {
@@ -9,6 +10,10 @@ export default defineEventHandler(async (event) => {
 
   if (!file?.data?.length) {
     throw createError({ statusCode: 400, statusMessage: "กรุณาเลือกไฟล์รูปโลโก้" });
+  }
+  const rejection = validateImageUpload(file);
+  if (rejection) {
+    throw createError(rejection);
   }
 
   try {

@@ -1,5 +1,6 @@
 import { requireUser } from "~~/server/utils/auth";
 import { prisma } from "~~/server/utils/prisma";
+import { extractPaymentVat } from "~~/server/utils/paymentMeta";
 
 export default defineEventHandler(async (event) => {
   const user = requireUser(event);
@@ -38,6 +39,7 @@ export default defineEventHandler(async (event) => {
         },
       },
       orderBy: { createdAt: "desc" },
+      take: 200,
     });
 
     const items = rows.map((row) => {
@@ -57,7 +59,7 @@ export default defineEventHandler(async (event) => {
         status: row.status, method: row.method, isVerified: row.status === "PAID",
         note: row.note ?? row.packageSale?.note ?? null, createdAt: row.createdAt, updatedAt: row.updatedAt,
         paidAt: row.paidAt, confirmedAt: row.confirmedAt, quotationNo: row.serviceOrder?.quotationNo ?? null,
-        metadata: row.metadata,
+        vat: extractPaymentVat(row.metadata),
         customer: {
           id: row.user.id, name: customerName, email: customerEmail, phoneNumber: customerPhoneNumber, image: row.user.image,
         },

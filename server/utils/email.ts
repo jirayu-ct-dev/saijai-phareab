@@ -28,8 +28,18 @@ export const sendEmail = async (options: SendEmailOptions): Promise<void> => {
   }
 };
 
+// User-controlled display names are interpolated into HTML email bodies;
+// escape them so profile names cannot inject markup into transactional email.
+const escapeHtml = (value: string): string =>
+  value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+
 export const renderResetPasswordEmail = (params: { name: string | null; url: string }): { subject: string; html: string; text: string } => {
-  const displayName = params.name?.trim() || "คุณลูกค้า";
+  const displayName = escapeHtml(params.name?.trim() || "คุณลูกค้า");
   const subject = "รีเซ็ตรหัสผ่าน — SaiJai Laundry";
   const text = `สวัสดี ${displayName}\n\nคุณได้ขอรีเซ็ตรหัสผ่าน คลิกลิงก์นี้เพื่อตั้งรหัสผ่านใหม่:\n${params.url}\n\nลิงก์นี้จะหมดอายุใน 1 ชั่วโมง หากคุณไม่ได้ขอ สามารถละเว้นอีเมลนี้ได้`;
   const html = `<!doctype html>
@@ -48,7 +58,7 @@ export const renderResetPasswordEmail = (params: { name: string | null; url: str
 };
 
 export const renderVerificationEmail = (params: { name: string | null; url: string }): { subject: string; html: string; text: string } => {
-  const displayName = params.name?.trim() || "คุณลูกค้า";
+  const displayName = escapeHtml(params.name?.trim() || "คุณลูกค้า");
   const subject = "ยืนยันอีเมลของคุณ — SaiJai Laundry";
   const text = `สวัสดี ${displayName}\n\nกรุณาคลิกลิงก์นี้เพื่อยืนยันอีเมลของคุณ:\n${params.url}\n\nหากคุณไม่ได้ร้องขอ สามารถละเว้นอีเมลนี้ได้`;
   const html = `<!doctype html>
