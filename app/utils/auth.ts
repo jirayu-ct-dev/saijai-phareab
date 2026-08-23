@@ -3,6 +3,7 @@ import { prismaAdapter } from "better-auth/adapters/prisma";
 import { prisma } from "~~/server/utils/prisma";
 import { renderResetPasswordEmail, renderVerificationEmail, sendEmail } from "~~/server/utils/email";
 import { isInternalCustomerEmail } from "~~/server/utils/customerAccount";
+import { authUserAdditionalFields } from "~/utils/auth-user-fields";
 
 const extraOrigins = process.env.BETTER_AUTH_TRUSTED_ORIGINS
   ? process.env.BETTER_AUTH_TRUSTED_ORIGINS.split(",").map((s) => s.trim())
@@ -18,6 +19,11 @@ export const auth = betterAuth({
   database: prismaAdapter(prisma, {
     provider: "postgresql",
   }),
+  session: {
+    // Explicit session policy: 7-day expiry, refreshed once a day while active.
+    expiresIn: 60 * 60 * 24 * 7,
+    updateAge: 60 * 60 * 24,
+  },
   emailAndPassword: {
     enabled: true,
     sendResetPassword: async ({ user, url }) => {
@@ -52,32 +58,7 @@ export const auth = betterAuth({
       enabled: true,
       updateEmailWithoutVerification: false,
     },
-    additionalFields: {
-      role: {
-        type: "string",
-        required: true,
-      },
-      phoneNumber: {
-        type: "string",
-        required: false,
-      },
-      normalizedPhoneNumber: {
-        type: "string",
-        required: false,
-      },
-      isActive: {
-        type: "boolean",
-        required: false,
-      },
-      deletedAt: {
-        type: "date",
-        required: false,
-      },
-      deletedById: {
-        type: "string",
-        required: false,
-      },
-    },
+    additionalFields: authUserAdditionalFields,
   },
   databaseHooks: {
     user: {
