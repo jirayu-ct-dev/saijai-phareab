@@ -6,6 +6,7 @@ import {
   type LineWebhookEvent,
   type LineWebhookPayload,
 } from "~~/server/utils/line-messaging";
+import { isDuplicateWebhookEvent } from "~~/server/utils/webhookEventDedupe";
 
 const getShopName = async (): Promise<string> => {
   const shop = await prisma.shopSetting.findUnique({ where: { id: "singleton" } });
@@ -54,6 +55,16 @@ export default defineEventHandler(async (event) => {
   console.log("[POST /api/line/webhook] Received", payload.events.length, "events");
 
   for (const ev of payload.events) {
+    // Reply tokens are single-use and short-lived, so a redelivered or
+    // replayed event can only cause duplicate side effects — skip it.
+    if (ev.deliveryContext?.isRedelivery) {
+      console.log("[POST /api/line/webhook] Skipping redelivered event", ev.type);
+      continue;
+    }
+    if (ev.webhookEventId && isDuplicateWebhookEvent(ev.webhookEventId)) {
+      console.log("[POST /api/line/webhook] Skipping duplicate event", ev.type);
+      continue;
+    }
     if (ev.type === "follow") {
       void handleFollowEvent(ev).catch((err) =>
         console.error("[POST /api/line/webhook] follow handler error", err),
