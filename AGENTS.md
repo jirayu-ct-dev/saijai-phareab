@@ -3,15 +3,17 @@
 ## Working approach
 
 - Define the requested outcome and an observable completion check before editing. Inspect relevant code, tests, configuration, and working-tree state first.
+- Match the action to the request: for explanation, review, or diagnosis, inspect and report without modifying behavior; for implementation or fixes, make only the necessary in-scope changes.
 - Surface assumptions that affect behavior. Resolve low-risk ambiguity with the simplest reasonable interpretation; ask when a wrong choice would be costly or hard to reverse.
 - Implement only the requested behavior. Reuse established patterns, avoid single-use abstractions and speculative flexibility, and keep every changed line traceable to the task.
+- Ask before unrequested destructive operations, major dependencies, public contract changes, or other material scope expansion.
 - Preserve unrelated user changes. Do not refactor, reformat, rename, or remove pre-existing code unless the task requires it.
 - Turn behavior changes into focused checks. Report what ran, what failed, and what was not run; do not infer executable correctness from inspection alone.
 
 ## Product and stack
 
 - Saijai Phareab is a Thai-first, mobile-first laundry storefront and operations system: public pricing/packages, customer/member order tracking, employee/admin POS and management, payments/documents, notifications, and LINE-first login/communication.
-- It is one Nuxt 4 full-stack application, not separate frontend/backend packages. Current direct versions are Nuxt `^4.3.1`, Vue `^3.5.29`, Nuxt UI `^4.5.1`, Tailwind CSS `^4.2.1`, Better Auth `^1.5.3`, Prisma `^7.4.2`, PostgreSQL, Zod `^4.3.6`, and Vitest `^4.1.7`.
+- It is one Nuxt 4 full-stack application, not separate frontend/backend packages. Current direct versions are Nuxt `^4.3.1`, Vue `^3.5.29`, Nuxt UI `^4.5.1`, Tailwind CSS `^4.2.1`, Better Auth `1.6.22`, Prisma `^7.4.2`, PostgreSQL, Zod `^4.3.6`, and Vitest `^4.1.7`.
 - Important integrations are LINE LIFF and Messaging API, Cloudinary image storage, Resend email, Puppeteer/Sharp document rendering, and WebUSB/Bluetooth thermal printing.
 - Use `pnpm` and the committed `pnpm-lock.yaml`; do not create npm or Yarn lockfiles.
 
@@ -99,7 +101,7 @@ docker compose -f docker-compose.local.yml up --build -d
 
 - `Dockerfile` is a Node 24 multi-stage build that installs with the frozen pnpm lockfile, generates Prisma Client, builds Nuxt, and runs the generated `.output/server/index.mjs` on port 3000.
 - `docker-compose.yml` is the production workflow. It requires external `DATABASE_URL` and `DIRECT_URL`, runs `prisma migrate deploy` as a one-shot job before starting the app, and never creates a database or demo data.
-- `docker-compose.local.yml` is the disposable local/demo workflow: PostgreSQL 16 on host port 5433, `prisma db push`, full demo seed, known test accounts, and the app on port 3000.
+- `docker-compose.local.yml` is the disposable local/demo workflow: PostgreSQL 16 on host port 5434, `prisma db push`, full demo seed, known test accounts, and the app on host port 3004.
 - No Nginx, TLS, or platform-specific infrastructure manifest is checked in. Those concerns must be provided by the production platform or reverse proxy.
 
 ## Verification and change discipline
