@@ -1,8 +1,12 @@
 # แผนงาน: ระบบพิมพ์ XP-C260M ใหม่แบบ Hybrid รองรับทุกการเชื่อมต่อ
 
+แผนนี้อยู่ภายใต้ [แผนควบคุมกลาง Database + Printing](./plan-database-printing-master-orchestration.md) หากข้อความขัดกัน ให้ใช้ canonical decisions, agent ownership และ execution gates ในแผนกลาง
+
 ## เป้าหมาย
 
 สร้างระบบพิมพ์ใบแจ้งราคาและใบเสร็จใหม่สำหรับ Xprinter XP-C260M โดยใช้ semantic print document, Hybrid ESC/POS renderer, Local Print Bridge และ queue ต่อเครื่องร่วมกันทุก transport รองรับ Wi-Fi เป็นค่าเริ่มต้น รวมถึง Ethernet, USB และ Bluetooth เมื่อ unit จริงรองรับ พร้อมติดตามสถานะงานและจัดการความล้มเหลวอย่างชัดเจน
+
+เอกสารที่ยังมียอดต้องชำระสามารถแนบ Thai QR Payment/PromptPay ที่สร้างจากยอดของ `PaymentRecord` โดยตรง เปิด/ปิดได้จากเมนูตั้งค่า และพิมพ์เป็น native QR เมื่อเครื่องจริงผ่านการทดสอบ ทั้งนี้ต้องแยก payment QR ออกจาก LINE QR เดิม และไม่ทำให้ QR หรือสลิปจากลูกค้ากลายเป็นหลักฐานว่าเงินเข้าจริงโดยอัตโนมัติ
 
 print flow ใหม่ไม่ต้องรักษา WebUSB/Puppeteer/raster-only architecture เดิม แต่ต้องไม่เปลี่ยน business flow ของ payment, quotation, receipt, order, authentication หรือระบบอื่นที่ไม่เกี่ยวกับการพิมพ์ PDF และ PNG ยังคงเป็น document exports แยกจาก physical print transport
 
@@ -16,6 +20,9 @@ print flow ใหม่ไม่ต้องรักษา WebUSB/Puppeteer/ras
 - PDF และ PNG ยังดาวน์โหลดได้ แต่ไม่เป็น intermediate format บังคับของ physical print flow ใหม่
 - ห้าม fallback ข้าม transport อัตโนมัติหลังเริ่มส่งงาน เพราะอาจพิมพ์ซ้ำ ต้องให้ผู้ใช้เลือก fallback หรือ reprint อย่างชัดเจน
 - Render mode เป้าหมายคือ Hybrid ตั้งแต่เริ่ม: ภาษาไทย/complex layout เป็น shaped raster และใช้ native ESC/POS กับ QR/barcode/logo/feed/cut/อุปกรณ์เสริมที่ verify แล้ว
+- payment QR ค่าเริ่มต้นใช้ Thai QR Payment/PromptPay แบบ Merchant-Presented สร้าง payload ภายใน server ตามมาตรฐานทางการ ไม่เรียก public QR-generator API และไม่รับยอด/PromptPay ID จาก browser
+- payment QR เปิดได้บนใบแจ้งราคา/เอกสาร `UNPAID` เป็นค่าเริ่มต้น ส่วนใบเสร็จ `PAID` ปิดไว้เพื่อป้องกันลูกค้าชำระยอดเดิมซ้ำ
+- การเปิด/ปิด LINE QR และ payment QR ต้องเป็นคนละ setting พร้อม label ชัดเจนว่าแต่ละ QR ใช้ทำอะไร
 - ห้ามสมมติว่า printer ใช้ RAW TCP port `9100`, printable width 576 dots หรือรองรับคำสั่งเสริมทุกคำสั่ง ต้องยืนยันจาก self-test/configuration page และ physical test
 - ไม่เปิด printer port หรือ Local Print Bridge ให้ public internet เข้าถึงโดยตรง
 - ยังไม่ commit, deploy, apply migration, เปลี่ยน network setting หรือส่ง test print จนกว่าจะมีคำสั่งในรอบ implementation ที่เกี่ยวข้อง
@@ -23,6 +30,10 @@ print flow ใหม่ไม่ต้องรักษา WebUSB/Puppeteer/ras
 ## ข้อเท็จจริงของระบบปัจจุบัน
 
 - หน้า admin ใบเสร็จและใบแจ้งราคาโหลด payment document payload แล้วแสดง preview ด้วย `ReceiptDocument.vue` และ `QuotationDocument.vue`
+- `ShopSetting` ปัจจุบันเก็บ `lineQrImageUrl`; หน้า `/admin/settings/shop` ให้ ADMIN อัปโหลดรูป LINE QR แต่ยังไม่มี boolean toggle หรือ payment QR setting
+- `ReceiptDocument.vue` และ `QuotationDocument.vue` แสดง LINE QR เมื่อมี URL โดยใช้รูปเดียวกันและ caption “สอบถาม/ติดตามผ้าได้ที่ LINE”
+- ใบเสร็จปัจจุบันเป็นเอกสารหลังชำระ: route ใบเสร็จ redirect กลับใบแจ้งราคาเมื่อ payment ยังไม่พร้อม และ `PaymentStatus` แยก `UNPAID`, `PENDING_VERIFICATION`, `PAID`, `CANCELLED`
+- ระบบเก็บ `PaymentRecord.amount` และ slip อยู่แล้ว แต่ยังไม่มี Thai QR payload, PromptPay/merchant identifier, bank callback หรือ automatic reconciliation
 - PDF, PNG และ ESC/POS สร้างผ่าน `server/api/admin/payments/[id]/document.get.ts`
 - server ใช้ Puppeteer เปิด `/print/payment/:id/:type`, จับ PNG แล้วใช้ Sharp แปลงเป็น monochrome raster
 - ESC/POS ปัจจุบันใช้ `GS v 0` ส่ง raster เป็นช่วง ตามด้วย feed และ partial cut
@@ -62,6 +73,12 @@ print flow ใหม่ไม่ต้องรักษา WebUSB/Puppeteer/ras
 13. client ไม่สามารถกำหนด arbitrary printer host/port และไม่สามารถใช้ API เป็น SSRF proxy ไปยัง LAN target อื่น
 14. tests, typecheck และ build ที่เกี่ยวข้องผ่าน หรือมี baseline failure แยกจาก failure ที่เกิดจากงานนี้ชัดเจน
 15. มี runbook สำหรับติดตั้ง bridge, ตั้ง printer, ทดสอบ, rollback และสลับระหว่าง Wi-Fi/Ethernet/USB/Bluetooth หรือใช้ PDF/PNG
+16. ADMIN เปิด/ปิด payment QR และ LINE QR แยกกันได้ โดย employee/browser/bridge ไม่ได้รับ PromptPay identifier แบบเต็มจาก settings API
+17. payment QR ของเอกสารที่ยังไม่ชำระ encode ยอดจาก canonical server document เป็นเงินบาทสองตำแหน่ง และ activation test ยืนยันว่าแอปธนาคารที่รองรับแสดงยอดกับผู้รับถูกต้องก่อนเปิดใช้จริง
+18. ใบเสร็จสถานะ `PAID`, รายการ `CANCELLED`, ยอดศูนย์/ติดลบ หรือ configuration ที่ validate ไม่ผ่านต้องไม่สร้าง payment QR
+19. QR พิมพ์ native เมื่อ capability ผ่าน และ fallback เป็น raster ที่ให้ผล payload เดียวกัน โดยทั้งสองแบบผ่านการสแกนบน physical fixture
+20. UI และเอกสารระบุชัดว่า QR ใช้ “ชำระเงิน” ส่วน LINE QR ใช้ “สอบถาม/ติดตามผ้า”; ไม่วางสอง QR ชิดกันจนสแกนผิด
+21. การแสดง QR หรือรับ slip ไม่เปลี่ยนสถานะ payment เป็น `PAID`; ต้องยืนยันเงินเข้าผ่านขั้นตอนเดิมหรือ provider callback ที่ได้รับการออกแบบแยกในอนาคต
 
 ## สิ่งที่อยู่นอกขอบเขต
 
@@ -73,6 +90,9 @@ print flow ใหม่ไม่ต้องรักษา WebUSB/Puppeteer/ras
 - เปิด black-mark mode หากยังใช้กระดาษ thermal roll ต่อเนื่องธรรมดา
 - รับประกันว่าใบพิมพ์ถูกหยิบออกจากเครื่อง เพราะ software เห็นได้สูงสุดตาม status mechanism ที่ firmware เปิดให้ใช้
 - รองรับ arbitrary ESC/POS printer ที่ไม่ผ่าน printer profile; compatibility ทั่วไปเป็น fallback ไม่ใช่ completion criterion ของ XP-C260M
+- เปลี่ยน payment status อัตโนมัติจากการสร้าง/สแกน QR หรือจากภาพ slip
+- ผูก bank Merchant QR API/webhook ในรุ่นแรก หากยังไม่มีข้อตกลงและ credentials จากธนาคาร
+- ใช้ public website/API เพื่อสร้าง payment QR หรือส่ง PromptPay identifier, ยอดเงิน หรือข้อมูลลูกค้าออกนอกระบบ
 
 ## Decisions
 
@@ -118,14 +138,35 @@ Local Print Bridge เป็นผู้ serialize งานต่อ printer �
 
 ถ้า connection หลุดก่อนเริ่มส่ง สามารถ retry แบบ bounded ได้ ถ้าหลุดหลังเริ่มส่ง bytes แล้วให้ mark `needs_review` ห้าม retry อัตโนมัติ เพราะอาจออกใบซ้ำ
 
+### D6 — Free baseline payment QR is server-generated Thai QR/PromptPay
+
+ใช้ Thai QR Payment แบบ Merchant-Presented โดย generate payload ภายใน Nuxt server จาก receiver configuration และ `PaymentRecord.amount` ตามเอกสารมาตรฐานของธนาคารแห่งประเทศไทย ไม่ใช้รูป QR สำเร็จรูปสำหรับ payment QR เพราะรูปเดิมไม่สามารถผูกยอดแต่ละรายการอย่างเชื่อถือได้ และไม่ใช้ third-party QR generator เพราะเพิ่มจุดรั่วของ identifier/ยอดโดยไม่จำเป็น
+
+baseline นี้ไม่มีค่าบริการ API สำหรับ “การสร้าง QR” และไม่เก็บ credential ที่ใช้สั่งตัดเงินจริง เนื่องจาก QR เป็นคำขอให้ mobile banking ของลูกค้าทำรายการ อย่างไรก็ตามค่าธรรมเนียมการโอนจริงและเงื่อนไขบัญชีขึ้นกับธนาคาร/ประเภทบัญชี จึงห้ามเขียน UI รับประกันว่าไม่มีค่าธรรมเนียมทุกกรณี
+
+ก่อน production ต้องยืนยันกับธนาคารเจ้าของบัญชีว่าบัญชี/PromptPay ของร้านรองรับ use case รับชำระแบบ QR ระบุยอดตามเงื่อนไขบริการ โดยเฉพาะถ้าต้องการใช้ชื่อร้าน, transaction reference, notification สำหรับร้านค้า หรือการกระทบยอด ไม่ตีความการ encode ได้ทางเทคนิคว่าเท่ากับได้รับอนุมัติบริการ Merchant QR/API แล้ว
+
+รุ่นแรกไม่ auto-confirm payment: พนักงานยังต้องตรวจ notification หรือยอดเงินเข้าจากธนาคารก่อนเปลี่ยนสถานะเป็น `PAID` การต้องการ reconciliation อัตโนมัติภายหลังให้ implement `PaymentQrProvider` สำหรับ Merchant QR API ของธนาคาร/ผู้ให้บริการที่ได้รับอนุญาต พร้อม signed callback, transaction reference และ idempotency โดยไม่เปลี่ยน print document contract
+
+ตำแหน่งแสดงที่ปลอดภัย:
+
+- `QUOTATION` ที่ payment เป็น `UNPAID`: แสดงเมื่อเปิด setting และ amount มากกว่า 0
+- `PENDING_VERIFICATION`: แสดงข้อความ “รอตรวจสอบการชำระเงิน” และไม่แสดง QR ซ้ำเป็นค่าเริ่มต้น
+- `RECEIPT` ที่ payment เป็น `PAID`: ไม่แสดง payment QR แม้ LINE QR ยังเปิดได้ เพื่อป้องกันชำระซ้ำ
+- `CANCELLED` หรือยอดไม่ถูกต้อง: ไม่แสดง
+
+หากธุรกิจยืนยันว่าต้องมี payment QR บนเอกสารที่เรียกว่า “ใบเสร็จ” จริง ต้องทบทวน semantics ของเอกสาร/payment state เป็นงาน business-flow แยกก่อน ไม่เปิด flag ที่ทำให้ `PAID` receipt เรียกเก็บยอดเดิมโดยเงียบ
+
 ## Frontier: ข้อมูลที่ต้องยืนยันก่อน implementation แต่ไม่ขวางการเขียนแผน
 
-- [D6] เครื่องใดจะรัน Local Print Bridge ตลอดเวลา: Windows POS, macOS, Linux mini PC หรือ Raspberry Pi
-- [D7] Nuxt production รันบน Vercel/cloud หรือ Docker host ภายในร้าน
-- [D8] self-test/configuration page ของ XP-C260M ตัวจริงระบุ firmware, Wi-Fi mode, IP assignment, protocol/port และ printable dots เท่าใด
-- [D9] เครื่องจริงรองรับ status query, native QR/barcode/PDF417, NV logo, buzzer/light และ cash-drawer command ใดบ้าง
-- [D10] ต้องการเก็บ immutable document snapshot นานเท่าใด และมีข้อกำหนด retention ด้านเอกสาร/ข้อมูลลูกค้าหรือไม่
-- [D11] มี printer เดียวหรือหลายเครื่อง และต้องเตรียม logical site/printer mapping สำหรับหลายสาขาหรือไม่
+- [D7] เครื่องใดจะรัน Local Print Bridge ตลอดเวลา: Windows POS, macOS, Linux mini PC หรือ Raspberry Pi
+- [D8] Nuxt production รันบน Vercel/cloud หรือ Docker host ภายในร้าน
+- [D9] self-test/configuration page ของ XP-C260M ตัวจริงระบุ firmware, Wi-Fi mode, IP assignment, protocol/port และ printable dots เท่าใด
+- [D10] เครื่องจริงรองรับ status query, native QR/barcode/PDF417, NV logo, buzzer/light และ cash-drawer command ใดบ้าง
+- [D11] ต้องการเก็บ immutable document snapshot นานเท่าใด และมีข้อกำหนด retention ด้านเอกสาร/ข้อมูลลูกค้าหรือไม่
+- [D12] มี printer เดียวหรือหลายเครื่อง และต้องเตรียม logical site/printer mapping สำหรับหลายสาขาหรือไม่
+- [D13] ร้านจะใช้ PromptPay ID ของนิติบุคคล/เลขภาษี, เบอร์โทรศัพท์เฉพาะร้าน, e-wallet ID หรือ Merchant QR enrollment ของธนาคารใด
+- [D14] ธนาคาร/บัญชีร้านมี notification เงินเข้าแบบใด และต้องการ auto-reconciliation ใน release ถัดไปหรือไม่
 
 ค่าเริ่มต้นของแผนจนกว่าจะได้คำตอบ:
 
@@ -134,6 +175,8 @@ Local Print Bridge เป็นผู้ serialize งานต่อ printer �
 - มีหนึ่งร้านและหนึ่ง XP-C260M แต่ schema ไม่ผูกกับ IP เดียวแบบ hard-code
 - Wi-Fi เป็น default transport; Ethernet/USB/Bluetooth เป็น explicit physical alternatives ภายใต้ flow ใหม่
 - printable dots, port และ optional capabilities ยังเป็น unverified ห้ามใส่ production default ที่ทำให้ส่งจริงโดยไม่ได้ตรวจ
+- payment QR provider เริ่มจาก `PROMPTPAY_LOCAL`; ใช้ receiver ของบัญชีร้านโดยเฉพาะและ manual bank confirmation
+- payment QR แสดงเฉพาะ quotation `UNPAID`; LINE QR เปิด/ปิดและ render แยกจาก payment QR
 
 ## Target architecture
 
@@ -179,11 +222,132 @@ type PrintDocument = {
   items: PrintLineItem[]
   totals: PrintTotals
   note: string | null
-  qr: PrintQr | null
+  qrBlocks: PrintQrBlock[]
 }
+
+type PrintQrBlock =
+  | {
+      kind: "PAYMENT"
+      payload: string
+      amountMinor: number
+      currency: "THB"
+      receiverLabel: string
+      caption: string
+    }
+  | {
+      kind: "LINE"
+      imageUrl: string
+      caption: string
+    }
 ```
 
 Contract จริงควร reuse/derive จาก `PaymentDocumentPayload` และ `ReceiptPayload` แทนการสร้าง business shape ซ้ำโดยไม่จำเป็น
+
+`qrBlocks` ต้องสร้างฝั่ง server จาก document state กับ settings snapshot เท่านั้น ห้ามรับ QR payload, receiver หรือ amount จาก browser การใช้ array ทำให้ LINE QR กับ payment QR เป็นคนละ semantic block และ renderer สามารถเว้นระยะ/label ให้สแกนไม่ผิดโดยไม่ผูก business logic ไว้ใน ESC/POS composer
+
+## Payment QR design
+
+### ตัวเลือกและข้อเสนอแนะ
+
+| ตัวเลือก | ค่าใช้จ่ายส่วนสร้าง QR | ยอดเฉพาะรายการ | ยืนยันเงินเข้าอัตโนมัติ | ข้อเสนอแนะ |
+| --- | ---: | --- | --- | --- |
+| อัปโหลดรูป QR คงที่ | ฟรี | ไม่ได้; ลูกค้ากรอกเอง | ไม่ได้ | ใช้กับ LINE QR เท่านั้น ไม่ใช้เป็น target payment flow |
+| สร้าง Thai QR/PromptPay ใน server | ฟรีและไม่ต้องเรียก API ภายนอก | ได้ | ไม่ได้โดยตัว QR เอง | baseline ที่แนะนำสำหรับระบบนี้ |
+| Merchant QR API ของธนาคาร/PSP | ขึ้นกับสัญญาและธนาคาร | ได้ พร้อม reference | ได้เมื่อมี callback/API ที่เชื่อถือได้ | upgrade path เมื่อจำเป็นต้องกระทบยอดอัตโนมัติ |
+| public QR-generator website/API | อาจฟรี | อาจได้ | ไม่ได้ | ไม่ใช้ เพราะเพิ่ม data exposure และ dependency โดยไม่จำเป็น |
+
+สำหรับ receiver ให้ใช้บัญชี/PromptPay สำหรับกิจการโดยเฉพาะ ถ้าเป็นนิติบุคคลให้พิจารณาเลขประจำตัวผู้เสียภาษีหรือ Merchant QR ที่ธนาคารออกให้ ถ้าเป็นบุคคลธรรมดาให้ใช้เบอร์รับเงินที่แยกจากเบอร์ส่วนตัวเมื่อทำได้ วิธีนี้ลดการปะปนรายรับและลดการเปิดเผยข้อมูลส่วนตัวบนหน้าจอยืนยันของลูกค้า
+
+### Settings และ data model
+
+เก็บ payment QR เป็นกลุ่ม field server-only ใน `AppSetting` แยก semantic จาก `lineQrImageUrl` และใช้ explicit API projection เพื่อไม่ให้ public shop-settings endpoint เปิดเผย receiver configuration:
+
+```text
+AppSetting.paymentQr*
+- paymentQrEnabled
+- paymentQrProvider: PROMPTPAY_LOCAL | BANK_MERCHANT
+- paymentQrReceiverType: MOBILE | NATIONAL_OR_TAX_ID | EWALLET
+- paymentQrReceiverCiphertext
+- paymentQrReceiverLast4
+- paymentQrReceiverLabel
+- paymentQrKeyVersion
+- paymentQrConfigVersion
+- paymentQrActivatedAt / paymentQrActivatedById
+- paymentQrUpdatedById
+- lineQrEnabled
+```
+
+ข้อกำหนด:
+
+- `paymentQrEnabled` เป็น toggle ในเมนู “ตั้งค่า > QR รับชำระเงิน”; default `false` จนผ่าน activation test และ release แรกแสดงเฉพาะ quotation ตาม eligibility policy จึงไม่ต้องมี `showOnReceipt`
+- LINE QR มี `lineQrEnabled` แยกต่างหาก; default ตาม migration policy ที่รักษาพฤติกรรมเดิมเมื่อมี `lineQrImageUrl`
+- receiver เก็บแบบ application-layer encryption พร้อม key version; key อยู่ใน server secret ไม่ commit และ API คืนเพียง type, label และ last 4 digits
+- receiver identifier ไม่ใช่รหัสถอนเงิน แต่ยังเป็นข้อมูลส่วนบุคคล/ข้อมูลบัญชีที่ควรจำกัดการเข้าถึง และ payload ที่พิมพ์ย่อมถูก decode ได้โดยผู้ถือเอกสาร
+- ADMIN เท่านั้นที่อ่าน/แก้ setting หรือสั่ง activation test; EMPLOYEE เห็นเพียงว่าเปิดใช้งานและชื่อผู้รับที่อนุมัติแล้ว
+- การเปลี่ยน receiver เพิ่ม `configVersion` และบันทึก audit โดยไม่เก็บ plaintext ใน audit log
+- ห้าม reuse `lineQrImageUrl` เป็น payment QR เพราะรูปไม่มี amount binding และไม่สามารถตรวจว่า receiver ตรงกับ setting ปัจจุบัน
+- release แรกไม่สร้าง `showOnReceipt` setting เพราะสถานะ `PAID` ทำให้ option นี้ไม่ปลอดภัยและไม่มี behavior ที่ถูกต้องให้เปิดใช้
+
+### Payload generation
+
+สร้าง utility ฝั่ง server ตาม Thai QR Payment Standard/EMVCo Merchant-Presented Mode:
+
+1. normalize receiver ตามชนิดที่มาตรฐานกำหนด
+2. โหลด amount จาก `PaymentRecord.amount`/canonical document โดยไม่รับ override จาก client
+3. แปลงเงินเป็น minor units หรือ decimal string สองตำแหน่งโดยไม่คำนวณผ่าน floating point ที่ทำให้เศษสตางค์คลาดเคลื่อน
+4. encode PromptPay merchant account information, currency `THB` (`764`), transaction amount และ CRC ตามมาตรฐาน
+5. parse payload ที่สร้างกลับด้วย validator อิสระ แล้วตรวจ receiver type, amount, currency และ CRC ก่อนสร้าง document snapshot
+6. เก็บ `provider`, `configVersion` และ hash ของ payload ใน print-job snapshot; ไม่ log payload เต็ม
+
+ใช้ receiver/amount เดียวกันสำหรับ preview, PDF, PNG และ physical print เพื่อไม่ให้แต่ละ renderer สร้าง QR คนละค่า แต่ตัว QR operation อยู่ใน semantic document ไม่ดึงจาก screenshot
+
+### Display policy
+
+```text
+PAYMENT QR ELIGIBLE =
+  setting.enabled
+  AND document.kind == QUOTATION
+  AND payment.status == UNPAID
+  AND amount > 0
+  AND receiver configuration is valid and active
+```
+
+- caption ระบุ “สแกนชำระเงิน”, ยอด `฿x,xxx.xx` และ receiver label
+- แสดงคำแนะนำให้ลูกค้าตรวจชื่อผู้รับและยอดใน mobile banking ก่อนยืนยัน
+- ไม่ใส่ customer name, phone, order note หรือข้อมูลส่วนบุคคลอื่นลง payload
+- ไม่ใส่ logo กลาง QR และต้องรักษา quiet zone
+- หากมีทั้ง payment QR และ LINE QR ให้ payment QR มาก่อน มีหัวข้อ/caption แยกและช่องว่างมากพอ; default แนะนำให้พิมพ์ payment QR บน quotation และ LINE QR บน receipt
+- เมื่อ setting ปิด, configuration decrypt/validation ล้มเหลว หรือ document ไม่ eligible ให้ omit block ทั้งก้อน ห้าม fallback ไป QR รูปเก่าหรือ QR ที่ไม่มี amount โดยเงียบ
+
+### Rendering บน XP-C260M
+
+- ใช้ native QR command เมื่อ capability profile ของ firmware จริงผ่านการทดสอบ
+- กำหนด model/module size และ error-correction ให้เหมาะกับ 203 DPI พร้อม quiet zone อย่างน้อยตามมาตรฐาน QR; ทดสอบขนาดบนกระดาษจริง ไม่ย่อจาก CSS
+- raster fallback ต้องสร้างจาก payload string เดียวกันแบบ pure black/white และห้ามผ่านภาพบีบอัดแบบ lossy
+- ทดสอบ scan ด้วย mobile banking อย่างน้อยสองธนาคารบน Wi-Fi/Ethernet/USB/Bluetooth ที่เปิดใช้งานจริง เพราะ transport ต้องไม่เปลี่ยน bytes ของ document
+- activation test ต้องใช้ยอดต่ำที่ผู้ดูแลอนุมัติหรือ dry scan โดยไม่กดยืนยันโอน และตรวจชื่อผู้รับ/ยอดบนหน้าจอธนาคารก่อนเปิด production flag
+
+### Payment confirmation boundary
+
+การ generate QR, ลูกค้าสแกนสำเร็จ หรืออัปโหลด slip เป็นเพียงหลักฐานประกอบ ห้ามเปลี่ยนสถานะเป็น `PAID` โดยอัตโนมัติ รุ่นแรกให้ใช้ payment transition เดิมและพนักงานตรวจเงินเข้าจริงจาก bank notification/account
+
+หากเพิ่ม bank/PSP integration ภายหลัง ต้องมีอย่างน้อย:
+
+- provider ที่ได้รับอนุญาตและ contract ค่าใช้จ่ายชัดเจน
+- signed callback หรือ server-to-server verification
+- unique provider transaction/reference ID
+- amount/currency/receiver/reference matching กับ payment ที่ยังไม่ชำระ
+- replay protection, idempotency และ audit
+- transition ผ่าน `paymentStateTransition.ts` ใน transaction เดิม ไม่เขียน status ตรง
+- reconciliation path สำหรับ callback ช้า, ยอดผิด, จ่ายซ้ำ และ refund
+
+### มาตรฐานและแหล่งอ้างอิง
+
+- [Thai QR Payment Standard — ธนาคารแห่งประเทศไทย](https://www.bot.or.th/content/dam/bot/documents/th/our-roles/payment-systems/about-payment-systems/ThaiQRCode_Payment_Standard.pdf) กำหนด Merchant-Presented Mode, PromptPay merchant information และโครงสร้าง amount/currency/CRC
+- [PromptPay และ Thai QR Payment — ธนาคารแห่งประเทศไทย](https://www.bot.or.th/th/financial-innovation/digital-finance/digital-payment/promptpay.html) อธิบายช่องทาง บัญชีที่ผูก และค่าธรรมเนียมมาตรฐานซึ่งอาจต่างตามธนาคาร
+- [QR ร้านค้าสำหรับแยกรายรับธุรกิจ — ธนาคารแห่งประเทศไทย](https://www.bot.or.th/th/research-and-publications/articles-and-publications/bot-magazine-issues/phrasiam-69-1/payment-system-QR-for-shops.html) สนับสนุนการใช้บัญชี/QR ร้านค้าแทนการปะปนกับบัญชีส่วนตัว
+
+ใช้เอกสารทางการเป็น source of truth; package open-source ใด ๆ เป็นเพียง implementation candidate และต้องถูกตรวจ source, license, maintenance, test vectors และ dependency risk ก่อนเพิ่ม production dependency
 
 ## Printer profile
 
@@ -194,7 +358,7 @@ type PrinterProfile = {
   id: string
   name: string
   model: "XP-C260M"
-  defaultTransport: "WIFI_BRIDGE" | "WEB_USB" | "WEB_BLUETOOTH"
+  defaultTransport: "WIFI" | "ETHERNET" | "USB" | "BLUETOOTH"
   paperWidthMm: 80 | 58
   printableDots: 576 | 512 | 384
   renderMode: "RASTER" | "HYBRID"
@@ -237,7 +401,7 @@ printers:
 
 ### ข้อมูลขั้นต่ำ
 
-เสนอให้เพิ่ม printing-only models โดยไม่เปลี่ยน payment/order models:
+เสนอให้เพิ่ม printing-only models สองตัว โดยไม่เปลี่ยน payment/order models:
 
 ```text
 Printer
@@ -249,51 +413,47 @@ Printer
 - printableDots
 - renderMode
 - capabilities JSON
+- connectionProfiles JSON (ไม่มี secret ที่ browser อ่านได้)
 - isActive
-- createdAt / updatedAt
-
-PrintBridge
-- id
-- name
-- credentialHash
-- isActive
-- lastSeenAt
+- bridgeKeyId
+- bridgeCredentialHash / bridgeCredentialVersion
+- bridgeLastSeenAt / bridgeVersion
 - createdAt / updatedAt
 
 PrintJob
 - id
 - printerId
-- bridgeId nullable จนถูก claim
 - documentType
 - documentId
 - documentRevision
-- documentSnapshot JSON หรือ artifact reference ตาม D10
+- sourcePaymentId / sourceUpdatedAt / sourceStatus
+- amountMinor / qrConfigVersion
+- encryptedDocumentSnapshot หรือ artifact reference ตาม D11
+- snapshotHash / renderVersion / snapshotExpiresAt
 - transport
 - status
 - idempotencyKey
 - requestedById
 - reprintOfId nullable
 - attemptCount
+- availableAt
+- leaseToken / leaseExpiresAt / fencingToken
 - failureCode nullable
 - failureMessageSafe nullable
 - queuedAt / claimedAt / sendStartedAt / sentAt / acknowledgedAt / resolvedAt
+- timelineSafe JSON แบบ bounded
 - createdAt / updatedAt
-
-PrintJobEvent
-- id
-- printJobId
-- type
-- metadataSafe JSON
-- createdAt
 ```
 
 ห้ามเก็บ raw printer response, receipt bytes, tokens หรือ customer document ทั้งใบใน log ทั่วไป
+
+v1 ไม่เพิ่ม `PrintBridge`, `PrinterConnection` หรือ `PrintJobEvent`; Local Print Bridge เป็น service ที่ authenticate ต่อ logical printer และ timeline อยู่ใน `PrintJob` หากภายหลังมีหลาย bridge/site หรือ event retention/query แยกจริง จึงเพิ่ม model ใหม่ผ่าน migration ภายหลัง
 
 ### State machine
 
 ```text
 QUEUED
-  -> CLAIMED
+  -> CLAIMED            (ออก lease + fencing token)
   -> RENDERING
   -> READY
   -> SENDING
@@ -301,7 +461,14 @@ QUEUED
   -> ACKNOWLEDGED     (เฉพาะเมื่อมี status mechanism ที่ยืนยันแล้ว)
 
 QUEUED/CLAIMED/RENDERING/READY
-  -> FAILED           (ยังไม่ได้ส่ง bytes และ retry policy อนุญาต)
+  -> RETRY_WAIT       (failure ก่อนส่งและ attempt ยังเหลือ)
+  -> FAILED           (non-retryable หรือ attempt หมด)
+
+RETRY_WAIT
+  -> QUEUED           (เมื่อ availableAt ถึงเวลา)
+
+QUEUED/CLAIMED/RENDERING/READY
+  -> STALE_DOCUMENT   (payment/status/amount/config version ไม่ตรง snapshot)
 
 SENDING
   -> NEEDS_REVIEW     (ไม่ทราบว่า printer รับ bytes ไปเท่าใด)
@@ -321,16 +488,26 @@ NEEDS_REVIEW
 - reprint ไม่ reuse job เดิม แต่สร้าง job ใหม่พร้อม `reprintOfId`
 - UI ต้องแยก “ลองส่งใหม่ก่อนเริ่มพิมพ์” ออกจาก “พิมพ์สำเนา”
 - automatic retry ทำได้เฉพาะ failure ก่อน `sendStartedAt` และต้อง bounded
+- ทุก claim/event ใช้ current fencing token; server ปฏิเสธ event จาก lease รุ่นเก่า
+- lease หมดก่อน `sendStartedAt` กลับ queue ได้ แต่ lease หมดหลังเริ่มส่งต้องเข้า `NEEDS_REVIEW`
+- ก่อน claim และก่อน byte แรกต้องตรวจ payment status, exact amount และ QR config version; mismatch จบเป็น `STALE_DOCUMENT`
 
 ## API และ authorization
 
 ### Admin/employee APIs
 
+- `GET /api/admin/settings/payment-qr`
+  - ADMIN ได้ masked configuration; EMPLOYEE ไม่ได้รับ receiver identifier
+- `PUT /api/admin/settings/payment-qr`
+  - ADMIN-only; validate/encrypt receiver, bump config version และปิด `enabled` เมื่อ receiver เปลี่ยนจนกว่าจะ activation test ใหม่
+- `POST /api/admin/settings/payment-qr/validate`
+  - สร้าง dry-scan payload จากยอดทดสอบ allowlist โดยไม่เปลี่ยน payment และคืน preview สำหรับ activation checklist
 - `GET /api/admin/printers`
   - คืน logical printers, transport availability, bridge heartbeat และ capability summary
 - `POST /api/admin/print-jobs`
   - body: `documentType`, `documentId`, `printerId`, `transport`, `requestId`, options ที่ allowlist แล้ว
-  - server โหลด document จาก database เอง ไม่รับ totals/customer data จาก client
+  - server โหลด payment status, Prisma Decimal amount, AppSetting config version และ document data ใน consistent transaction เอง ไม่รับ totals/customer data จาก client
+  - แปลง Decimal เป็น `amountMinor` แบบ exact ก่อนสร้าง QR/snapshot
 - `GET /api/admin/print-jobs/:id`
   - คืน status และ safe timeline
 - `POST /api/admin/print-jobs/:id/reprint`
@@ -338,20 +515,21 @@ NEEDS_REVIEW
 - `POST /api/admin/print-jobs/:id/resolve`
   - ใช้กับ `needs_review`; บันทึกผู้ตัดสินใจและผลที่ตรวจจริง
 
-ทุก endpoint ต้องเรียก `requireRole(event, ["EMPLOYEE", "ADMIN"])` และเพิ่ม centralized prefix policy ใน `server/middleware/auth-session.ts` หากเปิด route family ใหม่
+print-job endpoints ต้องเรียก `requireRole(event, ["EMPLOYEE", "ADMIN"])`; payment QR settings และ printer administration ต้องเรียก `requireRole(event, ["ADMIN"])` พร้อมเพิ่ม centralized prefix policy ใน `server/middleware/auth-session.ts` หากเปิด route family ใหม่
 
 การสร้าง/แก้ printer profile, rotate bridge credential และ test connection ควรเป็น ADMIN-only ส่วนพนักงานใช้ printer ที่ active แล้วได้
 
 ### Bridge APIs
 
-- bridge authenticate ด้วย credential แยกจาก user session และเก็บเฉพาะ hash ฝั่ง server
+- bridge authenticate ด้วย per-printer credential แยกจาก user session และเก็บเฉพาะ hash ฝั่ง server
 - `POST /api/print-bridge/claim`
-  - long-poll หรือ bounded polling เพื่อ claim งานทีละงานต่อ printer
+  - long-poll หรือ bounded polling เพื่อ claim งานทีละงานต่อ printer พร้อม lease/fencing token
+  - revalidate source status/amount/config version ก่อนออกงาน; stale job ไม่ถูกส่งให้ bridge
 - `POST /api/print-bridge/jobs/:id/events`
-  - ส่ง state transition และ safe failure code
+  - ส่ง state transition, current fencing token และ safe failure code; token รุ่นเก่าถูกปฏิเสธ
 - `POST /api/print-bridge/heartbeat`
   - ส่ง bridge version และ printer availability โดยไม่ส่ง credential/network detail กลับมา
-- ใช้ atomic claim ป้องกัน bridge สอง instance รับ job เดียวกัน
+- ใช้ atomic lease/fencing claim ป้องกัน bridge สอง instance รับ job เดียวกัน และ revalidate อีกครั้งก่อน byte แรก
 - validate state transition ฝั่ง server; bridge ห้ามเขียน arbitrary final status
 - rate-limit และ revoke credential ได้
 
@@ -359,7 +537,7 @@ NEEDS_REVIEW
 
 ### Runtime
 
-ค่าเริ่มต้นเสนอ Node.js/TypeScript เพื่อ reuse contracts และใช้งาน `net.Socket` สำหรับ verified TCP transport แต่ packaging/final runtime ต้องเลือกหลังทราบ OS ใน D6
+ค่าเริ่มต้นเสนอ Node.js/TypeScript เพื่อ reuse contracts และใช้งาน `net.Socket` สำหรับ verified TCP transport แต่ packaging/final runtime ต้องเลือกหลังทราบ OS ใน D7
 
 Bridge ต้อง:
 
@@ -486,6 +664,17 @@ Paper width และ capabilities ของทุก physical transport มา�
 - disable double submit ด้วย client request ID แต่ไม่พึ่ง UI อย่างเดียว
 - customer `/me/**` ไม่ควรเห็น admin printer controls; รักษาการดูเอกสารและเพิ่ม download เฉพาะเมื่อมี API/authorization ที่รองรับจริง
 
+### Payment QR settings
+
+- เพิ่มเมนู ADMIN “QR รับชำระเงิน” แยกจาก QR LINE เพื่อป้องกันความหมายปะปน
+- มี master toggle, provider/receiver type, masked receiver, receiver label และ toggle “แสดงบนใบแจ้งราคา”
+- แสดงสถานะ `ยังไม่ตั้งค่า`, `รอทดสอบ`, `พร้อมใช้งาน`, `ปิดใช้งาน` และ config version/update time
+- เมื่อแก้ receiver ต้องกรอกค่าเต็มใหม่; server ไม่คืน plaintext เดิมให้ form
+- ก่อนเปิดใช้งาน ให้ UI สร้าง QR ทดสอบและ checklist “แอปธนาคารแสดงชื่อผู้รับและยอดถูกต้อง” โดย ADMIN ยืนยันเอง
+- UI อธิบายว่า payment QR แสดงบนใบแจ้งราคาเท่านั้นและไม่สร้าง toggle “แสดงบนใบเสร็จที่ชำระแล้ว” ใน release แรก เพราะเสี่ยงจ่ายซ้ำ
+- preview ต้องแสดงสถานะเอกสารจำลองว่า `UNPAID` และไม่อ้างว่าเป็นรายการชำระจริง
+- แยก `LINE QR` toggle ใน shop settings; การปิดไม่ลบ image เดิมเพื่อเปิดกลับได้ และการลบรูปเป็น action แยก
+
 ## Network และ security
 
 - printer และ bridge อยู่ trusted LAN; หลีกเลี่ยง guest Wi-Fi/client isolation
@@ -494,6 +683,9 @@ Paper width และ capabilities ของทุก physical transport มา�
 - printer ไม่ expose ผ่าน router port-forward, public DNS หรือ tunnel สาธารณะ
 - bridge ติดต่อ backend ออกทาง HTTPS/WSS เท่านั้น
 - bridge token ต้อง rotate/revoke ได้และไม่อยู่ใน repository/log
+- payment QR encryption key อยู่ server-only, rotate/version ได้ และไม่ส่งไป bridge/browser; bridge รับเพียง payload ของ job ที่ได้รับสิทธิ์
+- settings API, audit และ error report ห้ามคืน receiver plaintext, decrypted identifier หรือ full payment QR payload
+- Content Security Policy/image policy ของ LINE QR ต้อง allow เฉพาะ image host ที่ระบบอัปโหลดเอง; payment QR ไม่โหลดภาพจาก URL
 - server ไม่รับ `host`, `port`, raw ESC/POS หรือ arbitrary URL จาก browser
 - print options เป็น allowlist และ validate ด้วย Zod
 - จำกัด artifact size, job rate และ concurrent claims
@@ -518,11 +710,12 @@ Paper width และ capabilities ของทุก physical transport มา�
 
 ## File impact map ที่คาดไว้
 
-ไฟล์จริงอาจปรับตามผล D6-D11 แต่ขอบเขตควรอยู่ใกล้ส่วนพิมพ์:
+ไฟล์จริงอาจปรับตามผล D7-D14 แต่ขอบเขตควรอยู่ใกล้ส่วนพิมพ์และ payment QR settings:
 
 ### Shared contracts
 
 - เพิ่ม `shared/types/printing.ts`
+- เพิ่ม payment QR settings/payload types โดยไม่ expose receiver plaintext ใน public contract
 - reuse `shared/types/receipt.ts`
 - เพิ่ม Zod schemas ใกล้ API/bridge boundary ตาม convention ที่มีอยู่
 
@@ -531,8 +724,10 @@ Paper width และ capabilities ของทุก physical transport มา�
 - เพิ่ม `server/utils/printing/printDocument.ts`
 - เพิ่ม `server/utils/printing/printJobState.ts`
 - เพิ่ม `server/utils/printing/printerProfile.ts`
+- เพิ่ม `server/utils/paymentQr/` สำหรับ provider interface, Thai QR encoder/parser/validator และ encryption boundary
 - เพิ่ม `server/api/admin/printers/**`
 - เพิ่ม `server/api/admin/print-jobs/**`
+- เพิ่ม `server/api/admin/settings/payment-qr/**` แบบ ADMIN-only
 - เพิ่ม `server/api/print-bridge/**`
 - ปรับ `server/middleware/auth-session.ts` เฉพาะ centralized policies ที่จำเป็น
 - reuse `server/utils/paymentDocument.ts`
@@ -542,6 +737,8 @@ Paper width และ capabilities ของทุก physical transport มา�
 ### App
 
 - เพิ่ม composable สำหรับ printer selection, create job และ job status ที่ไม่ถือ device handle ใน browser
+- เพิ่มหน้า/section ตั้งค่า payment QR ที่รับ masked settings และ activation checklist เท่านั้น
+- ปรับ shop settings ให้ LINE QR มี explicit toggle โดยรักษารูปเดิมเมื่อปิด
 - ปรับ `PrinterConnectModal.vue` ให้เป็น printer/transport selector
 - ปรับหน้า admin receipt/quotation ให้ route action ตาม selected transport
 - ปรับ `ThermalSlip.vue` เท่าที่จำเป็นต่อ status/fallback UI
@@ -550,13 +747,14 @@ Paper width และ capabilities ของทุก physical transport มา�
 
 ### Database
 
-- เพิ่ม models/enums ของ printer/bridge/job/event ผ่าน migration ใหม่
+- เพิ่ม models/enums เฉพาะ `Printer` และ `PrintJob` ผ่าน migration ใหม่ พร้อม lease/fencing/stale/idempotency fields
+- ใช้ payment QR fields ใน `AppSetting` ที่ database expand เตรียมตามแผนควบคุมกลาง โดยเก็บ encrypted receiver, key/config version, activation และ audit metadata; ไม่สร้าง singleton table ซ้ำและไม่ใส่ plaintext ใน migration/default
 - ไม่แก้ migration เก่า รวมถึง migrations ที่เคย add/remove printer settings
 - ตรวจ full migration chain บน disposable database ตามข้อควรระวังของ project
 
 ### Bridge
 
-- ตำแหน่ง source และ packaging ตัดสินหลัง D6
+- ตำแหน่ง source และ packaging ตัดสินหลัง D7
 - ถ้าอยู่ repo นี้ ให้มี README/runbook, config example, service lifecycle และ test command ของตัวเอง
 - ต้อง package transport dependencies สำหรับ TCP, USB และ Bluetooth ตาม OS เป้าหมาย และ isolate platform-specific code หลัง adapter interface
 - ห้ามเพิ่ม dependency หรือ workspace structure จนกว่าจะเลือก runtime/package boundary ชัดเจน
@@ -580,20 +778,25 @@ Completion: มี project-local configuration record ที่ไม่มี s
 2. เพิ่ม tests ของ allowed/forbidden transitions
 3. กำหนด safe error codes และ user-facing Thai labels
 4. กำหนด idempotency/reprint semantics
-5. ตัดสิน snapshot retention ใน D10 ก่อนสร้าง schema สุดท้าย
+5. เพิ่ม semantic `PAYMENT`/`LINE` QR blocks และ payment QR eligibility policy
+6. สร้าง Thai QR encoder + independent parser/validator จาก official test vectors และ fixed fixtures
+7. ตัดสิน snapshot retention ใน D11 ก่อนสร้าง schema สุดท้าย
 
-Completion: print job lifecycle ถูกทดสอบแบบ pure utility โดยไม่แตะ printer
+Completion: print job lifecycle และ Thai QR payload/eligibility ถูกทดสอบแบบ pure utility โดยไม่แตะ printer หรือเปลี่ยน payment state
 
 ### Phase 2 — Persistence and APIs
 
-1. เพิ่ม Prisma models/enums และ migration ใหม่
-2. เพิ่ม printer registry และ bridge credential management แบบ ADMIN-only
-3. เพิ่ม create/status/reprint/resolve APIs
-4. เพิ่ม bridge claim/event/heartbeat APIs พร้อม atomic claim
-5. เพิ่ม centralized route policies และ handler-level authorization
-6. เพิ่ม validation, rate limits และ safe logging
+เริ่ม Phase นี้หลัง database gate G5 ในแผนควบคุมกลางผ่านแล้ว; Phase 0–1 ทำคู่ขนานกับ database work ได้ แต่ห้ามสร้าง migration/API persistence ก่อน AppSetting และ canonical payment/document boundary นิ่ง
 
-Completion: API tests ยืนยัน authorization, idempotency, atomic claim และ state transitions
+1. เพิ่ม `Printer`/`PrintJob` models/enums และ additive migration ใหม่
+2. ใช้ encrypted payment QR fields ใน `AppSetting` ที่ผ่าน database gate แล้ว พร้อม key/config version และ masked ADMIN API
+3. เพิ่ม printer registry และ per-printer bridge credential management แบบ ADMIN-only
+4. เพิ่ม create/status/reprint/resolve APIs
+5. เพิ่ม bridge claim/event/heartbeat APIs พร้อม atomic lease, fencing token และ stale-document validation
+6. เพิ่ม centralized route policies และ handler-level authorization
+7. เพิ่ม validation, rate limits และ safe logging
+
+Completion: API tests ยืนยัน payment QR masking/encryption/eligibility, exact amount snapshot, authorization, idempotency, lease/fencing claim, stale-document rejection และ state transitions
 
 ### Phase 3 — Local Print Bridge MVP
 
@@ -613,28 +816,32 @@ Completion: bridge รับ fixture job, route ผ่าน adapter ที่�
 1. สร้าง canonical print document mapper จาก payment document domain
 2. สร้าง shaped Thai raster blocks โดยใช้ bundled font/shaping engine
 3. สร้าง native numeric/text operations ที่ verify แล้ว
-4. สร้าง native QR/barcode operations พร้อม raster fallback
-5. สร้าง logo operation แบบ NV logo พร้อม raster fallback
-6. สร้าง feed/partial-cut operations ตาม profile
-7. พิมพ์ minimal ASCII และ Hybrid receipt fixture
-8. ตรวจ 576/512 dots, clipping, density, alignment และ feed
-9. ทดสอบงานยาว งานต่อเนื่อง และแต่ละ transport ที่ unit รองรับ
-10. ทดสอบ offline/reconnect และ bridge restart
+4. map server-generated payment QR กับ LINE QR เป็นคนละ operations พร้อม caption/spacing
+5. สร้าง native QR/barcode operations พร้อม raster fallback โดยใช้ payload เดียวกัน
+6. สร้าง logo operation แบบ NV logo พร้อม raster fallback
+7. สร้าง feed/partial-cut operations ตาม profile
+8. พิมพ์ minimal ASCII และ Hybrid receipt/quotation fixture
+9. ตรวจ payment QR ด้วย mobile banking จริงอย่างน้อยสองธนาคาร โดยไม่ยืนยันโอนใน dry scan
+10. ตรวจ 576/512 dots, clipping, density, alignment และ feed
+11. ทดสอบงานยาว งานต่อเนื่อง และแต่ละ transport ที่ unit รองรับ
+12. ทดสอบ offline/reconnect และ bridge restart
 
-Completion: Hybrid output ผ่านภาษาไทย, layout, scan, feed/cut และ transport matrix โดยไม่พึ่ง HTML/Puppeteer raster pipeline
+Completion: Hybrid output ผ่านภาษาไทย, layout, payment QR recipient/amount scan, LINE QR, feed/cut และ transport matrix โดยไม่พึ่ง HTML/Puppeteer raster pipeline
 
 ### Phase 5 — Admin UI cutover
 
 1. เพิ่ม logical printer/transport selector
-2. เลือก Wi-Fi เป็น default เมื่อ bridge online
-3. route ทุก physical transport ไป print-job API
-4. ให้ bridge เลือก Wi-Fi/Ethernet/USB/Bluetooth adapter ตาม job/profile
-5. รักษา PDF/PNG actions เป็น document exports
-6. เพิ่ม status timeline, explicit transport fallback และ reprint UX
-7. ป้องกัน double submit ด้วย request ID
-8. ถอด browser-direct WebUSB/BLE flow หลัง hardware/transport regression ผ่าน
+2. เพิ่ม payment QR settings พร้อม masked receiver, toggle และ activation checklist
+3. เพิ่ม LINE QR toggle แยกโดยไม่ลบ image เมื่อปิด
+4. เลือก Wi-Fi เป็น default เมื่อ bridge online
+5. route ทุก physical transport ไป print-job API
+6. ให้ bridge เลือก Wi-Fi/Ethernet/USB/Bluetooth adapter ตาม job/profile
+7. รักษา PDF/PNG actions เป็น document exports และใช้ QR eligibility/payload เดียวกัน
+8. เพิ่ม status timeline, explicit transport fallback และ reprint UX
+9. ป้องกัน double submit ด้วย request ID
+10. ถอด browser-direct WebUSB/BLE flow หลัง hardware/transport regression ผ่าน
 
-Completion: พนักงานเลือกและใช้ทุก transport ผ่าน flow ใหม่ได้ และ PDF/PNG ไม่ได้รับผลกระทบ
+Completion: ADMIN เปิดใช้ QR หลัง dry scan ได้ พนักงานพิมพ์ quotation พร้อมยอดผ่านทุก transport โดยไม่เห็น receiver plaintext และ PDF/PNG ไม่ได้รับผลกระทบ
 
 ### Phase 6 — Optional XP-C260M capabilities
 
@@ -669,9 +876,17 @@ Completion: production checklist ผ่านและ rollback กลับ USB
 ### Unit tests
 
 - printer profile validation: 576/512/384 และ capability defaults
+- Thai QR golden vectors: receiver normalization, amount `0.01`, integer, decimal, large valid amount, currency และ CRC
+- Thai QR parse round-trip ตรวจ payload ที่ generate กลับเป็น receiver type/amount/currency เดิม
+- reject malformed receiver, NaN/infinite/zero/negative amount, precision เกินสองตำแหน่ง และ invalid CRC
+- payment QR eligibility matrix: `UNPAID` quotation เท่านั้น; omit สำหรับ `PENDING_VERIFICATION`, `PAID`, `CANCELLED` และ free order
+- setting encryption/decryption/key-version test โดยไม่ snapshot plaintext
+- document QR ordering/caption: payment กับ LINE เป็นคนละ block
 - print-job state transitions
 - idempotency key behavior
 - reprint linkage
+- lease expiry และ fencing token รุ่นเก่าถูกปฏิเสธ
+- source status/amount/config version เปลี่ยนแล้วได้ `STALE_DOCUMENT`
 - retry classification ก่อน/หลัง send start
 - ESC/POS init/feed/cut envelope
 - raster band sizing และ width packing
@@ -683,9 +898,16 @@ Completion: production checklist ผ่านและ rollback กลับ USB
 - USER เรียก admin print APIs ไม่ได้
 - EMPLOYEE พิมพ์ได้แต่แก้ printer/bridge credential ไม่ได้
 - ADMIN จัดการ logical printer ได้
+- USER/EMPLOYEE อ่านหรือแก้ payment QR receiver ไม่ได้; ADMIN GET ได้เฉพาะ masked value
+- PUT payment QR rejects invalid receiver/provider และ audit ไม่เก็บ plaintext
+- เปลี่ยน receiver แล้ว setting ถูก disable จน activation ใหม่
+- create print job โหลด amount/status/settings จาก server และไม่รับ client amount/QR payload
+- paid/cancelled/pending-verification document ไม่มี payment QR แม้ client พยายามส่ง option
 - client-supplied host/port/raw bytes ถูกปฏิเสธ
 - document ownership/source โหลดจาก server ไม่เชื่อ totals จาก client
 - concurrent claim ได้ผู้ชนะคนเดียว
+- event จาก expired lease/fencing token ถูกปฏิเสธ
+- payment เปลี่ยนจาก `UNPAID` หรือ amount/config version เปลี่ยนระหว่าง queue/claim/pre-send แล้วไม่ส่ง job
 - invalid state transition ถูกปฏิเสธ
 - duplicate request ID คืน job เดิม
 - reprint สร้าง job ใหม่และ link ถูกต้อง
@@ -693,6 +915,8 @@ Completion: production checklist ผ่านและ rollback กลับ USB
 
 ### Bridge tests โดยไม่ใช้ hardware
 
+- native QR และ raster fallback decode ได้ payload string เดียวกัน
+- bridge/job logs ไม่มี full payment QR payload หรือ receiver identifier
 - fake TCP server รับ byte ตามลำดับและยืนยันไม่มี interleave
 - connect failure ก่อนส่ง retry ตามจำนวนที่กำหนด
 - disconnect ระหว่างส่งเข้าสู่ `needs_review`
@@ -705,19 +929,21 @@ Completion: production checklist ผ่านและ rollback กลับ USB
 
 | Test | Wi-Fi | Ethernet | USB | Bluetooth | Expected |
 | --- | --- | --- | --- | --- | --- |
-| Minimal ASCII | required | if supported | required | if supported | อ่านได้และ feed ถูกต้อง |
-| ภาษาไทยหลายรูปแบบ | required | if supported | required | if supported | สระ/วรรณยุกต์ไม่เพี้ยน |
-| ใบเสร็จยาว | required | if supported | required | if supported | ไม่ตัด/clip/interleave |
-| Logo | required | if supported | required | if supported | contrast และขนาดถูกต้อง |
-| LINE/payment QR | required | if supported | required | if supported | แอปจริงสแกนผ่าน |
-| Partial cut | required | if supported | required | if supported | ตัดหลัง feed พอดี |
-| Concurrent jobs | required | required | required | required | ออกตาม queue ทีละใบ |
-| Printer offline | required | if supported | required | if supported | สถานะไม่อ้าง success |
-| Transport reconnect | required | if supported | required | if supported | ไม่มี duplicate เงียบ |
-| Bridge restart | required | required | required | required | recover/needs-review ถูกต้อง |
+| Minimal ASCII | required | if supported | if supported | if supported | อ่านได้และ feed ถูกต้อง |
+| ภาษาไทยหลายรูปแบบ | required | if supported | if supported | if supported | สระ/วรรณยุกต์ไม่เพี้ยน |
+| ใบเสร็จยาว | required | if supported | if supported | if supported | ไม่ตัด/clip/interleave |
+| Logo | required | if supported | if supported | if supported | contrast และขนาดถูกต้อง |
+| LINE/payment QR | required | if supported | if supported | if supported | แอปจริงสแกนผ่าน |
+| Partial cut | required | if supported | if supported | if supported | ตัดหลัง feed พอดี |
+| Concurrent jobs | required | if supported | if supported | if supported | ออกตาม queue ทีละใบ |
+| Printer offline | required | if supported | if supported | if supported | สถานะไม่อ้าง success |
+| Transport reconnect | required | if supported | if supported | if supported | ไม่มี duplicate เงียบ |
+| Bridge restart | required | if supported | if supported | if supported | recover/needs-review ถูกต้อง |
 | Optional capabilities | after verify | after verify | after verify | after verify | เปิดเฉพาะ profile flag |
 
 ใช้ fixture ที่ไม่มีข้อมูลลูกค้าจริง และบันทึก firmware, interface, port, dots, render mode และผลทดสอบทุกครั้ง
+
+สำหรับ payment QR fixture ให้แยกผลอย่างน้อย: native/raster, ชื่อผู้รับที่ mobile banking resolve, ยอด, สกุลเงิน, quiet zone, แอปธนาคารที่ใช้สแกน และต้องไม่กดยืนยันโอน เว้นแต่ผู้ใช้อนุมัติ physical payment test กับยอด/บัญชีเป้าหมายชัดเจน
 
 ## Rollout และ rollback
 
@@ -725,6 +951,8 @@ Completion: production checklist ผ่านและ rollback กลับ USB
 
 - `newPrintingEnabled`: เปิด physical print flow ใหม่
 - `defaultPrinterId`: logical default
+- payment QR enablement อยู่ใน audited database setting ไม่ใช่ public runtime config; receiver encryption key เป็น server secret
+- `lineQrEnabled` แยกจาก `paymentQrEnabled`; ห้ามใช้ flag เดียวควบคุม QR คนละวัตถุประสงค์
 - capability flags อยู่ใน printer profile
 - transport availability แยกตาม printer profile; การปิด transport หนึ่งไม่ทำให้ transport อื่นที่ configure แล้วหายไป
 
@@ -735,10 +963,11 @@ Completion: production checklist ผ่านและ rollback กลับ USB
 1. deploy schema/API และ bridge โดยยังปิด physical print flow ใหม่ใน UI
 2. ติดตั้ง bridge และ verify heartbeat
 3. ทดสอบ printer profile กับ fixture
-4. เปิด flow ใหม่ให้ ADMIN กลุ่มเล็กและทดสอบ Wi-Fi/USB/Bluetooth ตาม hardware
-5. เปิดให้ EMPLOYEE หลัง soak period
-6. ตั้ง Wi-Fi เป็น default เมื่อ error/duplicate rate ผ่านเกณฑ์
-7. ถอด browser-direct WebUSB/BLE หลัง cutover; คง USB/Bluetooth ผ่าน bridge และคง PDF/PNG exports
+4. บันทึก payment receiver แล้ว dry scan ตรวจชื่อผู้รับ/ยอดอย่างน้อยสอง mobile banking ก่อนเปิด QR flag
+5. เปิด flow ใหม่ให้ ADMIN กลุ่มเล็กและทดสอบ Wi-Fi/USB/Bluetooth ตาม hardware
+6. เปิดให้ EMPLOYEE หลัง soak period
+7. ตั้ง Wi-Fi เป็น default เมื่อ error/duplicate rate ผ่านเกณฑ์
+8. ถอด browser-direct WebUSB/BLE หลัง cutover; คง USB/Bluetooth ผ่าน bridge และคง PDF/PNG exports
 
 ### Rollback
 
@@ -747,7 +976,7 @@ Completion: production checklist ผ่านและ rollback กลับ USB
 - reconcile jobs ที่ `SENDING` เป็น `needs_review`
 - ให้ผู้ใช้เลือก transport adapter อื่นที่ bridge พร้อม หรือใช้ PDF/PNG
 - ไม่ drop tables หรือ rollback migration เพื่อปิด feature
-- เก็บ job/event audit ตาม retention policy
+- เก็บ bounded job timeline/audit ตาม retention policy
 
 ## Observability
 
@@ -762,7 +991,7 @@ Metrics ขั้นต่ำ:
 - explicit reprint count
 - artifact byte size
 
-Logs ต้องใช้ structured safe fields เช่น `jobId`, `printerId`, `bridgeId`, `state`, `failureCode`, `durationMs` และไม่ใส่ customer name, phone, receipt content, IP ภายในหรือ credential ใน user-facing report
+Logs ต้องใช้ structured safe fields เช่น `jobId`, `printerId`, `bridgeInstanceId`, `state`, `failureCode`, `durationMs` และไม่ใส่ customer name, phone, receipt content, IP ภายในหรือ credential ใน user-facing report
 
 ## Verification commands
 
@@ -785,13 +1014,17 @@ pnpm exec prisma generate
 
 ถ้า bridge มี package/test command แยก ต้องบันทึกคำสั่งจริงใน runbook และ CI หลังเลือก packaging แล้ว ห้าม invent command ไว้ล่วงหน้า
 
-## Definition of ready ก่อนเริ่มเขียน production code
+## Definition of ready ก่อน Phase 2–5 production integration
 
-- ได้ข้อมูล D6-D11 ที่กระทบ architecture
+Phase 0 hardware evidence และ Phase 1 pure contracts/tests เริ่มได้ตามแผนควบคุมกลาง ส่วน persistence, API, bridge dependency, renderer integration และ UI cutover ต้องผ่านรายการต่อไปนี้:
+
+- ได้ข้อมูล D7-D14 ที่กระทบ architecture และ payment QR operations
 - มี self-test/configuration page ของ unit จริง
 - ยืนยัน bridge host OS และ deployment topology
 - ยืนยัน printer protocol/port และ printable dots
-- ตกลง retention ของ document snapshot/job events
+- ยืนยัน receiver เป็นบัญชีของร้าน, receiver type, masked value และชื่อที่ mobile banking resolve
+- ตกลงว่ารุ่นแรกยืนยันเงินเข้าด้วยขั้นตอนเดิม หรือมี provider contract สำหรับ automatic reconciliation
+- ตกลง retention ของ encrypted document snapshot/bounded job timeline
 - ตกลงว่า optional capabilities ใดอยู่ใน first production release
 - ตกลงข้อความและ authority สำหรับ `needs_review`/reprint
 - มี fixture เอกสารภาษาไทยที่ไม่มีข้อมูลจริงสำหรับ automated/physical test
@@ -805,5 +1038,8 @@ pnpm exec prisma generate
 - ไม่มี silent retry/fallback ที่ทำให้พิมพ์ซ้ำ
 - bridge และ printer มี runbook/health visibility
 - capability profile ตรงกับ unit จริง ไม่ใช่เพียง model-family specification
+- ADMIN เปิด/ปิด payment QR และ LINE QR แยกกันได้ โดย receiver ไม่รั่วผ่าน API/log
+- quotation `UNPAID` แสดง QR พร้อมยอดจาก server และ scan ได้จริง; paid receipt/cancelled/zero amount ไม่แสดง payment QR
+- การใช้ QR ไม่เปลี่ยน payment state จนกว่าจะมีหลักฐานเงินเข้าตาม flow ที่อนุมัติ
 - final diff ไม่มีการเปลี่ยน business logic หรือระบบอื่นนอก printing scope
 - รายงาน tests ที่รัน, baseline failures, hardware tests และสิ่งที่ยังไม่ได้ verify ชัดเจน
