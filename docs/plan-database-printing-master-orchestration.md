@@ -691,10 +691,10 @@ Primary agent เป็นผู้แก้ section นี้เท่านั
 | Packet | Status | Owner | Evidence/notes |
 | --- | --- | --- | --- |
 | G0 Plan alignment | complete | orchestrator | child plans linked; AppSetting/2-table printer schema/dual-write sequence aligned |
-| DB-01 Characterization | pending | — | — |
-| DB-02 Restore/replay | pending | — | — |
+| DB-01 Characterization | complete | sub-agent DB-01 (verified by orchestrator 2026-09-02) | 70 tests / 5 ไฟล์ใหม่ใน `tests/server/*Characterization.test.ts` pin settings projection, payment→sale mapping, add-on refund, subscriber lifecycle, deliveredAt fallback; full suite 267/267 ผ่าน; red/green sensitivity พิสูจน์ด้วย mutation ชั่วคราว (revert แล้ว); ไม่แก้ไฟล์เดิม พบ risk: refundAddonUsages อาจคืนซ้ำผ่าน legacy JSON fallback เมื่อ normalized records ถูก refund หมด (ต้องออกแบบ backfill ให้เคลียร์ JSON) และ deliveredAt fallback ซ้ำ 3 จุด |
+| DB-02 Restore/replay | partial | sub-agent DB-02 (verified by orchestrator 2026-09-02) | preflight/reconciliation SQL ครบ 8.1–8.7 (read-only, aggregate, ไม่มี PII) + runners (bash/psql, Node/pg) + `docs/db-rehearsal-runbook.md` + backfill report contract; overlap `20260519000000_db_audit_fixes`/`20260522000000_reconcile_schema` สรุปว่า replay ได้ปลอดภัย (comment-only no-op); **fresh replay + restored-shape rehearsal ยัง PENDING** — Docker daemon ใช้ไม่ได้และไม่มี PostgreSQL local; runbook มี 3 ทางเลือก (Docker/Postgres local/CI) |
 | HW-01 Hardware evidence | pending | — | requires physical unit information |
-| PRN-01 Pure contracts | pending | — | after C7–C12 freeze |
+| PRN-01 Pure contracts | complete | sub-agent PRN-01 (verified by orchestrator 2026-09-02) | `shared/types/printing.ts`, `shared/utils/printJobState.ts` (transition table ตรง C8, fencing/lease/retry/stale-guard), `server/utils/paymentQr/` (EMVCo TLV, CRC-16/CCITT-FALSE, exact amountMinor แบบ string math); 86 tests ผ่าน; typecheck exit 0; orchestrator ยืนยันอิสระด้วย CRC implementation แยก (check value 29B1 และ CRC ของ payload จริง) + round-trip parse; ไม่เพิ่ม dependency/Prisma/transport |
 | DB-03 Expand | pending | — | after G1 |
 | DB-04 Dual-write | pending | — | after DB-03 |
 | DB-05 Backfill | pending | — | after DB-04 |
