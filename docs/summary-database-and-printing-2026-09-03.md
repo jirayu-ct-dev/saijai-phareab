@@ -77,18 +77,46 @@
 
 ## 3. Verification รวม
 
-- `pnpm test` → **431 passed / 1 skipped** (เพิ่มจาก 322 ด้วย printer tests ~109 กรณี)
+- `pnpm test` → **432 passed / 1 skipped** (เพิ่มจาก 322 ด้วย printer tests ~110 กรณี)
 - `pnpm exec nuxi typecheck` → **0 error** · `pnpm run build` → สำเร็จ
 - PRN-02 rehearsal บน disposable Postgres ผ่านทุก stage
+- **e2e บน local Docker (fake printer) ผ่าน** — ดูหัวข้อ 6
+
+### บั๊กที่จับได้จาก e2e (mock tests มองไม่เห็น) — แก้แล้ว (`65415f2`)
+
+1. `createPrintJob` ไม่ส่ง `timeline` (คอลัมน์ Json ไม่มี DB default) → เพิ่ม first timeline entry
+2. `sourceRevision` = epoch ms ล้น Int32 → เปลี่ยนเป็น `BigInt` + migration
+   `20260903130000_prn02_source_revision_bigint` (ALTER COLUMN TYPE BIGINT — apply บน production
+   แล้วหลัง backup `20260902T232348Z`) + แปลง BigInt→Number ที่ JSON boundary
+3. จับ P2002 แล้ว query ต่อใน transaction ที่ Postgres abort ไปแล้ว (25P02) →
+   pre-check ก่อน create + lookup ด้วย connection ใหม่นอก transaction
 
 ## 4. Production (2026-09-03)
 
-- Backup สดก่อน deploy: `20260902T225803Z` (encrypted SHA-256 `7ceb6d9a…049ac`)
-- PRN-02 migration apply ผ่าน (`prisma migrate deploy`) — **up to date 49 migrations**, additive เท่านั้น
+- Backup ก่อน deploy printer code: `20260902T225803Z` · backup ก่อน BigInt migration: `20260902T232348Z`
+- Migrations `prn02_printer_print_job` + `prn02_source_revision_bigint` apply ผ่าน — **up to date 50 migrations** (additive เท่านั้น)
 - Push main → Vercel deploy — homepage 200 ปกติ
 - **ฟีเจอร์ยังไม่ทำงานจริง** จนกว่าจะลงทะเบียนเครื่องผ่านหน้า admin + รัน bridge
 
-## 5. สิ่งที่เหลือ
+## 5. Docker สำหรับทดสอบระบบพิมพ์ (ใหม่)
+
+- `docker-compose.print-test.yml` — overlay ของ `docker-compose.local.yml`:
+  - `print-seed` ลงทะเบียนเครื่องพิมพ์ทดสอบ (`prt_local_test`, credential `local-bridge-credential` — demo only)
+  - `fake-printer` TCP 9100 จำลอง XP-C260M — บันทึกทุกงานเป็นไฟล์ `.bin` + ตรวจ ESC/POS initialize
+  - `bridge` รัน `print-bridge/` จริง poll app ทุก 5 วินาที
+- `.dockerignore` แยก `print-bridge` ออกจาก app image
+- รัน: `docker compose -f docker-compose.local.yml up --build -d` แล้ว
+  `docker compose -f docker-compose.local.yml -f docker-compose.print-test.yml up -d`
+
+## 6. ผลทดสอบ e2e บน localhost:3004 (2026-09-03)
+
+- login admin → สร้าง job (RECEIPT) → bridge claim → ส่ง ESC/POS 676 bytes
+  เริ่ม `1b40 1b74 16` (initialize + Thai codepage) → fake printer บันทึกไฟล์
+- ถอดรหัส TIS-620 ได้ใบเสร็จสมบูรณ์: ชื่อร้าน/ที่อยู่/เลขที่/วันที่แบบ Bangkok/รายการ/ยอด — ภาษาไทยถูกต้อง
+- Job สถานะ `SENT` · idempotency: ส่งซ้ำ key เดิมได้ `existing:true` + งานเดิม (ไม่พิมพ์ซ้ำ)
+- bridge logs สะอาด (0 error) · คิวงานดูได้ที่ `/admin/printing`
+
+## 7. สิ่งที่เหลือ
 
 1. **HW-01** — เก็บ evidence จากตัวเครื่องจริง (interfaces/port/dots/capabilities ที่ firmware รองรับ)
 2. **HW-02 Physical matrix** — พิมพ์ทดสอบจริง (ASCII/ไทย/ใบยาว/QR/feed-cut/offline/reconnect) ต้องมีเครื่อง
