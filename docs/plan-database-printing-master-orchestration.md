@@ -607,17 +607,35 @@ section 7. ขั้นถัดไปคือ DB-06 read cutover ซึ่ง�
 
 ### G4 — Contract ready
 
-- [ ] fallback/dual-write mismatch = 0 ตลอด soak
-- [ ] ไม่มี old deployment/worker
-- [ ] backup/PITR และ restore drill ใหม่ผ่าน
-- [ ] code search ไม่พบ legacy caller
+**สถานะ: IN SOAK — DB-06 read cutover deploy ขึ้น production แล้ว
+(2026-09-03, live buildId `b44a3e64…` จาก main commit `b1dfe9e…`) — หน้าต่าง
+soak 7–14 วันตามแผนเริ่มนับ 2026-09-03 ต้องครบก่อนปิด G4 แล้วจึงหยุด dual-write
+ทีละกลุ่ม.** เกณฑ์ตลอดหน้าต่าง: structured log metric
+`db_compat_setting_read_total{result="mismatch"|"fallback"}` ต้องเป็น 0
+(และ `result="match"` ต้องมีขึ้นตลอด) ตรวจจาก Vercel observability กรอง
+`[db-compat]`
+
+- [ ] fallback/dual-write mismatch = 0 ตลอด soak (เริ่มนับ 2026-09-03)
+- [x] ไม่มี old deployment/worker — deployment รับ traffic มีตัวเดียวบน build
+  ใหม่ (worker 0 ตามสถาปัตยกรรม Vercel, ยืนยัน 2026-09-03)
+- [x] backup ใหม่ผ่าน — post-cutover backup `20260902T204720Z` (encrypted SHA-256
+  `7ca241d3…33157d`) และ drill ผ่านล่าสุด `backup-drill-20260902T195024Z`
+- [x] code search ไม่พบ legacy caller — การอ่าน `shopSetting`/`notificationSetting`
+  คงอยู่เฉพาะใน `server/utils/appSetting.ts` (dual-write leg + soak comparison
+  ที่ตั้งใจไว้ตามแผน Phase 5) และจะหายไปเมื่อหยุด dual-write หลัง soak
 
 ### G5 — Database stable
 
-- [ ] constraints valid
-- [ ] contract migrations แยกและ reconcile ผ่าน
-- [ ] tests/typecheck/build ไม่มี regression ใหม่
-- [ ] production observation window ผ่าน
+- [x] constraints valid — `check-constraints.mjs` บน production 2026-09-03:
+  invalid/not-ready index = 0, NOT VALID constraint = 0 ใน app schema
+  (หลักฐาน `g5-constraint-check-*.json` ใน restricted directory)
+- [x] contract migrations แยกและ reconcile ผ่าน — `migrate status` up to date
+  48 migrations, migration history replay ผ่านจาก G1/Approval A, DB-03 delta
+  ตรง allowlist `+27/-0` unexpected 0
+- [x] tests/typecheck/build ไม่มี regression ใหม่ — `pnpm test` 322 ผ่าน,
+  `nuxi typecheck` 0 error, `pnpm run build` สำเร็จ (2026-09-03)
+- [ ] production observation window ผ่าน — คือหน้าต่าง soak เดียวกับ G4
+  (7–14 วัน, เริ่ม 2026-09-03)
 
 ### G6 — Print integration ready
 
@@ -740,6 +758,7 @@ Primary agent เป็นผู้แก้ section นี้เท่านั
 | G3 Approval B production execution | blocked | orchestrator (2026-09-02) | ได้รับ approval `chat-2026-09-02-g3-b`. Initial invocation loader เลือก commented localhost example และหยุดก่อน SQL; failure report `production-preflight-20260902T161736Z.json` เก็บ audit เท่านั้น. Authoritative rerun เลือก active uncommented `DIRECT_URL` FQDN: CA SHA `700723…f0ef`, TLS peer verification, `REPEATABLE READ READ ONLY`, timeout 30000ms; runner exit 0, SQL 8/8, PostgreSQL 17.6, migration rows 47/unfinished 0/rolled-back 0, query/invariant failure 0, settings singleton 1/1/1, add-on/photo backfill targets 0, paid invariants 0. Aggregate report `/Users/jirayu/dev/backup/saijai-phareab/production-preflight-20260902T163522Z.json` mode 0600 SHA `92314da…177d5`; URL/credential leak checksผ่าน. Read-only Supabase Dashboard inspection ยืนยัน Free Plan ไม่มี scheduled backup และ PITR ไม่ได้เปิด; external custom archive ยัง fresh และผ่าน restore rehearsal 12/12. Evaluator รอบล่าสุดยัง `APPROVAL_B_BLOCKED` 7 รายการ: PITR 2 และ production runtime inventory/compatibility 5; summary `/Users/jirayu/dev/backup/saijai-phareab/approval-b-summary-observed-20260902T165457Z.json` mode 0600 SHA `d6f04fd…5e65a`. ไม่มี write, migration, backfill, deploy, Approval C หรือ DB-06. |
 | G3 Approval B backup policy + runtime host decision | done (Approval B PASS) | orchestrator (2026-09-03) | Operator ตัดสิน 2 ข้อ: (1) คง Supabase Free Plan — ไม่สมัคร Pro/PITR และให้เลือกนโยบายทดแทนเอง จึงกำหนด `external-encrypted-backups`: backup เต็มเข้ารหัสทุก ≤ 60 นาที (RPO เท่าเกณฑ์ PITR เดิม), retention ≥ 14 วัน, restore drill ≤ 30 วัน; `evaluate-approval-b.mjs` เพิ่ม `backupPolicy` attestation path (fail-closed: interval invalid ใช้ window 60 นาที, ยังบังคับ backup 24h/drill reference เดิม, PITR path คงเดิมเมื่อไม่มี policy) พร้อม focused tests 11/11 ผ่าน; (2) production application รันบน Vercel — บันทึก mapping runtime inventory ลง packet section 4.2 และ `approval-b-attestation.example.json`. เครื่องมือ backup ที่ Cloudflare R2: `scripts/production-backup/r2-backup.sh` + `r2-s3.mjs` (SigV4 `node:crypto` ล้วน, แก้ canonical-query sort bug พร้อม regression test 3/3) + `restore-drill.sh`. การปิด gate รอบสุดท้าย `chat-2026-09-03-g3-b` (operator มอบหมายให้ orchestrator รัน): backup สด `20260902T195024Z`, restore drill ผ่าน 2 รอบ (รอบแรกเจอ grep pattern ผิดใน drill เอง — custom-format dump พิมพ์ `Format: CUSTOM` ไม่ใช่ banner plain-text, แก้แล้ว), production preflight read-only ใหม่สะอาด 8/8, runtime inventory จาก Vercel log export ของ operator + live probe (deployment เดียว `dpl_9HDLPx…` รับ traffic ทุก host, worker 0) → `evaluate-approval-b.mjs` = `APPROVAL_B_PASS` blocker 0 หลักฐานใน restricted directory (`approval-b-attestation-final-2026-09-02T19:54:14Z.json`, `approval-b-summary-final-…`). ยังไม่มี production write, migration, backfill, deploy, restart, commit หรือ DB-06 — Approval C ต้องขออนุมัติ operator แยกต่างหาก (window 01:00–03:00 Asia/Bangkok) |
 | G3 Approval C production expand/backfill | complete | orchestrator (2026-09-03) | Operator อนุมัติคำเดียว "เริ่มเลย" หลัง `APPROVAL_B_PASS` (`chat-2026-09-03-g3-b`); reference `chat-2026-09-03-g3-c`. เริ่ม 03:05 Asia/Bangkok (เลยขอบหน้าต่าง 01:00–03:00 ~5 นาที — deviation บันทึกไว้, operator เฝ้าตลอด). DB-03 `prisma migrate deploy` migration เดียว `20260902000000_db03_expand_appsetting_completed_at` (additive) สำเร็จ — หลังรัน up to date 48. DB-05 ผ่าน `backfill.mts` โหมด `--confirm-production` ใหม่ (fail-closed: ปฏิเสธ loopback/rehearsal*, บังคับ sslmode + `--ssl-root-cert` CA PEM เพราะ node pg ตีความ require เป็น verify-full; แสดง error code เมื่อ abort): settings-consolidation dry 1/apply 1/apply2 0/final 0, addon-usage-json-to-ledger และ item-photo-direct-to-join 0 แถวทั้งหมด (production ไม่มี legacy data), mismatch = 0, quarantine = 0 ทุกเฟส. Reconciliation preflight-after สด: failed=false, invariantFailures=[], `non_completed_orders_with_completed_at = 0`, completed 14 ออเดอร์ `completedAt = NULL` ตามนโยบาย F5. Backup ก่อนรัน `20260902T195024Z` (drill `backup-drill-20260902T195024Z`), backup หลังรัน `20260902T201512Z`. `pnpm test` 312 ผ่าน, `git diff --check` ผ่าน. หลักฐาน restricted directory: `db03-migrate-deploy-*.log`, `dry/apply/apply2/final-<op>.json|log`, `production-preflight-after-*.json|log`. DB-06 ยังไม่เริ่ม — ต้องอนุมัติแยก |
+| G4 DB-06 read cutover + soak start | in-progress (soak) | orchestrator (2026-09-03) | Operator มอบอำนาจ "เริ่มให้เสร็จทั้งหมด ไม่ต้องมาอนุมัติ". สำรวจพบ dual-write (Phase 3) ครบแต่ read cutover ยังไม่เริ่ม — เขียน read helpers `getShopIdentity`/`getNotificationPolicy` ใน `server/utils/appSetting.ts`: resolve จาก AppSetting แบบ per-field (`app.X ?? legacy.X ?? default` ตามนโยบาย null = ยังไม่ migrate), เทียบ legacy ทุกครั้งเพื่อ soak telemetry (`db_compat_setting_read_total` match/mismatch/fallback ผ่าน `compatTelemetry.ts`) และ legacy ชนะเมื่อ mismatch เพื่อความปลอดภัยระหว่าง soak. Swap read paths ครบ 7 จุด: admin settings shop.get/notification.get, public shop-settings.get (explicit select), notify.ts, notifyExpiring.ts, line/webhook.post.ts. Tests: `settingsReadCutover.test.ts` ใหม่ + อัปเดต characterization mocks; pnpm test 322 ผ่าน, typecheck 0 error, build สำเร็จ. Commit `b1dfe9e` (รวม G3 tooling/migration/backfill runner ทั้ง working tree) push main → Vercel deploy สำเร็จ live buildId `b44a3e64…` ตัวเดียว. G4: post-cutover backfill dry-run mismatch 0, legacy caller search เหลือเฉพาะ dual-write leg ที่ตั้งใจ, backup `20260902T204720Z`. G5: constraints check ผ่าน (invalid/NOT VALID = 0 ใน app schema; Supabase realtime NOT VALID ที่เคยเห็นถูก platform validate แล้ว). เหลือ: soak 7–14 วัน (เริ่ม 2026-09-03) mismatch/fallback = 0 ตลอดหน้าต่าง แล้วหยุด dual-write ทีละกลุ่ม (DB-07) — เป็นงานตามปฏิทิน ไม่ใช่งานโค้ด |
 | DB-06 Read cutover/soak | pending | — | production approval required |
 | DB-07 Contract | pending | — | destructive approval required |
 | PRN-02 Print schema | pending | — | after G5 |
