@@ -79,7 +79,11 @@ export default defineNuxtConfig({
   runtimeConfig: {
     public: {
       liffId: process.env.NUXT_PUBLIC_LIFF_ID,
-      lineBizChatUrl: process.env.LINE_BIZ_CHAT_URL
+      lineBizChatUrl: process.env.LINE_BIZ_CHAT_URL,
+      // PRN-06 rollback flag: legacy browser-direct (WebUSB/BLE) printing stays
+      // available until the physical regression matrix (HW-02) passes. Set to
+      // "false" to hide the legacy direct-print entry points.
+      printLegacyDirect: process.env.NUXT_PUBLIC_PRINT_LEGACY_DIRECT ?? 'true'
     }
   }
 })

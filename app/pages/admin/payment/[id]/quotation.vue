@@ -23,6 +23,7 @@ const paymentId = computed(() => String(route.params.id ?? ""));
 const notify = useNotify();
 const { settings: shopSettings } = useAdminShopSettings();
 const { state: printerState, send } = useThermalPrinter();
+const { createJob } = useAdminPrintJobs();
 
 const { data, status, refresh, error } = useFetch<QuotationPayload>(
   () => `/api/admin/payments/${paymentId.value}/quotation`,
@@ -38,6 +39,7 @@ const documentCode = computed(
 const isDownloadingPdf = ref(false);
 const isDownloadingPng = ref(false);
 const isPrinting = ref(false);
+const isQueueing = ref(false);
 
 async function fetchDocument(format: "pdf" | "png" | "escpos") {
   const width = printerState.value.paperWidth === 58 ? 384 : 576;
@@ -122,6 +124,22 @@ async function onPaymentUpdated() {
   await refresh();
 }
 
+// PRN-06: queue-based printing — server snapshot + bridge, supports every
+// transport registered on the printer profile (QUOTATION -> serviceOrderId).
+async function handlePrintQueue() {
+  const serviceOrderId = data.value?.serviceOrder?.id;
+  if (!serviceOrderId) {
+    notify.error("เอกสารนี้ไม่ผูกกับใบสั่งซ่อม จึงพิมพ์ผ่านคิวระบบไม่ได้");
+    return;
+  }
+  isQueueing.value = true;
+  try {
+    await createJob({ kind: "QUOTATION", documentId: serviceOrderId });
+  } finally {
+    isQueueing.value = false;
+  }
+}
+
 async function handlePrint() {
   if (!data.value) return;
   if (!printerState.value.isConnected) {
@@ -153,10 +171,13 @@ async function handlePrint() {
     fallback-path="/admin/payment"
     empty-title="ไม่พบใบแจ้งราคา"
     print-label="พิมพ์ใบแจ้งราคา"
+    print-mode="both"
     :is-printing="isPrinting"
+    :is-queueing="isQueueing"
     :is-downloading-pdf="isDownloadingPdf"
     :is-downloading-png="isDownloadingPng"
     @retry="refresh()"
+    @print-queue="handlePrintQueue"
     @print="handlePrint"
     @download-pdf="handleDownloadPdf"
     @download-png="handleDownloadPng"

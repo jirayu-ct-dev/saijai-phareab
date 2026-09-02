@@ -11,6 +11,7 @@ const paymentId = computed(() => String(route.params.id ?? ""));
 const notify = useNotify();
 const { settings: shopSettings } = useAdminShopSettings();
 const { state: printerState, send } = useThermalPrinter();
+const { createJob } = useAdminPrintJobs();
 
 const { data, status, refresh, error } = useFetch<ReceiptPayload>(
   () => `/api/admin/payments/${paymentId.value}/receipt`,
@@ -34,6 +35,7 @@ const receiptCode = computed(() => {
 const isDownloadingPdf = ref(false);
 const isDownloadingPng = ref(false);
 const isPrinting = ref(false);
+const isQueueing = ref(false);
 
 async function fetchDocument(format: "pdf" | "png" | "escpos") {
   const width = printerState.value.paperWidth === 58 ? 384 : 576;
@@ -81,6 +83,17 @@ async function handleDownloadPng() {
   }
 }
 
+// PRN-06: queue-based printing — server snapshot + bridge, supports every
+// transport registered on the printer profile (RECEIPT -> paymentId).
+async function handlePrintQueue() {
+  isQueueing.value = true;
+  try {
+    await createJob({ kind: "RECEIPT", documentId: paymentId.value });
+  } finally {
+    isQueueing.value = false;
+  }
+}
+
 async function handlePrint() {
   if (!data.value) return;
   if (!printerState.value.isConnected) {
@@ -112,10 +125,13 @@ async function handlePrint() {
     fallback-path="/admin/payment"
     empty-title="ไม่พบข้อมูลใบเสร็จ"
     print-label="พิมพ์ใบเสร็จ"
+    print-mode="both"
     :is-printing="isPrinting"
+    :is-queueing="isQueueing"
     :is-downloading-pdf="isDownloadingPdf"
     :is-downloading-png="isDownloadingPng"
     @retry="refresh()"
+    @print-queue="handlePrintQueue"
     @print="handlePrint"
     @download-pdf="handleDownloadPdf"
     @download-png="handleDownloadPng"

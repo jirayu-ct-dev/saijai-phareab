@@ -122,4 +122,5 @@
 2. **HW-02 Physical matrix** — พิมพ์ทดสอบจริง (ASCII/ไทย/ใบยาว/QR/feed-cut/offline/reconnect) ต้องมีเครื่อง
 3. **Soak 7–14 วัน** ครบ → หยุด dual-write → DB-07 drop legacy tables
 4. เปิด launchd hourly backup ให้ครบนโยบาย RPO
-5. Wire ปุ่ม "พิมพ์" จากหน้าใบแจ้งราคา/ใบเสร็จเรียก `useAdminPrintJobs().createJob()` (composable พร้อมแล้ว)
+
+> อัพเดต (2026-09-03): ข้อ 5 เดิม "Wire ปุ่มพิมพ์จากหน้าใบแจ้งราคา/ใบเสร็จ" **เสร็จแล้ว** — ปุ่มพิมพ์หลักบนหน้า admin quotation/receipt เดินคิวงานพิมพ์ใหม่ผ่าน `createJob()` (รองรับ transport ทุกแบบที่ลงทะเบียนไว้ผ่าน bridge) และคงปุ่ม "พิมพ์เชื่อมตรง (เดิม)" ไว้ภายใต้ rollback flag `NUXT_PUBLIC_PRINT_LEGACY_DIRECT` (ตั้ง `false` เพื่อซ่อน) ตามสเปก PRN-06; e2e บน local compose ผ่าน (QUOTATION/RECEIPT → SENT → fake printer ได้ ESC/POS ไทยถูกต้อง)
