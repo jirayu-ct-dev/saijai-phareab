@@ -135,6 +135,9 @@ model User {
 
   notificationSubscriber NotificationSubscriber?
 
+  // PRN-02 back-relation: print jobs this user requested (additive only)
+  printJobsRequested PrintJob[] @relation("PrintJobRequestedBy")
+
   @@index([createdByStaffId])
   @@map("user")
 }
@@ -555,6 +558,11 @@ model PaymentRecord {
 
   auditLogs PaymentAuditLog[]
 
+  // PRN-02 back-relation: print jobs whose payment-QR stale guard tracks this
+  // payment (additive only). Delete is restricted — printing history must not
+  // silently dangle when a payment row is removed.
+  printJobs PrintJob[] @relation("PrintJobSourcePayment")
+
   @@index([userId, createdAt])
   @@index([memberEntitlementId])
   @@index([packageSaleId])
@@ -758,4 +766,162 @@ model Expense {
   @@index([categoryId, expenseAt])
   @@index([createdById])
   @@map("expense")
+}
+
+// ============================
+// PRINTING (PRN-02, plan C7–C12)
+// ============================
+//
+// v1 has exactly two tables (Printer, PrintJob) — no PrintBridge,
+// PrinterConnection or PrintJobEvent. Contracts come from
+// shared/types/printing.ts (PRN-01, frozen). Connection/credential material
+// lives only as opaque columns here (hash + version, never plaintext); the
+// migration contains no endpoints, IPs or Wi-Fi credentials.
+
+enum PrinterModel {
+  // Physical value "XP-C260M" is mapped; Prisma identifiers cannot contain '-'
+  XP_C260M @map("XP-C260M")
+}
+
+enum PrintTransport {
+  WIFI
+  ETHERNET
+  USB
+  BLUETOOTH
+}
+
+enum PrintRenderMode {
+  RASTER
+  HYBRID
+}
+
+enum PrintDocumentKind {
+  RECEIPT
+  QUOTATION
+}
+
+enum PrintJobStatus {
+  QUEUED
+  CLAIMED
+  RENDERING
+  READY
+  SENDING
+  SENT
+  ACKNOWLEDGED
+  RETRY_WAIT
+  STALE_DOCUMENT
+  NEEDS_REVIEW
+  RESOLVED_PRINTED
+  RESOLVED_NOT_PRINTED
+  REPRINTED
+  FAILED
+}
+
+model Printer {
+  id String @id @default(cuid())
+  name String
+  model PrinterModel @default(XP_C260M)
+  defaultTransport PrintTransport
+  paperWidthMm Int // 80 | 58
+  printableDots Int // 576 | 512 | 384
+  renderMode PrintRenderMode @default(HYBRID)
+  // All flags default false until physically verified (PrinterCapabilities).
+  capabilities Json @default("{\"partialCut\":false,\"nativeQr\":false,\"nativeBarcode\":false,\"pdf417\":false,\"nvLogo\":false,\"buzzer\":false,\"statusQuery\":false,\"cashDrawer\":false,\"blackMark\":false}")
+  // Additive connection-profile shape (no secrets). Migration data must never
+  // include endpoints/IPs/Wi-Fi credentials — the column only.
+  connectionProfile Json?
+  // Bridge credentials are stored as hash + key version only, never plaintext.
+  bridgeCredentialHash String?
+  bridgeCredentialVersion Int?
+  bridgeVersion String?
+  lastHeartbeatAt DateTime?
+  isActive Boolean @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  deletedAt DateTime? // soft delete
+
+  printJobs PrintJob[]
+
+  @@map("printer")
+}
+
+model PrintJob {
+  id String @id @default(cuid())
+
+  // Target printer (v1: single XP-C260M, but the FK is kept for lifecycle).
+  printerId String
+  printer Printer @relation(fields: [printerId], references: [id], onDelete: Restrict)
+
+  // Document boundary
+  kind PrintDocumentKind
+  documentId String
+  documentNo String
+  documentRevision Int
+
+  // Queue lifecycle (C8): claim via
+  // UPDATE ... WHERE id IN (SELECT id FROM print_job
+  //   WHERE status = 'QUEUED' AND available_at <= now()
+  //   ORDER BY created_at FOR UPDATE SKIP LOCKED LIMIT 1)
+  status PrintJobStatus @default(QUEUED)
+
+  // Source payment facts captured at creation (never client-supplied); the
+  // pre-send stale guard (C9) compares these against current payment state.
+  sourcePaymentId String
+  sourcePayment PaymentRecord @relation("PrintJobSourcePayment", fields: [sourcePaymentId], references: [id], onDelete: Restrict)
+  sourceStatus PaymentStatus
+  sourceRevision Int
+  amountMinor Int // exact minor units (satang), never a float (C10)
+  qrConfigVersion Int?
+  snapshotHasPaymentQr Boolean
+
+  // Bounded document snapshot only (C12): no raw PII beyond what the document
+  // itself carries, application-layer encrypted where required. Retention via
+  // snapshotExpiresAt; v1 never auto-deletes until retention is approved.
+  snapshot Json
+  snapshotHash String
+  renderVersion String
+  snapshotExpiresAt DateTime?
+
+  requestedById String
+  requestedBy User @relation("PrintJobRequestedBy", fields: [requestedById], references: [id], onDelete: Restrict)
+  selectedTransport PrintTransport
+
+  // Idempotency scope matching PrintJobIdempotencyScope (PRN-01).
+  idempotencyKey String
+
+  // Explicit reprint chain.
+  reprintOfId String?
+  reprintOf PrintJob? @relation("PrintJobReprint", fields: [reprintOfId], references: [id], onDelete: Restrict)
+  reprints PrintJob[] @relation("PrintJobReprint")
+
+  // Lease + fencing (C8). Every bridge event must carry the current
+  // fencing token; jobs whose send result is unclear go to NEEDS_REVIEW.
+  availableAt DateTime @default(now())
+  attemptCount Int @default(0)
+  sendStartedAt DateTime?
+  leaseToken String?
+  leaseExpiresAt DateTime?
+  fencingToken Int?
+
+  // Safe failure codes only — never raw printer responses, stack traces,
+  // endpoints or credentials (see PrintJobFailureCode in PRN-01).
+  failureCode String?
+  failureMessageSafe String?
+
+  // Bounded timeline: JSON array of {at, status, note} entries. The maximum
+  // length is enforced in the application layer
+  // (MAX_PRINT_JOB_TIMELINE_ENTRIES = 20 in shared/utils/printJobState.ts);
+  // oldest entries are dropped when the bound is exceeded.
+  timeline Json
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  deletedAt DateTime? // soft delete
+
+  @@unique([requestedById, kind, documentId, selectedTransport, idempotencyKey], map: "print_job_idempotency_scope")
+  @@index([status, availableAt]) // claim polling
+  @@index([printerId])
+  @@index([sourcePaymentId])
+  @@index([reprintOfId])
+  @@map("print_job")
 }

@@ -88,8 +88,16 @@ export type PrintDocument = {
 // PRINT OPERATIONS (Hybrid ESC/POS composer input)
 // ============================
 
+/**
+ * Text style for the additive PRN-05 text operation (additive extension of the
+ * frozen PRN-01 union; no existing variant was changed or removed). Encoded by
+ * the ESC/POS text path in shared/utils/escpos.ts.
+ */
+export type PrintTextStyle = "normal" | "bold" | "large";
+
 export type PrintOperation =
   | { type: "initialize" }
+  | { type: "text"; value: string; style?: PrintTextStyle; align?: "left" | "center" | "right" } // PRN-05 (additive)
   | { type: "raster"; bytes: Uint8Array; widthDots: number }
   | { type: "nativeQr"; data: string; size: number }
   | { type: "nativeBarcode"; symbology: string; data: string }
