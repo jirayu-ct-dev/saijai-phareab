@@ -1,6 +1,8 @@
+import { COMPAT_METRICS, emitCompatFailure, emitCompatTelemetry } from "~~/server/utils/compatTelemetry";
 import { requireRole } from "~~/server/utils/auth";
 import { prisma } from "~~/server/utils/prisma";
 import { refundAddonUsages, refundPrimaryCredit, voidPendingAddonUsageRecords } from "~~/server/utils/serviceOrderCredits";
+import type { AddonRefundOutcome } from "~~/server/utils/serviceOrderCredits";
 
 export default defineEventHandler(async (event) => {
   const actor = requireRole(event, ["EMPLOYEE", "ADMIN"]);
@@ -9,6 +11,8 @@ export default defineEventHandler(async (event) => {
   if (!id) {
     throw createError({ statusCode: 400, statusMessage: "ไม่พบรหัสรายการรับผ้า" });
   }
+
+  const attemptedCompatPaths = new Set<"addon-refund">();
 
   try {
     const existing = await prisma.serviceOrder.findFirst({
@@ -28,6 +32,8 @@ export default defineEventHandler(async (event) => {
       throw createError({ statusCode: 404, statusMessage: "ไม่พบรายการรับผ้าที่ต้องการลบ" });
     }
 
+    let refundOutcome: AddonRefundOutcome | undefined;
+
     await prisma.$transaction(async (tx) => {
       const deletedAt = new Date();
 
@@ -35,7 +41,8 @@ export default defineEventHandler(async (event) => {
         memberEntitlementId: existing.memberEntitlementId,
         creditUsed: existing.creditUsed,
       });
-      await refundAddonUsages(tx, existing.id, existing.addonUsages);
+      attemptedCompatPaths.add("addon-refund");
+      refundOutcome = await refundAddonUsages(tx, existing.id, existing.addonUsages);
       await voidPendingAddonUsageRecords(tx, existing.id);
 
       await tx.serviceOrder.update({
@@ -72,8 +79,15 @@ export default defineEventHandler(async (event) => {
       });
     });
 
+    if (refundOutcome) {
+      emitCompatTelemetry({ metric: COMPAT_METRICS.addonRefund, path: "delete", result: refundOutcome });
+    }
+
     return { success: true };
   } catch (error) {
+    if (attemptedCompatPaths.has("addon-refund")) {
+      emitCompatFailure(COMPAT_METRICS.addonRefund, "delete", error);
+    }
     if (error && typeof error === "object" && "statusCode" in error) {
       throw error;
     }

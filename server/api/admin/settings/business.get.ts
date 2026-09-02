@@ -4,7 +4,7 @@ import { requireRole } from "~~/server/utils/auth";
 export default defineEventHandler(async (event) => {
   requireRole(event, ["ADMIN", "EMPLOYEE"]);
 
-  const setting = await prisma.businessSetting.upsert({
+  const setting = await prisma.appSetting.upsert({
     where: { id: "singleton" },
     create: { id: "singleton" },
     update: {},

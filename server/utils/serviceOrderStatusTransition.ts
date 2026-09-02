@@ -26,3 +26,18 @@ export const canTransitionServiceOrderStatus = (
 
 export const getAllowedServiceOrderTransitions = (status: ServiceOrderStatus) =>
   allowedTransitions[status] ?? [];
+
+export const resolveServiceOrderCompletedAt = (params: {
+  fromStatus: ServiceOrderStatus | null;
+  toStatus: ServiceOrderStatus;
+  currentCompletedAt: Date | null;
+  transitionAt: Date;
+}): Date | null => {
+  if (params.fromStatus === params.toStatus) {
+    return params.currentCompletedAt;
+  }
+  if (params.toStatus === "COMPLETED") {
+    return params.currentCompletedAt ?? params.transitionAt;
+  }
+  return params.currentCompletedAt;
+};

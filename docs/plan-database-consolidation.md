@@ -340,7 +340,7 @@ Completion check:
 
 งาน:
 
-1. centralize settings write ใน server utility เดียว แต่ current reads ยังใช้ `ShopSetting`, `BusinessSetting` และ `NotificationSetting`
+1. centralize settings write ใน `server/utils/appSetting.ts`; เปลี่ยนชื่อ Prisma model เป็น `AppSetting` โดยคง `@@map("business_setting")` ตาม sequencing ล่าสุด แต่ current shop/notification reads ยังใช้ legacy `ShopSetting`/`NotificationSetting` และ business reads ยังใช้ field เดิมบน physical row เดิม
 2. ทุก settings update เขียน legacy row และ target fields ใน `business_setting` ภายใน transaction เดียว
 3. คง normalized add-on ledger + legacy JSON dual-write/fallback ชั่วคราว
 4. คง `ServiceOrderItemImage` + first-photo mirror ลง `imageId` ชั่วคราว
@@ -409,13 +409,12 @@ Completion check ของ Phase 4:
 
 งาน:
 
-1. เปลี่ยน Prisma model `BusinessSetting` เป็น `AppSetting` โดยคง `@@map("business_setting")`
-2. เปลี่ยน settings reads ไป target fields และให้ public endpoint ใช้ explicit select
-3. normalized add-on ledger เป็น read source; คง legacy JSON write/fallback ระหว่าง soak
-4. `ServiceOrderItemImage` เป็น read source; คง first-photo mirror ลง `imageId` ระหว่าง soak
-5. package sale presentation derive จาก payment แต่ยัง sync `PackageSale.status`
-6. payment context อ่านจาก source relation แต่ยังคง `PaymentRecord.memberEntitlementId`
-7. document ใช้ `completedAt` และ labeled legacy fallback สำหรับ record เก่า
+1. เปลี่ยน settings reads ไป target fields บน `AppSetting` ที่ rename แล้วใน compatibility release และให้ public endpoint ใช้ explicit select
+2. normalized add-on ledger เป็น read source; คง legacy JSON write/fallback ระหว่าง soak
+3. `ServiceOrderItemImage` เป็น read source; คง first-photo mirror ลง `imageId` ระหว่าง soak
+4. package sale presentation derive จาก payment แต่ยัง sync `PackageSale.status`
+5. payment context อ่านจาก source relation แต่ยังคง `PaymentRecord.memberEntitlementId`
+6. document ใช้ `completedAt` และ labeled legacy fallback สำหรับ record เก่า
 
 ช่วงแนะนำขั้นต่ำ: 7–14 วัน หรือครบหนึ่งรอบงานธุรกิจที่มี order, payment, notification, delete/restore และปิดงานจริง แล้วแต่ว่าอย่างใดยาวกว่า
 

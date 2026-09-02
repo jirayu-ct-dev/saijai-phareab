@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "approvalReference": "chat-YYYY-MM-DD-g3-b",
+  "attestedAt": "YYYY-MM-DDTHH:mm:ss.sssZ",
+  "operatorIdentifier": "operator-or-platform-ticket-reference",
+  "backupPitr": {
+    "operatorVerified": false,
+    "latestBackupAt": "YYYY-MM-DDTHH:mm:ss.sssZ",
+    "pitrEnabled": false,
+    "latestRecoverableAt": "YYYY-MM-DDTHH:mm:ss.sssZ",
+    "restoreDrillReference": "chat-YYYY-MM-DD-g3-a"
+  },
+  "backupPolicy": {
+    "mode": "external-encrypted-backups",
+    "intervalMinutes": 60,
+    "encrypted": true,
+    "retentionDays": 14,
+    "lastRestoreDrillAt": "YYYY-MM-DDTHH:mm:ss.sssZ"
+  },
+  "runtimeInventory": {
+    "operatorVerified": false,
+    "observedAt": "YYYY-MM-DDTHH:mm:ss.sssZ",
+    "activeApplicationCount": 1,
+    "activeWorkerCount": 0,
+    "maintenanceMode": false,
+    "allActiveCompatibilityVersion": false,
+    "compatibilityRevision": "<git-commit-sha-or-vercel-deployment-id>",
+    "deploymentIdentifiers": []
+  }
+}

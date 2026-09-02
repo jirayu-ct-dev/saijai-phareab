@@ -1,8 +1,9 @@
 # Migration rehearsal runbook — packet DB-02
 
-Status: **preparation complete; fresh replay PENDING** (no usable disposable
-PostgreSQL on this machine at the time of writing — see
-[8. Current status](#8-current-status)).
+Status: **fresh replay + restore rehearsal PASSED on a disposable
+`postgres:16` container** via `scripts/db-rehearsal/run-rehearsal.sh` — see
+[8. Current status](#8-current-status) for the recorded evidence and the
+remaining production-shape path.
 
 This runbook covers, for the Saijai Phareab database consolidation plan
 (`docs/plan-database-consolidation.md`):
@@ -88,10 +89,19 @@ Pick whichever is available. The database must be disposable or an approved
 restore copy; it must never be the production/shared instance. Use PostgreSQL
 16 to match production expectations.
 
-### Option A — Docker `postgres:16` (when the daemon works)
+### Option A — Docker `postgres:16` (used for the successful replay)
 
-> Docker daemon is currently UNAVAILABLE on this machine (verified). Use this
-> when it is restored.
+The Docker daemon was restored on this machine and Option A is the path that
+produced the recorded evidence. `scripts/db-rehearsal/run-rehearsal.sh`
+automates the whole pipeline (provision container → replay → fixture →
+enforced preflight → dump/restore → schema-diff → negative self-test →
+teardown), so prefer it over manual steps:
+
+```bash
+REHEARSAL_KEEP_STAGE=1 ./scripts/db-rehearsal/run-rehearsal.sh
+```
+
+Manual equivalent if you need individual steps:
 
 ```bash
 docker run -d --name saijai-rehearsal-pg \
@@ -257,12 +267,34 @@ Covered in `scripts/db-rehearsal/README.md`. Summary:
 - `sql/01`…`sql/07` implement reconciliation checklist sections 8.1–8.7 of
   `docs/plan-database-consolidation.md`; every query is aggregate-only and
   safe inside a `READ ONLY` transaction.
-- `07-completion-timestamps.sql` self-detects that `service_order.completed_at`
-  does not exist yet and reports `SKIPPED_COLUMN_NOT_PRESENT`; after the DB-03
-  expand migration it reports the real invariants.
+- `07-completion-timestamps.sql` self-detects the Prisma-mapped
+  `service_order."completedAt"` column and reports `SKIPPED_COLUMN_NOT_PRESENT`
+  only on a pre-DB-03 schema; after DB-03 it reports the real invariants. It is
+  **cutover-aware**:
+  legacy `COMPLETED` orders keep `completedAt = NULL` (plan F5) and are
+  report-only; the hard post-cutover rule activates only when
+  `REHEARSAL_COMPLETED_AT_CUTOVER` (ISO-8601) is set, which the Node runner
+  forwards as a transaction-local GUC.
 - Runners enforce `--confirm-disposable`, `statement_timeout`
   (`--timeout-ms`/`PREFLIGHT_TIMEOUT_MS`), and `BEGIN TRANSACTION READ ONLY …
   ROLLBACK`.
+- `run-preflight.mjs --enforce` turns the aggregate report into a gate: it
+  fails with exit code `3` on any `pass = false`, any `violating_rows > 0`
+  without an authoritative `pass` column, any zero-required check id
+  reporting non-zero, or any failing NOTICE invariant. Use `--report-file` to
+  persist the JSON report for equality comparisons.
+- `schema-diff.mjs` fingerprints tables/columns/enums/constraints/indexes from
+  the catalog and diffs two databases behind an allowlist
+  (`schema-allowlist.json`). Column identity excludes `ordinal_position`
+  (dropped columns leave attnum gaps that `pg_dump` compresses on restore).
+  The allowlist must stay empty for dump/restore equality and may contain
+  only reviewed additive changes for a migration review.
+- `fixture/01-synthetic-fixture.sql` is a dedicated synthetic non-PII dataset
+  (fx-prefixed ids, `example.test` emails) that satisfies every hard
+  invariant; `fixture/02-violations-overlay.sql` deliberately breaks
+  invariants the schema does not prevent (the DB CHECK
+  `payment_record_single_source` already blocks multi-source payments) and is
+  the negative self-test input.
 - Use these same scripts against an approved **restore copy** for the
   "production-shape restore" rehearsal path (plan section 9.2 item 2); that
   path stays pending until a restore source exists (Phase 0 backup gate).
@@ -290,29 +322,90 @@ Frozen in `scripts/db-rehearsal/backfill-report-contract.ts`. Highlights:
 ## 7. Third rehearsal path (rollback compatibility)
 
 Plan section 9.2 item 3 (expand → dual-write → backfill → roll the app back)
-requires the DB-03/DB-04 deliverables and cannot be exercised yet. It is listed
-here so the path is not forgotten; run it on the same kind of disposable
-database, never on production.
+requires DB-05 before it can be exercised end-to-end. DB-04 now includes a
+guarded disposable-PostgreSQL integration test for legacy/target equality and
+transaction rollback:
+
+```bash
+RUN_DB04_DB_TEST=1 CONFIRM_DISPOSABLE=1 DATABASE_URL="postgresql://.../rehearsal..." \
+  pnpm exec vitest run tests/server/settingsDualWriteDb.test.ts
+```
+
+The test refuses non-loopback targets and database names that do not start
+with `rehearsal`. The actual old-binary path is now repeatable with:
+
+```bash
+REHEARSAL_KEEP_STAGE=1 ./scripts/db-rehearsal/run-old-binary-drill.sh \
+  --old-revision 8d87759298fec3030313802b63d33416d4da910f \
+  --confirm-disposable
+```
+
+The runner validates that the selected revision is pre-consolidation, exports
+it with `git archive`, provisions the current 48-migration schema and DB-05
+backfills on a unique loopback PostgreSQL 16 container, then builds and starts
+the old production Nitro artifact. Authentication uses a synthetic credential
+account hashed with Better Auth's real password contract; the signed session
+cookie is issued by the old `/api/auth/sign-in/email` endpoint and is never
+logged.
+
+The legacy write assertion intentionally changes `shop_setting` through the
+old admin HTTP endpoint. Because that revision predates dual-write,
+`business_setting` becomes stale. Return to the compatibility app (which still
+reads the legacy source), then re-save the changed settings through its admin
+API before DB-06. DB-05 correctly reports exit `1` and refuses to overwrite a
+non-empty mismatched target. Never run this drill on production or a shared
+database.
 
 ---
 
 ## 8. Current status
 
+Updated 2026-09-02: the Docker daemon was restored and the full pipeline was
+executed by `scripts/db-rehearsal/run-rehearsal.sh` against a disposable
+`postgres:16` container on `127.0.0.1:5439` (removed after the run).
+
 | Item | Status |
 | --- | --- |
 | Read-only migration chain review | done (section 1; no migration modified) |
 | Read-only preflight/reconciliation scripts + runners | done (`scripts/db-rehearsal/`) |
-| Disposable workflow documented (Docker / local / CI) | done (section 2) |
-| Backfill report contract | done (section 6, TypeScript contract file) |
-| **Fresh replay of the 47-migration chain** | **PENDING** |
-| **Production-shape restore rehearsal** | **PENDING** (requires an approved backup/restore source) |
+| Invariant enforcement (`--enforce`, exit `3`) + NOTICE parsing | done |
+| Synthetic non-PII fixture + violations overlay (negative self-test) | done (`fixture/`) |
+| Schema fingerprint/diff with allowlist | done (`schema-diff.mjs` + `schema-allowlist.json`) |
+| **Fresh replay of the 47-migration chain** | **PASSED** (2026-09-02, all applied) — superseded by the 48-migration replay below after DB-03 landed |
+| **Fresh replay including DB-03 (`20260902000000_db03_expand_appsetting_completed_at`)** | **PASSED** (48/48; Prisma diff has only the two known unrepresentable partial-index DROP proposals, both real indexes remain intact; custom fingerprint diff has no unexpected entries) |
+| **Fixture + enforced preflight on the replayed database** | **PASSED** (all hard invariants zero; checklist 8.7 live post-DB-03 with cutover rule red/green-verified) |
+| **pg_dump → restore → preflight/report equality → empty-allowlist schema diff** | **PASSED** (restore is schema- and report-identical) |
+| **Negative self-test** | **PASSED** (violations overlay → gate exits `3` as required) |
+| **DB-05 backfill rehearsal (12 stages)** | **PASSED** (2026-09-02, second run after the order-level fail-closed fix) — 48/48 replay → fixture → enforced preflight → dry-run (shape ok, quarantine 0) → apply (settings 1 / add-on 2 / photo 1 rows) → preflight gap checks zero → second apply `rowsChanged` = 0 for all three operations → dump/restore → preflight + report equality + empty-allowlist diff on the restore → legacy read-path check (11 checks) → negative self-tests (parser-invalid overlay quarantines with exit `2` and `rowsChanged` 0; parser-clean order with a missing entitlement `fxso7` quarantines `missing-entitlement` only and **apply on the negative copy changes 0 rows and materializes no ledger rows for `fxso6`/`fxso7`**; settings conflict reports exit `1` and writes nothing; violations overlay still makes the gate exit `3`) → both partial unique indexes present on A and B. Runner: `scripts/db-rehearsal/run-backfill-rehearsal.sh` |
+| Production-shape restore rehearsal | **BLOCKED before backfill** (2026-09-02). Approval A `chat-2026-09-02-g3-a` backup PostgreSQL 17.6 passed SHA/source-major/TLS/restore gates; DB-03 delta was exactly +27/−0; canonical comparison had one exact reviewed representation difference (same valid package-expiry UNIQUE INDEX, no `pg_constraint` row; Prisma reports no datamodel change). Enforced preflight then found one active PAID service-order payment with null `receiptNo` and exited 3 before any DB-05 dry-run/apply. Aggregate-only repair simulation (`receiptNo = paymentNo`) had 1 candidate, 0 missing payment numbers, 0 collisions and cleared the invariant inside a rolled-back transaction. Production remains unchanged; evidence `/var/folders/.../saijai-g3-production-shape.UoMb9S`. A separately approved remediation + new snapshot/rerun is required. |
+| Old application binary rollback drill | **PASSED on synthetic disposable data** (2026-09-02) — revision `8d87759298fec3030313802b63d33416d4da910f` built from `git archive` with its frozen lockfile; actual `.output/server/index.mjs`, Better Auth login, public/authenticated HTTP reads, old-only shop write, add-on/photo/completed-order compatibility, schema/data/index preservation, post-preflight and cleanup all passed. G2 may pass; production-shape restore remains a separate G3 prerequisite. |
 
-Why replay is pending: the Docker daemon is unavailable on this machine and no
-local PostgreSQL server exists — verified missing: `psql`, `pg_ctl`, `initdb`,
-`postgres` not on PATH; `/Applications/Postgres.app`, `/opt/homebrew/opt/postgresql*`,
-`/usr/local/opt/postgresql*`, `/Library/PostgreSQL` all absent. No database was
-installed, and no production/shared database was contacted. Unblock by any of:
-starting the Docker daemon and using section 2 Option A, installing a local
-PostgreSQL (Option B), or running the documented CI job (Option C). The first
-successful replay should append its evidence under this section and in the
-orchestration plan's execution ledger.
+Evidence retained from the successful run: stage logs and JSON reports under a
+`/var/folders/.../saijai-rehearsal.*` temp directory (ephemeral by design;
+rerun `REHEARSAL_KEEP_STAGE=1 ./scripts/db-rehearsal/run-rehearsal.sh` to
+regenerate and keep a copy). Key facts: 47/47 migrations applied on an empty
+database, preflight invariant failure set empty on both the replayed and the
+restored copy, `schema-diff` `unexpectedAdded/unexpectedRemoved` = 0 with an
+empty allowlist, negative self-test exit code `3`.
+
+Latest actual old-binary evidence is retained at
+`/var/folders/f5/18ygctb55cncd7h4pchbp6hm0000gn/T/saijai-old-binary-rehearsal.BKEfS5`.
+It contains aggregate-safe metadata, build/readiness results, 21 HTTP/runtime
+assertions, before/after fingerprints and preservation counts, the expected
+settings resync mismatch, sanitized server output, and cleanup summary. It is
+temporary local evidence; rerun the command above if the OS removes it.
+
+### Production-shape G3 execution (blocked safely)
+
+The approval contract and staged authority boundaries are now frozen in
+[`db-g3-production-approval-packet.md`](./db-g3-production-approval-packet.md).
+Approval A was received for the exact PostgreSQL 17.6 archive recorded in
+`db-g3-production-approval-packet.md`. The runner validated and restored only
+the application-owned `public` schema, excluding provider-managed Supabase
+extensions, then applied DB-03 and compared it with a fresh canonical replay.
+The comparison transparently reports one exact historical representation
+difference from `schema-g3-production-allowlist.json`; all unexpected drift is
+still forbidden. The production-shape run stopped at enforced preflight because
+one active PAID payment has no receipt number. No backfill ran. Do not proceed
+to Approval B/C or DB-06 until a separately authorized repair is applied,
+backed up again, and the full 12-stage rehearsal passes.

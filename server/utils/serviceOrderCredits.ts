@@ -140,28 +140,41 @@ export const deductAddonUsageRecords = async (tx: TxClient, serviceOrderId: stri
 };
 
 /**
- * Refund add-on usages back to their respective add-on entitlements.
- * New normalized records are authoritative. Legacy JSON is used only when
- * no usage records exist, so migrated rows are not refunded twice.
+ * What refundAddonUsages did for one order, used as a bounded telemetry
+ * dimension by callers after their transaction commits:
+ *   - "normalized":        refunded via normalized ledger records
+ *   - "already-refunded":  normalized records exist but nothing is refundable
+ *                          (all refunded, or nothing deducted yet)
+ *   - "legacy-fallback":   no normalized records; refunded from legacy JSON
+ *   - "no-usage":          neither source holds a refundable usage
  */
-export const refundAddonUsages = async (tx: TxClient, serviceOrderId: string, addonUsages: unknown) => {
+export type AddonRefundOutcome = "normalized" | "already-refunded" | "legacy-fallback" | "no-usage";
+
+/**
+ * Refund add-on usages back to their respective add-on entitlements.
+ * Normalized records are authoritative as soon as ANY record exists for the
+ * order — a fully refunded (or not-yet-deducted) order must never re-enter the
+ * legacy JSON fallback, or credits would be refunded twice. Legacy JSON is
+ * used only for orders that have no usage records at all.
+ */
+export const refundAddonUsages = async (
+  tx: TxClient,
+  serviceOrderId: string,
+  addonUsages: unknown,
+): Promise<AddonRefundOutcome> => {
   const records = await tx.serviceOrderAddonUsage.findMany({
-    where: {
-      serviceOrderId,
-      refundedAt: null,
-      deductedAt: { not: null },
-      credits: { gt: 0 },
-    },
-    select: {
-      id: true,
-      memberEntitlementId: true,
-      credits: true,
-    },
+    where: { serviceOrderId },
+    select: { id: true, memberEntitlementId: true, credits: true, deductedAt: true, refundedAt: true },
   });
 
   if (records.length > 0) {
+    const refundable = records.filter(
+      (usage) => usage.refundedAt === null && usage.deductedAt !== null && usage.credits > 0,
+    );
+    if (refundable.length === 0) return "already-refunded";
+
     const refundedAt = new Date();
-    for (const usage of records) {
+    for (const usage of refundable) {
       if (usage.memberEntitlementId) {
         await tx.memberEntitlement.updateMany({
           where: { id: usage.memberEntitlementId },
@@ -170,19 +183,21 @@ export const refundAddonUsages = async (tx: TxClient, serviceOrderId: string, ad
       }
     }
     await tx.serviceOrderAddonUsage.updateMany({
-      where: { id: { in: records.map((usage) => usage.id) } },
+      where: { id: { in: refundable.map((usage) => usage.id) } },
       data: { refundedAt },
     });
-    return;
+    return "normalized";
   }
 
   const legacyUsages = parseAddonUsages(addonUsages);
+  if (legacyUsages.length === 0) return "no-usage";
   for (const usage of legacyUsages) {
     await tx.memberEntitlement.updateMany({
       where: { id: usage.entitlementId },
       data: { creditRemaining: { increment: usage.credits } },
     });
   }
+  return "legacy-fallback";
 };
 
 export const voidPendingAddonUsageRecords = async (tx: TxClient, serviceOrderId: string) => {

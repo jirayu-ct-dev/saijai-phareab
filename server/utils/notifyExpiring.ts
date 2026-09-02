@@ -1,4 +1,5 @@
 import { prisma } from "~~/server/utils/prisma";
+import { getNotificationPolicy, getShopIdentity } from "~~/server/utils/appSetting";
 import { pushMessage, type LineMessage } from "~~/server/utils/line-messaging";
 
 const DEFAULT_THRESHOLDS = [7, 3, 1];
@@ -37,8 +38,9 @@ const getLineUserId = async (userId: string): Promise<string | null> => {
 };
 
 const getShopName = async (): Promise<string> => {
-  const shop = await prisma.shopSetting.findUnique({ where: { id: "singleton" } });
-  return shop?.name?.trim() || "ร้านซักผ้า";
+  // DB-06 read cutover: identity from AppSetting with legacy fallback.
+  const shop = await getShopIdentity();
+  return shop.name.trim() || "ร้านซักผ้า";
 };
 
 const getBaseUrl = (): string =>
@@ -176,8 +178,8 @@ export type RunResult = {
 export const runExpiringPackageNotifications = async (
   now: Date = new Date(),
 ): Promise<RunResult[]> => {
-  const setting = await prisma.notificationSetting.findUnique({ where: { id: "singleton" } });
-  if (setting && setting.notifyCustomerOnPackageExpiring === false) {
+  const setting = await getNotificationPolicy();
+  if (setting.notifyCustomerOnPackageExpiring === false) {
     console.info("[notifyExpiring] disabled by NotificationSetting");
     return [];
   }

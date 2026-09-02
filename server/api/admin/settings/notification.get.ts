@@ -1,14 +1,13 @@
 import { prisma } from "~~/server/utils/prisma";
 import { requireRole } from "~~/server/utils/auth";
+import { getNotificationPolicy } from "~~/server/utils/appSetting";
 
 export default defineEventHandler(async (event) => {
   requireRole(event, ["ADMIN", "EMPLOYEE"]);
 
-  const setting = await prisma.notificationSetting.upsert({
-    where: { id: "singleton" },
-    create: { id: "singleton" },
-    update: {},
-  });
+  // DB-06 read cutover: the policy resolves from AppSetting with per-field
+  // legacy fallback and soak comparison (plan Phase 5.1).
+  const setting = await getNotificationPolicy();
 
   const subscribers = await prisma.notificationSubscriber.findMany({
     orderBy: { createdAt: "asc" },

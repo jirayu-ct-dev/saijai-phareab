@@ -14,7 +14,7 @@ const padSeq = (n: number) => n.toString().padStart(4, "0");
 
 export const createReceiptNo = async (date = new Date(), receiptTxClient?: TxClient) => {
   const db = receiptTxClient ?? prisma;
-  const { getBusinessSetting } = await import("./businessSetting");
+  const { getBusinessSetting } = await import("./appSetting");
   const setting = (await getBusinessSetting()) as { receiptNoPrefix?: string };
   const prefix = setting.receiptNoPrefix || "RC-";
   const year = getBangkokYear(date);

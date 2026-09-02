@@ -1,3 +1,4 @@
+import { COMPAT_METRICS, emitCompatFailure, emitCompatTelemetry } from "~~/server/utils/compatTelemetry";
 import { requireRole } from "~~/server/utils/auth";
 import { prisma } from "~~/server/utils/prisma";
 
@@ -8,6 +9,8 @@ export default defineEventHandler(async (event) => {
   if (!id) {
     throw createError({ statusCode: 400, statusMessage: "ไม่พบรหัสรายการชำระเงิน" });
   }
+
+  const attemptedCompatPaths = new Set<"payment-sync">();
 
   try {
     const existing = await prisma.paymentRecord.findFirst({
@@ -70,6 +73,7 @@ export default defineEventHandler(async (event) => {
       });
 
       if (existing.packageSale?.id) {
+        attemptedCompatPaths.add("payment-sync");
         await tx.packageSale.update({
           where: { id: existing.packageSale.id },
           data: {
@@ -105,8 +109,15 @@ export default defineEventHandler(async (event) => {
       }
     });
 
+    if (attemptedCompatPaths.has("payment-sync")) {
+      emitCompatTelemetry({ metric: COMPAT_METRICS.paymentStatusSync, path: "delete", result: "success" });
+    }
+
     return { success: true };
   } catch (error) {
+    if (attemptedCompatPaths.has("payment-sync")) {
+      emitCompatFailure(COMPAT_METRICS.paymentStatusSync, "delete", error);
+    }
     if (error && typeof error === "object" && "statusCode" in error) {
       throw error;
     }

@@ -2,7 +2,7 @@ import { addDays } from "date-fns";
 import { requireRole } from "~~/server/utils/auth";
 import { createPaymentNo } from "~~/server/utils/paymentNo";
 import { prisma } from "~~/server/utils/prisma";
-import { getBusinessSetting } from "~~/server/utils/businessSetting";
+import { getBusinessSetting } from "~~/server/utils/appSetting";
 import { computeVat } from "~~/server/utils/vat";
 
 type UpdatePackageSaleBody = {

@@ -1,10 +1,12 @@
 import type { ServiceOrderStatus } from "~~/shared/types/enums";
 import type { Prisma } from "~~/app/generated/prisma/client";
+import { COMPAT_METRICS, emitCompatFailure, emitCompatTelemetry } from "~~/server/utils/compatTelemetry";
 import { requireRole } from "~~/server/utils/auth";
 import { notifyServiceOrderStatusChanged } from "~~/server/utils/notify";
 import { prisma } from "~~/server/utils/prisma";
 import { deductAddonUsageRecords, parseAddonUsages, refundAddonUsages, refundPrimaryCredit, voidPendingAddonUsageRecords } from "~~/server/utils/serviceOrderCredits";
-import { canTransitionServiceOrderStatus, isServiceOrderStatus } from "~~/server/utils/serviceOrderStatusTransition";
+import type { AddonRefundOutcome } from "~~/server/utils/serviceOrderCredits";
+import { canTransitionServiceOrderStatus, isServiceOrderStatus, resolveServiceOrderCompletedAt } from "~~/server/utils/serviceOrderStatusTransition";
 
 type UpdateServiceOrderStatusBody = {
   status?: ServiceOrderStatus;
@@ -25,6 +27,8 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, statusMessage: "สถานะรายการรับผ้าไม่ถูกต้อง" });
   }
 
+  const attemptedCompatPaths = new Set<"addon-refund">();
+
   try {
     const existing = await prisma.serviceOrder.findFirst({
       where: {
@@ -34,6 +38,7 @@ export default defineEventHandler(async (event) => {
       select: {
         id: true,
         status: true,
+        completedAt: true,
         memberEntitlementId: true,
         creditUsed: true,
         addonUsages: true,
@@ -55,7 +60,10 @@ export default defineEventHandler(async (event) => {
       });
     }
 
+    let refundOutcome: AddonRefundOutcome | undefined;
+
     await prisma.$transaction(async (tx) => {
+      const transitionAt = new Date();
       const shouldRefundCredits = existing.status !== "CANCELLED" && nextStatus === "CANCELLED";
       const shouldDeductCompletedAddons = existing.status !== "CANCELLED" && nextStatus === "COMPLETED";
       let nextAddonUsages: Prisma.InputJsonValue | undefined;
@@ -65,7 +73,8 @@ export default defineEventHandler(async (event) => {
           memberEntitlementId: existing.memberEntitlementId,
           creditUsed: existing.creditUsed,
         });
-        await refundAddonUsages(tx, existing.id, existing.addonUsages);
+        attemptedCompatPaths.add("addon-refund");
+        refundOutcome = await refundAddonUsages(tx, existing.id, existing.addonUsages);
         await voidPendingAddonUsageRecords(tx, existing.id);
       }
 
@@ -76,8 +85,14 @@ export default defineEventHandler(async (event) => {
         }
       }
 
-      const updateData: Prisma.ServiceOrderUncheckedUpdateInput = {
+      const updateData: Prisma.ServiceOrderUncheckedUpdateManyInput = {
         status: nextStatus,
+        completedAt: resolveServiceOrderCompletedAt({
+          fromStatus: existing.status,
+          toStatus: nextStatus,
+          currentCompletedAt: existing.completedAt,
+          transitionAt,
+        }),
       };
 
       if (nextAddonUsages !== undefined) {
@@ -90,10 +105,28 @@ export default defineEventHandler(async (event) => {
         updateData.addonUsages = [];
       }
 
-      await tx.serviceOrder.update({
-        where: { id },
+      const { count } = await tx.serviceOrder.updateMany({
+        where: { id, status: existing.status, deletedAt: null },
         data: updateData,
       });
+      if (count !== 1) {
+        throw createError({
+          statusCode: 409,
+          statusMessage: "สถานะรายการรับผ้าถูกเปลี่ยนโดยผู้ใช้อื่น กรุณาลองใหม่",
+          data: { code: "SERVICE_ORDER_STATUS_CONFLICT" },
+        });
+      }
+    });
+
+    // Compat telemetry: success is only reported after the transaction has
+    // committed.
+    if (refundOutcome) {
+      emitCompatTelemetry({ metric: COMPAT_METRICS.addonRefund, path: "status-patch", result: refundOutcome });
+    }
+    emitCompatTelemetry({
+      metric: COMPAT_METRICS.orderTransition,
+      path: "status-patch",
+      result: nextStatus === "COMPLETED" ? "completed" : "transitioned",
     });
 
     if (nextStatus === "DELIVERING") {
@@ -112,6 +145,18 @@ export default defineEventHandler(async (event) => {
 
     return { success: true };
   } catch (error) {
+    if (attemptedCompatPaths.has("addon-refund")) {
+      emitCompatFailure(COMPAT_METRICS.addonRefund, "status-patch", error);
+    }
+    if (
+      error && typeof error === "object" && "data" in error &&
+      (error as { data?: { code?: unknown } }).data?.code === "SERVICE_ORDER_STATUS_CONFLICT"
+    ) {
+      emitCompatTelemetry({ metric: COMPAT_METRICS.orderTransition, path: "status-patch", result: "conflict" });
+    } else {
+      emitCompatFailure(COMPAT_METRICS.orderTransition, "status-patch", error);
+    }
+
     if (error && typeof error === "object" && "statusCode" in error) {
       throw error;
     }

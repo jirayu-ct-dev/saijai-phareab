@@ -1,5 +1,5 @@
 import type { ServiceOrderStatus } from "~~/shared/types/enums";
-import { getBusinessSetting } from "~~/server/utils/businessSetting";
+import { getBusinessSetting } from "~~/server/utils/appSetting";
 import { computeVat } from "~~/server/utils/vat";
 import { requireRole } from "~~/server/utils/auth";
 import { createPaymentNo } from "~~/server/utils/paymentNo";
@@ -10,7 +10,8 @@ import { createServiceOrderNo } from "~~/server/utils/serviceOrderNo";
 import { createOfflineCustomer, isCustomerUniqueConflict, resolveOfflineCustomerConflict } from "~~/server/utils/customerAccount";
 import { notifyQuotationCreated, notifyServiceOrderCreated, notifyServiceOrderStatusChanged } from "~~/server/utils/notify";
 import { createAddonUsageRecords } from "~~/server/utils/serviceOrderCredits";
-import { isServiceOrderStatus } from "~~/server/utils/serviceOrderStatusTransition";
+import { COMPAT_METRICS, emitCompatFailure, emitCompatTelemetry } from "~~/server/utils/compatTelemetry";
+import { isServiceOrderStatus, resolveServiceOrderCompletedAt } from "~~/server/utils/serviceOrderStatusTransition";
 import { parseBangkokDateTime } from "~~/shared/utils/pickup";
 
 type CreateServiceOrderBody = {
@@ -121,6 +122,8 @@ export default defineEventHandler(async (event) => {
   if (dueAt && Number.isNaN(dueAt.getTime())) {
     throw createError({ statusCode: 400, statusMessage: "วันนัดรับไม่ถูกต้อง" });
   }
+
+  const attemptedCompatPaths = new Set<"item-photo">();
 
   try {
     const priceIds = [...new Set(normalizedItems.map((item) => item.storefrontPriceId))];
@@ -356,6 +359,12 @@ export default defineEventHandler(async (event) => {
           customerId: paymentUserId!,
           employeeId: actor.id,
           status: serviceOrderStatus,
+          completedAt: resolveServiceOrderCompletedAt({
+            fromStatus: null,
+            toStatus: serviceOrderStatus,
+            currentCompletedAt: null,
+            transitionAt: receivedAt,
+          }),
           memberEntitlementId: memberEntitlement?.id ?? null,
           creditUsed: memberEntitlement ? creditUsed : null,
           receivedAt,
@@ -404,6 +413,7 @@ export default defineEventHandler(async (event) => {
           });
 
           if (row.attachPhotos && item.photos.length > 0) {
+            attemptedCompatPaths.add("item-photo");
             await tx.serviceOrderItemImage.createMany({
               data: item.photos.map((photo, index) => ({
                 serviceOrderItemId: createdItem.id,
@@ -492,8 +502,15 @@ export default defineEventHandler(async (event) => {
       await notifyQuotationCreated({ serviceOrderId: created.id });
     }
 
+    if (attemptedCompatPaths.has("item-photo")) {
+      emitCompatTelemetry({ metric: COMPAT_METRICS.itemPhotoWrite, path: "create", result: "success" });
+    }
+
     return { ...created, activationToken };
   } catch (error) {
+    if (attemptedCompatPaths.has("item-photo")) {
+      emitCompatFailure(COMPAT_METRICS.itemPhotoWrite, "create", error);
+    }
     if (error && typeof error === "object" && "statusCode" in error) {
       throw error;
     }

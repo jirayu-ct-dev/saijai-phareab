@@ -1,4 +1,5 @@
 import { prisma } from "~~/server/utils/prisma";
+import { getNotificationPolicy, getShopIdentity } from "~~/server/utils/appSetting";
 import { pushMessage, type LineMessage } from "~~/server/utils/line-messaging";
 import type { ServiceOrderStatus } from "~~/shared/types/enums";
 import { formatDate, formatDateTime } from "~~/shared/utils/format";
@@ -110,13 +111,9 @@ const getLineUserId = async (userId: string): Promise<string | null> => {
 };
 
 const getNotificationSetting = async () => {
-  const existing = await prisma.notificationSetting.findUnique({ where: { id: "singleton" } });
-  if (existing) return existing;
-  return prisma.notificationSetting.upsert({
-    where: { id: "singleton" },
-    create: { id: "singleton" },
-    update: {},
-  });
+  // DB-06 read cutover: policy resolves from AppSetting with per-field legacy
+  // fallback and soak comparison (plan Phase 5.1). No row is created on read.
+  return getNotificationPolicy();
 };
 
 const chunkMessages = (messages: LineMessage[], size = 5): LineMessage[][] => {
@@ -292,8 +289,9 @@ const buildFlexBubble = (p: FlexBubbleParams): LineMessage => ({
 });
 
 const getShopName = async (): Promise<string> => {
-  const shop = await prisma.shopSetting.findUnique({ where: { id: "singleton" } });
-  return shop?.name?.trim() || "ร้านซักผ้า";
+  // DB-06 read cutover: identity from AppSetting with legacy fallback.
+  const shop = await getShopIdentity();
+  return shop.name.trim() || "ร้านซักผ้า";
 };
 
 type StatusToggleField =

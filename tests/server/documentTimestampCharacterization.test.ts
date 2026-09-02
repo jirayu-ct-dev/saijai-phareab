@@ -2,11 +2,10 @@
  * DB-01 characterization tests — document delivery timestamp, Decimal
  * boundary, and item photo contracts.
  *
- * C6 invariant being protected: today the system has NO `completedAt` column.
- * Delivery timestamps on receipts/documents/orders derive from `updatedAt`
- * whenever the order status is COMPLETED. `paidAt` must never be presented as
- * the delivery timestamp. When the consolidation introduces a real
- * `completedAt`, these tests document the legacy fallback being replaced.
+ * C6 compatibility invariant: DB-03 added `completedAt` and DB-04 stamps new
+ * completion transitions, but document reads deliberately remain on the
+ * legacy `updatedAt` fallback until DB-06. `paidAt` must never be presented as
+ * the delivery timestamp. These tests pin that temporary read-old behavior.
  *
  * Also protects:
  *   - Decimal values leave the document builder as JSON-safe numbers.
@@ -110,7 +109,7 @@ const buildPayload = async (payment: ReturnType<typeof paymentFixture>) => {
   return payload!;
 };
 
-describe("legacy delivery timestamp fallback (no completedAt column yet)", () => {
+describe("legacy delivery timestamp fallback during DB-04 compatibility", () => {
   it("derives deliveredAt from updatedAt for a COMPLETED order", async () => {
     const payload = await buildPayload(paymentFixture());
 

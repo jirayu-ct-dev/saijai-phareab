@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   canTransitionServiceOrderStatus,
   getAllowedServiceOrderTransitions,
+  resolveServiceOrderCompletedAt,
 } from "../../server/utils/serviceOrderStatusTransition";
 import {
   deductAddonUsageRecords,
@@ -27,6 +28,8 @@ describe("service-order status transitions", () => {
             id: "addon-usage-1",
             memberEntitlementId: "addon-entitlement-1",
             credits: 2,
+            deductedAt: new Date("2026-05-01T00:00:00.000Z"),
+            refundedAt: null,
           },
         ]),
         updateMany: vi.fn().mockResolvedValue({ count: 1 }),
@@ -104,5 +107,51 @@ describe("service-order status transitions", () => {
   it("rejects invalid status jumps such as RECEIVED -> COMPLETED", () => {
     expect(canTransitionServiceOrderStatus("RECEIVED", "COMPLETED")).toBe(false);
     expect(getAllowedServiceOrderTransitions("RECEIVED")).toEqual(["PROCESSING", "CANCELLED"]);
+  });
+
+  it("stamps the exact first transition into COMPLETED", () => {
+    const transitionAt = new Date("2026-09-02T04:30:00.000Z");
+
+    expect(resolveServiceOrderCompletedAt({
+      fromStatus: "DELIVERING",
+      toStatus: "COMPLETED",
+      currentCompletedAt: null,
+      transitionAt,
+    })).toBe(transitionAt);
+  });
+
+  it("preserves legacy null and an existing timestamp when COMPLETED is edited without a transition", () => {
+    const transitionAt = new Date("2026-09-02T04:30:00.000Z");
+    const completedAt = new Date("2026-09-01T04:30:00.000Z");
+
+    expect(resolveServiceOrderCompletedAt({
+      fromStatus: "COMPLETED",
+      toStatus: "COMPLETED",
+      currentCompletedAt: null,
+      transitionAt,
+    })).toBeNull();
+    expect(resolveServiceOrderCompletedAt({
+      fromStatus: "COMPLETED",
+      toStatus: "COMPLETED",
+      currentCompletedAt: completedAt,
+      transitionAt,
+    })).toBe(completedAt);
+  });
+
+  it("stamps an order created directly as COMPLETED and leaves other new orders null", () => {
+    const transitionAt = new Date("2026-09-02T04:30:00.000Z");
+
+    expect(resolveServiceOrderCompletedAt({
+      fromStatus: null,
+      toStatus: "COMPLETED",
+      currentCompletedAt: null,
+      transitionAt,
+    })).toBe(transitionAt);
+    expect(resolveServiceOrderCompletedAt({
+      fromStatus: null,
+      toStatus: "RECEIVED",
+      currentCompletedAt: null,
+      transitionAt,
+    })).toBeNull();
   });
 });

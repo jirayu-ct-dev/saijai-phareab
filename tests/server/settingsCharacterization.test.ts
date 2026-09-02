@@ -16,12 +16,14 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { Prisma } from "~~/app/generated/prisma/client";
 
 const prismaMock = vi.hoisted(() => ({
-  businessSetting: {
+  appSetting: {
     upsert: vi.fn(),
     findFirst: vi.fn(),
+    findUnique: vi.fn(),
   },
   shopSetting: {
     findFirst: vi.fn(),
+    findUnique: vi.fn(),
   },
 }));
 
@@ -63,19 +65,21 @@ const importHandler = async (path: string): Promise<(event?: unknown) => unknown
 beforeEach(() => {
   vi.clearAllMocks();
   vi.resetModules();
-  // businessSetting.ts keeps a module-level cache; resetModules drops it.
-  prismaMock.businessSetting.upsert.mockReset();
-  prismaMock.businessSetting.findFirst.mockReset();
+  // appSetting.ts keeps a module-level cache; resetModules drops it.
+  prismaMock.appSetting.upsert.mockReset();
+  prismaMock.appSetting.findFirst.mockReset();
+  prismaMock.appSetting.findUnique.mockReset();
   prismaMock.shopSetting.findFirst.mockReset();
+  prismaMock.shopSetting.findUnique.mockReset();
 });
 
-describe("businessSetting loader (server/utils/businessSetting.ts)", () => {
+describe("business setting projection (server/utils/appSetting.ts)", () => {
   it("maps the singleton row to plain numbers and keeps non-empty prefixes", async () => {
-    prismaMock.businessSetting.upsert.mockResolvedValue(
+    prismaMock.appSetting.upsert.mockResolvedValue(
       businessSettingRow({ quotationNoPrefix: "QUO-", receiptNoPrefix: "REC-" }),
     );
 
-    const { getBusinessSetting } = await import("../../server/utils/businessSetting");
+    const { getBusinessSetting } = await import("../../server/utils/appSetting");
     const values = await getBusinessSetting();
 
     expect(values).toEqual({
@@ -102,9 +106,9 @@ describe("businessSetting loader (server/utils/businessSetting.ts)", () => {
 
   it("falls back to QT-/RC- when the stored prefixes are empty strings", async () => {
     // Quirk: empty-string prefixes are normalized, null/missing prefixes are not handled here.
-    prismaMock.businessSetting.upsert.mockResolvedValue(businessSettingRow({ quotationNoPrefix: "", receiptNoPrefix: "" }));
+    prismaMock.appSetting.upsert.mockResolvedValue(businessSettingRow({ quotationNoPrefix: "", receiptNoPrefix: "" }));
 
-    const { getBusinessSetting } = await import("../../server/utils/businessSetting");
+    const { getBusinessSetting } = await import("../../server/utils/appSetting");
     const values = await getBusinessSetting();
 
     expect(values.quotationNoPrefix).toBe("QT-");
@@ -112,24 +116,25 @@ describe("businessSetting loader (server/utils/businessSetting.ts)", () => {
   });
 
   it("caches values for the TTL and re-loads after invalidateBusinessSettingCache", async () => {
-    prismaMock.businessSetting.upsert.mockResolvedValue(businessSettingRow());
+    prismaMock.appSetting.upsert.mockResolvedValue(businessSettingRow());
 
-    const { getBusinessSetting, invalidateBusinessSettingCache } = await import("../../server/utils/businessSetting");
+    const { getBusinessSetting, invalidateBusinessSettingCache } = await import("../../server/utils/appSetting");
 
     await getBusinessSetting();
     await getBusinessSetting();
-    expect(prismaMock.businessSetting.upsert).toHaveBeenCalledTimes(1);
+    expect(prismaMock.appSetting.upsert).toHaveBeenCalledTimes(1);
 
     invalidateBusinessSettingCache();
     await getBusinessSetting();
-    expect(prismaMock.businessSetting.upsert).toHaveBeenCalledTimes(2);
+    expect(prismaMock.appSetting.upsert).toHaveBeenCalledTimes(2);
   });
 });
 
 describe("public shop settings projection (server/api/public/shop-settings.get.ts)", () => {
   it("returns only the public allow-list and never leaks other setting fields", async () => {
-    // Seed server-only-ish fields that exist on the rows; they must not appear.
-    prismaMock.shopSetting.findFirst.mockResolvedValue({
+    // DB-06 read cutover: identity resolves from AppSetting; sensitive fields
+    // that may exist on either row must never appear in the response.
+    prismaMock.shopSetting.findUnique.mockResolvedValue({
       id: "singleton",
       name: "ร้านซักผ้าสายใจ",
       phone: "0812345678",
@@ -138,10 +143,19 @@ describe("public shop settings projection (server/api/public/shop-settings.get.t
       lineQrImageUrl: "https://example.com/line-qr.png",
       paymentQrConfig: "sensitive-qr-config",
       internalNote: "internal-only",
+      updatedAt: new Date("2026-05-01T00:00:00.000Z"),
     });
-    prismaMock.businessSetting.findFirst.mockResolvedValue(
-      businessSettingRow({ washFoldPricePerKg: new Prisma.Decimal("72.50") }),
-    );
+    prismaMock.appSetting.findUnique.mockResolvedValue({
+      name: "ร้านซักผ้าสายใจ",
+      phone: "0812345678",
+      address: "กรุงเทพฯ",
+      logoUrl: "https://example.com/logo.png",
+      lineQrImageUrl: "https://example.com/line-qr.png",
+      washFoldPricePerKg: new Prisma.Decimal("72.50"),
+      paymentQrConfig: "sensitive-qr-config",
+      internalNote: "internal-only",
+      updatedAt: new Date("2026-05-01T00:00:00.000Z"),
+    });
 
     const handler = await importHandler("../../server/api/public/shop-settings.get");
     const result = (await handler()) as Record<string, unknown>;
@@ -161,8 +175,8 @@ describe("public shop settings projection (server/api/public/shop-settings.get.t
   });
 
   it("falls back to empty strings/null and 60 THB/kg when no rows exist", async () => {
-    prismaMock.shopSetting.findFirst.mockResolvedValue(null);
-    prismaMock.businessSetting.findFirst.mockResolvedValue(null);
+    prismaMock.shopSetting.findUnique.mockResolvedValue(null);
+    prismaMock.appSetting.findUnique.mockResolvedValue(null);
 
     const handler = await importHandler("../../server/api/public/shop-settings.get");
     const result = (await handler()) as Record<string, unknown>;
@@ -180,10 +194,16 @@ describe("public shop settings projection (server/api/public/shop-settings.get.t
   it("uses the Decimal wash-fold price when a business row exists, even for zero", async () => {
     // Quirk: the guard checks truthiness of the raw value; a Prisma Decimal
     // zero is an object (truthy), so 0 is returned rather than the 60 default.
-    prismaMock.shopSetting.findFirst.mockResolvedValue(null);
-    prismaMock.businessSetting.findFirst.mockResolvedValue(
-      businessSettingRow({ washFoldPricePerKg: new Prisma.Decimal("0") }),
-    );
+    prismaMock.shopSetting.findUnique.mockResolvedValue(null);
+    prismaMock.appSetting.findUnique.mockResolvedValue({
+      name: null,
+      phone: null,
+      address: null,
+      logoUrl: null,
+      lineQrImageUrl: null,
+      washFoldPricePerKg: new Prisma.Decimal("0"),
+      updatedAt: new Date("2026-05-01T00:00:00.000Z"),
+    });
 
     const handler = await importHandler("../../server/api/public/shop-settings.get");
     const result = (await handler()) as Record<string, unknown>;
@@ -194,7 +214,7 @@ describe("public shop settings projection (server/api/public/shop-settings.get.t
 
 describe("admin business settings projection (server/api/admin/settings/business.get.ts)", () => {
   it("returns the fixed admin shape with numeric conversions and excludes quotation/receipt prefixes", async () => {
-    prismaMock.businessSetting.upsert.mockResolvedValue(
+    prismaMock.appSetting.upsert.mockResolvedValue(
       businessSettingRow({ quotationNoPrefix: "QT-ADMIN", receiptNoPrefix: "RC-ADMIN" }),
     );
 

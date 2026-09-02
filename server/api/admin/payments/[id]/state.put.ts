@@ -1,4 +1,5 @@
 import { addDays } from "date-fns";
+import { COMPAT_METRICS, emitCompatFailure, emitCompatTelemetry } from "~~/server/utils/compatTelemetry";
 import { requireRole } from "~~/server/utils/auth";
 import { prisma } from "~~/server/utils/prisma";
 import { createReceiptNo } from "~~/server/utils/receiptNo";
@@ -119,48 +120,61 @@ export default defineEventHandler(async (event) => {
 
   const now = new Date();
 
-  await prisma.$transaction(async (tx) => {
-    await applyPaymentStateTransition({
-      tx,
-      paymentId,
-      existing,
-      nextStatus,
-      nextMethod: nextMethod ?? null,
-      nextSlipImageId,
-      actorId: actor.id,
-      now,
-      createReceiptNo: (date, receiptTx) => createReceiptNo(date, receiptTx as never),
-    });
-
-    if (nextStatus === "CANCELLED" && packageEntitlements.length > 0) {
-      await tx.memberEntitlement.updateMany({
-        where: {
-          id: { in: packageEntitlements.map((entitlement) => entitlement.id) },
-          deletedAt: null,
-        },
-        data: { status: "CANCELLED" },
+  try {
+    await prisma.$transaction(async (tx) => {
+      await applyPaymentStateTransition({
+        tx,
+        paymentId,
+        existing,
+        nextStatus,
+        nextMethod: nextMethod ?? null,
+        nextSlipImageId,
+        actorId: actor.id,
+        now,
+        createReceiptNo: (date, receiptTx) => createReceiptNo(date, receiptTx as never),
       });
-    }
 
-    if (nextStatus === "PAID" && packageEntitlements.length > 0) {
-      for (const entitlement of packageEntitlements) {
-        if (entitlement.status === "ACTIVE") continue;
-        const startAt = now;
-        await tx.memberEntitlement.update({
-          where: { id: entitlement.id },
-          data: {
-            status: "ACTIVE",
-            startAt,
-            endAt: entitlement.product.validityDays ? addDays(startAt, entitlement.product.validityDays) : null,
-            activatedAt: startAt,
-            suspendedAt: null,
-            creditInitial: entitlement.product.credits ?? entitlement.creditInitial ?? 0,
-            creditRemaining: entitlement.product.credits ?? entitlement.creditInitial ?? 0,
+      if (nextStatus === "CANCELLED" && packageEntitlements.length > 0) {
+        await tx.memberEntitlement.updateMany({
+          where: {
+            id: { in: packageEntitlements.map((entitlement) => entitlement.id) },
+            deletedAt: null,
           },
+          data: { status: "CANCELLED" },
         });
       }
+
+      if (nextStatus === "PAID" && packageEntitlements.length > 0) {
+        for (const entitlement of packageEntitlements) {
+          if (entitlement.status === "ACTIVE") continue;
+          const startAt = now;
+          await tx.memberEntitlement.update({
+            where: { id: entitlement.id },
+            data: {
+              status: "ACTIVE",
+              startAt,
+              endAt: entitlement.product.validityDays ? addDays(startAt, entitlement.product.validityDays) : null,
+              activatedAt: startAt,
+              suspendedAt: null,
+              creditInitial: entitlement.product.credits ?? entitlement.creditInitial ?? 0,
+              creditRemaining: entitlement.product.credits ?? entitlement.creditInitial ?? 0,
+            },
+          });
+        }
+      }
+    });
+
+    // The payment → package-sale status mirror is a compatibility path during
+    // consolidation; report it only after the transaction has committed.
+    if (existing.packageSaleId) {
+      emitCompatTelemetry({ metric: COMPAT_METRICS.paymentStatusSync, path: "state", result: "success" });
     }
-  });
+  } catch (error) {
+    if (existing.packageSaleId) {
+      emitCompatFailure(COMPAT_METRICS.paymentStatusSync, "state", error);
+    }
+    throw error;
+  }
 
   if (nextStatus === "PAID") {
     void notifyReceipt({ paymentId }).catch((err) => {

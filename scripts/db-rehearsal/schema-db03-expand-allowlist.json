@@ -1,0 +1,33 @@
+{
+  "$comment": "Exact logical-schema additions allowed when comparing an approved production-shape restore immediately before and after DB-03. No removals, constraints, indexes, defaults, or nullability changes are permitted.",
+  "added": [
+    "column|business_setting|address|text|YES||,||",
+    "column|business_setting|lineQrEnabled|bool|YES||,||",
+    "column|business_setting|lineQrImageUrl|text|YES||,||",
+    "column|business_setting|logoUrl|text|YES||,||",
+    "column|business_setting|name|text|YES||,||",
+    "column|business_setting|notifyCustomerOnCancelled|bool|YES||,||",
+    "column|business_setting|notifyCustomerOnCompleted|bool|YES||,||",
+    "column|business_setting|notifyCustomerOnDelivering|bool|YES||,||",
+    "column|business_setting|notifyCustomerOnPackageExpiring|bool|YES||,||",
+    "column|business_setting|notifyCustomerOnProcessing|bool|YES||,||",
+    "column|business_setting|notifyCustomerOnQuotation|bool|YES||,||",
+    "column|business_setting|notifyCustomerOnReceived|bool|YES||,||",
+    "column|business_setting|notifyCustomerReceipt|bool|YES||,||",
+    "column|business_setting|notifyStaffOnNewOrder|bool|YES||,||",
+    "column|business_setting|paymentQrActivatedAt|timestamp|YES||,|3|",
+    "column|business_setting|paymentQrActivatedById|text|YES||,||",
+    "column|business_setting|paymentQrConfigVersion|int4|YES||32,0||",
+    "column|business_setting|paymentQrEnabled|bool|YES||,||",
+    "column|business_setting|paymentQrKeyVersion|int4|YES||32,0||",
+    "column|business_setting|paymentQrProvider|text|YES||,||",
+    "column|business_setting|paymentQrReceiverCiphertext|text|YES||,||",
+    "column|business_setting|paymentQrReceiverLabel|text|YES||,||",
+    "column|business_setting|paymentQrReceiverLast4|text|YES||,||",
+    "column|business_setting|paymentQrReceiverType|text|YES||,||",
+    "column|business_setting|paymentQrUpdatedById|text|YES||,||",
+    "column|business_setting|phone|text|YES||,||",
+    "column|service_order|completedAt|timestamp|YES||,|3|"
+  ],
+  "removed": []
+}

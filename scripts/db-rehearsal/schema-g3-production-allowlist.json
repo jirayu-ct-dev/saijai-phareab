@@ -1,0 +1,7 @@
+{
+  "$comment": "Exact known production-vs-canonical representation difference allowed only in the G3 production-shape comparison. Production has the same valid UNIQUE INDEX over entitlementId/daysBefore/endAtSnapshot, but it is not attached to a pg_constraint row because the historical reconciliation was applied outside the migration chain. Prisma migrate diff sees no change for this key. No other addition or removal is permitted.",
+  "added": [],
+  "removed": [
+    "constraint|u|package_expiry_notification|package_expiry_notification_entitlementId_daysBefore_endAtS_key|UNIQUE (\"entitlementId\", \"daysBefore\", \"endAtSnapshot\")"
+  ]
+}

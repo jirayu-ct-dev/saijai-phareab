@@ -1,12 +1,14 @@
 import type { ServiceOrderStatus } from "~~/shared/types/enums";
 import { notifyServiceOrderStatusChanged } from "~~/server/utils/notify";
-import { getBusinessSetting } from "~~/server/utils/businessSetting";
+import { COMPAT_METRICS, emitCompatFailure, emitCompatTelemetry } from "~~/server/utils/compatTelemetry";
+import { getBusinessSetting } from "~~/server/utils/appSetting";
 import { computeVat } from "~~/server/utils/vat";
 import { requireRole } from "~~/server/utils/auth";
 import { createPaymentNo } from "~~/server/utils/paymentNo";
 import { prisma } from "~~/server/utils/prisma";
 import { createAddonUsageRecords, refundAddonUsages, voidPendingAddonUsageRecords } from "~~/server/utils/serviceOrderCredits";
-import { isServiceOrderStatus } from "~~/server/utils/serviceOrderStatusTransition";
+import type { AddonRefundOutcome } from "~~/server/utils/serviceOrderCredits";
+import { canTransitionServiceOrderStatus, isServiceOrderStatus, resolveServiceOrderCompletedAt } from "~~/server/utils/serviceOrderStatusTransition";
 import { parseBangkokDateTime } from "~~/shared/utils/pickup";
 
 type UpdateServiceOrderBody = {
@@ -105,6 +107,8 @@ export default defineEventHandler(async (event) => {
   if (body.discountAmount !== undefined && (!Number.isFinite(Number(body.discountAmount)) || Number(body.discountAmount) < 0)) {
     throw createError({ statusCode: 400, statusMessage: "จำนวนส่วนลดต้องเป็น 0 หรือมากกว่า" });
   }
+
+  const attemptedCompatPaths = new Set<"addon-refund" | "item-photo">();
 
   try {
     const existing = await prisma.serviceOrder.findFirst({
@@ -234,6 +238,13 @@ export default defineEventHandler(async (event) => {
     }
 
     const serviceOrderStatus = body.serviceOrderStatus ?? existing.status;
+    if (!canTransitionServiceOrderStatus(existing.status, serviceOrderStatus)) {
+      throw createError({
+        statusCode: 400,
+        statusMessage: "ไม่สามารถข้ามสถานะรายการรับผ้าได้",
+      });
+    }
+    const statusTransitionAt = new Date();
     const existingSlipImageId = existing.payments[0]?.slipImage?.id ?? null;
     const slipImageId = body.slipImageId !== undefined ? body.slipImageId : existingSlipImageId;
 
@@ -248,6 +259,9 @@ export default defineEventHandler(async (event) => {
     let vat = computeVat({ amount: beforeVat, rate: business.vatRate, included: business.vatIncluded });
     let payableAmount = vat.totalAmount;
 
+
+    let refundOutcome: AddonRefundOutcome | undefined;
+    const statusChanged = existing.status !== serviceOrderStatus;
 
     await prisma.$transaction(async (tx) => {
       if (existing.memberEntitlementId && existing.creditUsed) {
@@ -274,7 +288,8 @@ export default defineEventHandler(async (event) => {
       }
 
       if (shouldReplaceAddonUsages) {
-        await refundAddonUsages(tx, existing.id, existing.addonUsages);
+        attemptedCompatPaths.add("addon-refund");
+        refundOutcome = await refundAddonUsages(tx, existing.id, existing.addonUsages);
         await voidPendingAddonUsageRecords(tx, existing.id);
       }
 
@@ -397,12 +412,18 @@ export default defineEventHandler(async (event) => {
 
       const deletedAt = new Date();
 
-      await tx.serviceOrder.update({
-        where: { id },
+      const { count: updatedOrderCount } = await tx.serviceOrder.updateMany({
+        where: { id, status: existing.status, deletedAt: null },
         data: {
           customerId: paymentUserId!,
           employeeId: existing.employeeId ?? actor.id,
           status: serviceOrderStatus,
+          completedAt: resolveServiceOrderCompletedAt({
+            fromStatus: existing.status,
+            toStatus: serviceOrderStatus,
+            currentCompletedAt: existing.completedAt,
+            transitionAt: statusTransitionAt,
+          }),
           memberEntitlementId: nextEntitlementId,
           creditUsed: nextEntitlementId ? creditUsed : null,
           dueAt,
@@ -418,6 +439,13 @@ export default defineEventHandler(async (event) => {
           ...(deliveryImageId !== undefined ? { deliveryImageId } : {}),
         },
       });
+      if (updatedOrderCount !== 1) {
+        throw createError({
+          statusCode: 409,
+          statusMessage: "สถานะรายการรับผ้าถูกเปลี่ยนโดยผู้ใช้อื่น กรุณาลองใหม่",
+          data: { code: "SERVICE_ORDER_STATUS_CONFLICT" },
+        });
+      }
 
       if (shouldReplaceAddonUsages) {
         await createAddonUsageRecords(tx, id, pendingAddonUsages);
@@ -477,6 +505,7 @@ export default defineEventHandler(async (event) => {
           });
 
           if (row.attachPhotos && item.photos.length > 0) {
+            attemptedCompatPaths.add("item-photo");
             await tx.serviceOrderItemImage.createMany({
               data: item.photos.map((photo, index) => ({
                 serviceOrderItemId: createdItem.id,
@@ -553,6 +582,22 @@ export default defineEventHandler(async (event) => {
       }
     });
 
+    // Compat telemetry: success is only reported after the transaction has
+    // committed.
+    if (refundOutcome) {
+      emitCompatTelemetry({ metric: COMPAT_METRICS.addonRefund, path: "full-edit", result: refundOutcome });
+    }
+    if (attemptedCompatPaths.has("item-photo")) {
+      emitCompatTelemetry({ metric: COMPAT_METRICS.itemPhotoWrite, path: "full-edit", result: "success" });
+    }
+    if (statusChanged) {
+      emitCompatTelemetry({
+        metric: COMPAT_METRICS.orderTransition,
+        path: "full-edit",
+        result: serviceOrderStatus === "COMPLETED" ? "completed" : "transitioned",
+      });
+    }
+
     if (existing.status !== serviceOrderStatus) {
       const notification = notifyServiceOrderStatusChanged({
         serviceOrderId: existing.id,
@@ -564,6 +609,19 @@ export default defineEventHandler(async (event) => {
     }
     return { success: true };
   } catch (error) {
+    if (attemptedCompatPaths.has("addon-refund")) {
+      emitCompatFailure(COMPAT_METRICS.addonRefund, "full-edit", error);
+    }
+    if (attemptedCompatPaths.has("item-photo")) {
+      emitCompatFailure(COMPAT_METRICS.itemPhotoWrite, "full-edit", error);
+    }
+    if (
+      error && typeof error === "object" && "data" in error &&
+      (error as { data?: { code?: unknown } }).data?.code === "SERVICE_ORDER_STATUS_CONFLICT"
+    ) {
+      emitCompatTelemetry({ metric: COMPAT_METRICS.orderTransition, path: "full-edit", result: "conflict" });
+    }
+
     if (error && typeof error === "object" && "statusCode" in error) {
       throw error;
     }

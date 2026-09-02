@@ -26,6 +26,10 @@ const prismaMock = vi.hoisted(() => ({
   },
   notificationSetting: {
     upsert: vi.fn(),
+    findUnique: vi.fn(),
+  },
+  appSetting: {
+    findUnique: vi.fn(),
   },
 }));
 

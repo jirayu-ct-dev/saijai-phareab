@@ -416,6 +416,10 @@ model ServiceOrder {
   creditUsed                 Int?
   hangerCharge               Json?
   receivedAt                 DateTime           @default(now())
+  // DB-03 expand (plan 4.6/F2/F5): set by the status transition when the
+  // order first enters COMPLETED. Legacy completed orders keep NULL — never
+  // backfilled from updatedAt or paidAt; display uses a labeled fallback.
+  completedAt                DateTime?
   dueAt                      DateTime?
   subtotalAmount             Decimal            @default(0)
   discountAmount             Decimal            @default(0)
@@ -613,20 +617,62 @@ model ShopSetting {
   @@map("shop_setting")
 }
 
-model BusinessSetting {
-  id                 String   @id @default("singleton")
-  hangerPricePerUnit Decimal  @default(10)
-  washFoldPricePerKg Decimal  @default(60)
-  washFoldMinKg      Decimal  @default(0)
-  vatRate            Decimal  @default(0)
-  vatIncluded        Boolean  @default(false)
-  paymentNoPrefix    String   @default("PAY-")
-  orderNoPrefix      String   @default("ORD-")
-  quotationNoPrefix  String   @default("QT-")
-  receiptNoPrefix    String   @default("RC-")
-  minimumOrderAmount Decimal  @default(0)
-  packageRefundDays  Int      @default(7)
-  updatedAt          DateTime @updatedAt
+model AppSetting {
+  id                 String  @id @default("singleton")
+  hangerPricePerUnit Decimal @default(10)
+  washFoldPricePerKg Decimal @default(60)
+  washFoldMinKg      Decimal @default(0)
+  vatRate            Decimal @default(0)
+  vatIncluded        Boolean @default(false)
+  paymentNoPrefix    String  @default("PAY-")
+  orderNoPrefix      String  @default("ORD-")
+  quotationNoPrefix  String  @default("QT-")
+  receiptNoPrefix    String  @default("RC-")
+  minimumOrderAmount Decimal @default(0)
+  packageRefundDays  Int     @default(7)
+
+  // ===== DB-03 expand: future AppSetting target fields (plan 4.2) =====
+  // All added nullable with no default: during the expand/dual-write phases
+  // This table still serves the legacy business-setting read path while the
+  // compatibility writers mirror shop/notification values into this row;
+  // `null` means "not migrated yet — fall back to the legacy source"
+  // (shop_setting / notification_setting / lineQrImageUrl presence).
+  // Policy semantics are decided by application code at read cutover, never
+  // baked into this expand migration.
+
+  // ร้าน (from ShopSetting)
+  name           String?
+  phone          String?
+  address        String?
+  logoUrl        String?
+  lineQrImageUrl String?
+
+  // notification policy (from NotificationSetting)
+  notifyCustomerOnQuotation       Boolean?
+  notifyCustomerOnReceived        Boolean?
+  notifyCustomerOnProcessing      Boolean?
+  notifyCustomerOnDelivering      Boolean?
+  notifyCustomerOnCompleted       Boolean?
+  notifyCustomerOnCancelled       Boolean?
+  notifyCustomerReceipt           Boolean?
+  notifyStaffOnNewOrder           Boolean?
+  notifyCustomerOnPackageExpiring Boolean?
+
+  // print/QR (canonical fields; server-only, never serialized to browsers raw)
+  lineQrEnabled               Boolean?
+  paymentQrEnabled            Boolean?
+  paymentQrProvider           String? // PROMPTPAY_LOCAL | BANK_MERCHANT (validated by Zod, not a DB enum)
+  paymentQrReceiverType       String? // MOBILE | NATIONAL_OR_TAX_ID | EWALLET
+  paymentQrReceiverCiphertext String? // encrypted at rest; plaintext never stored
+  paymentQrReceiverLast4      String?
+  paymentQrReceiverLabel      String?
+  paymentQrKeyVersion         Int?
+  paymentQrConfigVersion      Int?
+  paymentQrActivatedAt        DateTime?
+  paymentQrActivatedById      String? // actor reference without FK to keep the expand surface minimal
+  paymentQrUpdatedById        String?
+
+  updatedAt DateTime @updatedAt
 
   @@map("business_setting")
 }
@@ -685,7 +731,7 @@ model ExpenseCategory {
   deletedById    String?
   deletedBy      User?     @relation("ExpenseCategoryDeletedBy", fields: [deletedById], references: [id])
 
-  expenses       Expense[]
+  expenses Expense[]
 
   @@index([isActive, deletedAt])
   @@map("expense_category")

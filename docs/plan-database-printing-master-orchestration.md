@@ -135,7 +135,7 @@ Characterize
 - เพิ่ม field ใหม่แบบ nullable ก่อน
 - backfill จาก `shop_setting` และ `notification_setting`
 - หลัง verify จึงตั้ง default/NOT NULL ตาม contract
-- Prisma model เปลี่ยนเป็น `AppSetting` ตอน read cutover โดยคง `@@map("business_setting")`
+- Prisma model เปลี่ยนเป็น `AppSetting` ใน compatibility release โดยคง `@@map("business_setting")`; การ rename นี้ไม่เปลี่ยน physical table และยังไม่ cutover shop/notification reads
 - ไม่ rename physical table ในรอบนี้
 - public API ใช้ explicit select เท่านั้น
 
@@ -442,6 +442,7 @@ Owner: orchestrator
 #### DB-04 — Read-old + dual-write
 
 - current reads ยังใช้ source เดิม
+- เปลี่ยน Prisma model `BusinessSetting` เป็น `AppSetting` โดย map physical table เดิม แต่ยังไม่เปลี่ยน source fields ของ shop/notification reads
 - settings writes เขียน legacy + target ใน transaction เดียว
 - order/add-on/photo/payment compatibility metrics พร้อม
 - no fire-and-forget dual-write
@@ -463,7 +464,7 @@ Owner: orchestrator
 #### DB-06 — Read cutover + soak
 
 - เปลี่ยน model/utility read source ทีละกลุ่ม
-- เปลี่ยน `BusinessSetting` Prisma model เป็น `AppSetting` โดย map physical table เดิม
+- เปลี่ยน shop/notification reads ไป target fields บน `AppSetting` ที่ rename แล้วใน DB-04
 - payment presentation/source relations และ completedAt ใช้ canonical path
 - dual-write ต่อจน metrics/fallback เป็นศูนย์ 7–14 วัน
 - production steps ต้องได้รับ approval
@@ -552,23 +553,57 @@ Owner: orchestrator
 
 ### G1 — Database expand ready
 
-- [ ] baseline `pnpm test` ผ่าน
-- [ ] `prisma validate` ผ่าน
-- [ ] fresh migration replay ผ่าน
-- [ ] restore drill/reconciliation fixture พร้อม
-- [ ] generated SQL/lock review ผ่าน
+> ตัดสินโดย orchestrator 2026-09-02: **ผ่าน (ready to author expand)**
+> ข้อ 1–4 ผ่านจากการรันจริง; ข้อ 5 ปิดแล้วหลังเขียน DB-03 เสร็จ (รีวิว SQL
+> ที่ generate + ทดสอบบน disposable DB + rehearsal รอบใหม่ผ่านครบ)
+
+- [x] baseline `pnpm test` ผ่าน (267/267, ยืนยันซ้ำ 2026-09-02 ก่อนและหลัง DB-03)
+- [x] `prisma validate` ผ่าน
+- [x] fresh migration replay ผ่าน (47/47 ก่อน DB-03, 48/48 หลังรวม DB-03 บน disposable postgres:16)
+- [x] restore drill/reconciliation fixture พร้อม (synthetic fixture + dump/restore + report equality + schema-diff allowlist ว่าง = 0 diff + negative self-test exit 3)
+- [x] generated SQL/lock review ผ่าน — migration `20260902000000_db03_expand_appsetting_completed_at` เป็น ADD COLUMN nullable 26+1 คอลัมน์เท่านั้น (catalog-only, ไม่มี table rewrite, lock สั้นบนตาราง 1 แถว + service_order); ตัด DROP INDEX drift ที่ `prisma migrate dev` แทรก (partial unique index 2 ตัวที่ schema.prisma แทนไม่ได้) โดยมี guard testคอยจับ; `prisma migrate diff` เหลือเฉพาะ DROP ของ partial indexes สองตัวที่อยู่ใน known allowlist และไม่มี unexpected schema diff
 
 ### G2 — Backfill ready
 
-- [ ] compatibility app อ่านเก่าและ dual-write จริง
-- [ ] rollback app test ผ่าน
-- [ ] backfill dry-run ไม่พบ unknown payload
+**สถานะ: PASS บน synthetic disposable PostgreSQL (2026-09-02)** — actual old
+application binary drill ผ่านครบ; ขอบเขตนี้ปิด G2 แต่ไม่ใช่หลักฐาน
+production-shape และไม่ทำให้ G3 ผ่านอัตโนมัติ:
+
+- [x] compatibility app อ่านเก่าและ dual-write จริง — `settingsDualWriteDb.test.ts` ยืนยัน equality/transaction rollback; old revision `8d87759298fec3030313802b63d33416d4da910f` ถูก build ด้วย frozen lockfile และ actual Nitro binary อ่าน expanded schema ผ่าน HTTP จริง
+- [x] rollback app test ผ่าน — `run-old-binary-drill.sh` ผ่าน 13/13 stages: Better Auth signed-cookie login จริง, public/admin settings, backfilled add-on/photo, completed-order `updatedAt` fallback และ old-only shop write/readback; schema fingerprint/normalized rows/partial indexes คงเดิม, post-drill preflight ผ่าน, current checkout ไม่เปลี่ยนและ disposable resources ถูก cleanup
+- [x] backfill dry-run ไม่พบ unknown payload — rehearsal stage 4: dry-run ทั้ง 3 operations บน fixture สะอาดให้ `mismatches = 0`, `quarantine = 0`, exit 0; unknown-shape/invalid-json/missing-entitlement paths ถูกพิสูจน์ว่า quarantine ด้วย negative overlay (exit 2, rowsChanged 0)
+
+ข้อกำหนด rollback window: old-only settings write ทำให้ target stale ตามคาด;
+ก่อน DB-06 ต้องกลับ compatibility app ที่ยังอ่าน legacy แล้ว re-save ค่าที่เปลี่ยนผ่าน
+admin API เพื่อ dual-write อีกครั้ง. DB-05 จะรายงาน mismatch exit `1` และไม่ overwrite
+target ที่ไม่ว่าง. Evidence ล่าสุด:
+`/var/folders/f5/18ygctb55cncd7h4pchbp6hm0000gn/T/saijai-old-binary-rehearsal.BKEfS5`.
 
 ### G3 — Read cutover ready
 
-- [ ] backfill รอบสองเปลี่ยนศูนย์แถว
-- [ ] field/row/invariant mismatch = 0
-- [ ] quarantine = 0 หรือมี approved disposition
+**สถานะ: Approval C รันแล้วผ่านครบ (2026-09-03, `chat-2026-09-03-g3-c`) — DB-03
+expand สำเร็จ, DB-05 ทั้งสาม operation dry/apply/apply2/final ผ่าน (mismatch =
+0, quarantine = 0, รอบสองเปลี่ยน 0 แถว), preflight-after สะอาด, migration
+history up to date (48), post-migration backup `20260902T201512Z`.** ดู
+[`db-g3-production-approval-packet.md`](./db-g3-production-approval-packet.md)
+section 7. ขั้นถัดไปคือ DB-06 read cutover ซึ่งต้องได้การอนุมัติแยกจาก operator
+โดยตรง
+
+- [x] Approval A post-remediation production-shape rehearsal ผ่าน 12/12
+- [x] Approval B runner พร้อมและพิสูจน์ production-read-only mode บน disposable DB
+- [x] Approval B database preflight รันบน production จริงแบบ TLS/read-only ผ่าน
+- [x] Approval B external backup verification + restore rehearsal
+- [x] ข้อบังคับ PITR ถูกแทนด้วย external encrypted backup policy — operator
+  ตัดสิน 2026-09-03 คง Supabase Free Plan; backup สด `20260902T195024Z` +
+  restore drill `backup-drill-20260902T195024Z` ผ่าน
+- [x] Approval B active deployment/worker inventory + compatibility revision —
+  Vercel log export + live probe: deployment เดียวรับ traffic ทุก host,
+  worker 0, revision `dpl_9HDLPx…`
+- [x] Approval C expand/backfill บน production จริง — 2026-09-03 ผ่านครบ
+  (DB-03 migrate deploy + DB-05 ทั้งสาม operation, stop condition ไม่ถูกเรียก)
+- [x] backfill รอบสองเปลี่ยนศูนย์แถว
+- [x] field/row/invariant mismatch = 0
+- [x] quarantine = 0 หรือมี approved disposition
 
 ### G4 — Contract ready
 
@@ -692,12 +727,19 @@ Primary agent เป็นผู้แก้ section นี้เท่านั
 | --- | --- | --- | --- |
 | G0 Plan alignment | complete | orchestrator | child plans linked; AppSetting/2-table printer schema/dual-write sequence aligned |
 | DB-01 Characterization | complete | sub-agent DB-01 (verified by orchestrator 2026-09-02) | 70 tests / 5 ไฟล์ใหม่ใน `tests/server/*Characterization.test.ts` pin settings projection, payment→sale mapping, add-on refund, subscriber lifecycle, deliveredAt fallback; full suite 267/267 ผ่าน; red/green sensitivity พิสูจน์ด้วย mutation ชั่วคราว (revert แล้ว); ไม่แก้ไฟล์เดิม พบ risk: refundAddonUsages อาจคืนซ้ำผ่าน legacy JSON fallback เมื่อ normalized records ถูก refund หมด (ต้องออกแบบ backfill ให้เคลียร์ JSON) และ deliveredAt fallback ซ้ำ 3 จุด |
-| DB-02 Restore/replay | partial | sub-agent DB-02 (verified by orchestrator 2026-09-02) | preflight/reconciliation SQL ครบ 8.1–8.7 (read-only, aggregate, ไม่มี PII) + runners (bash/psql, Node/pg) + `docs/db-rehearsal-runbook.md` + backfill report contract; overlap `20260519000000_db_audit_fixes`/`20260522000000_reconcile_schema` สรุปว่า replay ได้ปลอดภัย (comment-only no-op); **fresh replay + restored-shape rehearsal ยัง PENDING** — Docker daemon ใช้ไม่ได้และไม่มี PostgreSQL local; runbook มี 3 ทางเลือก (Docker/Postgres local/CI) |
+| DB-02 Restore/replay | complete | sub-agent DB-02 + orchestrator DB-02.1 (verified by orchestrator 2026-09-02) | preflight/reconciliation SQL ครบ 8.1–8.7 (read-only, aggregate, ไม่มี PII) + runners + `docs/db-rehearsal-runbook.md` + backfill report contract; ต่อยอด DB-02.1 ตามสั่ง: (1) `--enforce` ทำ runner fail ด้วย exit 3 เมื่อ invariant แตก (pass=false, violating_rows>0 โดยไม่มี pass column, zero-required check ids, NOTICE invariants จาก 07) (2) `schema-diff.mjs` + `schema-allowlist.json` (fingerprint tables/columns/enums/constraints/indexes; ตัด ordinal_position เพราะ attnum gap จาก DROP COLUMN ไม่รอดจาก pg_dump) (3) `fixture/01-synthetic-fixture.sql` synthetic non-PII ทั้งชุด + `fixture/02-violations-overlay.sql` negative self-test (พบ CHECK `payment_record_single_source` กัน multi-source ระดับ DB แล้ว) (4) `run-rehearsal.sh` รันครบ 7 stages บน disposable postgres:16 ผ่านทั้งหมด: fresh replay 47/47 migration → fixture → preflight enforce → pg_dump → restore → report equality + schema-diff allowlist ว่าง = 0 diff → negative test exit 3; 07 แก้เป็น cutover-aware (legacy COMPLETED คง completedAt NULL ตาม F5 = report-only, กฎ post-cutover ทำงานเมื่อตั้ง REHEARSAL_COMPLETED_AT_CUTOVER); evidence `/var/folders/.../saijai-rehearsal.JeCh8K` (rerun ได้ด้วย REHEARSAL_KEEP_STAGE=1) |
 | HW-01 Hardware evidence | pending | — | requires physical unit information |
 | PRN-01 Pure contracts | complete | sub-agent PRN-01 (verified by orchestrator 2026-09-02) | `shared/types/printing.ts`, `shared/utils/printJobState.ts` (transition table ตรง C8, fencing/lease/retry/stale-guard), `server/utils/paymentQr/` (EMVCo TLV, CRC-16/CCITT-FALSE, exact amountMinor แบบ string math); 86 tests ผ่าน; typecheck exit 0; orchestrator ยืนยันอิสระด้วย CRC implementation แยก (check value 29B1 และ CRC ของ payload จริง) + round-trip parse; ไม่เพิ่ม dependency/Prisma/transport |
-| DB-03 Expand | pending | — | after G1 |
-| DB-04 Dual-write | pending | — | after DB-03 |
-| DB-05 Backfill | pending | — | after DB-04 |
+| DB-03 Expand | complete | orchestrator (2026-09-02) | migration `prisma/migrations/20260902000000_db03_expand_appsetting_completed_at` (authored by hand จาก SQL ที่รีวิวแล้ว เพราะ `migrate dev` แทรก DROP INDEX ของ partial unique index 2 ตัวที่ schema.prisma แทนไม่ได้): ADD COLUMN nullable 26 คอลัมน์บน `business_setting` (shop 5, notification policy 9, print/QR 12 รวม lineQrEnabled) + `service_order.completedAt` 1 คอลัมน์ — ไม่มี drop/rename/default/backfill, actor ids เป็น String? ไม่มี FK เพื่อลด expand surface; แก้ `sql/07` ที่ detect `completed_at` ผิดเป็น `"completedAt"` (จริง ๆ ไม่เคย active) และพิสูจน์ red/green กฎ cutover แล้ว; verification: replay 48/48 ผ่าน, `migrate diff` เหลือเฉพาะ known partial-index DROP สองตัว (index จริงยังครบ), custom schema-diff pre-vs-post = +27/−0 ตรง migration ทุกบรรทัด, `prisma generate` + pnpm test 267/267 + typecheck exit 0, rehearsal เต็มรอบ (fixture + enforce + dump/restore + negative test) ผ่าน — evidence `/var/folders/.../saijai-rehearsal.YLS13E` |
+| DB-04 Dual-write | complete | orchestrator + sub-agent review (2026-09-02) | settings writer รวมที่ `server/utils/appSetting.ts`; shop/notification เขียน legacy + target ด้วย transaction เดียวและ map จาก persisted legacy row, `lineQrEnabled` derive จากการมี legacy URL; Prisma model rename เป็น `AppSetting` แต่ physical `business_setting` และ read-old semantics คงเดิม; `completedAt` stamp ครบ create/status PATCH/full PUT, ปิด full-PUT state-machine bypass และเพิ่ม optimistic status guard. DB-04.1 telemetry: `server/utils/compatTelemetry.ts` เป็น contract กลาง (metric ชื่อ stable 5 ตัว: setting_write/addon_refund/item_photo_write/payment_status_sync/order_transition, dimension bounded path/result, errorCode sanitized เป็น code/HTTP_x เท่านั้น, success emit หลัง commit, emit ห้ามทำ tx ล้ม); instrument ครบ settings, add-on refund (outcome normalized/already-refunded/legacy-fallback/no-usage), photo mirror, payment↔packageSale sync (state/edit/cancel/delete), order transition + conflict. DB-04.2: ปิด double-refund — `refundAddonUsages` ทำ normalized ledger เป็น authoritative ทันทีที่มี record ของ order (all-refunded หรือ pending-only ไม่ fallback JSON อีก), แก้แบบ test-first red→green และเปลี่ยน quirk test เป็น regression test. Verification: pnpm test 289 passed/1 skipped, nuxi typecheck exit 0, prisma validate ผ่าน, guarded disposable-Postgres test ยืนยัน legacy/target equality + target-failure rollback จริง (container ลบแล้ว). ณ เวลาปิด DB-04 งาน G2 ที่ยังเหลือคือ full old-app rollback rehearsal และ clean backfill dry-run; ทั้งสองปิดแล้วภายหลังตามแถว G2 ด้านล่าง. Completion-audit รอบสอง (2026-09-02): harden telemetry ตาม audit finding — `compatErrorCode` เป็น whitelist จริง (Prisma `P####`, application UPPER_SNAKE, fallback `HTTP_100–599` เท่านั้น, ≤64 ตัวอักษร, นอกเงื่อนไข = `UNKNOWN`, `data.code` ที่ invalid ล้มไปหา `code`/`statusCode`), payload ไม่มี message/stack/URL/token/record ID; metric/path/result เป็น closed union ต่อ metric จาก call sitesจริงและ `emitCompatFailure` มี overload คู่ metric/path ต่อ metric (typecheck exit 0 ยืนยัน call sitesครบ ไม่มี call site ถูกแก้); tests `compatTelemetry.test.ts` เพิ่มเป็น 14 แบบ test-first (red 4 กรณี: arbitrary code whitespace/URL/secret → UNKNOWN, ยาวเกิน 64 → UNKNOWN, statusCode นอกช่วง/ทศนิยม → UNKNOWN, invalid data.code ล้มต่อ) และพิสูจน์ console throw แล้ว business failure ยัง propagate |
+| DB-05 Backfill | complete | orchestrator (2026-09-02) | runner `scripts/db-rehearsal/backfill/backfill.mts` (3 operations: settings-consolidation, addon-usage-json-to-ledger, item-photo-direct-to-join; mode dry-run/apply; ใช้ parser ตัวจริง `parseAddonUsages` ของแอป; guard loopback+`rehearsal*`+`--confirm-disposable`; batch transaction เดียวต่อ run; report ตาม `backfill-report-contract.ts` exit 0/1/2/3/64); pure planners แยกใน `plan.mts` + tests `backfillPlanning.test.ts` (14); `legacy-read-check.mts` ยืนยัน legacy sources ไม่ถูกแตะและอ่านได้; negative overlay `fixture/03-backfill-negative-overlay.sql`; rehearsal `run-backfill-rehearsal.sh` ผ่านครบ 12 สเตจ (48/48 replay, dry-run quarantine 0, apply settings 1/add-on 2/photo 1, gap checks 0, apply รอบสอง rowsChanged 0, dump/restore equality + allowlist diff ว่าง, legacy read-path 11 checks, negative: quarantine exit 2 rowsChanged 0 + mismatch exit 1 + preflight exit 3, partial indexes ครบทั้งสอง DB); pnpm test 303 passed/1 skipped, typecheck exit 0, prisma validate ผ่าน; ไม่ต้องเขียน DB นอก disposable; ไม่ได้เริ่ม DB-06/DB-07/printer ตามขอบเขต. Completion-audit รอบสอง (2026-09-02): ปิดช่อง partial migration ตาม audit finding — ตรวจการมีอยู่ของ entitlement ของ valid entries ทุกตัวก่อนเขียน หาก order ใดมี entitlement หายจะ quarantine `missing-entitlement` ทั้ง order และไม่สร้าง ledger row เลย (rowsChanged ของ order นั้น = 0, ไม่เดาค่า ไม่สร้าง entitlement ไม่ลบ legacy JSON, clean order อื่นใน batch ยังถูก migrate); พิสูจน์แบบ test-first red (createMany ถูกเรียกบน order ที่มี missing-entitlement) → green 17/17 (`backfillPlanning` 14 + `backfillAddonRunner` 3 ใหม่); negative overlay แยก `fxso7` เป็น parser-clean missing-entitlement order (ไม่ปน invalid-json/unknown-shape เพื่อไม่ให้ early parser quarantine บัง branch) และ rehearsal รันซ้ำผ่านครบ 12 สเตจ (exit 0) — negative dry-run quarantine 3 entries ครบ 3 reason (exit 2), negative **apply** rowsChanged 0 และ `fxso6`/`fxso7` ไม่มี ledger row ใน DB จริง, apply รอบสองยัง rowsChanged 0, dump/restore equality + legacy read-path + partial indexes ยังผ่าน; pnpm test 312 passed/1 skipped, typecheck exit 0, prisma validate ผ่าน |
+| G2 Backfill ready | complete | orchestrator (2026-09-02) | actual old-binary drill `run-old-binary-drill.sh` ผ่าน 13/13 บน unique loopback PostgreSQL 16: Git archive ของ `8d87759298fec3030313802b63d33416d4da910f`, frozen install + Prisma generate + Nuxt build, actual `.output/server/index.mjs`, Better Auth login และ public/authenticated HTTP reads, old-only write/readback, add-on/photo/completed fallback, schema/data/index preservation, post-preflight และ cleanup; expected settings target staleness ถูก detect fail-closed และมี resync step ก่อน DB-06; production-shape/G3 ยัง pending |
+| G3 production-shape preparation | complete | orchestrator (2026-09-02) | approval packet แยก A backup/local restore, B read-only production preflight, C production expand/backfill และย้ำว่าไม่รวม DB-06; `run-production-shape-rehearsal.sh` บังคับ approved custom archive + SHA-256 + source PG major + approval reference, mount read-only เข้า unique loopback container, restore transaction, DB-03 exact allowlist, canonical fresh-schema diff, enforced preflight, dry/apply/apply2/final gates, timeout, aggregate-only verdict และ repo/archive integrity; evaluator self-tests 5/5 รวม active-image gap, blocked-preflight evidence และ redaction; harness end-to-end 12/12 ผ่านบน synthetic pre-DB-03 archive (+27/−0, canonical drift 0, mismatch/quarantine 0, apply2/final rowsChanged 0), evidence `/var/folders/.../saijai-g3-production-shape.Yirmzb` |
+| G3 approved production-shape execution | complete | orchestrator (2026-09-02) | รอบแรก Approval A `chat-2026-09-02-g3-a` หยุด fail-closed ที่ `paid_payment_missing_receipt_no=1`. หลังได้รับ approval แยก จึงแก้ production เพียง 1 แถวด้วย `receiptNo = paymentNo` ใน SERIALIZABLE transaction: candidate 1, paymentNo present, collision 0, update 1, invariant ภายใน transactionและหลัง commit 0; aggregate evidence `/Users/jirayu/dev/backup/saijai-phareab/production-payment-receipt-remediation-20260902T141204Z.json`. สร้าง post-remediation PostgreSQL 17.6 custom archive SHA `b3c00f…055c71` แล้ว Approval A รอบ `chat-2026-09-02-g3-a-after-receipt-remediation` ผ่านครบ 12/12: DB-03 +27/−0 unexpected 0, canonical allowed removal 1/unexpected 0, preflight failures 0, mismatch/quarantine 0, apply2/final rowsChanged 0 ทุก operation; evidence `/var/folders/.../saijai-g3-production-shape.HdVPdB`. Production ไม่ถูก migrate/backfill; Approval B/C และ G3 production ยัง pending; DB-06 ยังไม่เริ่ม. |
+| G3 Approval B tooling | complete | orchestrator (2026-09-02) | `run-preflight.mjs` มี target mode แยกชัด: production mode บังคับ sanitized approval reference, absolute new report นอก repo mode `0600`, no-overwrite/no-existing-symlink, invariant enforcement, fixed application name, `REPEATABLE READ READ ONLY` + runtime verification, statement/lock timeout, non-symlink PEM CA + TLS peer verification และไม่บันทึก host/database/driver message; `00-server-and-migration-context.sql` รายงาน version/read-only/Prisma migration aggregate. เพิ่ม `approval-b-attestation.example.json` และ `evaluate-approval-b.mjs` เพื่อรวม SQL evidence กับ operator evidence แบบ fail-closed: freshness 24h สำหรับ attestation/backup, 1h สำหรับ PITR/runtime, future tolerance 5m, active runtime ต้องเป็น compatibility version (หรือ zero-runtime maintenance), คำนวณ row/NOTICE invariant ซ้ำ, ปฏิเสธ SQL file ขาด/ซ้ำ/นอก reviewed set และ summary ไม่คัดลอก identifiers. Focused tests หลัง TLS hardening: preflight CLI 8/8; evaluator 9/9; production-mode integration ก่อน TLS hardening บน synthetic disposable PostgreSQL 17 ผ่าน (8 SQL files, invariant failure 0, read-only true, overwrite exit 1); full replay/dump/restore/negative rehearsal 7/7 ผ่าน; pnpm test 312 passed/1 skipped, typecheck และ prisma validate ผ่าน. SQL ไม่สามารถแทน operator attestation เรื่อง PITR/backup กับ active deployment/worker ได้. |
+| G3 Approval B production execution | blocked | orchestrator (2026-09-02) | ได้รับ approval `chat-2026-09-02-g3-b`. Initial invocation loader เลือก commented localhost example และหยุดก่อน SQL; failure report `production-preflight-20260902T161736Z.json` เก็บ audit เท่านั้น. Authoritative rerun เลือก active uncommented `DIRECT_URL` FQDN: CA SHA `700723…f0ef`, TLS peer verification, `REPEATABLE READ READ ONLY`, timeout 30000ms; runner exit 0, SQL 8/8, PostgreSQL 17.6, migration rows 47/unfinished 0/rolled-back 0, query/invariant failure 0, settings singleton 1/1/1, add-on/photo backfill targets 0, paid invariants 0. Aggregate report `/Users/jirayu/dev/backup/saijai-phareab/production-preflight-20260902T163522Z.json` mode 0600 SHA `92314da…177d5`; URL/credential leak checksผ่าน. Read-only Supabase Dashboard inspection ยืนยัน Free Plan ไม่มี scheduled backup และ PITR ไม่ได้เปิด; external custom archive ยัง fresh และผ่าน restore rehearsal 12/12. Evaluator รอบล่าสุดยัง `APPROVAL_B_BLOCKED` 7 รายการ: PITR 2 และ production runtime inventory/compatibility 5; summary `/Users/jirayu/dev/backup/saijai-phareab/approval-b-summary-observed-20260902T165457Z.json` mode 0600 SHA `d6f04fd…5e65a`. ไม่มี write, migration, backfill, deploy, Approval C หรือ DB-06. |
+| G3 Approval B backup policy + runtime host decision | done (Approval B PASS) | orchestrator (2026-09-03) | Operator ตัดสิน 2 ข้อ: (1) คง Supabase Free Plan — ไม่สมัคร Pro/PITR และให้เลือกนโยบายทดแทนเอง จึงกำหนด `external-encrypted-backups`: backup เต็มเข้ารหัสทุก ≤ 60 นาที (RPO เท่าเกณฑ์ PITR เดิม), retention ≥ 14 วัน, restore drill ≤ 30 วัน; `evaluate-approval-b.mjs` เพิ่ม `backupPolicy` attestation path (fail-closed: interval invalid ใช้ window 60 นาที, ยังบังคับ backup 24h/drill reference เดิม, PITR path คงเดิมเมื่อไม่มี policy) พร้อม focused tests 11/11 ผ่าน; (2) production application รันบน Vercel — บันทึก mapping runtime inventory ลง packet section 4.2 และ `approval-b-attestation.example.json`. เครื่องมือ backup ที่ Cloudflare R2: `scripts/production-backup/r2-backup.sh` + `r2-s3.mjs` (SigV4 `node:crypto` ล้วน, แก้ canonical-query sort bug พร้อม regression test 3/3) + `restore-drill.sh`. การปิด gate รอบสุดท้าย `chat-2026-09-03-g3-b` (operator มอบหมายให้ orchestrator รัน): backup สด `20260902T195024Z`, restore drill ผ่าน 2 รอบ (รอบแรกเจอ grep pattern ผิดใน drill เอง — custom-format dump พิมพ์ `Format: CUSTOM` ไม่ใช่ banner plain-text, แก้แล้ว), production preflight read-only ใหม่สะอาด 8/8, runtime inventory จาก Vercel log export ของ operator + live probe (deployment เดียว `dpl_9HDLPx…` รับ traffic ทุก host, worker 0) → `evaluate-approval-b.mjs` = `APPROVAL_B_PASS` blocker 0 หลักฐานใน restricted directory (`approval-b-attestation-final-2026-09-02T19:54:14Z.json`, `approval-b-summary-final-…`). ยังไม่มี production write, migration, backfill, deploy, restart, commit หรือ DB-06 — Approval C ต้องขออนุมัติ operator แยกต่างหาก (window 01:00–03:00 Asia/Bangkok) |
+| G3 Approval C production expand/backfill | complete | orchestrator (2026-09-03) | Operator อนุมัติคำเดียว "เริ่มเลย" หลัง `APPROVAL_B_PASS` (`chat-2026-09-03-g3-b`); reference `chat-2026-09-03-g3-c`. เริ่ม 03:05 Asia/Bangkok (เลยขอบหน้าต่าง 01:00–03:00 ~5 นาที — deviation บันทึกไว้, operator เฝ้าตลอด). DB-03 `prisma migrate deploy` migration เดียว `20260902000000_db03_expand_appsetting_completed_at` (additive) สำเร็จ — หลังรัน up to date 48. DB-05 ผ่าน `backfill.mts` โหมด `--confirm-production` ใหม่ (fail-closed: ปฏิเสธ loopback/rehearsal*, บังคับ sslmode + `--ssl-root-cert` CA PEM เพราะ node pg ตีความ require เป็น verify-full; แสดง error code เมื่อ abort): settings-consolidation dry 1/apply 1/apply2 0/final 0, addon-usage-json-to-ledger และ item-photo-direct-to-join 0 แถวทั้งหมด (production ไม่มี legacy data), mismatch = 0, quarantine = 0 ทุกเฟส. Reconciliation preflight-after สด: failed=false, invariantFailures=[], `non_completed_orders_with_completed_at = 0`, completed 14 ออเดอร์ `completedAt = NULL` ตามนโยบาย F5. Backup ก่อนรัน `20260902T195024Z` (drill `backup-drill-20260902T195024Z`), backup หลังรัน `20260902T201512Z`. `pnpm test` 312 ผ่าน, `git diff --check` ผ่าน. หลักฐาน restricted directory: `db03-migrate-deploy-*.log`, `dry/apply/apply2/final-<op>.json|log`, `production-preflight-after-*.json|log`. DB-06 ยังไม่เริ่ม — ต้องอนุมัติแยก |
 | DB-06 Read cutover/soak | pending | — | production approval required |
 | DB-07 Contract | pending | — | destructive approval required |
 | PRN-02 Print schema | pending | — | after G5 |

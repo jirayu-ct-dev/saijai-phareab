@@ -1,4 +1,5 @@
 import { addDays } from "date-fns";
+import { COMPAT_METRICS, emitCompatFailure, emitCompatTelemetry } from "~~/server/utils/compatTelemetry";
 import { requireRole } from "~~/server/utils/auth";
 import { prisma } from "~~/server/utils/prisma";
 
@@ -258,8 +259,13 @@ export default defineEventHandler(async (event) => {
       return row;
     });
 
+    // The payment → package-sale status mirror is a compatibility path during
+    // consolidation; report it only after the transaction has committed.
+    emitCompatTelemetry({ metric: COMPAT_METRICS.paymentStatusSync, path: "edit", result: "success" });
+
     return updated;
   } catch (error) {
+    emitCompatFailure(COMPAT_METRICS.paymentStatusSync, "edit", error);
     if (error && typeof error === "object" && "statusCode" in error) {
       throw error;
     }

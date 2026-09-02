@@ -49,7 +49,7 @@ async function main() {
     },
   });
 
-  await prisma.businessSetting.upsert({
+  await prisma.appSetting.upsert({
     where: { id: "singleton" },
     update: {},
     create: {

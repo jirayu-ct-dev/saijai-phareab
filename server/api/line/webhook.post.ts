@@ -1,4 +1,4 @@
-import { prisma } from "~~/server/utils/prisma";
+import { getShopIdentity } from "~~/server/utils/appSetting";
 import {
   parseLineWebhookPayload,
   replyMessage,
@@ -9,8 +9,9 @@ import {
 import { isDuplicateWebhookEvent } from "~~/server/utils/webhookEventDedupe";
 
 const getShopName = async (): Promise<string> => {
-  const shop = await prisma.shopSetting.findUnique({ where: { id: "singleton" } });
-  return shop?.name?.trim() || "ร้านซักผ้า";
+  // DB-06 read cutover: identity from AppSetting with legacy fallback.
+  const shop = await getShopIdentity();
+  return shop.name.trim() || "ร้านซักผ้า";
 };
 
 const handleFollowEvent = async (ev: LineWebhookEvent): Promise<void> => {

@@ -1,0 +1,5 @@
+{
+  "$comment": "schema-diff allowlist. Entries are exact fingerprint lines, or regexes prefixed with 're:'. 'added' covers lines present in --to but not --from; 'removed' the reverse. Keep this list empty for dump/restore equality checks; for the DB-03 expand-migration review it must contain ONLY the additive AppSetting/completedAt columns and nothing else.",
+  "added": [],
+  "removed": []
+}
