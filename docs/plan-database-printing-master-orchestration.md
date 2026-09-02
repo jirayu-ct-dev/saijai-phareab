@@ -639,11 +639,15 @@ soak 7–14 วันตามแผนเริ่มนับ 2026-09-03 ต�
 
 ### G6 — Print integration ready
 
-- [ ] HW-01 ตอบ OS/interfaces/port/dots
-- [ ] Printer/PrintJob schema ผ่าน concurrency tests
-- [ ] lease/fencing/stale/idempotency tests ผ่าน
-- [ ] bridge fake transports ผ่าน restart/partial send
-- [ ] Hybrid fixtures decode/compare ผ่าน
+> สถานะ (2026-09-03): PRN-02/03/04/05 เสร็จและตรวจครบ (ดู ledger) — คงเหลือ
+> HW-01 ที่ผูกกับตัวเครื่องจริง และ Hybrid fixture compare ที่ต้องรอ profile
+> จริงจาก HW-01 จึง tick สองข้อล่างไม่ได้
+
+- [ ] HW-01 ตอบ OS/interfaces/port/dots (ผูกกับตัวเครื่องจริง — ยังไม่มีบนหน้างาน)
+- [x] Printer/PrintJob schema ผ่าน concurrency tests — rehearsal 6 stages บน disposable postgres:16 (replay 49/49, FOR UPDATE SKIP LOCKED ผู้ชนะเดียว, idempotency 23505, fencing, stale-lease)
+- [x] lease/fencing/stale/idempotency tests ผ่าน — `tests/server/printJobQueue.test.ts` 18 กรณี (stale-fencing reject, ห้าม FAILED หลัง sendStartedAt, freshness→STALE_DOCUMENT, timeline จำกัด)
+- [x] bridge fake transports ผ่าน restart/partial send — `tests/server/printBridge*.test.ts` 29 กรณี (outbox fsync + crash resume→NEEDS_REVIEW, mutex, partial write→NEEDS_REVIEW, connect fail→FAILED_OFFLINE backoff, stale drop, credential redaction)
+- [ ] Hybrid fixtures decode/compare ผ่าน (composer/escpos tests 82 กรณีผ่านแล้ว แต่ compare กับ output จริงของเครื่องต้องรอ HW-01 profile)
 
 ### G7 — Physical validation ready
 
@@ -761,11 +765,11 @@ Primary agent เป็นผู้แก้ section นี้เท่านั
 | G4 DB-06 read cutover + soak start | in-progress (soak) | orchestrator (2026-09-03) | Operator มอบอำนาจ "เริ่มให้เสร็จทั้งหมด ไม่ต้องมาอนุมัติ". สำรวจพบ dual-write (Phase 3) ครบแต่ read cutover ยังไม่เริ่ม — เขียน read helpers `getShopIdentity`/`getNotificationPolicy` ใน `server/utils/appSetting.ts`: resolve จาก AppSetting แบบ per-field (`app.X ?? legacy.X ?? default` ตามนโยบาย null = ยังไม่ migrate), เทียบ legacy ทุกครั้งเพื่อ soak telemetry (`db_compat_setting_read_total` match/mismatch/fallback ผ่าน `compatTelemetry.ts`) และ legacy ชนะเมื่อ mismatch เพื่อความปลอดภัยระหว่าง soak. Swap read paths ครบ 7 จุด: admin settings shop.get/notification.get, public shop-settings.get (explicit select), notify.ts, notifyExpiring.ts, line/webhook.post.ts. Tests: `settingsReadCutover.test.ts` ใหม่ + อัปเดต characterization mocks; pnpm test 322 ผ่าน, typecheck 0 error, build สำเร็จ. Commit `b1dfe9e` (รวม G3 tooling/migration/backfill runner ทั้ง working tree) push main → Vercel deploy สำเร็จ live buildId `b44a3e64…` ตัวเดียว. G4: post-cutover backfill dry-run mismatch 0, legacy caller search เหลือเฉพาะ dual-write leg ที่ตั้งใจ, backup `20260902T204720Z`. G5: constraints check ผ่าน (invalid/NOT VALID = 0 ใน app schema; Supabase realtime NOT VALID ที่เคยเห็นถูก platform validate แล้ว). เหลือ: soak 7–14 วัน (เริ่ม 2026-09-03) mismatch/fallback = 0 ตลอดหน้าต่าง แล้วหยุด dual-write ทีละกลุ่ม (DB-07) — เป็นงานตามปฏิทิน ไม่ใช่งานโค้ด |
 | DB-06 Read cutover/soak | pending | — | production approval required |
 | DB-07 Contract | pending | — | destructive approval required |
-| PRN-02 Print schema | pending | — | after G5 |
-| PRN-03 APIs | pending | — | after PRN-02/contracts |
-| PRN-04 Bridge | pending | — | after HW-01/contracts |
-| PRN-05 Renderer | pending | — | after HW-01/contracts |
-| PRN-06 UI | pending | — | after API contract freeze |
+| PRN-02 Print schema | complete | sub-agent PRN-02 + orchestrator integration (2026-09-03) | migration `prisma/migrations/20260903120000_prn02_printer_print_job` additive CREATE TABLE/TYPE/INDEX เท่านั้น (ไม่มี data/credential/endpoint), models `Printer` + `PrintJob` ตรง C7–C8 (capabilities JSON default-false, bridgeCredentialHash+version, idempotency scope unique `print_job_idempotency_scope`, fencingToken, lease, bounded timeline, snapshot+hash+renderVersion+snapshotExpiresAt, reprintOfId self-relation); rehearsal `scripts/printing-rehearsal/run-prn02-constraints.sh` ผ่าน 6 stages บน disposable postgres:16 — replay 49/49, idempotency 23505 reject duplicate + distinct accepted, concurrent claim FOR UPDATE SKIP LOCKED ผู้ชนะเดียว, fencing 1→2, stale-lease reclaim + actively-leased ไม่ claimable, PrismaClient smoke; guard test `printJobSchema.test.ts` 9/9; orchestrator ยืนยัน validate/generate และแก้ `formatBangkokDateTime` export ที่ agent ค้าง | 
+| PRN-03 APIs | complete | sub-agent PRN-03 + orchestrator integration (2026-09-03) | `server/utils/printJobQueue.ts` (claimPrintJobs tx เดียว: stale-lease reclaim + SENDING หมดอายุ→NEEDS_REVIEW + FOR UPDATE SKIP LOCKED ตาม prn02 SQL ที่พิสูจน์แล้ว + C9 freshness ตรวจตอน claim→STALE_DOCUMENT; applyPrintJobEvent บังคับ leaseToken+fencingToken ผ่าน transition table ที่ freeze, FAILED ห้ามหลัง sendStartedAt, timeline จำกัด 20; requireBridgePrinter timing-safe SHA-256), `server/utils/printDocument.ts` (C10 exact minor units string-math, canonical sha256 snapshotHash, receiver AES-256-GCM keyring `PAYMENT_QR_RECEIVER_KEYS`, QR eligibility ตาม C9 — encode/validate fail แล้วข้าม block ไม่ fallback); endpoints `/api/admin/printers` (singleton 409, credential rotate คืน plaintext ครั้งเดียว, soft-delete 409 เมื่อมี QUEUED), `/api/admin/print-jobs` (create tx เดียว + P2002→existing job, resolve, reprint), `/api/admin/print-bridge` heartbeat/claim/events ตรง frozen contract; ACCESS_POLICIES + `/api/admin/print-bridge` (no roles — bearer credential ตรวจใน handler); tests 36 ใหม่ (printDocument 14, printJobQueue 18, printJobApi 4); pnpm test 431 passed/1 skipped |
+| PRN-04 Bridge | complete | sub-agent PRN-04 + orchestrator integration (2026-09-03) | `print-bridge/` zero-dependency Node 24 ESM (ไม่ install/build): outbox JSON-lines fsync ทุก append + resume หลัง crash (bytes-written โดยไม่ SENT → NEEDS_REVIEW ทุกครั้งที่ start), per-printer mutex, transport tcp.js (node:net, host/port อยู่ local config เท่านั้น — ไม่ส่งให้ server) + fake.js (partial write/hang/connect fail), config loader ปฏิเสธ config ที่ group/others อ่านได้, runner ตาม C8 (ก่อน bytes → FAILED safe code + backoff 3 ครั้ง; หลัง bytes/ไม่ชัด → NEEDS_REVIEW ไม่ retry; stale → drop), loop heartbeat 60s/claim 15s + graceful shutdown, credential ไม่ถูก log (regex assert); tests 29/29 (`printBridge*.test.ts`) รวม full suite; smoke `--help`/`--version` exit 0; verified กับ escpos จริงผ่าน Node type stripping |
+| PRN-05 Renderer | complete | sub-agent PRN-05 + orchestrator integration (2026-09-03) | `shared/utils/printComposer.ts` (PrintDocument+profile → PrintOperation[], additive `text` variant บน frozen union, native QR + raster fallback ใช้ payload เดิม, band splitting, compose report แจ้ง block ที่ข้าม, formatPrintIssuedAt เลี่ยง auto-import collision กับ server/utils/csv.ts), `shared/utils/escpos.ts` (ESC @, GS v 0 raster, GS ( k QR, GS V partial cut, drawer, TIS-620 mapping + combining-mark zero-width layout, PrintEncodeError typed, formatMinor integer-only); tests `tests/shared/printComposer+escpos` 82 ผ่าน; orchestrator แก้ typecheck `char possibly undefined` และ rename ฟังก์ชันวันที่ |
+| PRN-06 UI | pending | sub-agent running (2026-09-03) | admin printing page + composables; after API contract freeze (landed) |
 | HW-02 Physical matrix | pending | — | physical approval required |
 | PRN-07 Rollout | pending | — | deploy approval required |
 
