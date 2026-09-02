@@ -1,0 +1,13 @@
+{
+  "name": "saijai-print-bridge",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Zero-runtime-dependency local print bridge for Saijai Phareab (XP-C260M over TCP). PRN-04 Bridge MVP.",
+  "bin": {
+    "saijai-print-bridge": "./bin/bridge.mjs"
+  },
+  "engines": {
+    "node": ">=24"
+  }
+}

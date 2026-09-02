@@ -103,7 +103,7 @@ const BANGKOK_OFFSET_MS = 7 * 60 * 60 * 1000;
  * Formats an ISO 8601 instant as "d/m/yyyy HH:mm" in Asia/Bangkok time.
  * (Named to avoid the Nuxt auto-import collision with server/utils/csv.ts.)
  */
-export function formatBangkokDateTime(iso: string): string {
+export function formatPrintIssuedAt(iso: string): string {
   const epochMs = Date.parse(iso);
   if (Number.isNaN(epochMs)) return iso;
   const bangkok = new Date(epochMs + BANGKOK_OFFSET_MS);
@@ -169,7 +169,7 @@ export function composePrintOperations(
   // ---- Document identity ----
   pushText(DOCUMENT_TITLES[document.kind], "bold", "center");
   pushText(`เลขที่: ${document.documentNo}`);
-  pushText(`วันที่: ${formatBangkokDateTime(document.issuedAt)}`);
+  pushText(`วันที่: ${formatPrintIssuedAt(document.issuedAt)}`);
   if (document.revision > 1) pushText(`ฉบับที่: ${document.revision}`);
   pushText(`ลูกค้า: ${document.customer.name}`);
   if (document.customer.phoneNumber) pushText(`โทร: ${document.customer.phoneNumber}`);

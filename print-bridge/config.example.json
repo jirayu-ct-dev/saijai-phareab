@@ -1,0 +1,11 @@
+{
+  "baseUrl": "http://localhost:3000",
+  "printerId": "printer_REPLACE_ME",
+  "bridgeCredential": "paste-credential-from-admin-printer-settings",
+  "pollIntervalMs": 15000,
+  "outboxPath": "./print-bridge-outbox.jsonl",
+  "tcpTarget": {
+    "host": "192.168.1.50",
+    "port": 9100
+  }
+}

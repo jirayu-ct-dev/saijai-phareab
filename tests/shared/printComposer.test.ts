@@ -3,7 +3,7 @@ import type { PrintDocument, PrinterProfile } from "../../shared/types/printing"
 import { createPrinterCapabilities } from "../../shared/utils/printJobState";
 import {
   composePrintOperations,
-  formatBangkokDateTime,
+  formatPrintIssuedAt,
   formatMinor,
 } from "../../shared/utils/printComposer";
 
@@ -105,7 +105,7 @@ describe("printComposer", () => {
 
   it("formats dates in Asia/Bangkok time from the ISO instant", () => {
     // 2026-09-03T03:30Z is 10:30 in Bangkok (+7).
-    expect(formatBangkokDateTime("2026-09-03T03:30:00.000Z")).toBe("3/9/2026 10:30");
+    expect(formatPrintIssuedAt("2026-09-03T03:30:00.000Z")).toBe("3/9/2026 10:30");
   });
 
   // ============================

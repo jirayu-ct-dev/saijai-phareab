@@ -165,7 +165,7 @@ export function wrapText(text: string, columns: number): string[] {
 
   const chars = Array.from(text);
   for (let index = 0; index < chars.length; index += 1) {
-    const char = chars[index];
+    const char = chars[index]!;
     const codePoint = char.codePointAt(0) ?? 0;
     if (isThaiCombiningMark(codePoint)) {
       // Zero-width: always attaches to whatever base precedes it, even if the
