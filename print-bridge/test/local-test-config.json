@@ -1,0 +1,8 @@
+{
+  "baseUrl": "http://app:3000",
+  "printerId": "prt_local_test",
+  "bridgeCredential": "local-bridge-credential",
+  "pollIntervalMs": 5000,
+  "outboxPath": "/tmp/print-bridge-outbox.jsonl",
+  "tcpTarget": { "host": "fake-printer", "port": 9100 }
+}

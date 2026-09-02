@@ -172,7 +172,8 @@ export function printerProfileFromPrinterRow(row: {
 // ============================
 
 export type StaleGuardJob = {
-  sourceRevision: number;
+  /** BigInt when read from Prisma (epoch ms exceeds Int32). */
+  sourceRevision: number | bigint;
   snapshotHasPaymentQr: boolean;
   sourceStatus: PaymentStatus;
   amountMinor: number;
@@ -203,7 +204,7 @@ export function validateJobFreshness(
   appSetting: StaleGuardSetting,
 ): ReturnType<typeof checkPrintJobFreshness> {
   return checkPrintJobFreshness({
-    snapshotSourceRevision: job.sourceRevision,
+    snapshotSourceRevision: Number(job.sourceRevision),
     currentSourceRevision: deriveSourceRevision(currentPayment.updatedAt),
     snapshotHasPaymentQr: job.snapshotHasPaymentQr,
     snapshotPaymentStatus: job.sourceStatus,
@@ -243,7 +244,8 @@ type PrintJobRowLike = {
   status: PrintJobStatus;
   sourcePaymentId: string;
   sourceStatus: PaymentStatus;
-  sourceRevision: number;
+  /** BigInt when read from Prisma (epoch ms exceeds Int32). */
+  sourceRevision: number | bigint;
   amountMinor: number;
   qrConfigVersion: number | null;
   snapshotHasPaymentQr: boolean;
@@ -266,7 +268,6 @@ type PrintJobRowLike = {
   createdAt: Date;
   updatedAt: Date;
 };
-
 /** JSON-safe projection without the document snapshot (list/detail views). */
 export function projectPrintJob(job: PrintJobRowLike) {
   return {
@@ -280,7 +281,7 @@ export function projectPrintJob(job: PrintJobRowLike) {
     source: {
       paymentId: job.sourcePaymentId,
       status: job.sourceStatus,
-      revision: job.sourceRevision,
+      revision: Number(job.sourceRevision),
       amountMinor: job.amountMinor,
       qrConfigVersion: job.qrConfigVersion,
       snapshotHasPaymentQr: job.snapshotHasPaymentQr,
@@ -578,6 +579,9 @@ export type CreatePrintJobResult = {
 
 type CreateDb = {
   $transaction: (fn: (tx: any) => Promise<CreatePrintJobResult>) => Promise<CreatePrintJobResult>;
+  printJob?: {
+    findFirst: (args: { where: Record<string, unknown> }) => Promise<unknown>;
+  };
 };
 
 /**
@@ -592,8 +596,18 @@ export async function createPrintJob(
   input: CreatePrintJobInput,
 ): Promise<CreatePrintJobResult> {
   const now = input.now ?? new Date();
+  // Captured inside the transaction; the outer P2002 handler needs these to
+  // find the winning job after Postgres aborts the transaction block.
+  let createdFor: {
+    requestedById: string;
+    kind: PrintDocument["kind"];
+    documentId: string;
+    selectedTransport: PrinterProfile["defaultTransport"];
+    idempotencyKey: string;
+  } | null = null;
 
-  return db.$transaction(async (tx) => {
+  try {
+    return await db.$transaction(async (tx) => {
     // v1: the single logical printer is the target.
     const printer = await tx.printer.findFirst({
       where: { deletedAt: null },
@@ -699,9 +713,19 @@ export async function createPrintJob(
       transport: selectedTransport,
       requestId: input.idempotencyKey,
     });
+    createdFor = {
+      requestedById: input.actorId,
+      kind: input.kind,
+      documentId,
+      selectedTransport,
+      idempotencyKey,
+    };
+    // Fast path: a duplicate scope returns the existing job without aborting
+    // the transaction (C8 idempotency).
+    const duplicate = await tx.printJob.findFirst({ where: createdFor });
+    if (duplicate) return { existing: true, job: duplicate };
 
-    try {
-      const job = await tx.printJob.create({
+    const job = await tx.printJob.create({
         data: {
           printerId: printer.id,
           kind: input.kind,
@@ -711,7 +735,7 @@ export async function createPrintJob(
           status: "QUEUED",
           sourcePaymentId: payment.id,
           sourceStatus: built.sourceStatus,
-          sourceRevision: built.sourceRevision,
+          sourceRevision: BigInt(built.sourceRevision),
           amountMinor: built.amountMinor,
           qrConfigVersion: built.qrConfigVersion,
           snapshotHasPaymentQr: built.snapshotHasPaymentQr,
@@ -723,29 +747,27 @@ export async function createPrintJob(
           selectedTransport,
           idempotencyKey,
           availableAt: now,
+          // The Json column has no DB default; every job starts with its
+          // first bounded timeline entry (C8).
+          timeline: appendTimeline(null, { at: now.toISOString(), status: "QUEUED", note: null }),
         },
       });
       return { existing: false, job };
-    } catch (error) {
-      // Idempotency (double-click / network retry): return the existing job.
-      if (!(error instanceof Prisma.PrismaClientKnownRequestError) || error.code !== "P2002") {
-        throw error;
-      }
-      const existingJob = await tx.printJob.findFirst({
-        where: {
-          requestedById: input.actorId,
-          kind: input.kind,
-          documentId,
-          selectedTransport,
-          idempotencyKey,
-        },
-      });
-      if (!existingJob) {
-        throw httpError(409, "งานพิมพ์ซ้ำกับที่สร้างไว้แล้ว แต่ไม่พบรายการเดิม");
-      }
-      return { existing: true, job: existingJob };
+    });
+  } catch (error) {
+    // Concurrent duplicate: Postgres aborts the whole transaction on P2002,
+    // so the winning job must be looked up on a fresh connection outside it.
+    if (
+      createdFor
+      && error instanceof Prisma.PrismaClientKnownRequestError
+      && error.code === "P2002"
+      && db.printJob
+    ) {
+      const existingJob = await db.printJob.findFirst({ where: createdFor });
+      if (existingJob) return { existing: true, job: existingJob as Record<string, unknown> };
     }
-  });
+    throw error;
+  }
 }
 
 // ============================

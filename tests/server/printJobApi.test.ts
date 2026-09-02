@@ -89,14 +89,8 @@ const makeTx = () => ({
 });
 
 describe("createPrintJob idempotency", () => {
-  it("returns the existing job when the idempotency scope conflicts (P2002)", async () => {
+  it("returns the existing job when the scope is found before insert (pre-check)", async () => {
     const tx = makeTx();
-    tx.printJob.create.mockRejectedValue(
-      new Prisma.PrismaClientKnownRequestError("Unique constraint failed", {
-        code: "P2002",
-        clientVersion: "test",
-      }),
-    );
     tx.printJob.findFirst.mockResolvedValue(existingJobRow);
 
     const result = await createPrintJob(
@@ -112,7 +106,39 @@ describe("createPrintJob idempotency", () => {
 
     expect(result.existing).toBe(true);
     expect(result.job).toMatchObject({ id: "job-existing" });
-    expect(tx.printJob.findFirst).toHaveBeenCalledWith(
+    expect(tx.printJob.create).not.toHaveBeenCalled();
+  });
+
+  it("returns the existing job on a concurrent P2002 via an out-of-transaction lookup", async () => {
+    const tx = makeTx();
+    tx.printJob.findFirst.mockResolvedValue(null);
+    tx.printJob.create.mockRejectedValue(
+      new Prisma.PrismaClientKnownRequestError("Unique constraint failed", {
+        code: "P2002",
+        clientVersion: "test",
+      }),
+    );
+    // Postgres aborts the tx on P2002 — the winning row must be looked up
+    // with the non-transactional client.
+    const dbFindFirst = vi.fn().mockResolvedValue(existingJobRow);
+
+    const result = await createPrintJob(
+      {
+        $transaction: (fn: (t: unknown) => Promise<unknown>) => fn(tx),
+        printJob: { findFirst: dbFindFirst },
+      } as never,
+      {
+        actorId: "employee-1",
+        kind: "RECEIPT",
+        documentId: "payment-1",
+        idempotencyKey: "key-12345678",
+        now: NOW,
+      },
+    );
+
+    expect(result.existing).toBe(true);
+    expect(result.job).toMatchObject({ id: "job-existing" });
+    expect(dbFindFirst).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({
           requestedById: "employee-1",
@@ -149,7 +175,7 @@ describe("createPrintJob idempotency", () => {
       status: "QUEUED",
       sourcePaymentId: "payment-1",
       sourceStatus: "UNPAID",
-      sourceRevision: UPDATED_AT.getTime(),
+      sourceRevision: BigInt(UPDATED_AT.getTime()),
       amountMinor: 123456,
       snapshotHasPaymentQr: false,
       selectedTransport: "WIFI",

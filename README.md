@@ -203,6 +203,17 @@ Browser origin ต้องตรงกันทั้ง protocol, hostname แ
 
 ข้อมูล PostgreSQL เก็บใน Docker volume ชื่อ `saijai-pgdata` การลบ volume จะลบข้อมูลฐานข้อมูลด้วย
 
+#### ทดสอบระบบพิมพ์บน Local Compose (fake printer)
+
+Compose overlay เสริมสำหรับทดสอบระบบพิมพ์ XP-C260M แบบ end-to-end โดยไม่ต้องมีเครื่องพิมพ์จริง — `print-seed` ลงทะเบียนเครื่องพิมพ์ทดสอบในฐานข้อมูล, `fake-printer` จำลองเครื่องพิมพ์บน TCP 9100 และ `bridge` รัน Local Print Bridge จริง (`print-bridge/`) เพื่อ claim งานและส่ง ESC/POS
+
+```bash
+docker compose -f docker-compose.local.yml up --build -d
+docker compose -f docker-compose.local.yml -f docker-compose.print-test.yml up -d
+```
+
+จากนั้นสร้างงานพิมพ์จากหน้า admin แล้วดูผลที่ `docker compose logs -f fake-printer bridge` (งานจะถูกบันทึกเป็นไฟล์ `.bin` พร้อมตรวจว่าเริ่มด้วย ESC/POS initialize) ข้อมูลประจำตัวในไฟล์เหล่านี้เป็นค่าสำหรับ stack ทดสอบทิ้งได้เท่านั้น ห้ามใช้กับ production
+
 ## คำสั่งที่ใช้บ่อย
 
 ```bash

@@ -56,3 +56,6 @@ coverage
 error.md
 flow.md
 backups*
+
+# Local Print Bridge (standalone package — not part of the app image)
+print-bridge

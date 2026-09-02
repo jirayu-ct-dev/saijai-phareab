@@ -869,7 +869,7 @@ model PrintJob {
   sourcePaymentId String
   sourcePayment PaymentRecord @relation("PrintJobSourcePayment", fields: [sourcePaymentId], references: [id], onDelete: Restrict)
   sourceStatus PaymentStatus
-  sourceRevision Int
+  sourceRevision BigInt
   amountMinor Int // exact minor units (satang), never a float (C10)
   qrConfigVersion Int?
   snapshotHasPaymentQr Boolean
