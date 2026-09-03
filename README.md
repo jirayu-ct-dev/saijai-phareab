@@ -105,6 +105,8 @@ pnpm exec prisma migrate deploy
 
 `DATABASE_URL` ควรเป็น pooled connection สำหรับ runtime ส่วน `DIRECT_URL` ใช้ direct connection สำหรับ migration และไม่ควร seed ข้อมูล demo บน production
 
+โปรเจกต์กำหนด Vercel Cron ให้เรียก `GET /api/admin/cron/package-expiry` ทุกวันเวลา `02:00 UTC` (09:00 น. ประเทศไทย) ผ่าน `vercel.json` แล้ว ตั้ง `CRON_SECRET` เป็นค่าสุ่มอย่างน้อย 16 ตัวอักษรใน Vercel เพื่อให้ Vercel ส่ง `Authorization: Bearer <CRON_SECRET>` กับงานนี้โดยอัตโนมัติ
+
 ## รันด้วย Docker Compose
 
 ### Production

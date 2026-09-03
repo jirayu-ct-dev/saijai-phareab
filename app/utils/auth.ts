@@ -16,6 +16,11 @@ export const auth = betterAuth({
     ...extraOrigins,
   ],
   trustedProxies: (process.env.TRUSTED_PROXIES ?? "127.0.0.1,::1").split(",").map((s) => s.trim()),
+  advanced: {
+    ipAddress: {
+      trustedProxies: (process.env.TRUSTED_PROXIES ?? "127.0.0.1,::1").split(",").map((s) => s.trim()),
+    },
+  },
   database: prismaAdapter(prisma, {
     provider: "postgresql",
   }),
