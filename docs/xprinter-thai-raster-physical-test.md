@@ -46,4 +46,4 @@ pnpm print:test-receipt -- /tmp/xp-c260m-minimal-raster.bin
 ที่ boundary แรกที่ hash เปลี่ยน ห้ามเปิด debug นี้ใน production เพราะ short hex
 preview อาจมีส่วนของข้อความใบเสร็จ
 
-บันทึกผลพร้อม firmware, interface ที่ใช้, printable width และเวลา test โดยไม่บันทึกรหัส Wi-Fi, pairing token หรือข้อมูลลูกค้าจริง
+บันทึกผลพร้อม firmware, interface ที่ใช้, printable width และเวลา test โดยไม่บันทึกรหัส Wi-Fi หรือข้อมูลลูกค้าจริง

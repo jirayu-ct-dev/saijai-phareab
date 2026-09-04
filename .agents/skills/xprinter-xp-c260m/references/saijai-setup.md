@@ -1,6 +1,6 @@
 # Saijai XP-C260M Setup
 
-Use this reference for first installation, `.env`, Docker, LAN addressing, HTTPS, pairing, and browser setup.
+Use this reference for first installation, `.env`, Docker, LAN addressing, HTTPS, and browser setup.
 
 ## Known and unresolved site values
 
@@ -76,7 +76,7 @@ Shop browser
 
 The public app may run in the cloud, but raw printer bytes travel from the shop browser to the shop Gateway. The cloud server does not open a socket to the private printer. Use local/split DNS or another controlled route so the Gateway hostname resolves to the Gateway host from shop devices. Every browser must trust the Gateway certificate; a self-signed certificate that produces a browser warning is not production-ready.
 
-Do not expose the printer raw port to the internet. Do not expose the Gateway without exact origin controls, pairing, and trusted HTTPS.
+Do not expose the printer raw port to the internet. Do not expose the Gateway without exact origin controls and trusted HTTPS. The Gateway also requires a private/loopback client source and assumes the shop LAN is trusted; use firewall/VLAN isolation and do not deploy it on an untrusted LAN.
 
 ## Environment ownership
 
@@ -121,9 +121,6 @@ PRINT_GATEWAY_DISCOVERY_PORTS=9100
 PRINT_GATEWAY_DISCOVERY_TIMEOUT_MS=500
 PRINT_GATEWAY_DISCOVERY_CONCURRENCY=16
 PRINT_GATEWAY_RESCAN_TTL_MS=30000
-PRINT_GATEWAY_PAIRING_SECRET=<RANDOM_SECRET_AT_LEAST_32_BYTES>
-PRINT_GATEWAY_PAIRING_CODE_TTL_SECONDS=300
-PRINT_GATEWAY_TOKEN_TTL_DAYS=90
 PRINT_GATEWAY_MAX_PAYLOAD_BYTES=2000000
 PRINT_GATEWAY_TCP_TIMEOUT_MS=10000
 PRINT_GATEWAY_TLS_CERT_HOST_PATH=/absolute/host/path/print.saijaiphareab.shop.crt
@@ -131,13 +128,8 @@ PRINT_GATEWAY_TLS_KEY_HOST_PATH=/absolute/host/path/print.saijaiphareab.shop.key
 ```
 
 The production printer address remains a placeholder until installation at the
-shop; raw TCP port `9100` is confirmed by the latest physical self-test. Generate
-the pairing secret locally and place it directly in the host `.env` or secret
-manager; never paste it into chat, logs, source control, or this skill:
-
-```bash
-openssl rand -base64 48
-```
+shop; raw TCP port `9100` is confirmed by the latest physical self-test. The
+Gateway uses no pairing secret or browser bearer token.
 
 For native Node rather than Docker, set `PRINT_GATEWAY_STATE_PATH` to a protected local path and use `PRINT_GATEWAY_TLS_CERT_PATH`/`PRINT_GATEWAY_TLS_KEY_PATH`. Docker sets the in-container state and TLS paths itself.
 
@@ -202,21 +194,12 @@ curl -fsS -H 'Origin: https://saijaiphareab.shop' \
   https://print.saijaiphareab.shop:17321/health
 ```
 
-Generate the six-digit pairing code from the same environment as the Gateway:
-
-```bash
-docker compose -f docker-compose.print-gateway.yml \
-  run --rm print-gateway node bin/bridge.mjs --pairing-code
-```
-
-The code is valid only for the configured short window. Enter it in the application's printer connection modal. The returned bearer token stays in that browser and expires according to `PRINT_GATEWAY_TOKEN_TTL_DAYS`.
-
 ## First browser setup
 
 1. Open the production app from a shop browser.
 2. Open a receipt or quotation and choose printer connection.
 3. Select **Wi-Fi / Ethernet**.
-4. If requested, enter the six-digit Gateway pairing code.
+4. No code is requested; the Gateway accepts the trusted shop LAN.
 5. Choose **ค้นหาเครื่องพิมพ์ในร้าน**.
 6. Confirm the discovered candidate with a human-readable name such as `เครื่องหน้าเคาน์เตอร์`.
 7. Select paper width. Use 80 mm only after the physical unit confirms that profile.
@@ -226,9 +209,9 @@ When exactly one trusted printer is online, subsequent connections select it aut
 
 ## Data and reset boundaries
 
-Docker persists paired token hashes and trusted printer mappings in `saijai-print-gateway-state`. It contains no receipt queue and no database credentials.
+Docker persists trusted printer mappings in `saijai-print-gateway-state`. It contains no receipt queue, browser tokens, or database credentials.
 
-Stopping or recreating the container preserves this volume. Deleting it invalidates pairings and removes trusted printers:
+Stopping or recreating the container preserves this volume. Deleting it removes trusted printers:
 
 ```bash
 docker compose -f docker-compose.print-gateway.yml down --remove-orphans

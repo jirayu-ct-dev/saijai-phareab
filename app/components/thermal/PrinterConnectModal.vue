@@ -13,9 +13,8 @@ const isOpen = computed({
 const notify = useNotify()
 const {
   state, connectWifi, connectUsb, connectBluetooth, disconnect, setPaperWidth,
-  pairGateway, discoverGatewayPrinters, trustGatewayPrinter, selectGatewayPrinter,
+  discoverGatewayPrinters, trustGatewayPrinter, selectGatewayPrinter,
 } = useThermalPrinter()
-const pairingCode = ref('')
 const printerName = ref('เครื่องหน้าเคาน์เตอร์')
 const isGatewayActionPending = ref(false)
 const showDiscovery = ref(false)
@@ -72,23 +71,6 @@ async function handleConnectWifi() {
   else {
     if (state.value.gatewayCandidates.length > 0) showDiscovery.value = true
     if (state.value.error) notify.error(state.value.error)
-  }
-}
-
-const handlePairGateway = async () => {
-  isGatewayActionPending.value = true
-  try {
-    await pairGateway(pairingCode.value.trim())
-    pairingCode.value = ''
-    if (state.value.isConnected) finishConnection('จับคู่และเชื่อมต่อเครื่องพิมพ์เรียบร้อย')
-    else {
-      if (state.value.gatewayPrinters.length === 0) await discoverGatewayPrinters()
-      notify.success('จับคู่กับ Print Gateway เรียบร้อย')
-    }
-  } catch (error) {
-    notify.error(error instanceof Error ? error.message : 'จับคู่ Print Gateway ไม่สำเร็จ')
-  } finally {
-    isGatewayActionPending.value = false
   }
 }
 
@@ -228,75 +210,49 @@ watch(() => props.open, (open) => {
               :description="state.error"
             />
 
-            <div v-if="state.gatewayPairingRequired" class="space-y-3 rounded-md bg-elevated p-3">
-              <div>
-                <p class="text-sm font-medium text-highlighted">เชื่อมเบราว์เซอร์กับเครื่องร้านครั้งแรก</p>
-                <p class="mt-1 text-xs leading-5 text-muted">กรอกรหัส 6 หลักจาก Print Gateway ทำครั้งเดียวต่อเบราว์เซอร์</p>
-              </div>
-              <UFormField label="รหัสจับคู่ 6 หลัก">
-                <UInput
-                  v-model="pairingCode"
-                  inputmode="numeric"
-                  maxlength="6"
-                  autocomplete="one-time-code"
-                  class="w-full"
-                  placeholder="000000"
+            <div v-if="state.gatewayPrinters.length > 0" class="space-y-2">
+              <p class="text-xs font-medium text-muted">เครื่องที่บันทึกไว้</p>
+              <button
+                v-for="printer in state.gatewayPrinters"
+                :key="printer.id"
+                type="button"
+                class="flex min-h-12 w-full items-center gap-3 rounded-md border border-default px-3 py-2 text-left transition-colors hover:bg-elevated focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-50"
+                :disabled="!printer.online || isGatewayBusy"
+                @click="handleSelectPrinter(printer.id)"
+              >
+                <UIcon name="i-lucide-printer" class="size-5 shrink-0 text-muted" />
+                <span class="min-w-0 flex-1 truncate text-sm font-medium text-highlighted">{{ printer.name }}</span>
+                <UBadge
+                  :label="printer.online ? 'พร้อมใช้' : 'ออฟไลน์'"
+                  :color="printer.online ? 'success' : 'neutral'"
+                  variant="soft"
+                  size="sm"
                 />
-              </UFormField>
-              <UButton
-                label="จับคู่และค้นหาเครื่อง"
-                icon="i-lucide-link"
-                class="w-full"
-                :loading="isGatewayActionPending"
-                @click="handlePairGateway"
-              />
+              </button>
             </div>
 
-            <template v-else>
-              <div v-if="state.gatewayPrinters.length > 0" class="space-y-2">
-                <p class="text-xs font-medium text-muted">เครื่องที่บันทึกไว้</p>
-                <button
-                  v-for="printer in state.gatewayPrinters"
-                  :key="printer.id"
-                  type="button"
-                  class="flex min-h-12 w-full items-center gap-3 rounded-md border border-default px-3 py-2 text-left transition-colors hover:bg-elevated focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-50"
-                  :disabled="!printer.online || isGatewayBusy"
-                  @click="handleSelectPrinter(printer.id)"
-                >
-                  <UIcon name="i-lucide-printer" class="size-5 shrink-0 text-muted" />
-                  <span class="min-w-0 flex-1 truncate text-sm font-medium text-highlighted">{{ printer.name }}</span>
-                  <UBadge
-                    :label="printer.online ? 'พร้อมใช้' : 'ออฟไลน์'"
-                    :color="printer.online ? 'success' : 'neutral'"
-                    variant="soft"
-                    size="sm"
-                  />
-                </button>
-              </div>
+            <UButton
+              v-if="state.gatewayPrinters.length === 0"
+              label="ตรวจสอบเครื่องที่บันทึกไว้"
+              icon="i-lucide-refresh-cw"
+              color="primary"
+              class="w-full"
+              :loading="state.isConnecting"
+              :disabled="isGatewayActionPending"
+              @click="handleConnectWifi"
+            />
 
-              <UButton
-                v-if="state.gatewayPrinters.length === 0"
-                label="ตรวจสอบเครื่องที่บันทึกไว้"
-                icon="i-lucide-refresh-cw"
-                color="primary"
-                class="w-full"
-                :loading="state.isConnecting"
-                :disabled="isGatewayActionPending"
-                @click="handleConnectWifi"
-              />
+            <UButton
+              :label="showDiscovery ? 'ซ่อนการค้นหาเครื่องใหม่' : 'เพิ่มหรือเปลี่ยนเครื่องพิมพ์'"
+              :icon="showDiscovery ? 'i-lucide-chevron-up' : 'i-lucide-plus'"
+              color="neutral"
+              variant="ghost"
+              class="w-full"
+              :aria-expanded="showDiscovery"
+              @click="showDiscovery = !showDiscovery"
+            />
 
-              <UButton
-                :label="showDiscovery ? 'ซ่อนการค้นหาเครื่องใหม่' : 'เพิ่มหรือเปลี่ยนเครื่องพิมพ์'"
-                :icon="showDiscovery ? 'i-lucide-chevron-up' : 'i-lucide-plus'"
-                color="neutral"
-                variant="ghost"
-                class="w-full"
-                :aria-expanded="showDiscovery"
-                @click="showDiscovery = !showDiscovery"
-              />
-            </template>
-
-            <div v-if="!state.gatewayPairingRequired && showDiscovery" class="space-y-3 border-t border-default pt-3">
+            <div v-if="showDiscovery" class="space-y-3 border-t border-default pt-3">
               <div>
                 <p class="text-sm font-medium text-highlighted">ค้นหาเครื่องใหม่</p>
                 <p class="mt-1 text-xs leading-5 text-muted">เครื่องที่บันทึกไว้ด้านบนจะไม่แสดงซ้ำในผลค้นหา</p>

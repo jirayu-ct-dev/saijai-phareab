@@ -5,7 +5,7 @@
 // Builds a canonical PrintDocument server-side from the source payment (and
 // its order/package source) plus the AppSetting QR configuration. Durable
 // PrintJob snapshots no longer exist; callers choose their own consistent read
-// boundary (see docs/plan-database-printing-master-orchestration.md).
+// boundary (see .agents/skills/xprinter-xp-c260m/references/saijai-architecture.md).
 //
 // - Money: Prisma Decimal -> exact integer minor units via string math only.
 // - QR: payload built with server/utils/paymentQr encoder and re-validated with

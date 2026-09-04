@@ -72,7 +72,7 @@ Network probing requires an explicitly identified target and permission for that
 2. confirm Gateway host and printer are on routable LANs without client isolation/VLAN blocking;
 3. check the confirmed address;
 4. check only the confirmed print port;
-5. confirm `/health`, pairing, discovery, trust, and online status without sending print bytes.
+5. confirm `/health`, LAN source/origin checks, discovery, trust, and online status without sending print bytes.
 
 Do not broaden `/32` to `/24`, scan arbitrary ports, or probe unrelated hosts merely because discovery is available.
 
@@ -98,7 +98,7 @@ Record model/revision, firmware, interface, IP or queue, port, paper width, prin
 Printer mechanism
   -> physical interface/link
   -> Gateway reachability and TLS
-  -> origin and pairing token
+  -> origin and LAN source check
   -> discovery/trusted target
   -> TCP transport
   -> ESC/POS bytes
@@ -109,7 +109,6 @@ Printer mechanism
 Useful observations:
 
 - Gateway unavailable: check container/process, publish/bind host, DNS, certificate trust, firewall, and exact browser origin.
-- Pairing requested repeatedly: browser local storage may be absent/cleared, token may have expired, or Gateway state volume may have been reset.
 - Discovery finds nothing: verify the physical IP/port, allowlist, VLAN/client isolation, and discovery TTL. Do not assume port `9100`.
 - Trusted printer offline: probe only its confirmed endpoint and check cable/Wi-Fi/link indicators, DHCP reservation, paper/cover/error state.
 - `BUSY`: another immediate attempt holds the per-printer mutex; it is not a queued job.
@@ -135,7 +134,7 @@ Use [troubleshooting.md](troubleshooting.md) for deeper device and transport iso
 
 ## Logs and evidence
 
-Gateway logging is intentionally sanitized. Keep error codes and lifecycle facts, not payload bytes, bearer tokens, IP inventories, QR receiver values, or receipt/customer contents. A transport success is evidence of delivery to the socket boundary only.
+Gateway logging is intentionally sanitized. Keep error codes and lifecycle facts, not payload bytes, IP inventories, QR receiver values, or receipt/customer contents. A transport success is evidence of delivery to the socket boundary only.
 
 When handing work to another agent, state:
 
@@ -153,7 +152,7 @@ Do not infer permission for any of these from a request to edit code or document
 - scanning a real subnet or connecting to a physical printer;
 - printing a test page, feeding/cutting paper, or opening a cash drawer;
 - changing printer/router network settings or DHCP reservations;
-- deleting Gateway state, rotating the pairing secret, or invalidating browsers;
+- deleting Gateway state or removing trusted printer mappings;
 - exposing a Gateway or raw printer port;
 - factory reset or firmware update.
 

@@ -12,7 +12,7 @@
 //
 // Command notes verified against common ESC/POS / Xprinter firmware; anything
 // firmware-specific is flagged in a comment and must be confirmed on the
-// physical unit (G1/G8 in docs/plan-database-printing-master-orchestration.md).
+// physical unit (see docs/xprinter-thai-raster-physical-test.md).
 
 import type {
   PrintOperation,

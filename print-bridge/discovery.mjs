@@ -1,4 +1,4 @@
-import { createHmac } from "node:crypto";
+import { randomUUID } from "node:crypto";
 import net from "node:net";
 
 const numberToIpv4 = (value) => [24, 16, 8, 0].map((shift) => (value >>> shift) & 255).join(".");
@@ -15,8 +15,7 @@ export function enumerateTargets(cidrs, ports) {
   return targets;
 }
 
-export const candidateIdFor = (secret, target) => `candidate_${createHmac("sha256", secret)
-  .update(`${target.host}:${target.port}`).digest("base64url").slice(0, 22)}`;
+export const candidateId = () => `candidate_${randomUUID()}`;
 
 export const probeTcpTarget = ({ host, port }, timeoutMs) => new Promise((resolve) => {
   const socket = net.createConnection({ host, port });
@@ -48,7 +47,7 @@ export function createDiscoveryService({ config, probe = probeTcpTarget, now = D
       while (cursor < targets.length) {
         const target = targets[cursor++];
         if (await probe(target, config.discoveryTimeoutMs)) {
-          const id = candidateIdFor(config.pairingSecret, target);
+          const id = candidateId();
           next.set(id, { id, ...target });
         }
       }

@@ -54,8 +54,8 @@ cp .env.example .env
 | Email | `RESEND_API_KEY`, `RESEND_FROM` | ส่งอีเมล |
 | App | `NUXT_PUBLIC_HOSTNAME`, `NUXT_PUBLIC_BASE_URL`, `INTERNAL_BASE_URL` | host และ base URL ของระบบ |
 | Scheduled task | `CRON_SECRET`, `PACKAGE_EXPIRY_NOTIFY_DAYS` | ป้องกัน cron endpoints และกำหนดช่วงแจ้งเตือนแพ็กเกจ |
-| Printing (app) | `NUXT_PUBLIC_PRINT_GATEWAY_ENABLED`, `NUXT_PUBLIC_PRINT_GATEWAY_URL`, `NUXT_PUBLIC_PRINT_LEGACY_DIRECT` | เปิด Gateway และคง USB/Bluetooth fallback |
-| Printing (Gateway) | `PRINT_GATEWAY_*` | bind/publish address, discovery scope, pairing, state และ TLS ของ Gateway |
+| Printing (app) | `NUXT_PUBLIC_PRINT_GATEWAY_ENABLED`, `NUXT_PUBLIC_PRINT_GATEWAY_URL` | เปิด Gateway; USB/Bluetooth fallback มีอยู่เสมอ |
+| Printing (Gateway) | `PRINT_GATEWAY_*` | bind/publish address, LAN auth mode, discovery scope, state และ TLS ของ Gateway |
 
 กำหนดเฉพาะ integration ที่ใช้งานจริง และห้าม commit secret ลง repository
 
@@ -245,7 +245,7 @@ Browser origin ต้องตรงกันทั้ง protocol, hostname แ
 
 #### ระบบพิมพ์โดยตรง
 
-Wi-Fi/Ethernet ใช้ LAN Print Gateway ภายในร้านซึ่งอ่านค่าจาก `.env`, ค้นหาเฉพาะ CIDR/port ที่อนุญาต และให้ browser จับคู่ก่อนเลือก trusted printer โดยไม่มี database queue ส่วน USB และ Bluetooth ยังเชื่อมจาก browser โดยตรง
+Wi-Fi/Ethernet ใช้ LAN Print Gateway ภายในร้านซึ่งอ่านค่าจาก `.env` และค้นหาเฉพาะ CIDR/port ที่อนุญาต อุปกรณ์บน private network ที่เข้าถึง Gateway และมาจาก exact web origin ใช้งานได้ทันทีโดยไม่กรอกรหัส จากนั้นเลือก trusted printer โดยไม่มี database queue ส่วน USB และ Bluetooth ยังเชื่อมจาก browser โดยตรง
 
 ค่าที่ต้องกำหนดใน `.env` เมื่อใช้เครื่องจริงมีดังนี้:
 
@@ -253,7 +253,6 @@ Wi-Fi/Ethernet ใช้ LAN Print Gateway ภายในร้านซึ่�
 | --- | --- | --- |
 | `NUXT_PUBLIC_PRINT_GATEWAY_ENABLED` | `true` | `true` หลัง Gateway และ HTTPS พร้อม |
 | `NUXT_PUBLIC_PRINT_GATEWAY_URL` | `http://127.0.0.1:17321` | URL HTTPS ของ Gateway ที่อุปกรณ์ร้านเข้าถึงได้ |
-| `NUXT_PUBLIC_PRINT_LEGACY_DIRECT` | `true` | `true` เพื่อคง USB/Bluetooth |
 | `PRINT_GATEWAY_BIND_HOST` | `127.0.0.1` สำหรับรัน Node ตรง | Docker บังคับ `0.0.0.0` ภายใน container |
 | `PRINT_GATEWAY_PUBLISH_HOST` | `127.0.0.1` | `0.0.0.0` เพื่อรับจาก LAN หรือ IP interface ที่ต้องการ |
 | `PRINT_GATEWAY_PORT` | `17321` | พอร์ต HTTPS ของ Gateway เช่น `17321` |
@@ -261,15 +260,16 @@ Wi-Fi/Ethernet ใช้ LAN Print Gateway ภายในร้านซึ่�
 | `PRINT_GATEWAY_ALLOWED_ORIGINS` | `http://localhost:3004,http://127.0.0.1:3004` | origin ของเว็บ production แบบ exact match |
 | `PRINT_GATEWAY_DISCOVERY_CIDRS` | `127.0.0.1/32` สำหรับ fake profile | CIDR ส่วนตัวของร้าน เช่น `192.168.1.0/24` |
 | `PRINT_GATEWAY_DISCOVERY_PORTS` | `19100` สำหรับ fake profile | `9100` สำหรับ XP-C260M ตัวจริงตาม self-test ล่าสุด |
-| `PRINT_GATEWAY_PAIRING_SECRET` | fallback local ใช้ทดสอบได้ | random secret อย่างน้อย 32 bytes ห้าม commit |
 | `PRINT_GATEWAY_STATE_PATH` | ใช้ `/data/gateway-state.json` ใน Docker | Compose กำหนด path นี้และเก็บใน named volume |
 | `PRINT_GATEWAY_TLS_CERT_HOST_PATH`, `PRINT_GATEWAY_TLS_KEY_HOST_PATH` | ไม่ต้องใช้บน loopback | absolute paths ของ cert/key ที่อุปกรณ์ร้านเชื่อถือ |
 
-สร้าง pairing secret สำหรับ production แล้วนำผลไปใส่ secret manager หรือ `.env`
-บน Gateway host โดยไม่ส่งค่าผ่านแชตหรือ commit:
+ตัวแปร `NUXT_PUBLIC_PRINT_GATEWAY_ENABLED` และ `NUXT_PUBLIC_PRINT_GATEWAY_URL`
+ถูกส่งเป็น Docker build args ด้วย เพราะ URL นี้เป็นส่วนหนึ่งของ production CSP;
+เมื่อเปลี่ยน URL ต้อง rebuild image ของเว็บ ไม่ใช่เพียง restart container
+
+จำกัดสิทธิ์ `.env` บน Gateway host และอย่าส่งค่าจริงผ่านแชตหรือ commit:
 
 ```bash
-openssl rand -base64 48
 chmod 600 .env
 ```
 
@@ -285,13 +285,6 @@ docker compose \
   -f docker-compose.print-gateway.yml \
   -f docker-compose.print-gateway.production.yml \
   up --build -d
-```
-
-สร้างรหัส pairing หกหลักจาก environment เดียวกับ container:
-
-```bash
-docker compose -f docker-compose.print-gateway.yml \
-  run --rm print-gateway node bin/bridge.mjs --pairing-code
 ```
 
 รายละเอียด API, trust model และข้อจำกัดด้านความปลอดภัยอยู่ที่ [`print-bridge/README.md`](print-bridge/README.md)
@@ -323,7 +316,7 @@ docker volume ls --filter label=com.docker.compose.project=saijai-print-gateway
 ```
 
 `saijai-pgdata` คือข้อมูล PostgreSQL local และ `saijai-print-gateway-state` คือ
-trusted printers/token hashes การลบสอง volume นี้จะลบข้อมูลดังกล่าวจริง จึงต้องหยุด stack
+รายการ trusted printers การลบสอง volume นี้จะลบข้อมูลดังกล่าวจริง จึงต้องหยุด stack
 และตั้งใจ reset เท่านั้น:
 
 ```bash

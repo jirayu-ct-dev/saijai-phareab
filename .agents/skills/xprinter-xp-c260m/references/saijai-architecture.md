@@ -14,7 +14,7 @@ This is intentional:
 - the application must not retry `UNKNOWN_PROGRESS` automatically because that can create duplicate receipts;
 - `SENT` means the bytes were handed to the transport. It does not prove that paper was printed, cut, or collected.
 
-The database stores business data and shop/QR settings, not printer connection state. Printer connection settings belong to the Gateway host environment and Gateway state file. Browser selection and bearer token live in browser local storage.
+The database stores business data and shop/QR settings, not printer connection state. Printer connection settings belong to the Gateway host environment and Gateway state file. Browser selection lives in browser local storage.
 
 ## Implemented paths
 
@@ -38,11 +38,11 @@ The supported application transports are:
 
 | UI label | Application path | Persistent selection |
 | --- | --- | --- |
-| Wi-Fi / Ethernet | Browser calls the shop LAN Print Gateway; Gateway opens the printer TCP socket | Gateway token and selected opaque printer ID in browser local storage; trusted target in Gateway state |
+| Wi-Fi / Ethernet | Browser calls the shop LAN Print Gateway; Gateway opens the printer TCP socket | Selected opaque printer ID in browser local storage; trusted target in Gateway state |
 | USB | Browser writes to a claimed WebUSB bulk OUT endpoint | Browser permission may allow reconnect; no server record |
 | Bluetooth | Browser writes 20-byte chunks to a supported BLE characteristic | Connection is session/device dependent; no server record |
 
-Keep `NUXT_PUBLIC_PRINT_LEGACY_DIRECT=true` while USB and Bluetooth fallback must remain available. The name is historical; it does not mean the removed database queue.
+USB and Bluetooth fallback remain available without a feature flag.
 
 ## Canonical print flow
 
@@ -83,17 +83,22 @@ Security properties implemented by `print-bridge/`:
 
 - exact-origin CORS; wildcard origins are rejected;
 - non-loopback Gateway URLs require HTTPS and both certificate paths;
-- a six-digit, short-lived pairing code issues a random bearer token;
-- only token hashes and expirations are persisted;
+- no pairing code or bearer token is used; the private shop LAN is the trust
+  boundary and only private/loopback source addresses are accepted;
 - `/discover` scans only configured private or loopback IPv4 CIDRs from `/24` through `/32`, with at most 4,096 address/port targets;
 - discovery returns opaque candidate IDs, never an IP or port to the browser;
 - `/printers/trust` resolves the candidate inside the Gateway before saving it;
 - `/print/:id` accepts only an already trusted printer ID and a bounded binary payload;
-- pairing, discovery, and printing are rate-limited;
+- discovery and printing are rate-limited per client source address;
 - the state file is owner-only and written atomically;
 - Docker runs read-only, drops Linux capabilities, applies `no-new-privileges`, and persists state in `saijai-print-gateway-state`.
 
 Do not add an API that accepts an arbitrary browser-supplied IP or port. That would weaken the SSRF and internal-network boundary.
+
+The Gateway intentionally trusts users on the shop network. Exact-origin checks
+protect normal browser calls but are not authentication against a local script
+that spoofs the `Origin` header. Keep the Gateway unreachable from public and
+guest networks. Do not deploy it where the local network cannot be trusted.
 
 ## Printer replacement behavior
 
@@ -103,7 +108,7 @@ If a replacement printer receives the same DHCP-reserved IP and uses the same ve
 
 ## QR settings are separate
 
-Shop, LINE QR, and payment QR configuration remains under `admin/settings/shop` and is stored in the singleton application settings. Payment QR is generated from the exact payment amount on the server. Printer connectivity, IP, port, pairing, and trusted-printer state must not be moved into those database settings.
+Shop, LINE QR, and payment QR configuration remains under `admin/settings/shop` and is stored in the singleton application settings. Payment QR is generated from the exact payment amount on the server. Printer connectivity, IP, port, and trusted-printer state must not be moved into those database settings.
 
 The receipt/quotation logo is the committed public asset
 `public/logo-saijai-phareab.png`. Both the browser document and direct-print
@@ -137,7 +142,7 @@ Inspect these before modifying behavior:
 | Immediate attempt and ambiguous-failure contract | `shared/utils/directPrint.ts`, `shared/types/printing.ts` |
 | ESC/POS composition and encoding | `shared/utils/printComposer.ts`, `shared/utils/escpos.ts` |
 | Gateway configuration and safety bounds | `print-bridge/config.mjs` |
-| Gateway auth, discovery, trust, and print API | `print-bridge/auth.mjs`, `discovery.mjs`, `server.mjs`, `state.mjs` |
+| Gateway LAN checks, discovery, trust, and print API | `print-bridge/discovery.mjs`, `server.mjs`, `state.mjs` |
 | TCP transport | `print-bridge/transport/tcp.js` |
 | Docker deployment | `docker-compose.print-gateway.yml`, `docker-compose.print-gateway.production.yml` |
 | Environment template | `.env.example` |

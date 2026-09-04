@@ -1,8 +1,8 @@
 # Saijai LAN Print Gateway
 
 บริการ Node 24 ภายในร้านสำหรับค้นหาและพิมพ์ ESC/POS ไปยัง Xprinter ผ่าน
-Wi-Fi/Ethernet แบบทันที ไม่มี database queue และไม่เก็บ payload ใบเสร็จ
-เครื่องพิมพ์ที่เชื่อถือแล้วกับ token hash เก็บใน state file ของ Gateway เท่านั้น
+Wi-Fi/Ethernet แบบทันที ไม่มี database queue, pairing code หรือการเก็บ payload
+ใบเสร็จ เครื่องพิมพ์ที่เชื่อถือแล้วเก็บใน state file ของ Gateway เท่านั้น
 
 ## Local setup
 
@@ -28,23 +28,12 @@ Docker ใช้ local-safe defaults ได้แม้ `.env` ยังไม�
 ไปยัง hardware จริง การใช้เครื่องจริงต้องเปลี่ยน CIDR/port ตาม network ร้านและ
 self-test/configuration page ของเครื่อง ห้ามเดาว่าเป็น port 9100
 
-## Pair browser and select a printer
+## LAN access and printer selection
 
-สร้างรหัส 6 หลักจาก terminal ของ Gateway โดยรหัสไม่ถูกเขียนลง daemon log หากรัน
-Node โดยตรงใช้:
-
-```bash
-pnpm run print-gateway:pair
-```
-
-หากรันด้วย Docker ใช้ environment เดียวกับ service:
-
-```bash
-docker compose -f docker-compose.print-gateway.yml \
-  run --rm print-gateway node bin/bridge.mjs --pairing-code
-```
-
-ในหน้าเชื่อมต่อเครื่องพิมพ์ เลือก Wi-Fi/Ethernet, กรอกรหัส, ค้นหา และยืนยัน
+อุปกรณ์ที่เข้าถึง Gateway จาก private/loopback network และเปิดจาก exact origin ที่อนุญาตสามารถ
+ค้นหา เลือก และพิมพ์ได้ทันที ควรแยก guest Wi-Fi, จำกัด firewall ไม่ให้เข้าถึง
+Gateway และห้าม publish Gateway สู่อินเทอร์เน็ต เพราะผู้ใช้ใน LAN ถือเป็น trusted
+users หน้าเชื่อมต่อจะไม่ถามรหัส ให้เลือก Wi-Fi/Ethernet แล้วค้นหาและยืนยัน
 เครื่องครั้งแรก หากมี trusted printer ออนไลน์หนึ่งเครื่อง ระบบจะเลือกให้อัตโนมัติ;
 ถ้ามีหลายเครื่องจะแสดงตัวเลือก เมื่อเปลี่ยนเครื่อง ระบบเก็บ mapping ใหม่ใน Gateway
 โดยไม่ต้องแก้โค้ดหรือฐานข้อมูล
@@ -54,7 +43,7 @@ docker compose -f docker-compose.print-gateway.yml \
 Production มี `.env` สองฝั่งซึ่งไม่ใช่ไฟล์เดียวกันเมื่อ app กับ Gateway อยู่คนละ host:
 
 - app host: `NUXT_PUBLIC_PRINT_GATEWAY_ENABLED` และ `NUXT_PUBLIC_PRINT_GATEWAY_URL`
-- Gateway host ในร้าน: `PRINT_GATEWAY_*`, private CIDR, pairing secret และ TLS paths
+- Gateway host ในร้าน: `PRINT_GATEWAY_*`, private CIDR และ TLS paths
 
 Gateway ที่รับจากอุปกรณ์อื่นต้องใช้ stable HTTPS hostname/certificate ที่ทุกอุปกรณ์
 เชื่อถือ ตั้ง `PRINT_GATEWAY_PUBLISH_HOST=0.0.0.0` บน Gateway host; Docker กำหนด
@@ -76,8 +65,7 @@ LINE, Cloudinary หรือ Resend secrets ใส่ container นี้
 
 ## API and safety contract
 
-- `GET /health` ส่งเฉพาะ availability/version/pairing state
-- `POST /pair` แลกรหัสครั้งเดียวเป็น paired-device token
+- `GET /health` ส่งเฉพาะ availability/version
 - `GET /printers` คืน opaque ID/name/online โดยไม่เปิดเผย IP หรือ port
 - `POST /discover` scan เฉพาะ private `/24`–`/32` และ port จาก `.env`
 - `POST /printers/trust` รับเฉพาะ candidate ID ที่ Gateway เพิ่งค้นพบ
@@ -86,12 +74,16 @@ LINE, Cloudinary หรือ Resend secrets ใส่ container นี้
 Gateway ใช้ mutex แยกต่อเครื่องและไม่ retry อัตโนมัติ หากล้มเหลวหลังเริ่มส่ง byte
 จะคืน `UNKNOWN_PROGRESS`; ผู้ใช้ต้องตรวจเครื่องก่อนกดซ้ำ
 
+Gateway ตรวจ source address ว่าเป็น private/loopback และยังบังคับ exact-origin
+CORS ทุก request แต่ local command-line client สามารถปลอม `Origin` ได้ จึงต้องถือ
+LAN ร้านเป็น trusted boundary และใช้ firewall/VLAN ป้องกัน guest network
+
 ## Verification without hardware
 
 ```bash
 pnpm exec vitest run \
   tests/server/printBridgeDirectConfig.test.ts \
-  tests/server/printGatewayAuthDiscovery.test.ts \
+  tests/server/printGatewayDiscovery.test.ts \
   tests/server/printBridgeDirectServer.test.ts \
   tests/server/printBridgeTransport.test.ts
 docker compose -f docker-compose.print-gateway.yml config --quiet

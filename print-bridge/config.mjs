@@ -1,18 +1,6 @@
 import { stat } from "node:fs/promises";
 import net from "node:net";
 
-const ENV_KEYS = new Set([
-  "PRINT_GATEWAY_BIND_HOST", "PRINT_GATEWAY_PORT", "PRINT_GATEWAY_PUBLIC_URL",
-  "PRINT_GATEWAY_ALLOWED_ORIGINS", "PRINT_GATEWAY_DISCOVERY_CIDRS",
-  "PRINT_GATEWAY_DISCOVERY_PORTS", "PRINT_GATEWAY_DISCOVERY_TIMEOUT_MS",
-  "PRINT_GATEWAY_DISCOVERY_CONCURRENCY", "PRINT_GATEWAY_RESCAN_TTL_MS",
-  "PRINT_GATEWAY_PAIRING_SECRET", "PRINT_GATEWAY_PAIRING_CODE_TTL_SECONDS",
-  "PRINT_GATEWAY_TOKEN_TTL_DAYS", "PRINT_GATEWAY_MAX_PAYLOAD_BYTES",
-  "PRINT_GATEWAY_TCP_TIMEOUT_MS", "PRINT_GATEWAY_STATE_PATH",
-  "PRINT_GATEWAY_DEBUG_BYTES",
-  "PRINT_GATEWAY_TLS_CERT_PATH", "PRINT_GATEWAY_TLS_KEY_PATH",
-]);
-
 const required = (env, key) => {
   const value = env[key]?.trim();
   if (!value) throw new Error(`${key} is required`);
@@ -87,8 +75,6 @@ export function validateEnvironment(env) {
     if (port < 1 || port > 65535) throw new Error("PRINT_GATEWAY_DISCOVERY_PORTS must contain ports from 1 to 65535");
     return port;
   });
-  const pairingSecret = required(env, "PRINT_GATEWAY_PAIRING_SECRET");
-  if (Buffer.byteLength(pairingSecret) < 32) throw new Error("PRINT_GATEWAY_PAIRING_SECRET must be at least 32 bytes");
   const targetCount = discoveryCidrs.reduce((total, cidr) => total + cidr.size, 0) * new Set(discoveryPorts).size;
   if (targetCount > 4096) throw new Error("Discovery scope must contain at most 4096 address/port targets");
   return {
@@ -96,9 +82,7 @@ export function validateEnvironment(env) {
     allowedOrigins, discoveryCidrs, discoveryPorts: [...new Set(discoveryPorts)],
     discoveryTimeoutMs: integer(env, "PRINT_GATEWAY_DISCOVERY_TIMEOUT_MS", 500, { max: 10_000 }),
     discoveryConcurrency: integer(env, "PRINT_GATEWAY_DISCOVERY_CONCURRENCY", 16, { max: 64 }),
-    rescanTtlMs: integer(env, "PRINT_GATEWAY_RESCAN_TTL_MS", 30_000, { max: 300_000 }), pairingSecret,
-    pairingCodeTtlSeconds: integer(env, "PRINT_GATEWAY_PAIRING_CODE_TTL_SECONDS", 300, { max: 3600 }),
-    tokenTtlDays: integer(env, "PRINT_GATEWAY_TOKEN_TTL_DAYS", 90, { max: 365 }),
+    rescanTtlMs: integer(env, "PRINT_GATEWAY_RESCAN_TTL_MS", 30_000, { max: 300_000 }),
     maxPayloadBytes: integer(env, "PRINT_GATEWAY_MAX_PAYLOAD_BYTES", 2_000_000, { max: 10_000_000 }),
     tcpTimeoutMs: integer(env, "PRINT_GATEWAY_TCP_TIMEOUT_MS", 10_000, { max: 60_000 }),
     statePath: required(env, "PRINT_GATEWAY_STATE_PATH"), tlsCertPath, tlsKeyPath,
@@ -117,5 +101,3 @@ export async function loadConfig(env = process.env) {
   await assertEnvironmentFilePermissions(env.PRINT_GATEWAY_ENV_FILE);
   return validateEnvironment(env);
 }
-
-export { ENV_KEYS };

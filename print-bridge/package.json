@@ -1,6 +1,6 @@
 {
   "name": "saijai-print-gateway",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "type": "module",
   "description": "Zero-runtime-dependency LAN Print Gateway for Saijai Phareab (XP-C260M over TCP).",

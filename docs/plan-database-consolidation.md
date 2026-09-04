@@ -7,7 +7,7 @@
 เอกสารที่เกี่ยวข้อง:
 
 - [Prisma schema ปัจจุบัน](../prisma/schema.prisma)
-- [แผน Direct Print และลบ Printer Database](./plan-database-printing-master-orchestration.md)
+- สถาปัตยกรรมพิมพ์ปัจจุบัน: [Saijai printing architecture](../.agents/skills/xprinter-xp-c260m/references/saijai-architecture.md)
 - [กติกาการหัก/คืนเครดิตและ add-on](../server/utils/serviceOrderCredits.ts)
 - [กติกาเปลี่ยนสถานะการชำระเงิน](../server/utils/paymentStateTransition.ts)
 - [การประกอบข้อมูลเอกสารชำระเงิน](../server/utils/paymentDocument.ts)
@@ -243,7 +243,7 @@ mapping แสดงผล package sale:
    - idempotency key, payload hash, failure code และ compact timeline JSON
    - source payment/order version เพื่อ reject QR/job ที่ stale ก่อน claim และก่อนพิมพ์
 
-ข้อสรุปส่วนนี้ถูกแทนที่แล้วสำหรับระบบพิมพ์: แผนปัจจุบันเลิกใช้ durable print queue และลบ `Printer`/`PrintJob` ตาม [แผน Direct Print](./plan-database-printing-master-orchestration.md)
+ข้อสรุปส่วนนี้ถูกแทนที่แล้วสำหรับระบบพิมพ์: ระบบปัจจุบันเลิกใช้ durable print queue และลบ `Printer`/`PrintJob` ตาม [Saijai printing architecture](../.agents/skills/xprinter-xp-c260m/references/saijai-architecture.md)
 
 ## 5. หลักความปลอดภัยของ migration
 

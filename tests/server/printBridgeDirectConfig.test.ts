@@ -9,7 +9,6 @@ const validEnvironment = {
   PRINT_GATEWAY_ALLOWED_ORIGINS: "https://shop.example.test,http://localhost:3004",
   PRINT_GATEWAY_DISCOVERY_CIDRS: "192.168.1.0/24",
   PRINT_GATEWAY_DISCOVERY_PORTS: "9100",
-  PRINT_GATEWAY_PAIRING_SECRET: "a-secure-test-secret-with-32-bytes",
   PRINT_GATEWAY_STATE_PATH: "/tmp/saijai-gateway-state.json",
 };
 
@@ -27,11 +26,10 @@ describe("LAN Print Gateway environment", () => {
     expect(parsePrivateIpv4Cidr("192.168.1.0/24")).toMatchObject({ prefix: 24, size: 256 });
   });
 
-  it("rejects public/oversized CIDRs, wildcard origins and weak secrets", () => {
+  it("rejects public/oversized CIDRs and wildcard origins", () => {
     expect(() => validateEnvironment({ ...validEnvironment, PRINT_GATEWAY_DISCOVERY_CIDRS: "8.8.8.0/24" })).toThrow(/private/i);
     expect(() => validateEnvironment({ ...validEnvironment, PRINT_GATEWAY_DISCOVERY_CIDRS: "10.0.0.0/8" })).toThrow(/\/24/);
     expect(() => validateEnvironment({ ...validEnvironment, PRINT_GATEWAY_ALLOWED_ORIGINS: "*" })).toThrow(/origin/i);
-    expect(() => validateEnvironment({ ...validEnvironment, PRINT_GATEWAY_PAIRING_SECRET: "weak" })).toThrow(/32 bytes/i);
   });
 
   it("requires HTTPS and certificate paths when exposed beyond loopback", () => {

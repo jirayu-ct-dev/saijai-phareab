@@ -11,7 +11,6 @@
     "generate": "nuxt generate",
     "preview": "nuxt preview",
     "print-gateway": "node --env-file=.env print-bridge/bin/bridge.mjs",
-    "print-gateway:pair": "node --env-file=.env print-bridge/bin/bridge.mjs --pairing-code",
     "print:test-receipt": "tsx --tsconfig .nuxt/tsconfig.server.json scripts/printing/generate-xp-c260m-thai-test.mts",
     "test": "vitest run",
     "postinstall": "nuxt prepare"

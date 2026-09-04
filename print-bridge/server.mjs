@@ -2,7 +2,6 @@ import http from "node:http";
 import https from "node:https";
 import { randomUUID } from "node:crypto";
 import { PrinterMutex } from "./mutex.mjs";
-import { authenticateToken, issueToken, tokenHash, validatePairingCode } from "./auth.mjs";
 import { createTcpTransport } from "./transport/tcp.js";
 import { BRIDGE_VERSION } from "./version.mjs";
 import { fingerprintBuffer } from "./byteFingerprint.mjs";
@@ -13,6 +12,22 @@ const sendJson = (response, statusCode, body, corsHeaders = {}) => {
   response.end(JSON.stringify(body));
 };
 const corsHeadersFor = (origin) => ({ "access-control-allow-origin": origin, vary: "Origin" });
+
+export const isPrivateNetworkAddress = (value) => {
+  if (typeof value !== "string" || value.length === 0) return false;
+  const address = value.startsWith("::ffff:") ? value.slice(7) : value;
+  if (address === "::1") return true;
+  if (address.includes(":")) {
+    const normalized = address.toLowerCase();
+    return normalized.startsWith("fc") || normalized.startsWith("fd")
+      || /^fe[89ab]/.test(normalized);
+  }
+  const octets = address.split(".").map(Number);
+  if (octets.length !== 4 || octets.some((part) => !Number.isInteger(part) || part < 0 || part > 255)) return false;
+  return octets[0] === 10 || octets[0] === 127
+    || (octets[0] === 172 && octets[1] >= 16 && octets[1] <= 31)
+    || (octets[0] === 192 && octets[1] === 168);
+};
 
 async function readBody(request, maxPayloadBytes, { allowEmpty = false } = {}) {
   const declared = Number(request.headers["content-length"] ?? 0);
@@ -57,9 +72,9 @@ export function createPrintGatewayServer({
   }),
   now = Date.now,
   tls = null,
+  isLanClient = (request) => isPrivateNetworkAddress(request.socket.remoteAddress),
 } = {}) {
   if (!config || !stateStore || !discovery) throw new Error("Print Gateway requires config, stateStore and discovery");
-  const pairingAttempts = [];
   const requestWindows = new Map();
   const withinRate = (key, limit, windowMs) => {
     const cutoff = now() - windowMs;
@@ -87,12 +102,15 @@ export function createPrintGatewayServer({
     const corsHeaders = originAllowed ? corsHeadersFor(origin) : {};
     const url = new URL(request.url ?? "/", config.publicUrl);
     if (!originAllowed) return sendJson(response, 403, { ok: false, code: "ORIGIN_DENIED" });
+    if (!isLanClient(request)) {
+      return sendJson(response, 403, { ok: false, code: "LAN_CLIENT_DENIED" }, corsHeaders);
+    }
 
     if (request.method === "OPTIONS") {
       response.writeHead(204, {
         ...corsHeaders,
         "access-control-allow-methods": "GET, POST, DELETE, OPTIONS",
-        "access-control-allow-headers": "Authorization, Content-Type",
+        "access-control-allow-headers": "Content-Type",
         "access-control-max-age": "600",
         ...(request.headers["access-control-request-private-network"] === "true" ? { "access-control-allow-private-network": "true" } : {}),
       });
@@ -101,29 +119,7 @@ export function createPrintGatewayServer({
 
     const state = await stateStore.read();
     if (request.method === "GET" && url.pathname === "/health") {
-      return sendJson(response, 200, { available: true, pairingRequired: state.tokens.every((entry) => Date.parse(entry.expiresAt) <= now()), version: BRIDGE_VERSION }, corsHeaders);
-    }
-
-    if (request.method === "POST" && url.pathname === "/pair") {
-      const cutoff = now() - 60_000;
-      while (pairingAttempts[0] < cutoff) pairingAttempts.shift();
-      if (pairingAttempts.length >= 5) return sendJson(response, 429, { ok: false, code: "RATE_LIMITED" }, corsHeaders);
-      pairingAttempts.push(now());
-      let body;
-      try { body = await readJson(request); } catch (error) { return sendJson(response, error.code === "UNSUPPORTED_MEDIA_TYPE" ? 415 : 400, { ok: false, code: error.code }, corsHeaders); }
-      if (!validatePairingCode(body?.code, config.pairingSecret, now(), config.pairingCodeTtlSeconds)) {
-        return sendJson(response, 401, { ok: false, code: "PAIRING_CODE_INVALID" }, corsHeaders);
-      }
-      const issued = issueToken(now(), config.tokenTtlDays);
-      await mutateState((next) => {
-        next.tokens = next.tokens.filter((entry) => Date.parse(entry.expiresAt) > now());
-        next.tokens.push({ hash: tokenHash(issued.token), expiresAt: issued.expiresAt });
-      });
-      return sendJson(response, 201, { ok: true, token: issued.token, expiresAt: issued.expiresAt }, corsHeaders);
-    }
-
-    if (!authenticateToken(request.headers.authorization, state.tokens, now())) {
-      return sendJson(response, 401, { ok: false, code: "PAIRING_REQUIRED" }, corsHeaders);
+      return sendJson(response, 200, { available: true, version: BRIDGE_VERSION }, corsHeaders);
     }
 
     if (request.method === "GET" && url.pathname === "/printers") {
@@ -137,7 +133,7 @@ export function createPrintGatewayServer({
     }
 
     if (request.method === "POST" && url.pathname === "/discover") {
-      const rateKey = `discover:${tokenHash(request.headers.authorization ?? "")}`;
+      const rateKey = `discover:${request.socket.remoteAddress ?? "unknown"}`;
       if (!withinRate(rateKey, 6, 60_000)) return sendJson(response, 429, { ok: false, code: "RATE_LIMITED" }, corsHeaders);
       const candidates = await discovery.scan({ force: url.searchParams.get("force") === "true" });
       const newCandidates = candidates.filter((candidate) => {
@@ -164,7 +160,7 @@ export function createPrintGatewayServer({
 
     const printMatch = /^\/print\/([^/]+)$/.exec(url.pathname);
     if (request.method === "POST" && printMatch) {
-      const rateKey = `print:${tokenHash(request.headers.authorization ?? "")}`;
+      const rateKey = `print:${request.socket.remoteAddress ?? "unknown"}`;
       if (!withinRate(rateKey, 120, 60_000)) return sendJson(response, 429, { ok: false, code: "RATE_LIMITED" }, corsHeaders);
       if ((request.headers["content-type"] ?? "").split(";", 1)[0]?.trim() !== "application/octet-stream") return sendJson(response, 415, { ok: false, code: "UNSUPPORTED_MEDIA_TYPE" }, corsHeaders);
       const printer = state.printers.find((entry) => entry.id === decodeURIComponent(printMatch[1]));

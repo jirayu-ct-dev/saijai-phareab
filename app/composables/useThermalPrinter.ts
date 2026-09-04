@@ -45,21 +45,25 @@ interface PrinterState {
   paperWidth: 58 | 80
   isConnecting: boolean
   error: string | null
-  gatewayPairingRequired: boolean
   gatewayPrinters: LanPrinterDescriptor[]
   gatewayCandidates: LanPrinterCandidate[]
   selectedGatewayPrinterId: string | null
 }
 
 interface GatewaySavedState {
-  token?: string
   selectedPrinterId?: string
   paperWidth?: 58 | 80
 }
 
 const readSavedState = (): GatewaySavedState => {
   if (!import.meta.client) return {}
-  try { return JSON.parse(localStorage.getItem(GATEWAY_STORAGE_KEY) ?? '{}') as GatewaySavedState }
+  try {
+    const raw = JSON.parse(localStorage.getItem(GATEWAY_STORAGE_KEY) ?? '{}') as GatewaySavedState
+    return {
+      selectedPrinterId: typeof raw.selectedPrinterId === 'string' ? raw.selectedPrinterId : undefined,
+      paperWidth: raw.paperWidth === 58 ? 58 : 80,
+    }
+  }
   catch { return {} }
 }
 
@@ -73,7 +77,6 @@ export function useThermalPrinter() {
       paperWidth: (saved.paperWidth === 58 ? 58 : 80),
       isConnecting: false,
       error: null,
-      gatewayPairingRequired: false,
       gatewayPrinters: [],
       gatewayCandidates: [],
       selectedGatewayPrinterId: saved.selectedPrinterId ?? null,
@@ -82,9 +85,7 @@ export function useThermalPrinter() {
 
   function persist() {
     if (import.meta.client) {
-      const saved = readSavedState()
       localStorage.setItem(GATEWAY_STORAGE_KEY, JSON.stringify({
-        ...saved,
         paperWidth: state.value.paperWidth,
         selectedPrinterId: state.value.selectedGatewayPrinterId,
       }))
@@ -100,18 +101,11 @@ export function useThermalPrinter() {
   const gatewayUrl = computed(() => String(runtimeConfig.public.printGatewayUrl ?? '').replace(/\/+$/, ''))
   const gatewayEnabled = computed(() => runtimeConfig.public.printGatewayEnabled === true && gatewayUrl.value.length > 0)
 
-  const gatewayToken = (): string | null => readSavedState().token ?? null
   const gatewayFetch = async <T>(path: string, init: RequestInit = {}): Promise<T> => {
     if (!gatewayEnabled.value) throw new Error('ยังไม่ได้เปิดใช้งาน LAN Print Gateway')
-    const token = gatewayToken()
     const headers = new Headers(init.headers)
-    if (token) headers.set('authorization', `Bearer ${token}`)
     const response = await fetch(`${gatewayUrl.value}${path}`, { ...init, headers, signal: init.signal ?? AbortSignal.timeout(10_000) })
-    const body = await response.json().catch(() => null) as ({ code?: string } & T) | null
-    if (response.status === 401) {
-      state.value.gatewayPairingRequired = true
-      throw new Error(body?.code === 'PAIRING_CODE_INVALID' ? 'รหัสจับคู่ไม่ถูกต้องหรือหมดอายุ' : 'ต้องจับคู่เบราว์เซอร์กับ Print Gateway ก่อน')
-    }
+    const body = await response.json().catch(() => null) as T | null
     if (!response.ok || !body) throw new Error('Print Gateway ไม่พร้อมใช้งาน')
     return body
   }
@@ -150,16 +144,11 @@ export function useThermalPrinter() {
     _gatewayRestorePromise = (async () => {
       const saved = readSavedState()
       state.value.selectedGatewayPrinterId = saved.selectedPrinterId ?? null
-      if (!saved.token) {
-        state.value.gatewayPairingRequired = true
-        return false
-      }
 
       state.value.isConnecting = true
       state.value.error = null
       try {
         await refreshGatewayPrinters()
-        state.value.gatewayPairingRequired = false
         return state.value.isConnected && state.value.connectionType === 'wifi'
       } catch (error) {
         state.value.error = error instanceof Error ? error.message : 'เชื่อมต่อ LAN Print Gateway ไม่สำเร็จ'
@@ -187,10 +176,8 @@ export function useThermalPrinter() {
         signal: AbortSignal.timeout(3000),
       })
       if (!response.ok) throw new Error('ไม่พบ LAN Print Gateway')
-      const health = await response.json() as { available?: boolean; pairingRequired?: boolean }
+      const health = await response.json() as { available?: boolean }
       if (health.available !== true) throw new Error('LAN Print Gateway ยังไม่พร้อมใช้งาน')
-      state.value.gatewayPairingRequired = health.pairingRequired === true || !gatewayToken()
-      if (state.value.gatewayPairingRequired) throw new Error('ต้องจับคู่เบราว์เซอร์กับ Print Gateway ก่อน')
       const printers = await refreshGatewayPrinters()
       const onlineCount = printers.filter(printer => printer.online).length
       if (onlineCount === 0) {
@@ -203,17 +190,6 @@ export function useThermalPrinter() {
     } finally {
       state.value.isConnecting = false
     }
-  }
-
-  const pairGateway = async (code: string) => {
-    const result = await gatewayFetch<{ token: string; expiresAt: string }>('/pair', {
-      method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ code }),
-    })
-    const saved = readSavedState()
-    localStorage.setItem(GATEWAY_STORAGE_KEY, JSON.stringify({ ...saved, token: result.token }))
-    state.value.gatewayPairingRequired = false
-    state.value.error = null
-    await refreshGatewayPrinters()
   }
 
   const discoverGatewayPrinters = async (force = false) => {
@@ -362,11 +338,10 @@ export function useThermalPrinter() {
       try {
         const printerId = state.value.selectedGatewayPrinterId
         if (!printerId) throw new Error('ยังไม่ได้เลือกเครื่องพิมพ์')
-        const token = gatewayToken()
-        if (!token) throw new Error('ต้องจับคู่เบราว์เซอร์กับ Print Gateway ก่อน')
+        const headers = new Headers({ 'content-type': 'application/octet-stream' })
         const response = await fetch(`${gatewayUrl.value}/print/${encodeURIComponent(printerId)}`, {
           method: 'POST',
-          headers: { 'content-type': 'application/octet-stream', authorization: `Bearer ${token}` },
+          headers,
           body: bytes as BodyInit,
         })
         const result = await response.json().catch(() => null) as {
@@ -427,6 +402,9 @@ export function useThermalPrinter() {
   if (import.meta.client && !_autoReconnectDone) {
     _autoReconnectDone = true
     onMounted(async () => {
+      // Rewrite the allowlisted shape once so browsers that paired with an
+      // older Gateway no longer retain an obsolete bearer token.
+      persist()
       const restoredGateway = await restoreGatewayConnection()
       if (!restoredGateway) await autoReconnectUsb()
     })
@@ -436,7 +414,6 @@ export function useThermalPrinter() {
     state,
     connectWifi,
     restoreGatewayConnection,
-    pairGateway,
     refreshGatewayPrinters,
     discoverGatewayPrinters,
     trustGatewayPrinter,
