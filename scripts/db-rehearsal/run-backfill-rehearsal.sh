@@ -3,7 +3,7 @@
 # disposable PostgreSQL 16 container. NEVER targets production or a shared
 # database.
 #
-# Pipeline (docs: docs/db-rehearsal-runbook.md, DB-05 verification):
+# Pipeline (runbook: scripts/db-rehearsal/README.md, DB-05 verification):
 #   1. fresh `prisma migrate deploy` replay of the full migration chain (DB A)
 #   2. load the synthetic non-PII fixture
 #   3. preflight --enforce on A

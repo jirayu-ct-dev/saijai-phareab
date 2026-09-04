@@ -4,7 +4,7 @@ import { useElementSize, useWindowSize } from "@vueuse/core";
 import { useThermalPrinter } from "~~/app/composables/useThermalPrinter";
 import PrinterConnectModal from "./PrinterConnectModal.vue";
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   panelId: string;
   navbarTitle: string;
   navbarIcon?: string;
@@ -19,32 +19,26 @@ const props = defineProps<{
   isDownloadingPdf?: boolean;
   isDownloadingPng?: boolean;
   /**
-   * PRN-06: "legacy" (default) keeps the browser-direct print button as-is.
-   * "queue"/"both" make the primary button create a server-side print job
-   * (all transports via the print bridge); "both" additionally shows the
-   * legacy direct button under the printLegacyDirect rollback flag.
+   * Show the PDF/PNG/print action buttons. Member-facing pages pass false when
+   * they render the document preview only and provide no download handlers.
    */
-  printMode?: "legacy" | "queue" | "both";
-  isQueueing?: boolean;
-}>();
+  showActions?: boolean;
+}>(), {
+  showActions: true,
+});
 
 const emit = defineEmits<{
   retry: [];
   print: [];
-  printQueue: [];
   back: [];
   downloadPdf: [];
   downloadPng: [];
 }>();
 
-const { state: printerState } = useThermalPrinter();
+const { state: printerState, restoreGatewayConnection } = useThermalPrinter();
 const showPrinterModal = ref(false);
-const runtimeConfig = useRuntimeConfig();
-
-const queuePrintEnabled = computed(() => props.printMode === "queue" || props.printMode === "both");
-const legacyPrintVisible = computed(() =>
-  queuePrintEnabled.value ? props.printMode === "both" && runtimeConfig.public.printLegacyDirect !== "false" : true,
-);
+const resumePrintAfterConnect = ref(false);
+const actionsVisible = computed(() => props.showActions !== false);
 
 // Export/print still uses the exact printer dot count. The admin preview below
 // is visually scaled only, so it is easier to read without horizontal scrolling.
@@ -77,9 +71,25 @@ function goBack() {
   else emit("back");
 }
 
-function onPrimaryPrint() {
-  if (queuePrintEnabled.value) emit("printQueue");
-  else emit("print");
+const onPrimaryPrint = async () => {
+  if (printerState.value.isConnected) {
+    emit("print");
+    return;
+  }
+
+  if (await restoreGatewayConnection()) {
+    emit("print");
+    return;
+  }
+
+  resumePrintAfterConnect.value = true;
+  showPrinterModal.value = true;
+};
+
+function onPrinterConnected() {
+  if (!resumePrintAfterConnect.value) return;
+  resumePrintAfterConnect.value = false;
+  emit("print");
 }
 </script>
 
@@ -105,6 +115,7 @@ function onPrimaryPrint() {
               @click="goBack"
             />
             <UButton
+              v-if="actionsVisible"
               label="PDF"
               color="neutral"
               variant="outline"
@@ -115,6 +126,7 @@ function onPrimaryPrint() {
               @click="emit('downloadPdf')"
             />
             <UButton
+              v-if="actionsVisible"
               label="PNG"
               color="neutral"
               variant="outline"
@@ -125,54 +137,17 @@ function onPrimaryPrint() {
               @click="emit('downloadPng')"
             />
 
-            <!-- Printer status + settings -->
-            <div class="relative shrink-0">
-              <UButton
-                v-if="queuePrintEnabled"
-                color="neutral"
-                variant="outline"
-                icon="i-lucide-printer"
-                aria-label="จัดการเครื่องพิมพ์และคิวงานพิมพ์"
-                to="/admin/printing"
-              />
-              <UButton
-                v-else
-                color="neutral"
-                variant="outline"
-                icon="i-lucide-printer"
-                aria-label="ตั้งค่าเครื่องพิมพ์"
-                @click="showPrinterModal = true"
-              />
-              <span
-                v-if="!queuePrintEnabled"
-                class="pointer-events-none absolute -right-1 -top-1 size-2.5 rounded-full border-2 border-bg"
-                :class="printerState.isConnected ? 'bg-green-500' : 'bg-neutral-400'"
-              />
-            </div>
-
             <UButton
+              v-if="actionsVisible"
               :label="printLabel || 'พิมพ์'"
               color="primary"
               icon="i-lucide-printer"
               class="shrink-0"
               :aria-label="printLabel || 'พิมพ์'"
               :ui="{ label: 'hidden sm:inline' }"
-              :disabled="isPrinting || isQueueing || printerState.isConnecting"
-              :loading="queuePrintEnabled ? isQueueing : (isPrinting || printerState.isConnecting)"
-              @click="onPrimaryPrint"
-            />
-            <UButton
-              v-if="legacyPrintVisible && queuePrintEnabled"
-              label="พิมพ์เชื่อมตรง (เดิม)"
-              color="neutral"
-              variant="outline"
-              icon="i-lucide-usb"
-              class="shrink-0"
-              aria-label="พิมพ์แบบเชื่อมต่อตรงจากเบราว์เซอร์"
-              :ui="{ label: 'hidden md:inline' }"
-              :disabled="isPrinting || isQueueing || printerState.isConnecting"
+              :disabled="isPrinting || printerState.isConnecting"
               :loading="isPrinting || printerState.isConnecting"
-              @click="emit('print')"
+              @click="onPrimaryPrint"
             />
           </div>
         </template>
@@ -204,7 +179,7 @@ function onPrimaryPrint() {
     </template>
   </UDashboardPanel>
 
-  <PrinterConnectModal v-model:open="showPrinterModal" />
+  <PrinterConnectModal v-model:open="showPrinterModal" @connected="onPrinterConnected" />
 </template>
 
 <style scoped>

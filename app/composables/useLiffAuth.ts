@@ -100,7 +100,12 @@ export const useLiffAuth = () => {
 
         pendingAutoLogin = performLiffAutoLogin()
             .then((result) => {
-                lastAutoLoginResult.value = result
+                // Only cache terminal outcomes; a 'failed' result (often a
+                // transient network/LIFF error) stays retryable on the next
+                // navigation instead of disabling auto-login until a reload.
+                if (result !== 'failed') {
+                    lastAutoLoginResult.value = result
+                }
                 return result
             })
             .finally(() => {

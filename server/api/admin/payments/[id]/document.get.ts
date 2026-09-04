@@ -2,31 +2,36 @@
 //   ?type=receipt|quotation       (default: receipt)
 //   &format=pdf|png|escpos        (default: pdf)
 //   &width=576|384                (printer dot count for png/escpos; default 576)
+//   &thaiStrategy=native-cp874|native-thai-255|raster-thai
+//                                  (ESC/POS only; default: raster-thai)
 //
-// Single endpoint that renders the /print/* route via Puppeteer and returns
-// the requested format. The PDF is the source of truth — PNG is the same view
-// captured as a screenshot, and ESC/POS bytes are produced from the PNG.
+// PDF and PNG render the authenticated /print/* view through Puppeteer.
+// ESC/POS uses the current server-owned PrintDocument and Hybrid renderer.
 
 import { requireRole } from "~~/server/utils/auth";
+import { z } from "zod/v4";
 import { renderPdf, renderPng } from "~~/server/utils/pdfRenderer";
-import { buildEscposBytes } from "~~/server/utils/escposRaster";
+import { loadCurrentDirectPrintDocument } from "~~/server/utils/directPrintDocument";
+import { renderDirectEscpos } from "~~/server/utils/directPrintRenderer";
+import { debugPrintBytes, toPrintResponseBuffer } from "~~/server/utils/printBinary";
 
 const trimTrailingSlash = (value: string) => value.replace(/\/+$/, "");
+const querySchema = z.object({
+  type: z.enum(["receipt", "quotation"]).default("receipt"),
+  format: z.enum(["pdf", "png", "escpos"]).default("pdf"),
+  width: z.coerce.number().pipe(z.union([z.literal(384), z.literal(576)])).default(576),
+  thaiStrategy: z.enum(["native-cp874", "native-thai-255", "raster-thai"])
+    .default("raster-thai"),
+}).strict();
+const idSchema = z.string().min(1).max(100).regex(/^[A-Za-z0-9_-]+$/);
 
 export default defineEventHandler(async (event) => {
   requireRole(event, ["ADMIN", "EMPLOYEE"]);
 
-  const id = String(event.context.params?.id ?? "");
-  if (!id) throw createError({ statusCode: 400, statusMessage: "Missing payment id" });
-
-  const q = getQuery(event);
-  const type = q.type === "quotation" ? "quotation" : "receipt";
-  const format = q.format === "png" ? "png" : q.format === "escpos" ? "escpos" : "pdf";
-  const width = (() => {
-    const n = Number(q.width);
-    if (n === 384) return 384;
-    return 576;
-  })();
+  const idResult = idSchema.safeParse(String(event.context.params?.id ?? ""));
+  if (!idResult.success) throw createError({ statusCode: 400, statusMessage: "Invalid payment id" });
+  const id = idResult.data;
+  const { type, format, width, thaiStrategy } = await getValidatedQuery(event, querySchema.parse);
 
   // On a long-running Node server, INTERNAL_BASE_URL can point Puppeteer to a
   // local Nuxt listener. On Vercel there is no localhost:3000 listener inside
@@ -55,16 +60,21 @@ export default defineEventHandler(async (event) => {
       return buf;
     }
 
-    // escpos — render PNG first, then convert to printer bytes
-    const pngBytes = await renderPng(renderOpts);
-    const bytes = await buildEscposBytes({
-      pngBytes,
-      paperWidth: width === 384 ? 58 : 80,
+    // Direct Hybrid output is built from current server-owned data. The
+    // browser supplies only the payment id, document kind and safe width.
+    const document = await loadCurrentDirectPrintDocument({
+      paymentId: id,
+      kind: type === "receipt" ? "RECEIPT" : "QUOTATION",
     });
+    const { bytes } = await renderDirectEscpos(document, width, thaiStrategy);
+    await debugPrintBytes("A_RENDERER", bytes);
     setHeader(event, "Content-Type", "application/octet-stream");
     setHeader(event, "Content-Disposition", `attachment; filename="${type}-${id}.bin"`);
-    return bytes;
+    const responseBody = toPrintResponseBuffer(bytes);
+    await debugPrintBytes("B_ENDPOINT", responseBody);
+    return responseBody;
   } catch (e) {
+    if (e && typeof e === "object" && "statusCode" in e) throw e;
     const message = e instanceof Error ? e.message : String(e);
     const stack = e instanceof Error ? e.stack : undefined;
     // Full render context (internal URL, stack) stays in the server log; the

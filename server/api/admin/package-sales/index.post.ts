@@ -20,13 +20,6 @@ type CreatePackageSaleBody = {
   status?: "UNPAID" | "PENDING_VERIFICATION" | "PAID" | "CANCELLED" | null;
 };
 
-const packageSaleStatusByPaymentStatus = {
-  UNPAID: "PENDING",
-  PENDING_VERIFICATION: "PENDING",
-  PAID: "PAID",
-  CANCELLED: "CANCELLED",
-} as const;
-
 const buildEntitlementState = (
   validityDays: number | null | undefined,
   credits: number | null | undefined,
@@ -120,7 +113,13 @@ export default defineEventHandler(async (event) => {
     const totalAmount = vat.totalAmount;
     const now = new Date();
 
-    const allowedStatuses = ["UNPAID", "PENDING_VERIFICATION", "PAID", "CANCELLED"] as const;
+    if (body.status === "CANCELLED") {
+      throw createError({
+        statusCode: 400,
+        statusMessage: "ไม่สามารถสร้างรายการขายในสถานะยกเลิกได้ กรุณาสร้างรายการก่อนแล้วจึงยกเลิก",
+      });
+    }
+    const allowedStatuses = ["UNPAID", "PENDING_VERIFICATION", "PAID"] as const;
     const paymentStatus = allowedStatuses.includes(body.status as typeof allowedStatuses[number])
       ? (body.status as typeof allowedStatuses[number])
       : "PAID";
@@ -131,7 +130,6 @@ export default defineEventHandler(async (event) => {
         data: {
           customerId: body.customerId,
           soldById: actor.id,
-          status: packageSaleStatusByPaymentStatus[paymentStatus],
           subtotalAmount,
           discountAmount,
           totalAmount,

@@ -5,6 +5,11 @@ import {
   canTransitionPaymentStatus,
 } from "../../server/utils/paymentStateTransition";
 
+// Shim the Nitro auto-import used inside paymentStateTransition.ts. It must be
+// installed before the functions that throw run.
+(globalThis as Record<string, unknown>).createError = (input: { statusCode?: number; statusMessage?: string } = {}) =>
+  Object.assign(new Error(input.statusMessage ?? "H3Error"), input);
+
 const createExistingPayment = (overrides = {}) => ({
   id: "payment-1",
   status: "UNPAID" as const,
@@ -20,7 +25,7 @@ const createExistingPayment = (overrides = {}) => ({
 
 const createTx = () => ({
   paymentRecord: {
-    update: vi.fn().mockResolvedValue({}),
+    updateMany: vi.fn().mockResolvedValue({ count: 1 }),
   },
   packageSale: {
     update: vi.fn().mockResolvedValue({}),
@@ -68,13 +73,44 @@ describe("payment state transitions", () => {
     expect(canTransitionPaymentStatus("UNPAID", "PENDING_VERIFICATION")).toBe(true);
     expect(canTransitionPaymentStatus("PENDING_VERIFICATION", "PAID")).toBe(true);
     expect(createReceiptNo).toHaveBeenCalledTimes(1);
-    expect(secondTx.paymentRecord.update).toHaveBeenCalledWith({
-      where: { id: "payment-1" },
+    expect(secondTx.paymentRecord.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: "payment-1",
+        status: "PENDING_VERIFICATION",
+        method: "TRANSFER",
+        paidAt: null,
+        confirmedAt: null,
+        confirmedById: null,
+        receiptNo: null,
+        slipImageId: "image-1",
+        deletedAt: null,
+      },
       data: expect.objectContaining({
         status: "PAID",
         receiptNo: "RC-2026-0001",
       }),
     });
+  });
+
+  it("rejects the transition when the payment changed concurrently", async () => {
+    const tx = createTx();
+    tx.paymentRecord.updateMany.mockResolvedValue({ count: 0 });
+
+    await expect(
+      applyPaymentStateTransition({
+        tx,
+        paymentId: "payment-1",
+        existing: createExistingPayment(),
+        nextStatus: "CANCELLED",
+        nextMethod: null,
+        nextSlipImageId: null,
+        actorId: "employee-1",
+        now: new Date("2026-05-21T10:00:00.000Z"),
+        createReceiptNo: vi.fn(),
+      }),
+    ).rejects.toMatchObject({ statusCode: 409 });
+    expect(tx.packageSale.update).not.toHaveBeenCalled();
+    expect(tx.paymentAuditLog.create).not.toHaveBeenCalled();
   });
 
   it("rejects PAID -> CANCELLED", () => {

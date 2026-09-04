@@ -13,7 +13,7 @@ export interface Image extends Timestamps, SoftDeletable {
 
     // Relations
     user?: User | null;
-    serviceOrderItems?: ServiceOrderItem[];
+    serviceOrderItemImages?: Array<{ serviceOrderItem?: ServiceOrderItem }>;
     serviceOrders?: ServiceOrder[];
     slipPayments?: PaymentRecord[];
 }

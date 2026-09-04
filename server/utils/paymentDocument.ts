@@ -1,5 +1,6 @@
 import { prisma } from "./prisma";
 import { isInternalCustomerEmail } from "./customerAccount";
+import { packageSaleStatusByPaymentStatus } from "./paymentStateTransition";
 
 const toNumber = (value: unknown) => Number(value ?? 0);
 
@@ -145,7 +146,7 @@ export const buildPaymentDocumentPayload = async (paymentId: string) => {
     packageSale: payment.packageSale
       ? {
           id: payment.packageSale.id,
-          status: payment.packageSale.status,
+          status: packageSaleStatusByPaymentStatus[payment.status],
           note: payment.packageSale.note,
           subtotalAmount: toNumber(payment.packageSale.subtotalAmount),
           discountAmount: toNumber(payment.packageSale.discountAmount),

@@ -14,6 +14,7 @@
 //
 // Usage:
 //   DATABASE_URL=... node scripts/db-rehearsal/run-preflight.mjs --confirm-disposable
+//   DATABASE_URL=... node scripts/db-rehearsal/run-preflight.mjs --confirm-disposable --profile current
 //   DATABASE_URL=... node scripts/db-rehearsal/run-preflight.mjs --confirm-disposable --enforce
 //   DATABASE_URL=... node scripts/db-rehearsal/run-preflight.mjs \
 //     --confirm-production-read-only --approval-reference <non-secret-id> \
@@ -63,7 +64,13 @@ function argValue(flag) {
 }
 const reportFile = argValue("--report-file");
 const approvalReference = argValue("--approval-reference");
+const profile = argValue("--profile") ?? "legacy";
 const enforce = productionMode || args.includes("--enforce");
+
+if (!["legacy", "current"].includes(profile)) {
+  console.error("--profile must be legacy or current");
+  process.exit(64);
+}
 
 if (productionMode) {
   if (!approvalReference || !/^[A-Za-z0-9._:-]{3,128}$/.test(approvalReference)) {
@@ -243,7 +250,7 @@ try {
   process.exit(64);
 }
 
-const sqlDir = join(scriptDir, "sql");
+const sqlDir = join(scriptDir, profile === "current" ? "sql-current" : "sql");
 const sqlFiles = readdirSync(sqlDir)
   .filter((name) => /^\d+.*\.sql$/.test(name))
   .sort();
@@ -282,6 +289,7 @@ const report = {
   statementTimeoutMs: timeoutMs,
   enforce,
   completedAtCutover: process.env.REHEARSAL_COMPLETED_AT_CUTOVER ?? null,
+  profile,
   files: [],
 };
 let failed = false;

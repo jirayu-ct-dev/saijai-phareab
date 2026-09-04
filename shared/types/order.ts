@@ -14,12 +14,6 @@ export interface HangerCharge {
   total: number;
 }
 
-export interface UsedBonus {
-  packageBonusId: string;
-  quantity: number;
-  description: string;
-}
-
 export interface DeliveryAddressSnapshot {
   contactName: string;
   contactPhone: string;
@@ -42,7 +36,6 @@ export interface ServiceOrder extends Timestamps, SoftDeletable {
   hangerCharge: HangerCharge | null;
   totalAmount: number | string | null;
   note: string | null;
-  usedBonuses: UsedBonus[] | null;
   deliveryAddressSnapshot: DeliveryAddressSnapshot | null;
   imageId: string | null;
 
@@ -61,12 +54,17 @@ export interface ServiceOrderItem extends Timestamps, SoftDeletable {
   quantity: number;
   unitPrice: number | string;
   totalPrice: number | string;
-  imageId: string | null;
   notes: string | null;
 
   serviceOrder?: ServiceOrder;
   storefrontPrice?: StorefrontPrice;
-  image?: Image | null;
+  photos?: Array<{
+    id: string;
+    imageId: string;
+    isDamaged: boolean;
+    sortOrder: number;
+    image?: Image;
+  }>;
 }
 
 // Compatibility aliases for older UI code.

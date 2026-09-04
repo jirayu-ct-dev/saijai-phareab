@@ -6,6 +6,13 @@ export type ReceiptPayload = {
   paidAt: string | null;
   amount: number;
   note: string | null;
+  paymentQr?: {
+    imageDataUrl: string;
+    caption: string;
+    amountMinor: number;
+    currency: "THB";
+    receiverLabel: string;
+  } | null;
   vat: {
     rate: number;
     amount: number;

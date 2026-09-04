@@ -69,7 +69,7 @@ const items = [
               <div v-if="activeEntitlements.length === 0" class="col-span-full py-12 text-center border border-dashed border-default rounded-md bg-elevated">
                 <UIcon name="i-lucide-package-x" class="h-12 w-12 text-dimmed mx-auto mb-4" />
                 <p class="text-muted">คุณยังไม่มีแพ็กเกจที่กำลังใช้งาน</p>
-                <UButton to="/me/packages" color="primary" class="mt-4">เลือกซื้อแพ็กเกจ</UButton>
+                <UButton to="/packages" color="primary" class="mt-4">เลือกซื้อแพ็กเกจ</UButton>
               </div>
 
               <UCard v-for="ent in activeEntitlements" :key="ent.id" class="border-primary/20 bg-primary/5">

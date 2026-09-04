@@ -403,7 +403,7 @@ const columns: TableColumn<MyReceiptRecord>[] = [
                 v-model="searchQuery"
                 class="min-w-0 flex-1"
                 icon="i-lucide-search"
-                placeholder="ค้นหาลูกค้า เลขชำระ เลขรับผ้า หรือชื่อรายการ"
+                placeholder="ค้นหาเลขชำระ เลขรับผ้า หรือชื่อรายการ"
               />
 
               <UIButtonRefresh class="shrink-0 md:hidden" :loading="isLoading" @refresh="refresh" />

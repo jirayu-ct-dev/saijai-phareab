@@ -36,7 +36,7 @@ export function decimalStringToMinor(value: string): number {
   const decimalPart = parts[1] ?? "";
   // Zero (with any number of leading zeros in the whole part, e.g. "0.00",
   // "0.0") is invalid for payment QR: nothing to collect.
-  if (BigInt(wholePart) === 0n && (decimalPart === "" || /^0+$/.test(decimalPart))) {
+  if (BigInt(wholePart) === BigInt(0) && (decimalPart === "" || /^0+$/.test(decimalPart))) {
     throw new InvalidAmountError("Amount must be greater than zero");
   }
   const padded = decimalPart.padEnd(2, "0");

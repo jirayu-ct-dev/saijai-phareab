@@ -10,7 +10,7 @@
  * Also protects:
  *   - Decimal values leave the document builder as JSON-safe numbers.
  *   - ServiceOrderItemImage rows are the photo source of truth with the first
- *     photo mirrored into ServiceOrderItem.imageId (handler contract).
+ *     photo stored through ServiceOrderItemImage only.
  *
  * Prisma is mocked for the document builder; handler-embedded rules that have
  * no pure seam are pinned as source contracts (repo-idiomatic pattern, see
@@ -224,11 +224,9 @@ describe("payment document presentation rules", () => {
 });
 
 describe("item photo contracts (ServiceOrderItemImage as source of truth)", () => {
-  it("mirrors the first photo into item.imageId when no explicit image is sent (source contract: create)", () => {
+  it("does not write the removed direct item.imageId mirror", () => {
     for (const path of ["server/api/admin/service-orders/index.post.ts", "server/api/admin/service-orders/[id].put.ts"]) {
-      expect(source(path), `${path} must keep the first-photo mirror`).toMatch(
-        /imageId:\s*item\.imageId\?\.trim\(\) \|\| photos\[0\]\?\.imageId \|\| null/,
-      );
+      expect(source(path), `${path} must use only normalized photo rows`).not.toMatch(/imageId:\s*item\.imageId/);
     }
   });
 

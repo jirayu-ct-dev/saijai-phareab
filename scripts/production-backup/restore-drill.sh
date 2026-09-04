@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Restore drill for the external-encrypted-backups policy
-# (docs/db-g3-production-approval-packet.md section 4.1): download the latest
+# (see scripts/production-backup/README.md): download the latest
 # encrypted backup from R2, decrypt it, verify the SHA-256 recorded at backup
 # time, and prove pg_restore can read the archive. This is the drill evidence
 # for backupPolicy.lastRestoreDrillAt; run the full 12-stage rehearsal

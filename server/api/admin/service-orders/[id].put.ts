@@ -1,13 +1,11 @@
 import type { ServiceOrderStatus } from "~~/shared/types/enums";
 import { notifyServiceOrderStatusChanged } from "~~/server/utils/notify";
-import { COMPAT_METRICS, emitCompatFailure, emitCompatTelemetry } from "~~/server/utils/compatTelemetry";
 import { getBusinessSetting } from "~~/server/utils/appSetting";
 import { computeVat } from "~~/server/utils/vat";
 import { requireRole } from "~~/server/utils/auth";
 import { createPaymentNo } from "~~/server/utils/paymentNo";
 import { prisma } from "~~/server/utils/prisma";
 import { createAddonUsageRecords, refundAddonUsages, voidPendingAddonUsageRecords } from "~~/server/utils/serviceOrderCredits";
-import type { AddonRefundOutcome } from "~~/server/utils/serviceOrderCredits";
 import { canTransitionServiceOrderStatus, isServiceOrderStatus, resolveServiceOrderCompletedAt } from "~~/server/utils/serviceOrderStatusTransition";
 import { parseBangkokDateTime } from "~~/shared/utils/pickup";
 
@@ -72,19 +70,24 @@ export default defineEventHandler(async (event) => {
   const normalizedItems = body.items
     .map((item) => {
       const rawPhotos = Array.isArray(item.photos) ? item.photos : [];
-      const photos = rawPhotos
+      const parsedPhotos = rawPhotos
         .map((photo, index) => ({
           imageId: photo.imageId?.trim() || "",
           isDamaged: Boolean(photo.isDamaged),
           sortOrder: Number.isFinite(photo.sortOrder) ? Number(photo.sortOrder) : index,
         }))
         .filter((photo) => photo.imageId);
+      const legacyImageId = item.imageId?.trim() || "";
+      const photos = parsedPhotos.length > 0
+        ? parsedPhotos
+        : legacyImageId
+          ? [{ imageId: legacyImageId, isDamaged: false, sortOrder: 0 }]
+          : [];
 
       return {
         storefrontPriceId: item.storefrontPriceId,
         quantity: Number(item.quantity ?? 1),
         unitPriceOverride: item.unitPrice != null && Number.isFinite(Number(item.unitPrice)) ? Number(item.unitPrice) : null,
-        imageId: item.imageId?.trim() || photos[0]?.imageId || null,
         notes: item.notes?.trim() || null,
         photos,
       };
@@ -107,8 +110,6 @@ export default defineEventHandler(async (event) => {
   if (body.discountAmount !== undefined && (!Number.isFinite(Number(body.discountAmount)) || Number(body.discountAmount) < 0)) {
     throw createError({ statusCode: 400, statusMessage: "จำนวนส่วนลดต้องเป็น 0 หรือมากกว่า" });
   }
-
-  const attemptedCompatPaths = new Set<"addon-refund" | "item-photo">();
 
   try {
     const existing = await prisma.serviceOrder.findFirst({
@@ -203,7 +204,6 @@ export default defineEventHandler(async (event) => {
         quantity: item.quantity,
         unitPrice,
         totalPrice: unitPrice * item.quantity,
-        imageId: item.imageId,
         notes: item.notes,
         photos: item.photos,
       };
@@ -260,19 +260,15 @@ export default defineEventHandler(async (event) => {
     let payableAmount = vat.totalAmount;
 
 
-    let refundOutcome: AddonRefundOutcome | undefined;
-    const statusChanged = existing.status !== serviceOrderStatus;
-
     await prisma.$transaction(async (tx) => {
       if (existing.memberEntitlementId && existing.creditUsed) {
-        // Only refund credits if the entitlement is still ACTIVE.
-        // If it was suspended/expired/cancelled after this order was created,
-        // restoring credits would bypass the suspension.
+        // Preserve balance accounting even if the entitlement is currently
+        // suspended/expired/cancelled; its status still prevents further use.
         const { count } = await tx.memberEntitlement.updateMany({
           where: {
             id: existing.memberEntitlementId,
-            status: "ACTIVE",
-            creditRemaining: { gte: 0 },
+            deletedAt: null,
+            creditRemaining: { not: null },
           },
           data: {
             creditRemaining: { increment: existing.creditUsed },
@@ -287,15 +283,17 @@ export default defineEventHandler(async (event) => {
         }
       }
 
-      if (shouldReplaceAddonUsages) {
-        attemptedCompatPaths.add("addon-refund");
-        refundOutcome = await refundAddonUsages(tx, existing.id, existing.addonUsages);
+      if (shouldReplaceAddonUsages || serviceOrderStatus === "CANCELLED") {
+        await refundAddonUsages(tx, existing.id);
         await voidPendingAddonUsageRecords(tx, existing.id);
       }
 
       let nextEntitlementId: string | null = null;
 
-      if (requestedEntitlementId) {
+      // A cancelled order holds no package credits — never re-deduct an
+      // entitlement for it, or the stored creditUsed would trigger a second
+      // refund on a later cancel/delete.
+      if (requestedEntitlementId && serviceOrderStatus !== "CANCELLED") {
         const entitlement = await tx.memberEntitlement.findFirst({
           where: {
             id: requestedEntitlementId,
@@ -359,8 +357,11 @@ export default defineEventHandler(async (event) => {
         deductedAt?: string;
       };
       const pendingAddonUsages: PendingAddonUsage[] = [];
-      const storedAddonUsages: PendingAddonUsage[] = [];
-      const rawAddonEntitlements = shouldReplaceAddonUsages ? body.addonEntitlements ?? [] : [];
+      // A cancelled order holds no addon usage — skip re-deducting any
+      // entitlements the client may still send alongside the cancel.
+      const rawAddonEntitlements = shouldReplaceAddonUsages && serviceOrderStatus !== "CANCELLED"
+        ? body.addonEntitlements ?? []
+        : [];
       for (const entry of rawAddonEntitlements) {
         const credits = Math.floor(Number(entry.credits ?? 0));
         if (!entry.entitlementId || credits <= 0) continue;
@@ -403,7 +404,6 @@ export default defineEventHandler(async (event) => {
           const deductedAt = new Date().toISOString();
           usage.appliedAt = deductedAt;
           usage.deductedAt = deductedAt;
-          storedAddonUsages.push(usage);
         }
         pendingAddonUsages.push(usage);
       }
@@ -435,7 +435,6 @@ export default defineEventHandler(async (event) => {
           washFoldPricePerKgSnapshot: washFoldInput ? business.washFoldPricePerKg : null,
           note: body.note?.trim() || null,
           imageId: orderImageId,
-          ...(shouldReplaceAddonUsages ? { addonUsages: storedAddonUsages } : {}),
           ...(deliveryImageId !== undefined ? { deliveryImageId } : {}),
         },
       });
@@ -447,7 +446,7 @@ export default defineEventHandler(async (event) => {
         });
       }
 
-      if (shouldReplaceAddonUsages) {
+      if (shouldReplaceAddonUsages && serviceOrderStatus !== "CANCELLED") {
         await createAddonUsageRecords(tx, id, pendingAddonUsages);
       }
 
@@ -498,14 +497,12 @@ export default defineEventHandler(async (event) => {
               quantity: row.qty,
               unitPrice: item.unitPrice,
               totalPrice: row.totalPrice,
-              imageId: row.attachPhotos ? item.imageId : null,
               notes: item.notes,
             },
             select: { id: true },
           });
 
           if (row.attachPhotos && item.photos.length > 0) {
-            attemptedCompatPaths.add("item-photo");
             await tx.serviceOrderItemImage.createMany({
               data: item.photos.map((photo, index) => ({
                 serviceOrderItemId: createdItem.id,
@@ -523,7 +520,6 @@ export default defineEventHandler(async (event) => {
           where: { id: existing.payments[0].id },
           data: {
             userId: paymentUserId!,
-            memberEntitlementId: null,
             amount: payableAmount,
             slipImageId: slipImageId ?? null,
             note: body.note?.trim() || null,
@@ -582,22 +578,6 @@ export default defineEventHandler(async (event) => {
       }
     });
 
-    // Compat telemetry: success is only reported after the transaction has
-    // committed.
-    if (refundOutcome) {
-      emitCompatTelemetry({ metric: COMPAT_METRICS.addonRefund, path: "full-edit", result: refundOutcome });
-    }
-    if (attemptedCompatPaths.has("item-photo")) {
-      emitCompatTelemetry({ metric: COMPAT_METRICS.itemPhotoWrite, path: "full-edit", result: "success" });
-    }
-    if (statusChanged) {
-      emitCompatTelemetry({
-        metric: COMPAT_METRICS.orderTransition,
-        path: "full-edit",
-        result: serviceOrderStatus === "COMPLETED" ? "completed" : "transitioned",
-      });
-    }
-
     if (existing.status !== serviceOrderStatus) {
       const notification = notifyServiceOrderStatusChanged({
         serviceOrderId: existing.id,
@@ -609,19 +589,6 @@ export default defineEventHandler(async (event) => {
     }
     return { success: true };
   } catch (error) {
-    if (attemptedCompatPaths.has("addon-refund")) {
-      emitCompatFailure(COMPAT_METRICS.addonRefund, "full-edit", error);
-    }
-    if (attemptedCompatPaths.has("item-photo")) {
-      emitCompatFailure(COMPAT_METRICS.itemPhotoWrite, "full-edit", error);
-    }
-    if (
-      error && typeof error === "object" && "data" in error &&
-      (error as { data?: { code?: unknown } }).data?.code === "SERVICE_ORDER_STATUS_CONFLICT"
-    ) {
-      emitCompatTelemetry({ metric: COMPAT_METRICS.orderTransition, path: "full-edit", result: "conflict" });
-    }
-
     if (error && typeof error === "object" && "statusCode" in error) {
       throw error;
     }

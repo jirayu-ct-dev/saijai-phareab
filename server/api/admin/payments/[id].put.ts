@@ -1,7 +1,6 @@
-import { addDays } from "date-fns";
-import { COMPAT_METRICS, emitCompatFailure, emitCompatTelemetry } from "~~/server/utils/compatTelemetry";
 import { requireRole } from "~~/server/utils/auth";
 import { prisma } from "~~/server/utils/prisma";
+import { buildPaymentEntitlementEdit } from "~~/server/utils/paymentEntitlementEdit";
 
 interface UpdatePaymentBody {
   customerId?: string;
@@ -10,20 +9,6 @@ interface UpdatePaymentBody {
   note?: string | null;
   slipImageId?: string | null;
 }
-
-const buildEntitlementState = (validityDays: number | null | undefined, credits: number | null | undefined) => {
-  const startAt = new Date();
-  const creditTotal = credits ?? 0;
-  return {
-    status: "ACTIVE" as const,
-    startAt,
-    endAt: validityDays ? addDays(startAt, validityDays) : null,
-    activatedAt: startAt,
-    suspendedAt: null,
-    creditInitial: creditTotal,
-    creditRemaining: creditTotal,
-  };
-};
 
 export default defineEventHandler(async (event) => {
   const actor = requireRole(event, ["ADMIN"]);
@@ -62,7 +47,15 @@ export default defineEventHandler(async (event) => {
                 },
                 memberEntitlements: {
                   where: { deletedAt: null },
-                  select: { id: true },
+                  select: {
+                    id: true,
+                    serviceOrders: { where: { deletedAt: null }, select: { id: true }, take: 1 },
+                    serviceOrderAddonUsages: {
+                      where: { refundedAt: null, serviceOrder: { deletedAt: null } },
+                      select: { id: true },
+                      take: 1,
+                    },
+                  },
                 },
               },
             },
@@ -75,20 +68,28 @@ export default defineEventHandler(async (event) => {
       throw createError({ statusCode: 404, statusMessage: "ไม่พบรายการชำระเงินที่ต้องการแก้ไข" });
     }
 
+    // Editing a cancelled payment must not resurrect its entitlements or sale.
+    if (existing.status === "CANCELLED") {
+      throw createError({ statusCode: 409, statusMessage: "ไม่สามารถแก้ไขรายการชำระเงินที่ถูกยกเลิกแล้วได้" });
+    }
+
     if (!existing.packageSale) {
       const nextNote = body.note !== undefined ? body.note?.trim() || null : (existing.note ?? null);
       const nextSlipImageId = body.slipImageId !== undefined ? body.slipImageId : existing.slipImageId;
 
       const updated = await prisma.$transaction(async (tx) => {
-        const row = await tx.paymentRecord.update({
-          where: { id },
+        const { count } = await tx.paymentRecord.updateMany({
+          where: { id, status: existing.status, updatedAt: existing.updatedAt, deletedAt: null },
           data: {
             slipImageId: nextSlipImageId ?? null,
             note: nextNote,
-            paidAt: existing.paidAt ?? new Date(),
+            paidAt: existing.status === "PAID" ? existing.paidAt ?? new Date() : existing.paidAt,
             metadata: { updatedByAdminId: actor.id },
           },
         });
+        if (count !== 1) {
+          throw createError({ statusCode: 409, statusMessage: "รายการชำระเงินถูกแก้ไขโดยผู้ใช้อื่น กรุณาลองใหม่" });
+        }
 
         await tx.paymentAuditLog.create({
           data: {
@@ -106,7 +107,7 @@ export default defineEventHandler(async (event) => {
           },
         });
 
-        return row;
+        return tx.paymentRecord.findUniqueOrThrow({ where: { id } });
       });
 
       return updated;
@@ -128,6 +129,22 @@ export default defineEventHandler(async (event) => {
       body.customerId !== undefined
       || body.productId !== undefined
       || body.amount !== undefined;
+    const changesEntitlementIdentity =
+      (body.customerId !== undefined && nextCustomerId !== existingPackageSale.customerId)
+      || (body.productId !== undefined && nextProductId !== primarySaleItem?.productId);
+    const hasUsedEntitlement = saleItems.some((item) =>
+      item.memberEntitlements.some((entitlement) =>
+        entitlement.serviceOrders.length > 0 || entitlement.serviceOrderAddonUsages.length > 0,
+      ),
+    );
+    const productChanged = body.productId !== undefined && nextProductId !== primarySaleItem?.productId;
+
+    if (changesEntitlementIdentity && hasUsedEntitlement) {
+      throw createError({
+        statusCode: 409,
+        statusMessage: "ไม่สามารถเปลี่ยนลูกค้าหรือแพ็กเกจของสิทธิ์ที่ถูกใช้งานแล้ว",
+      });
+    }
 
     if (!Number.isFinite(Number(nextAmount)) || Number(nextAmount) < 0) {
       throw createError({ statusCode: 400, statusMessage: "กรุณาระบุจำนวนเงินให้ถูกต้อง" });
@@ -173,7 +190,6 @@ export default defineEventHandler(async (event) => {
         where: { id: existingPackageSale.id },
         data: {
           customerId: nextCustomerId,
-          status: "PAID",
           subtotalAmount: nextSubtotalAmount,
           discountAmount: nextDiscountAmount,
           totalAmount: nextTotalAmount,
@@ -210,7 +226,14 @@ export default defineEventHandler(async (event) => {
             data: {
               customerId: nextCustomerId,
               productId: itemProductId,
-              ...buildEntitlementState(itemProduct.validityDays, itemProduct.credits),
+              // Rebuild credit state only when the package product really
+              // changes. Editing amount/note/slip must never reset used credit.
+              ...buildPaymentEntitlementEdit({
+                paymentStatus: existing.status,
+                productChanged,
+                validityDays: itemProduct.validityDays,
+                credits: itemProduct.credits,
+              }),
               deletedAt: null,
               deletedById: null,
             },
@@ -218,19 +241,21 @@ export default defineEventHandler(async (event) => {
         }
       }
 
-      const row = await tx.paymentRecord.update({
-        where: { id },
+      const { count } = await tx.paymentRecord.updateMany({
+        where: { id, status: existing.status, updatedAt: existing.updatedAt, deletedAt: null },
         data: {
           userId: nextCustomerId,
-          memberEntitlementId: null,
           packageSaleId: existingPackageSale.id,
           amount: nextTotalAmount,
           slipImageId: nextSlipImageId ?? null,
           note: nextNote,
-          paidAt: new Date(),
+          paidAt: existing.status === "PAID" ? existing.paidAt ?? new Date() : existing.paidAt,
           metadata: { updatedByAdminId: actor.id },
         },
       });
+      if (count !== 1) {
+        throw createError({ statusCode: 409, statusMessage: "รายการชำระเงินถูกแก้ไขโดยผู้ใช้อื่น กรุณาลองใหม่" });
+      }
 
       await tx.paymentAuditLog.create({
         data: {
@@ -256,16 +281,11 @@ export default defineEventHandler(async (event) => {
         },
       });
 
-      return row;
+      return tx.paymentRecord.findUniqueOrThrow({ where: { id } });
     });
-
-    // The payment → package-sale status mirror is a compatibility path during
-    // consolidation; report it only after the transaction has committed.
-    emitCompatTelemetry({ metric: COMPAT_METRICS.paymentStatusSync, path: "edit", result: "success" });
 
     return updated;
   } catch (error) {
-    emitCompatFailure(COMPAT_METRICS.paymentStatusSync, "edit", error);
     if (error && typeof error === "object" && "statusCode" in error) {
       throw error;
     }

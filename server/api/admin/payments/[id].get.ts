@@ -1,6 +1,7 @@
 import { requireRole } from "~~/server/utils/auth";
 import { prisma } from "~~/server/utils/prisma";
 import { isInternalCustomerEmail } from "~~/server/utils/customerAccount";
+import { packageSaleStatusByPaymentStatus } from "~~/server/utils/paymentStateTransition";
 
 const toNumber = (value: unknown) => Number(value ?? 0);
 
@@ -32,20 +33,6 @@ export default defineEventHandler(async (event) => {
           id: true,
           url: true,
           secureUrl: true,
-        },
-      },
-      memberEntitlement: {
-        include: {
-          product: {
-            select: {
-              id: true,
-              name: true,
-              packageType: true,
-              price: true,
-              credits: true,
-              validityDays: true,
-            },
-          },
         },
       },
       packageSale: {
@@ -143,9 +130,6 @@ export default defineEventHandler(async (event) => {
                   },
                 },
               },
-              image: {
-                select: { id: true, url: true, secureUrl: true },
-              },
               photos: {
                 where: { deletedAt: null },
                 include: { image: { select: { id: true, url: true, secureUrl: true } } },
@@ -206,25 +190,7 @@ export default defineEventHandler(async (event) => {
     })),
   ) ?? [];
 
-  const primaryEntitlement = payment.memberEntitlement
-    ? {
-        id: payment.memberEntitlement.id,
-        status: payment.memberEntitlement.status,
-        creditInitial: payment.memberEntitlement.creditInitial,
-        creditRemaining: payment.memberEntitlement.creditRemaining,
-        startAt: payment.memberEntitlement.startAt?.toISOString() ?? null,
-        endAt: payment.memberEntitlement.endAt?.toISOString() ?? null,
-        activatedAt: payment.memberEntitlement.activatedAt?.toISOString() ?? null,
-        product: {
-          id: payment.memberEntitlement.product.id,
-          name: payment.memberEntitlement.product.name,
-          packageType: payment.memberEntitlement.product.packageType,
-          price: toNumber(payment.memberEntitlement.product.price),
-          credits: payment.memberEntitlement.product.credits,
-          validityDays: payment.memberEntitlement.product.validityDays,
-        },
-      }
-    : packageEntitlements[0] ?? null;
+  const primaryEntitlement = packageEntitlements[0] ?? null;
 
   const serviceItems = payment.serviceOrder?.serviceOrderItems.map((item) => ({
     id: item.id,
@@ -249,7 +215,9 @@ export default defineEventHandler(async (event) => {
     label: item.storefrontPrice
       ? `${item.storefrontPrice.storefrontService.name} ${item.storefrontPrice.storefrontItem.name}`.trim()
       : "",
-    image: item.image ? { id: item.image.id, url: item.image.url, secureUrl: item.image.secureUrl } : null,
+    image: item.photos[0]?.image
+      ? { id: item.photos[0].image.id, url: item.photos[0].image.url, secureUrl: item.photos[0].image.secureUrl }
+      : null,
     photos: item.photos.map((photo) => ({
       id: photo.id,
       imageId: photo.imageId,
@@ -321,7 +289,7 @@ export default defineEventHandler(async (event) => {
     packageSale: payment.packageSale
       ? {
           id: payment.packageSale.id,
-          status: payment.packageSale.status,
+          status: packageSaleStatusByPaymentStatus[payment.status],
           subtotalAmount: toNumber(payment.packageSale.subtotalAmount),
           discountAmount: toNumber(payment.packageSale.discountAmount),
           totalAmount: toNumber(payment.packageSale.totalAmount),

@@ -1,14 +1,12 @@
 /**
- * Per-printer mutex (PRN-04): only one send loop may be active per printerId.
- * v1 drives a single printer, but the structure is a Map keyed by printerId so
- * additional printers can be added without changing call sites.
+ * In-memory mutex: only one immediate send may be active for the local printer.
  */
 
 export class PrinterMutex {
   #locks = new Map();
 
   /**
-   * Acquires the lock for a printer.
+   * Acquires the fail-fast lock for the named local resource.
    * @returns {() => void} release function
    * @throws when a send loop is already active for the printer
    */

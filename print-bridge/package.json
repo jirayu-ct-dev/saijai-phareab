@@ -1,11 +1,11 @@
 {
-  "name": "saijai-print-bridge",
-  "version": "0.1.0",
+  "name": "saijai-print-gateway",
+  "version": "0.3.0",
   "private": true,
   "type": "module",
-  "description": "Zero-runtime-dependency local print bridge for Saijai Phareab (XP-C260M over TCP). PRN-04 Bridge MVP.",
+  "description": "Zero-runtime-dependency LAN Print Gateway for Saijai Phareab (XP-C260M over TCP).",
   "bin": {
-    "saijai-print-bridge": "./bin/bridge.mjs"
+    "saijai-print-gateway": "./bin/bridge.mjs"
   },
   "engines": {
     "node": ">=24"

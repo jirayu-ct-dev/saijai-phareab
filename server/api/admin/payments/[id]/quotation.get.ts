@@ -1,5 +1,6 @@
 import { requireRole } from "~~/server/utils/auth";
 import { buildPaymentDocumentPayload } from "~~/server/utils/paymentDocument";
+import { loadPaymentQrPresentation } from "~~/server/utils/paymentQrPresentation";
 
 export default defineEventHandler(async (event) => {
   requireRole(event, ["EMPLOYEE", "ADMIN"]);
@@ -9,11 +10,14 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, statusMessage: "Missing payment id" });
   }
 
-  const payload = await buildPaymentDocumentPayload(id);
+  const [payload, paymentQr] = await Promise.all([
+    buildPaymentDocumentPayload(id),
+    loadPaymentQrPresentation({ paymentId: id }),
+  ]);
 
   if (!payload) {
     throw createError({ statusCode: 404, statusMessage: "Payment not found" });
   }
 
-  return payload;
+  return { ...payload, paymentQr };
 });

@@ -4,9 +4,7 @@
  * Originated as DB-01 characterization tests; the double-refund quirk they
  * pinned is now a regression test of the correct DB-04 behavior:
  *   - deduction/refund work through normalized ServiceOrderAddonUsage records.
- *   - normalized records are authoritative as soon as ANY record exists for
- *     the order — legacy JSON is refunded only for orders that have no
- *     normalized records at all, so migrated rows are never refunded twice.
+ *   - normalized records are the only runtime source of add-on usage.
  *   - pending (not yet deducted) usages are voided without touching balances.
  *
  * The transaction client is an in-memory fake; `createError` is shimmed to the
@@ -219,14 +217,12 @@ describe("deductAddonUsageRecords (normalized deduction)", () => {
   });
 });
 
-describe("refundAddonUsages (normalized records authoritative, legacy JSON fallback only for non-migrated orders)", () => {
-  it("refunds deducted usage records and marks them refunded, ignoring legacy JSON", async () => {
+describe("refundAddonUsages (normalized ledger is the only source)", () => {
+  it("refunds deducted usage records and marks them refunded", async () => {
     const fakeTx = tx();
     fakeTx.serviceOrderAddonUsage.findMany.mockResolvedValue([usageRecord({ credits: 2 })]);
 
-    const outcome = await refundAddonUsages(fakeTx as never, "order-1", [
-      { entitlementId: "ent-legacy", credits: 99 },
-    ]);
+    const outcome = await refundAddonUsages(fakeTx as never, "order-1");
 
     expect(outcome).toBe("normalized");
     expect(fakeTx.serviceOrderAddonUsage.findMany).toHaveBeenCalledWith({
@@ -235,101 +231,57 @@ describe("refundAddonUsages (normalized records authoritative, legacy JSON fallb
     });
     expect(fakeTx.memberEntitlement.updateMany).toHaveBeenCalledTimes(1);
     expect(fakeTx.memberEntitlement.updateMany).toHaveBeenCalledWith({
-      where: { id: "ent-1" },
+      where: { id: "ent-1", deletedAt: null, creditRemaining: { not: null } },
       data: { creditRemaining: { increment: 2 } },
     });
     expect(fakeTx.serviceOrderAddonUsage.updateMany).toHaveBeenCalledWith({
       where: { id: { in: ["usage-1"] } },
       data: { refundedAt: expect.any(Date) },
     });
-    // The legacy JSON must never be refunded while normalized records exist.
-    expect(fakeTx.memberEntitlement.updateMany).not.toHaveBeenCalledWith({
-      where: { id: "ent-legacy" },
-      data: expect.anything(),
-    });
   });
 
-  it("falls back to legacy JSON only when the order has no normalized records at all", async () => {
+  it("reports no-usage when the order has no ledger rows", async () => {
     const fakeTx = tx();
     fakeTx.serviceOrderAddonUsage.findMany.mockResolvedValue([]);
 
-    const outcome = await refundAddonUsages(fakeTx as never, "order-1", [
-      { entitlementId: "ent-legacy", credits: 3 },
-      { entitlementId: "ent-legacy-2", credits: 1 },
-    ]);
-
-    expect(outcome).toBe("legacy-fallback");
-    expect(fakeTx.memberEntitlement.updateMany).toHaveBeenCalledTimes(2);
-    expect(fakeTx.memberEntitlement.updateMany).toHaveBeenCalledWith({
-      where: { id: "ent-legacy" },
-      data: { creditRemaining: { increment: 3 } },
-    });
-    expect(fakeTx.serviceOrderAddonUsage.updateMany).not.toHaveBeenCalled();
-  });
-
-  it("ignores invalid legacy JSON entries during the fallback", async () => {
-    const fakeTx = tx();
-    fakeTx.serviceOrderAddonUsage.findMany.mockResolvedValue([]);
-
-    const outcome = await refundAddonUsages(fakeTx as never, "order-1", [
-      { entitlementId: "ent-good", credits: 2 },
-      { entitlementId: "", credits: 5 },
-      { entitlementId: "ent-zero", credits: 0 },
-    ]);
-
-    expect(outcome).toBe("legacy-fallback");
-    expect(fakeTx.memberEntitlement.updateMany).toHaveBeenCalledTimes(1);
-    expect(fakeTx.memberEntitlement.updateMany).toHaveBeenCalledWith({
-      where: { id: "ent-good" },
-      data: { creditRemaining: { increment: 2 } },
-    });
-  });
-
-  it("reports no-usage when neither normalized records nor legacy JSON hold anything", async () => {
-    const fakeTx = tx();
-    fakeTx.serviceOrderAddonUsage.findMany.mockResolvedValue([]);
-
-    const outcome = await refundAddonUsages(fakeTx as never, "order-1", [{ entitlementId: "", credits: 2 }]);
+    const outcome = await refundAddonUsages(fakeTx as never, "order-1");
 
     expect(outcome).toBe("no-usage");
     expect(fakeTx.memberEntitlement.updateMany).not.toHaveBeenCalled();
   });
 
-  it("regression: never re-refunds legacy JSON when all normalized records are already refunded", async () => {
-    // DB-01 pinned the old quirk here: the normalized path filtered on
-    // refundedAt = null, so a fully refunded order with legacy JSON still on
-    // the row re-entered the JSON fallback and paid credits out twice. Since
-    // DB-04, any normalized record makes the ledger authoritative and the
-    // JSON is left untouched.
+  it("does not refund ledger rows twice", async () => {
     const fakeTx = tx();
     fakeTx.serviceOrderAddonUsage.findMany.mockResolvedValue([
       usageRecord({ id: "usage-1", credits: 2, refundedAt: new Date("2026-05-02T00:00:00.000Z") }),
     ]);
 
-    const outcome = await refundAddonUsages(fakeTx as never, "order-1", [
-      { entitlementId: "ent-legacy", credits: 4 },
-    ]);
+    const outcome = await refundAddonUsages(fakeTx as never, "order-1");
 
     expect(outcome).toBe("already-refunded");
     expect(fakeTx.memberEntitlement.updateMany).not.toHaveBeenCalled();
     expect(fakeTx.serviceOrderAddonUsage.updateMany).not.toHaveBeenCalled();
   });
 
-  it("regression: a pending (not yet deducted) ledger never falls back to legacy JSON", async () => {
-    // Canceling an order whose COMPLETED-deductOn usages were never deducted
-    // must not pay credits back — the JSON fallback cannot tell deducted from
-    // pending entries, so its result would inflate the entitlement.
+  it("does not refund a pending usage that was never deducted", async () => {
     const fakeTx = tx();
     fakeTx.serviceOrderAddonUsage.findMany.mockResolvedValue([
       usageRecord({ id: "usage-1", credits: 2, deductedAt: null }),
     ]);
 
-    const outcome = await refundAddonUsages(fakeTx as never, "order-1", [
-      { entitlementId: "ent-legacy", credits: 4 },
-    ]);
+    const outcome = await refundAddonUsages(fakeTx as never, "order-1");
 
     expect(outcome).toBe("already-refunded");
     expect(fakeTx.memberEntitlement.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("fails closed without marking a normalized usage refunded when its entitlement is unavailable", async () => {
+    const fakeTx = tx();
+    fakeTx.serviceOrderAddonUsage.findMany.mockResolvedValue([usageRecord()]);
+    fakeTx.memberEntitlement.updateMany.mockResolvedValue({ count: 0 });
+
+    await expect(refundAddonUsages(fakeTx as never, "order-1")).rejects.toMatchObject({ statusCode: 409 });
+    expect(fakeTx.serviceOrderAddonUsage.updateMany).not.toHaveBeenCalled();
   });
 });
 
@@ -338,7 +290,7 @@ describe("refundPrimaryCredit", () => {
     const fakeTx = tx();
     await refundPrimaryCredit(fakeTx as never, { memberEntitlementId: "ent-1", creditUsed: 3 });
     expect(fakeTx.memberEntitlement.updateMany).toHaveBeenCalledWith({
-      where: { id: "ent-1" },
+      where: { id: "ent-1", deletedAt: null, creditRemaining: { not: null } },
       data: { creditRemaining: { increment: 3 } },
     });
   });
@@ -349,6 +301,15 @@ describe("refundPrimaryCredit", () => {
     await refundPrimaryCredit(fakeTx as never, { memberEntitlementId: "ent-1", creditUsed: null });
     await refundPrimaryCredit(fakeTx as never, { memberEntitlementId: "ent-1", creditUsed: 0 });
     expect(fakeTx.memberEntitlement.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("fails closed when the entitlement cannot receive the refund", async () => {
+    const fakeTx = tx();
+    fakeTx.memberEntitlement.updateMany.mockResolvedValue({ count: 0 });
+
+    await expect(
+      refundPrimaryCredit(fakeTx as never, { memberEntitlementId: "missing-ent", creditUsed: 1 }),
+    ).rejects.toMatchObject({ statusCode: 409 });
   });
 });
 

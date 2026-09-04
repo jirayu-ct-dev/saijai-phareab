@@ -27,10 +27,7 @@ type PaymentStateTransitionOperationInput = Omit<PaymentStateTransitionInput, "r
   paymentId: string;
   tx: {
     paymentRecord: {
-      update: Prisma.TransactionClient["paymentRecord"]["update"];
-    };
-    packageSale: {
-      update: Prisma.TransactionClient["packageSale"]["update"];
+      updateMany: Prisma.TransactionClient["paymentRecord"]["updateMany"];
     };
     paymentAuditLog: {
       create: Prisma.TransactionClient["paymentAuditLog"]["create"];
@@ -127,19 +124,37 @@ export const applyPaymentStateTransition = async ({
     receiptNo,
   });
 
-  await tx.paymentRecord.update({
-    where: { id: paymentId },
+  // Guard on the status the caller read so two concurrent transitions cannot
+  // both apply (the second write would, e.g. for PAID, reset entitlement
+  // credits to full). The read happened outside this transaction.
+  const { count: updatedCount } = await tx.paymentRecord.updateMany({
+    where: {
+      id: paymentId,
+      status: existing.status,
+      method: existing.method,
+      paidAt: existing.paidAt,
+      confirmedAt: existing.confirmedAt,
+      confirmedById: existing.confirmedById,
+      receiptNo: existing.receiptNo,
+      slipImageId: existing.slipImageId,
+      deletedAt: null,
+    },
     data: transition.updateData,
   });
-
-  if (existing.packageSaleId) {
-    await tx.packageSale.update({
-      where: { id: existing.packageSaleId },
-      data: { status: packageSaleStatusByPaymentStatus[nextStatus] },
+  if (updatedCount !== 1) {
+    throw createError({
+      statusCode: 409,
+      statusMessage: "สถานะการชำระเงินถูกเปลี่ยนโดยผู้ใช้อื่น กรุณาลองใหม่",
     });
   }
 
-  if (existing.status !== nextStatus) {
+  // Same-status calls can still change method/slip; record an audit entry
+  // whenever any audited field actually changed, not only on status changes.
+  const fieldsChanged =
+    existing.status !== nextStatus
+    || JSON.stringify(transition.beforeJson) !== JSON.stringify(transition.afterJson);
+
+  if (fieldsChanged) {
     await tx.paymentAuditLog.create({
       data: {
         paymentId,

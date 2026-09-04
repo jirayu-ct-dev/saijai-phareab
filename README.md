@@ -50,9 +50,12 @@ cp .env.example .env
 | LINE Messaging | `LINE_CHANNEL_ACCESS_TOKEN`, `LINE_CHANNEL_ID`, `LINE_CHANNEL_SECRET` | ส่งข้อความและยืนยัน webhook/provider |
 | LINE OA Chat | `LINE_BIZ_CHAT_URL` | base URL สำหรับปุ่มเปิดแชทลูกค้าจากหน้าแอดมิน |
 | Images | `CLOUDINARY_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET` | แสดงและอัปโหลดรูปภาพ |
+| Payment QR | `PAYMENT_QR_RECEIVER_KEYS` | เข้ารหัสหมายเลข PromptPay สำหรับ QR ผูกยอดบนใบแจ้งราคา |
 | Email | `RESEND_API_KEY`, `RESEND_FROM` | ส่งอีเมล |
 | App | `NUXT_PUBLIC_HOSTNAME`, `NUXT_PUBLIC_BASE_URL`, `INTERNAL_BASE_URL` | host และ base URL ของระบบ |
 | Scheduled task | `CRON_SECRET`, `PACKAGE_EXPIRY_NOTIFY_DAYS` | ป้องกัน cron endpoints และกำหนดช่วงแจ้งเตือนแพ็กเกจ |
+| Printing (app) | `NUXT_PUBLIC_PRINT_GATEWAY_ENABLED`, `NUXT_PUBLIC_PRINT_GATEWAY_URL` | เปิด Gateway; USB/Bluetooth fallback มีอยู่เสมอ |
+| Printing (Gateway) | `PRINT_GATEWAY_*` | bind/publish address, LAN auth mode, discovery scope, state และ TLS ของ Gateway |
 
 กำหนดเฉพาะ integration ที่ใช้งานจริง และห้าม commit secret ลง repository
 
@@ -61,6 +64,13 @@ cp .env.example .env
 ```bash
 openssl rand -base64 48
 ```
+
+สร้างกุญแจ AES 32 bytes สำหรับ PromptPay ด้วย `openssl rand -base64 32` แล้วใส่
+ผลลัพธ์ใน `.env` เป็น JSON keyring เช่น `{"1":"<ผลลัพธ์ base64>"}` ภายใต้ตัวแปร
+`PAYMENT_QR_RECEIVER_KEYS` ห้ามใช้ค่าตัวอย่าง ห้ามใส่หมายเลข PromptPay ใน `.env`
+และห้าม commit กุญแจจริง จากนั้นผู้ดูแลระบบกำหนดหมายเลขโทรศัพท์และเปิดใช้งานที่
+`/admin/settings/shop` หมายเลขเต็มจะถูกเข้ารหัสในฐานข้อมูลและ QR จะปรากฏเฉพาะ
+ใบแจ้งราคาสถานะ `UNPAID` ที่มียอดมากกว่า 0 บาท
 
 ### 3. เตรียมฐานข้อมูล
 
@@ -107,22 +117,35 @@ pnpm exec prisma migrate deploy
 
 ## รันด้วย Docker Compose
 
+Compose แยกเป็นสาม project เพื่อไม่ให้ container ของแต่ละงานทับหรือกลายเป็น
+orphan ของกันและกัน:
+
+| ไฟล์ | Project | หน้าที่ |
+| --- | --- | --- |
+| `docker-compose.local.yml` | `saijai-phareab` | เว็บ + PostgreSQL + demo seed ในเครื่อง |
+| `docker-compose.yml` | `saijai-phareab-production` | migration job + เว็บ production |
+| `docker-compose.print-gateway.yml` | `saijai-print-gateway` | Gateway ที่อยู่ในร้าน |
+
+ทุกคำสั่งควรระบุ `-f` ให้ตรง stack เสมอ อย่าใช้ `docker compose down` เปล่า ๆ
+เพราะอาจเลือกไฟล์ production โดยไม่ตั้งใจ
+
 ### Production
 
 `docker-compose.yml` เป็น production workflow โดยรับ PostgreSQL จากบริการภายนอก รัน `prisma migrate deploy` ให้สำเร็จก่อนเปิดแอป และไม่สร้างบัญชีหรือข้อมูล demo
 
-กำหนด `DATABASE_URL`, `DIRECT_URL`, `BETTER_AUTH_SECRET`, URL และ provider credentials ที่ใช้งานจริงใน `.env` หรือ secret manager ของ deployment platform แล้วรัน
+กำหนด `DATABASE_URL`, `DIRECT_URL`, `BETTER_AUTH_SECRET`, URL และ provider credentials ที่ใช้งานจริงใน `.env` หรือ secret manager ของ deployment platform แล้วตรวจ rendered config ก่อนรัน การรันคำสั่งนี้จะใช้ `DIRECT_URL` ทำ migration กับฐานข้อมูลที่กำหนดจริง จึงควรมี backup และผ่าน migration gate ก่อนเสมอ
 
 ```bash
-docker compose up --build -d
+docker compose -f docker-compose.yml config --quiet
+docker compose -f docker-compose.yml up --build -d
 ```
 
 `DIRECT_URL` ใช้โดย migration job และควรเป็น direct PostgreSQL connection ส่วน `DATABASE_URL` ใช้ตอนแอปทำงานและอาจเป็น pooled connection แอปจะไม่เริ่มหาก migration ล้มเหลว ตรวจสอบได้ด้วย
 
 ```bash
-docker compose ps
-docker compose logs migrate
-docker compose logs app
+docker compose -f docker-compose.yml ps
+docker compose -f docker-compose.yml logs migrate
+docker compose -f docker-compose.yml logs app
 ```
 
 Compose ไม่ได้สร้าง PostgreSQL, ไม่เปิด database port และไม่จัดการ TLS, reverse proxy หรือ certificate ให้ ควรให้ deployment platform หรือ infrastructure ภายนอกรับผิดชอบส่วนเหล่านี้
@@ -133,9 +156,26 @@ Compose ไม่ได้สร้าง PostgreSQL, ไม่เปิด data
 
 ```bash
 docker compose -f docker-compose.local.yml up --build -d
+docker compose -f docker-compose.print-gateway.yml up --build -d
 ```
 
-Local Compose เปิด PostgreSQL บน host port `5434` และเว็บบน [http://localhost:3004](http://localhost:3004) โดยอ่านค่า auth/base URL จาก `.env` และ fallback เป็น `http://localhost:3004` เมื่อไม่ได้กำหนดค่า หากทดสอบ LINE ผ่าน Cloudflare Tunnel ให้กำหนด URL HTTPS จาก Tunnel เช่น
+Local Compose เปิด PostgreSQL บน host port `5434`, เว็บบน [http://localhost:3004](http://localhost:3004) และ Gateway บน `http://127.0.0.1:17321` ค่า default ของ Gateway ค้นหาเพียง fake target `127.0.0.1:19100` จึงไม่สแกน LAN หรือแตะเครื่องพิมพ์จริง การใช้ local profile ไม่บังคับเพิ่ม `PRINT_GATEWAY_*` ลง `.env`; Compose มี fallback ที่ปลอดภัยสำหรับ profile นี้
+
+การพิมพ์ภาษาไทยของ XP-C260M ใช้ Hybrid raster เป็นค่าเริ่มต้น: ASCII/ตัวเลขล้วนยังเป็น native ESC/POS เพื่อความเร็ว แต่ทุก text block ที่มีภาษาไทยจะ render ด้วย Prompt font ที่ bundle ใน `public/fonts/` แล้วส่งเป็น `GS v 0` raster bands ไม่เกิน 576 dots ขั้นตอนสร้างและตรวจ physical fixture อยู่ใน [คู่มือ operations ของ skill](.agents/skills/xprinter-xp-c260m/references/saijai-operations.md)
+
+ตรวจสถานะหลังเริ่มระบบ:
+
+```bash
+docker compose -f docker-compose.local.yml ps
+docker compose -f docker-compose.local.yml logs setup
+docker compose -f docker-compose.print-gateway.yml ps
+curl -fsS http://127.0.0.1:3004/ >/dev/null
+curl -fsS -H 'Origin: http://localhost:3004' http://127.0.0.1:17321/health
+```
+
+`setup` ใช้ `prisma db push --accept-data-loss` เฉพาะฐาน local/demo แล้ว seed ข้อมูลทดสอบ เพื่อให้ schema ที่ตั้งใจลบตารางเก่าปรับได้อัตโนมัติ ห้ามนำคำสั่งนี้ไปใช้กับ shared, staging หรือ production database
+
+หากทดสอบ LINE ผ่าน Cloudflare Tunnel ให้กำหนด URL HTTPS จาก Tunnel เช่น
 
 ```dotenv
 BETTER_AUTH_URL=https://your-tunnel.example.com
@@ -186,7 +226,7 @@ docker compose -f docker-compose.local.yml up -d --no-deps --force-recreate app
 ถ้าเปลี่ยนพอร์ต PostgreSQL หรือยังไม่ได้สร้าง local stack ให้ recreate ทั้ง stack แทน:
 
 ```bash
-docker compose down
+docker compose -f docker-compose.local.yml down --remove-orphans
 docker compose -f docker-compose.local.yml up --build -d
 ```
 
@@ -203,16 +243,89 @@ Browser origin ต้องตรงกันทั้ง protocol, hostname แ
 
 ข้อมูล PostgreSQL เก็บใน Docker volume ชื่อ `saijai-pgdata` การลบ volume จะลบข้อมูลฐานข้อมูลด้วย
 
-#### ทดสอบระบบพิมพ์บน Local Compose (fake printer)
+#### ระบบพิมพ์โดยตรง
 
-Compose overlay เสริมสำหรับทดสอบระบบพิมพ์ XP-C260M แบบ end-to-end โดยไม่ต้องมีเครื่องพิมพ์จริง — `print-seed` ลงทะเบียนเครื่องพิมพ์ทดสอบในฐานข้อมูล, `fake-printer` จำลองเครื่องพิมพ์บน TCP 9100 และ `bridge` รัน Local Print Bridge จริง (`print-bridge/`) เพื่อ claim งานและส่ง ESC/POS
+Wi-Fi/Ethernet ใช้ LAN Print Gateway ภายในร้านซึ่งอ่านค่าจาก `.env` และค้นหาเฉพาะ CIDR/port ที่อนุญาต อุปกรณ์บน private network ที่เข้าถึง Gateway และมาจาก exact web origin ใช้งานได้ทันทีโดยไม่กรอกรหัส จากนั้นเลือก trusted printer โดยไม่มี database queue ส่วน USB และ Bluetooth ยังเชื่อมจาก browser โดยตรง
+
+ค่าที่ต้องกำหนดใน `.env` เมื่อใช้เครื่องจริงมีดังนี้:
+
+| ตัวแปร | Local เครื่องเดียว | เครื่อง Gateway ในร้าน / production |
+| --- | --- | --- |
+| `NUXT_PUBLIC_PRINT_GATEWAY_ENABLED` | `true` | `true` หลัง Gateway และ HTTPS พร้อม |
+| `NUXT_PUBLIC_PRINT_GATEWAY_URL` | `http://127.0.0.1:17321` | URL HTTPS ของ Gateway ที่อุปกรณ์ร้านเข้าถึงได้ |
+| `PRINT_GATEWAY_BIND_HOST` | `127.0.0.1` สำหรับรัน Node ตรง | Docker บังคับ `0.0.0.0` ภายใน container |
+| `PRINT_GATEWAY_PUBLISH_HOST` | `127.0.0.1` | `0.0.0.0` เพื่อรับจาก LAN หรือ IP interface ที่ต้องการ |
+| `PRINT_GATEWAY_PORT` | `17321` | พอร์ต HTTPS ของ Gateway เช่น `17321` |
+| `PRINT_GATEWAY_PUBLIC_URL` | `http://127.0.0.1:17321` | URL เดียวกับ public Gateway และต้องเป็น HTTPS |
+| `PRINT_GATEWAY_ALLOWED_ORIGINS` | `http://localhost:3004,http://127.0.0.1:3004` | origin ของเว็บ production แบบ exact match |
+| `PRINT_GATEWAY_DISCOVERY_CIDRS` | `127.0.0.1/32` สำหรับ fake profile | CIDR ส่วนตัวของร้าน เช่น `192.168.1.0/24` |
+| `PRINT_GATEWAY_DISCOVERY_PORTS` | `19100` สำหรับ fake profile | `9100` สำหรับ XP-C260M ตัวจริงตาม self-test ล่าสุด |
+| `PRINT_GATEWAY_STATE_PATH` | ใช้ `/data/gateway-state.json` ใน Docker | Compose กำหนด path นี้และเก็บใน named volume |
+| `PRINT_GATEWAY_TLS_CERT_HOST_PATH`, `PRINT_GATEWAY_TLS_KEY_HOST_PATH` | ไม่ต้องใช้บน loopback | absolute paths ของ cert/key ที่อุปกรณ์ร้านเชื่อถือ |
+
+ตัวแปร `NUXT_PUBLIC_PRINT_GATEWAY_ENABLED` และ `NUXT_PUBLIC_PRINT_GATEWAY_URL`
+ถูกส่งเป็น Docker build args ด้วย เพราะ URL นี้เป็นส่วนหนึ่งของ production CSP;
+เมื่อเปลี่ยน URL ต้อง rebuild image ของเว็บ ไม่ใช่เพียง restart container
+
+จำกัดสิทธิ์ `.env` บน Gateway host และอย่าส่งค่าจริงผ่านแชตหรือ commit:
 
 ```bash
-docker compose -f docker-compose.local.yml up --build -d
-docker compose -f docker-compose.local.yml -f docker-compose.print-test.yml up -d
+chmod 600 .env
 ```
 
-จากนั้นสร้างงานพิมพ์จากหน้า admin แล้วดูผลที่ `docker compose logs -f fake-printer bridge` (งานจะถูกบันทึกเป็นไฟล์ `.bin` พร้อมตรวจว่าเริ่มด้วย ESC/POS initialize) ข้อมูลประจำตัวในไฟล์เหล่านี้เป็นค่าสำหรับ stack ทดสอบทิ้งได้เท่านั้น ห้ามใช้กับ production
+XP-C260M ตัวจริงยืนยัน `TCP Server` port `9100` จาก self-test ล่าสุดแล้ว ส่วน `172.20.10.2` เป็น DHCP address ชั่วคราวจาก mobile hotspot ใช้ได้เฉพาะการทดสอบที่บ้าน Production ต้องแทน CIDR ด้วย IP ของเครื่องพิมพ์หลังเชื่อมเครือข่ายร้าน เมื่อค่าจริงพร้อม ให้รัน Gateway production ด้วย:
+
+```bash
+docker compose \
+  -f docker-compose.print-gateway.yml \
+  -f docker-compose.print-gateway.production.yml \
+  config --quiet
+
+docker compose \
+  -f docker-compose.print-gateway.yml \
+  -f docker-compose.print-gateway.production.yml \
+  up --build -d
+```
+
+รายละเอียด API, trust model และข้อจำกัดด้านความปลอดภัยอยู่ที่ [`print-bridge/README.md`](print-bridge/README.md)
+
+ทดสอบเส้นทาง Bridge ด้วย fake transport โดยไม่แตะเครื่องจริง:
+
+```bash
+pnpm exec vitest run tests/server/printBridgeDirectServer.test.ts tests/server/printBridgeTransport.test.ts
+```
+
+### หยุดและล้าง Docker อย่างปลอดภัย
+
+คำสั่งต่อไปนี้ลบ container/network ของแต่ละ stack แต่เก็บ database และ Gateway state volumes:
+
+```bash
+docker compose -f docker-compose.local.yml down --remove-orphans
+docker compose -f docker-compose.print-gateway.yml down --remove-orphans
+docker compose -f docker-compose.yml down --remove-orphans
+```
+
+ตรวจสิ่งที่เป็นของโปรเจกต์ก่อนลบ image หรือ volume เพิ่ม:
+
+```bash
+docker ps -a --filter label=com.docker.compose.project=saijai-phareab
+docker ps -a --filter label=com.docker.compose.project=saijai-phareab-production
+docker ps -a --filter label=com.docker.compose.project=saijai-print-gateway
+docker volume ls --filter label=com.docker.compose.project=saijai-phareab
+docker volume ls --filter label=com.docker.compose.project=saijai-print-gateway
+```
+
+`saijai-pgdata` คือข้อมูล PostgreSQL local และ `saijai-print-gateway-state` คือ
+รายการ trusted printers การลบสอง volume นี้จะลบข้อมูลดังกล่าวจริง จึงต้องหยุด stack
+และตั้งใจ reset เท่านั้น:
+
+```bash
+docker volume rm saijai-pgdata
+docker volume rm saijai-print-gateway-state
+```
+
+อย่าใช้ `docker system prune --volumes` บนเครื่องที่มีหลายโปรเจกต์ เพราะคำสั่งนั้นอาจลบ
+volume/image/cache ของงานอื่นซึ่ง Compose labels ไม่ได้จำกัดให้โปรเจกต์นี้
 
 ## คำสั่งที่ใช้บ่อย
 
@@ -225,8 +338,9 @@ pnpm run preview                   # preview build ในเครื่อง
 pnpm exec prisma generate          # สร้าง Prisma Client
 pnpm exec prisma migrate dev       # ใช้/สร้าง migration สำหรับ development
 pnpm exec prisma db seed           # seed ข้อมูลตั้งต้น
-docker compose config --quiet      # ตรวจ syntax ของ Compose
+docker compose -f docker-compose.yml config --quiet
 docker compose -f docker-compose.local.yml config --quiet
+docker compose -f docker-compose.print-gateway.yml config --quiet
 ```
 
 ขณะนี้ repository ยังไม่มี lint script ที่พร้อมใช้งาน แม้จะมี `eslint.config.mjs` และโมดูล `@nuxt/eslint` จึงไม่ควรสมมติว่า `pnpm exec eslint .` ใช้งานได้
@@ -286,4 +400,3 @@ tests/                       Vitest tests ของ domain logic และ share
 ## ข้อมูลอ้างอิง
 
 - [`AGENTS.md`](./AGENTS.md) — โครงสร้าง สถาปัตยกรรม แนวทางการแก้ไข และข้อควรระวังสำหรับ coding agents
-- [`IDEA.md`](./IDEA.md) — แนวคิดและภาพรวมผลิตภัณฑ์เดิม ซึ่งอาจไม่ตรงกับ implementation ล่าสุดทุกจุด

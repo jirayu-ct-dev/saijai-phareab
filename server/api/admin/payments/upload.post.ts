@@ -22,7 +22,9 @@ export default defineEventHandler(async (event) => {
   try {
     const uploaded = await uploadImageBufferToCloudinary(file.data, {
       folder: "saijai-phareab/admin-payment-slips",
-      publicId: `payment-slip-${Date.now()}`,
+      // Random suffix: Date.now() alone collides on retried/same-ms uploads and
+      // silently overwrites the earlier slip on Cloudinary.
+      publicId: `payment-slip-${Date.now()}-${crypto.randomUUID()}`,
       resourceType: "image",
     });
 

@@ -33,14 +33,6 @@ const ACCESS_POLICIES: AccessPolicy[] = [
   { prefix: "/api/admin/settings", roles: ["EMPLOYEE", "ADMIN"] },
   { prefix: "/api/admin/dashboard", roles: ["EMPLOYEE", "ADMIN"] },
   { prefix: "/api/admin/staff-options", roles: ["EMPLOYEE", "ADMIN"] },
-  // Printing (PRN-03): admin session policies + handlers re-check with
-  // requireRole as defense in depth.
-  { prefix: "/api/admin/printers", roles: ["EMPLOYEE", "ADMIN"] },
-  { prefix: "/api/admin/print-jobs", roles: ["EMPLOYEE", "ADMIN"] },
-  // Print bridge endpoints have NO user session: auth is the printer bridge
-  // credential (Authorization: Bearer, timing-safe SHA-256 check) performed in
-  // each handler via requireBridgePrinter — no role policy applies here.
-  { prefix: "/api/admin/print-bridge" },
   // Example when you add member APIs:
   // { prefix: "/api/member", roles: ["USER", "EMPLOYEE", "ADMIN"], requireMember: true },
 ];

@@ -1,11 +1,16 @@
 # Production workflow. Required values are loaded from `.env` or the deployment
 # platform. This stack never creates a database or inserts demo data.
 
+name: saijai-phareab-production
+
 services:
   migrate:
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        NUXT_PUBLIC_PRINT_GATEWAY_ENABLED: ${NUXT_PUBLIC_PRINT_GATEWAY_ENABLED:-false}
+        NUXT_PUBLIC_PRINT_GATEWAY_URL: ${NUXT_PUBLIC_PRINT_GATEWAY_URL:-}
     image: saijai-phareab:${IMAGE_TAG:-latest}
     init: true
     restart: "no"

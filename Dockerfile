@@ -3,6 +3,13 @@
 # ============================================================
 FROM node:24-slim AS build
 
+# Public printing values affect the generated CSP. They are not secrets and
+# must be present while Nuxt builds the production header.
+ARG NUXT_PUBLIC_PRINT_GATEWAY_ENABLED=false
+ARG NUXT_PUBLIC_PRINT_GATEWAY_URL=
+ENV NUXT_PUBLIC_PRINT_GATEWAY_ENABLED=$NUXT_PUBLIC_PRINT_GATEWAY_ENABLED
+ENV NUXT_PUBLIC_PRINT_GATEWAY_URL=$NUXT_PUBLIC_PRINT_GATEWAY_URL
+
 # ติดตั้ง OpenSSL (จำเป็นสำหรับ Prisma engines)
 RUN apt-get update -y && apt-get install -y openssl libssl3 && rm -rf /var/lib/apt/lists/*
 

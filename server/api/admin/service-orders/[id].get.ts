@@ -79,13 +79,6 @@ export default defineEventHandler(async (event) => {
           createdAt: "asc",
         },
         include: {
-          image: {
-            select: {
-              id: true,
-              secureUrl: true,
-              url: true,
-            },
-          },
           photos: {
             where: { deletedAt: null },
             orderBy: { sortOrder: "asc" },
@@ -253,11 +246,11 @@ export default defineEventHandler(async (event) => {
       totalPrice: toNumber(item.totalPrice),
       notes: item.notes,
       isPackageIncluded: item.isPackageIncluded,
-      image: item.image
+      image: item.photos[0]?.image
         ? {
-            id: item.image.id,
-            secureUrl: item.image.secureUrl,
-            url: item.image.url,
+            id: item.photos[0].image.id,
+            secureUrl: item.photos[0].image.secureUrl,
+            url: item.photos[0].image.url,
           }
         : null,
       photos: item.photos.map((photo) => ({

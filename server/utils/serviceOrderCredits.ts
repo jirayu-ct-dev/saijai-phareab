@@ -18,7 +18,20 @@ export type StoredAddonUsage = {
 type RefundableOrder = {
   memberEntitlementId: string | null;
   creditUsed: number | null;
-  addonUsages: unknown;
+};
+
+const refundEntitlementCredits = async (tx: TxClient, entitlementId: string, credits: number) => {
+  const { count } = await tx.memberEntitlement.updateMany({
+    where: { id: entitlementId, deletedAt: null, creditRemaining: { not: null } },
+    data: { creditRemaining: { increment: credits } },
+  });
+
+  if (count !== 1) {
+    throw createError({
+      statusCode: 409,
+      statusMessage: "ไม่สามารถคืนเครดิตได้ เนื่องจากไม่พบสิทธิ์แพ็กเกจที่ใช้งานรายการนี้",
+    });
+  }
 };
 
 export const parseAddonUsages = (value: unknown): StoredAddonUsage[] => {
@@ -44,17 +57,16 @@ export const parseAddonUsages = (value: unknown): StoredAddonUsage[] => {
 
 /**
  * Refund primary member credits recorded on a service order back to the
- * linked entitlement. No-op when there is nothing to refund.
+ * linked entitlement. No-op when there is nothing to refund. Entitlement
+ * status is intentionally not changed: suspended/expired/cancelled rows keep
+ * blocking use, while their balance remains correct if they are reactivated.
  */
 export const refundPrimaryCredit = async (tx: TxClient, order: Pick<RefundableOrder, "memberEntitlementId" | "creditUsed">) => {
   if (!order.memberEntitlementId) return;
   const credits = Number(order.creditUsed ?? 0);
   if (credits <= 0) return;
 
-  await tx.memberEntitlement.updateMany({
-    where: { id: order.memberEntitlementId },
-    data: { creditRemaining: { increment: credits } },
-  });
+  await refundEntitlementCredits(tx, order.memberEntitlementId, credits);
 };
 
 export const createAddonUsageRecords = async (
@@ -145,59 +157,45 @@ export const deductAddonUsageRecords = async (tx: TxClient, serviceOrderId: stri
  *   - "normalized":        refunded via normalized ledger records
  *   - "already-refunded":  normalized records exist but nothing is refundable
  *                          (all refunded, or nothing deducted yet)
- *   - "legacy-fallback":   no normalized records; refunded from legacy JSON
- *   - "no-usage":          neither source holds a refundable usage
+ *   - "no-usage":          no normalized usage exists
  */
-export type AddonRefundOutcome = "normalized" | "already-refunded" | "legacy-fallback" | "no-usage";
+export type AddonRefundOutcome = "normalized" | "already-refunded" | "no-usage";
 
 /**
  * Refund add-on usages back to their respective add-on entitlements.
- * Normalized records are authoritative as soon as ANY record exists for the
- * order — a fully refunded (or not-yet-deducted) order must never re-enter the
- * legacy JSON fallback, or credits would be refunded twice. Legacy JSON is
- * used only for orders that have no usage records at all.
+ * The normalized ledger is the sole source of truth. A fully refunded or
+ * not-yet-deducted order must never refund credits again.
  */
 export const refundAddonUsages = async (
   tx: TxClient,
   serviceOrderId: string,
-  addonUsages: unknown,
 ): Promise<AddonRefundOutcome> => {
   const records = await tx.serviceOrderAddonUsage.findMany({
     where: { serviceOrderId },
     select: { id: true, memberEntitlementId: true, credits: true, deductedAt: true, refundedAt: true },
   });
 
-  if (records.length > 0) {
-    const refundable = records.filter(
-      (usage) => usage.refundedAt === null && usage.deductedAt !== null && usage.credits > 0,
-    );
-    if (refundable.length === 0) return "already-refunded";
+  if (records.length === 0) return "no-usage";
+  const refundable = records.filter(
+    (usage) => usage.refundedAt === null && usage.deductedAt !== null && usage.credits > 0,
+  );
+  if (refundable.length === 0) return "already-refunded";
 
-    const refundedAt = new Date();
-    for (const usage of refundable) {
-      if (usage.memberEntitlementId) {
-        await tx.memberEntitlement.updateMany({
-          where: { id: usage.memberEntitlementId },
-          data: { creditRemaining: { increment: usage.credits } },
-        });
-      }
+  const refundedAt = new Date();
+  for (const usage of refundable) {
+    if (!usage.memberEntitlementId) {
+      throw createError({
+        statusCode: 409,
+        statusMessage: "ไม่สามารถคืนเครดิตได้ เนื่องจากรายการใช้สิทธิ์ไม่มีแพ็กเกจอ้างอิง",
+      });
     }
-    await tx.serviceOrderAddonUsage.updateMany({
-      where: { id: { in: refundable.map((usage) => usage.id) } },
-      data: { refundedAt },
-    });
-    return "normalized";
+    await refundEntitlementCredits(tx, usage.memberEntitlementId, usage.credits);
   }
-
-  const legacyUsages = parseAddonUsages(addonUsages);
-  if (legacyUsages.length === 0) return "no-usage";
-  for (const usage of legacyUsages) {
-    await tx.memberEntitlement.updateMany({
-      where: { id: usage.entitlementId },
-      data: { creditRemaining: { increment: usage.credits } },
-    });
-  }
-  return "legacy-fallback";
+  await tx.serviceOrderAddonUsage.updateMany({
+    where: { id: { in: refundable.map((usage) => usage.id) } },
+    data: { refundedAt },
+  });
+  return "normalized";
 };
 
 export const voidPendingAddonUsageRecords = async (tx: TxClient, serviceOrderId: string) => {

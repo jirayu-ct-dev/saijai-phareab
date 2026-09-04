@@ -1,0 +1,40 @@
+name: saijai-print-gateway
+
+services:
+  print-gateway:
+    build:
+      context: ./print-bridge
+      dockerfile: Dockerfile
+    image: saijai-print-gateway:${PRINT_GATEWAY_IMAGE_TAG:-local}
+    init: true
+    restart: unless-stopped
+    ports:
+      - "${PRINT_GATEWAY_PUBLISH_HOST:-127.0.0.1}:${PRINT_GATEWAY_PORT:-17321}:${PRINT_GATEWAY_PORT:-17321}"
+    environment:
+      # The process must listen on every container interface. Host/LAN exposure
+      # remains controlled by PRINT_GATEWAY_PUBLISH_HOST in the port mapping.
+      PRINT_GATEWAY_BIND_HOST: 0.0.0.0
+      PRINT_GATEWAY_PORT: ${PRINT_GATEWAY_PORT:-17321}
+      PRINT_GATEWAY_PUBLIC_URL: ${PRINT_GATEWAY_PUBLIC_URL:-http://127.0.0.1:17321}
+      PRINT_GATEWAY_ALLOWED_ORIGINS: ${PRINT_GATEWAY_ALLOWED_ORIGINS:-http://localhost:3004,http://127.0.0.1:3004}
+      PRINT_GATEWAY_DISCOVERY_CIDRS: ${PRINT_GATEWAY_DISCOVERY_CIDRS:-127.0.0.1/32}
+      PRINT_GATEWAY_DISCOVERY_PORTS: ${PRINT_GATEWAY_DISCOVERY_PORTS:-19100}
+      PRINT_GATEWAY_DISCOVERY_TIMEOUT_MS: ${PRINT_GATEWAY_DISCOVERY_TIMEOUT_MS:-500}
+      PRINT_GATEWAY_DISCOVERY_CONCURRENCY: ${PRINT_GATEWAY_DISCOVERY_CONCURRENCY:-16}
+      PRINT_GATEWAY_RESCAN_TTL_MS: ${PRINT_GATEWAY_RESCAN_TTL_MS:-30000}
+      PRINT_GATEWAY_MAX_PAYLOAD_BYTES: ${PRINT_GATEWAY_MAX_PAYLOAD_BYTES:-2000000}
+      PRINT_GATEWAY_TCP_TIMEOUT_MS: ${PRINT_GATEWAY_TCP_TIMEOUT_MS:-10000}
+      PRINT_GATEWAY_STATE_PATH: /data/gateway-state.json
+    volumes:
+      - print-gateway-state:/data
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+
+volumes:
+  print-gateway-state:
+    name: saijai-print-gateway-state

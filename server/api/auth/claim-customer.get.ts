@@ -1,13 +1,14 @@
 import { z } from "zod";
 import { hashCustomerClaimToken, isInternalCustomerEmail } from "~~/server/utils/customerAccount";
 import { enforceCustomerClaimRateLimit } from "~~/server/utils/customerClaimRateLimit";
+import { getRateLimitClientIp } from "~~/server/utils/requestIp";
 import { isCustomerClaimUsable } from "~~/server/utils/customerClaimState";
 import { prisma } from "~~/server/utils/prisma";
 
 const schema = z.object({ token: z.string().min(20).max(200) });
 
 export default defineEventHandler(async (event) => {
-  enforceCustomerClaimRateLimit(getRequestIP(event, { xForwardedFor: true }) || "unknown");
+  enforceCustomerClaimRateLimit(getRateLimitClientIp(event));
   const { token } = await getValidatedQuery(event, schema.parse);
   const claim = await prisma.customerClaimToken.findUnique({
     where: { tokenHash: hashCustomerClaimToken(token) },

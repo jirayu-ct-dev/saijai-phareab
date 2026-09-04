@@ -150,7 +150,7 @@ const infoRows = computed(() => {
       :name="shop?.name ?? ''"
       :address="shop?.address ?? ''"
       :phone="shop?.phone ?? ''"
-      :logo-url="shop?.logoUrl"
+      logo-url="/logo-saijai-phareab.png"
     />
 
     <ThermalTitle :text="receiptTitle" />

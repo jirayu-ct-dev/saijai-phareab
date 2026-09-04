@@ -1,0 +1,8 @@
+.env
+.env.*
+config.json
+gateway-state.json
+*.key
+*.crt
+test
+README.md

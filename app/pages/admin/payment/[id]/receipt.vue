@@ -2,6 +2,7 @@
 import ThermalSlip from "~~/app/components/thermal/ThermalSlip.vue";
 import ReceiptDocument from "~~/app/components/print/ReceiptDocument.vue";
 import type { ReceiptPayload } from "~~/shared/types/receipt";
+import { binaryResponseToPrintBytes } from "~~/shared/utils/directPrint";
 
 definePageMeta({ layout: "admin", middleware: ["role-employee"] });
 
@@ -10,8 +11,7 @@ const router = useRouter();
 const paymentId = computed(() => String(route.params.id ?? ""));
 const notify = useNotify();
 const { settings: shopSettings } = useAdminShopSettings();
-const { state: printerState, send } = useThermalPrinter();
-const { createJob } = useAdminPrintJobs();
+const { state: printerState, print } = useThermalPrinter();
 
 const { data, status, refresh, error } = useFetch<ReceiptPayload>(
   () => `/api/admin/payments/${paymentId.value}/receipt`,
@@ -35,7 +35,6 @@ const receiptCode = computed(() => {
 const isDownloadingPdf = ref(false);
 const isDownloadingPng = ref(false);
 const isPrinting = ref(false);
-const isQueueing = ref(false);
 
 async function fetchDocument(format: "pdf" | "png" | "escpos") {
   const width = printerState.value.paperWidth === 58 ? 384 : 576;
@@ -83,17 +82,6 @@ async function handleDownloadPng() {
   }
 }
 
-// PRN-06: queue-based printing — server snapshot + bridge, supports every
-// transport registered on the printer profile (RECEIPT -> paymentId).
-async function handlePrintQueue() {
-  isQueueing.value = true;
-  try {
-    await createJob({ kind: "RECEIPT", documentId: paymentId.value });
-  } finally {
-    isQueueing.value = false;
-  }
-}
-
 async function handlePrint() {
   if (!data.value) return;
   if (!printerState.value.isConnected) {
@@ -102,12 +90,14 @@ async function handlePrint() {
   }
   isPrinting.value = true;
   try {
-    const blob = await fetchDocument("escpos");
-    const buf = new Uint8Array(await blob.arrayBuffer());
-    await send(buf);
-    notify.success("ส่งงานพิมพ์เรียบร้อย");
-  } catch (e) {
-    notify.error(e instanceof Error ? e.message : "เกิดข้อผิดพลาดในการพิมพ์");
+    const result = await print(async () => {
+      const blob = await fetchDocument("escpos");
+      return binaryResponseToPrintBytes(blob);
+    });
+    if (result.ok) notify.success("ส่งข้อมูลไปยังเครื่องพิมพ์แล้ว กรุณาตรวจใบที่เครื่อง");
+    else if (result.code === "BUSY") notify.error("เครื่องพิมพ์กำลังรับงานอื่น กรุณารอสักครู่แล้วกดใหม่");
+    else if (result.code === "UNKNOWN_PROGRESS") notify.error("ผลการส่งไม่ชัดเจน กรุณาตรวจที่เครื่องก่อนกดพิมพ์อีกครั้ง");
+    else notify.error("ส่งงานพิมพ์ไม่สำเร็จ กรุณาตรวจการเชื่อมต่อแล้วลองใหม่");
   } finally {
     isPrinting.value = false;
   }
@@ -125,13 +115,10 @@ async function handlePrint() {
     fallback-path="/admin/payment"
     empty-title="ไม่พบข้อมูลใบเสร็จ"
     print-label="พิมพ์ใบเสร็จ"
-    print-mode="both"
     :is-printing="isPrinting"
-    :is-queueing="isQueueing"
     :is-downloading-pdf="isDownloadingPdf"
     :is-downloading-png="isDownloadingPng"
     @retry="refresh()"
-    @print-queue="handlePrintQueue"
     @print="handlePrint"
     @download-pdf="handleDownloadPdf"
     @download-png="handleDownloadPng"

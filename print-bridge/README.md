@@ -1,112 +1,90 @@
-# Saijai Print Bridge (PRN-04 Bridge MVP)
+# Saijai LAN Print Gateway
 
-Zero-runtime-dependency Node 24 (ESM) local bridge for the Saijai Phareab print
-system. It claims print jobs from the server, encodes them to ESC/POS bytes and
-sends them to a network thermal printer (XP-C260M) over TCP.
+บริการ Node 24 ภายในร้านสำหรับค้นหาและพิมพ์ ESC/POS ไปยัง Xprinter ผ่าน
+Wi-Fi/Ethernet แบบทันที ไม่มี database queue, pairing code หรือการเก็บ payload
+ใบเสร็จ เครื่องพิมพ์ที่เชื่อถือแล้วเก็บใน state file ของ Gateway เท่านั้น
 
-No install step, no TypeScript build: plain `.mjs`/`.js` files with JSDoc.
+## Local setup
 
-## Run
+คัดลอก `.env.example` เป็น `.env`, ตั้งค่า `PRINT_GATEWAY_*` และจำกัด permission
+เมื่อรัน Node บน host โดยตรง:
 
 ```bash
-cp print-bridge/config.example.json print-bridge/config.json
-# edit print-bridge/config.json (see shape below)
-chmod 600 print-bridge/config.json          # required: file holds the credential
-
-node print-bridge/bin/bridge.mjs --config print-bridge/config.json
-node print-bridge/bin/bridge.mjs --help      # usage, no connection is made
-node print-bridge/bin/bridge.mjs --version   # version string sent in heartbeats
+chmod 600 .env
+pnpm run print-gateway
 ```
 
-## Config shape (`--config <path>`, default `./config.json`)
+หากใช้ Docker:
 
-```json
-{
-  "baseUrl": "https://your-saijai-host",     // server base URL
-  "printerId": "printer_xxx",                // printer registered server-side
-  "bridgeCredential": "<from admin settings>", // bearer token, stays local
-  "pollIntervalMs": 15000,                   // claim poll interval (default 15000)
-  "heartbeatIntervalMs": 60000,              // optional, default 60000
-  "tcpTimeoutMs": 10000,                     // optional connect/write timeout
-  "outboxPath": "./print-bridge-outbox.jsonl", // durable outbox file
-  "tcpTarget": { "host": "192.168.1.50", "port": 9100 }
-}
+```bash
+docker compose -f docker-compose.print-gateway.yml up --build -d
 ```
 
-All fields except `heartbeatIntervalMs`, `tcpTimeoutMs` and `pollIntervalMs`
-(default 15000) are required.
+Docker ใช้ local-safe defaults ได้แม้ `.env` ยังไม่มี `PRINT_GATEWAY_*`: process bind
+`0.0.0.0` ภายใน container แต่ publish เฉพาะ `127.0.0.1:17321` บน host
+และ discovery ชี้ไป fake target เท่านั้น
 
-## Server contract (frozen PRN-04)
+ค่า local ตัวอย่างค้นหาเฉพาะ fake printer ที่ `127.0.0.1:19100` จึงไม่ส่งข้อมูล
+ไปยัง hardware จริง การใช้เครื่องจริงต้องเปลี่ยน CIDR/port ตาม network ร้านและ
+self-test/configuration page ของเครื่อง ห้ามเดาว่าเป็น port 9100
 
-Every call uses `Authorization: Bearer <bridgeCredential>` and JSON bodies.
+## LAN access and printer selection
 
-- `POST /api/admin/print-bridge/heartbeat` — `{printerId, bridgeVersion}` →
-  `{ok: true, serverTime}`
-- `POST /api/admin/print-bridge/claim` — `{printerId, maxJobs?}` →
-  `{jobs: [{jobId, leaseToken, fencingToken, leaseExpiresAt, kind, documentNo,
-  document, operations, snapshotHash, renderVersion}]}` (empty array when idle)
-- `POST /api/admin/print-bridge/events` — `{printerId, events: [{jobId,
-  leaseToken, fencingToken, type, failureCode?, failureMessageSafe?}]}` →
-  `{results: [{jobId, accepted, reason?}]}` with event types
-  `RENDERING | READY | SENDING | SENT | ACKNOWLEDGED | FAILED | NEEDS_REVIEW`
+อุปกรณ์ที่เข้าถึง Gateway จาก private/loopback network และเปิดจาก exact origin ที่อนุญาตสามารถ
+ค้นหา เลือก และพิมพ์ได้ทันที ควรแยก guest Wi-Fi, จำกัด firewall ไม่ให้เข้าถึง
+Gateway และห้าม publish Gateway สู่อินเทอร์เน็ต เพราะผู้ใช้ใน LAN ถือเป็น trusted
+users หน้าเชื่อมต่อจะไม่ถามรหัส ให้เลือก Wi-Fi/Ethernet แล้วค้นหาและยืนยัน
+เครื่องครั้งแรก หากมี trusted printer ออนไลน์หนึ่งเครื่อง ระบบจะเลือกให้อัตโนมัติ;
+ถ้ามีหลายเครื่องจะแสดงตัวเลือก เมื่อเปลี่ยนเครื่อง ระบบเก็บ mapping ใหม่ใน Gateway
+โดยไม่ต้องแก้โค้ดหรือฐานข้อมูล
 
-## Job pipeline and crash safety (C8 lease/fencing)
+## Production
 
-Per claimed job: report `RENDERING` → encode operations to ESC/POS bytes
-(injected `encodeOperations`, default binds the repo's
-`shared/utils/escpos.ts`) → report `READY` → TCP connect → report `SENDING`
-(best-effort) → write bytes → report `SENT`.
+Production มี `.env` สองฝั่งซึ่งไม่ใช่ไฟล์เดียวกันเมื่อ app กับ Gateway อยู่คนละ host:
 
-- Every event carries the claim's `leaseToken` + `fencingToken`. The server
-  rejects stale fencing with `accepted: false`; the bridge then drops the job
-  locally and never retries it.
-- Failure **before any byte was written** (connect refused, render error,
-  known-zero-byte write error) → `FAILED` with a safe code
-  (`FAILED_OFFLINE` / `FAILED_TIMEOUT` / `FAILED_DEVICE` / `FAILED_RENDER`),
-  then a bounded local retry with exponential-ish backoff (`attempts`,
-  max 3 attempts, then `NEEDS_REVIEW`).
-- Failure **after bytes were written — or with unknown progress** (hang/timeout
-  mid-write, crash before `SENT` was confirmed) → `NEEDS_REVIEW` and stop.
-  A possibly-printed job is never silently retried.
-- Durable outbox (`outboxPath`): append-only JSON lines, `fsync` after every
-  append, one record per state change
-  (`{jobId, attempts, state, leaseToken, fencingToken, lastEventAt, bytesWritten,
-  sentReported, nextAttemptAt}`). On restart the bridge replays the file:
-  bytes-written-without-`SENT` is re-reported as `NEEDS_REVIEW`; mid-pipeline
-  jobs without bytes are re-claimed later with attempts preserved.
+- app host: `NUXT_PUBLIC_PRINT_GATEWAY_ENABLED` และ `NUXT_PUBLIC_PRINT_GATEWAY_URL`
+- Gateway host ในร้าน: `PRINT_GATEWAY_*`, private CIDR และ TLS paths
 
-## Concurrency
+Gateway ที่รับจากอุปกรณ์อื่นต้องใช้ stable HTTPS hostname/certificate ที่ทุกอุปกรณ์
+เชื่อถือ ตั้ง `PRINT_GATEWAY_PUBLISH_HOST=0.0.0.0` บน Gateway host; Docker กำหนด
+`PRINT_GATEWAY_BIND_HOST=0.0.0.0` ภายใน container ให้เอง แล้วรัน:
 
-One send loop per printer, guarded by a per-printer mutex
-(`Map` keyed by `printerId`; overlapping sends are rejected). Shutdown on
-`SIGINT`/`SIGTERM` finishes the in-flight job (including its write and `SENT`
-report), flushes the outbox and exits.
+```bash
+docker compose \
+  -f docker-compose.print-gateway.yml \
+  -f docker-compose.print-gateway.production.yml \
+  config --quiet
+docker compose \
+  -f docker-compose.print-gateway.yml \
+  -f docker-compose.print-gateway.production.yml \
+  up --build -d
+```
 
-## Security notes
+Compose ส่งเข้า Gateway เฉพาะ `PRINT_GATEWAY_*`; ไม่ส่ง database, Better Auth,
+LINE, Cloudinary หรือ Resend secrets ใส่ container นี้
 
-- The bridge credential lives only in the local config file and the
-  `Authorization` header. It is **never logged**: all log lines pass through a
-  redaction filter before hitting stderr.
-- The loader refuses a config file readable by group/others on posix systems
-  (mode check); keep it `0600`.
-- The printer's host/port stay on this machine: they are read from local config
-  for the TCP transport and are **never sent to the server** in any event,
-  heartbeat, or claim body.
-- Log lines and failure reports carry only safe codes/messages — no raw device
-  responses, stack traces, endpoints, or credentials.
+## API and safety contract
 
-## Layout
+- `GET /health` ส่งเฉพาะ availability/version
+- `GET /printers` คืน opaque ID/name/online โดยไม่เปิดเผย IP หรือ port
+- `POST /discover` scan เฉพาะ private `/24`–`/32` และ port จาก `.env`
+- `POST /printers/trust` รับเฉพาะ candidate ID ที่ Gateway เพิ่งค้นพบ
+- `POST /print/:printerId` รับ `application/octet-stream` สำหรับ trusted ID เท่านั้น
 
-- `bin/bridge.mjs` — CLI entry (`--help`, `--version`, `--config`)
-- `config.mjs` — config loader/validator (mode check, never logs values)
-- `apiClient.mjs` — frozen bridge API client
-- `runner.mjs` — claim/render/send/report pipeline + restart recovery
-- `loop.mjs` — heartbeat + claim polling + graceful shutdown
-- `outbox.mjs` — fsync'd JSON-lines durable outbox
-- `mutex.mjs` — per-printer send mutex
-- `encoding.mjs` — default `encodeOperations` binding `shared/utils/escpos.ts`
-- `transport/tcp.js` — verified TCP transport (`node:net`)
-- `transport/fake.js` — in-memory transport used by the repo's Vitest tests
+Gateway ใช้ mutex แยกต่อเครื่องและไม่ retry อัตโนมัติ หากล้มเหลวหลังเริ่มส่ง byte
+จะคืน `UNKNOWN_PROGRESS`; ผู้ใช้ต้องตรวจเครื่องก่อนกดซ้ำ
 
-Tests live in `tests/server/printBridge*.test.ts` and run with the repo's
-`pnpm exec vitest run tests/server/printBridge`.
+Gateway ตรวจ source address ว่าเป็น private/loopback และยังบังคับ exact-origin
+CORS ทุก request แต่ local command-line client สามารถปลอม `Origin` ได้ จึงต้องถือ
+LAN ร้านเป็น trusted boundary และใช้ firewall/VLAN ป้องกัน guest network
+
+## Verification without hardware
+
+```bash
+pnpm exec vitest run \
+  tests/server/printBridgeDirectConfig.test.ts \
+  tests/server/printGatewayDiscovery.test.ts \
+  tests/server/printBridgeDirectServer.test.ts \
+  tests/server/printBridgeTransport.test.ts
+docker compose -f docker-compose.print-gateway.yml config --quiet
+```

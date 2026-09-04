@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vitest";
 import type { PrintOperation, PrinterProfile } from "../../shared/types/printing";
-import { createPrinterCapabilities } from "../../shared/utils/printJobState";
+import { createPrinterCapabilities } from "../../shared/utils/printCapabilities";
 import {
   PrintEncodeError,
   columnsForProfile,
   displayWidth,
+  encodeCp874,
   encodeEscpos,
-  encodeTis620,
   splitRasterBands,
   wrapText,
 } from "../../shared/utils/escpos";
@@ -27,33 +27,50 @@ const sampleProfile = (overrides: Partial<PrinterProfile> = {}): PrinterProfile 
 const hex = (value: Uint8Array): string =>
   Array.from(value).map((byte) => byte.toString(16).padStart(2, "0")).join(" ");
 
-describe("escpos: TIS-620 mapping", () => {
-  it("maps the Thai block onto the TIS-620 slots (codepoint + 0xA0)", () => {
+describe("escpos: CP874 mapping", () => {
+  it("maps the Thai block onto the CP874 slots (codepoint + 0xA0)", () => {
     // KO KAI U+0E01 -> 0xA1
-    expect(Array.from(encodeTis620("ก"))).toEqual([0xa1]);
+    expect(Array.from(encodeCp874("ก"))).toEqual([0xa1]);
     // THAI DIGIT NINE U+0E59 -> 0xF9
-    expect(Array.from(encodeTis620("๙"))).toEqual([0xf9]);
+    expect(Array.from(encodeCp874("๙"))).toEqual([0xf9]);
     // SARA AM U+0E33 -> 0xD3; BAHT U+0E3F -> 0xDF
-    expect(Array.from(encodeTis620("ำ฿"))).toEqual([0xd3, 0xdf]);
+    expect(Array.from(encodeCp874("ำ฿"))).toEqual([0xd3, 0xdf]);
     // Combining marks: MAI EK U+0E48 -> 0xE8, PHINTHU U+0E3A -> 0xDA
-    expect(Array.from(encodeTis620("ฺ่"))).toEqual([0xe8, 0xda]);
+    expect(Array.from(encodeCp874("ฺ่"))).toEqual([0xe8, 0xda]);
   });
 
   it("keeps ASCII and LF, drops CR and non-Thai combining marks, falls back to '?'", () => {
-    expect(Array.from(encodeTis620("A b1"))).toEqual([0x41, 0x20, 0x62, 0x31]);
-    expect(Array.from(encodeTis620("a\nb"))).toEqual([0x61, 0x0a, 0x62]);
-    expect(Array.from(encodeTis620("a\rb"))).toEqual([0x61, 0x62]); // CR dropped
-    // Latin combining acute U+0301 has no TIS-620 slot: dropped, not '?'.
-    expect(Array.from(encodeTis620("a\u0301b"))).toEqual([0x61, 0x62]);
+    expect(Array.from(encodeCp874("A b1"))).toEqual([0x41, 0x20, 0x62, 0x31]);
+    expect(Array.from(encodeCp874("a\nb"))).toEqual([0x61, 0x0a, 0x62]);
+    expect(Array.from(encodeCp874("a\rb"))).toEqual([0x61, 0x62]); // CR dropped
+    // Latin combining acute U+0301 has no CP874 slot: dropped, not '?'.
+    expect(Array.from(encodeCp874("a\u0301b"))).toEqual([0x61, 0x62]);
     // Emoji and other scripts fall back to '?' (0x3F).
-    expect(Array.from(encodeTis620("😀"))).toEqual([0x3f]);
-    expect(Array.from(encodeTis620("中"))).toEqual([0x3f]);
+    expect(Array.from(encodeCp874("😀"))).toEqual([0x3f]);
+    expect(Array.from(encodeCp874("中"))).toEqual([0x3f]);
   });
 
   it("never splits surrogate pairs mid-codepoint", () => {
     // One 4-byte emoji is ONE code point -> exactly one '?'.
-    expect(encodeTis620("😀ก")).toHaveLength(2);
-    expect(Array.from(encodeTis620("😀ก"))).toEqual([0x3f, 0xa1]);
+    expect(encodeCp874("😀ก")).toHaveLength(2);
+    expect(Array.from(encodeCp874("😀ก"))).toEqual([0x3f, 0xa1]);
+  });
+
+  it.each([
+    ["ทดสอบภาษาไทย", "b7b4cacdbac0d2c9d2e4b7c2"],
+    ["ขอบคุณที่ใช้บริการ", "a2cdbaa4d8b3b7d5e8e3aae9bac3d4a1d2c3"],
+    ["รวมทั้งหมด 120.00 บาท", "c3c7c1b7d1e9a7cbc1b4203132302e303020bad2b7"],
+    ["น้ำแข็ง", "b9e9d3e1a2e7a7"],
+    ["กาแฟเย็น", "a1d2e1bfe0c2e7b9"],
+    ["เพิ่มไข่ดาว", "e0bed4e8c1e4a2e8b4d2c7"],
+  ])("encodes %s as single-byte CP874 rather than Thai UTF-8", (text, expectedHex) => {
+    const encoded = encodeCp874(text);
+    const utf8 = new TextEncoder().encode(text);
+
+    expect(Buffer.from(encoded).toString("hex")).toBe(expectedHex);
+    expect(encoded).not.toEqual(utf8);
+    expect(encoded).toHaveLength(Array.from(text).length);
+    expect(utf8.length).toBeGreaterThan(encoded.length);
   });
 });
 
@@ -100,12 +117,56 @@ describe("escpos: Thai layout", () => {
     expect(lines[2]).toBe("klmno");
     expect(lines[3]).toBe("pqrst");
   });
+
+  it("preserves explicit line breaks while wrapping multi-line Thai text", () => {
+    expect(wrapText("ระวังสีตก\nแยกซัก", 48)).toEqual(["ระวังสีตก", "แยกซัก"]);
+    expect(wrapText("บรรทัดหนึ่ง\n\nบรรทัดสาม", 48)).toEqual([
+      "บรรทัดหนึ่ง",
+      "",
+      "บรรทัดสาม",
+    ]);
+  });
 });
 
 describe("escpos: byte-level encoding", () => {
-  it("encodes initialize as ESC @ followed by the Thai codepage ESC t 0x16", () => {
+  it("defaults to raster-safe initialization without selecting a native Thai page", () => {
     const stream = encodeEscpos([{ type: "initialize" }], sampleProfile());
-    expect(hex(stream)).toBe("1b 40 1b 74 16");
+    expect(hex(stream)).toBe("1b 40");
+  });
+
+  it("selects PC874 immediately before native Thai and preserves ASCII bytes", () => {
+    const stream = encodeEscpos([
+      { type: "text", value: "English 120.00" },
+      { type: "text", value: "น้ำแข็ง" },
+    ], sampleProfile(), { thaiStrategy: "native-cp874" });
+    const value = Array.from(stream);
+    const thaiStart = value.findIndex((byte, index) =>
+      byte === 0x1b && value[index + 1] === 0x74 && value[index + 2] === 0x46,
+    );
+
+    expect(thaiStart).toBeGreaterThan(0);
+    expect(value.slice(thaiStart + 3, thaiStart + 3 + encodeCp874("น้ำแข็ง").length))
+      .toEqual(Array.from(encodeCp874("น้ำแข็ง")));
+    expect(Buffer.from(stream).includes(Buffer.from("English 120.00", "ascii"))).toBe(true);
+  });
+
+  it("uses page 255 only when the fallback strategy is explicitly selected", () => {
+    const stream = encodeEscpos(
+      [{ type: "initialize" }, { type: "text", value: "เพิ่มไข่ดาว" }],
+      sampleProfile(),
+      { thaiStrategy: "native-thai-255" },
+    );
+    expect(hex(stream)).toContain("1b 74 ff");
+    expect(hex(encodeEscpos([{ type: "initialize" }], sampleProfile())))
+      .not.toContain("1b 74 ff");
+  });
+
+  it("rejects native Thai text that bypasses the raster fallback renderer", () => {
+    expect(() => encodeEscpos(
+      [{ type: "text", value: "ข้าว" }],
+      sampleProfile(),
+      { thaiStrategy: "raster-thai" },
+    )).toThrow(/must be rasterized/);
   });
 
   it("encodes partialCut as GS V 66 0", () => {
@@ -145,7 +206,7 @@ describe("escpos: byte-level encoding", () => {
     expect(bytes[store + 4]).toBe(0x00);
     expect(bytes[store + 7]).toBe(0x30);
     expect(bytes.slice(store + 8, store + 12)).toEqual(
-      Array.from(encodeTis620("TEST")),
+      Array.from(encodeCp874("TEST")),
     );
     // Ends with the print command: 1D 28 6B 03 00 31 51 30
     expect(bytes.slice(-8)).toEqual([0x1d, 0x28, 0x6b, 0x03, 0x00, 0x31, 0x51, 0x30]);
@@ -157,7 +218,28 @@ describe("escpos: byte-level encoding", () => {
       [{ type: "raster", bytes: new Uint8Array([0xff]), widthDots: 8 }],
       sampleProfile(),
     );
-    expect(hex(stream)).toBe("1d 76 30 00 08 00 01 00 ff");
+    expect(hex(stream)).toBe("1d 76 30 00 01 00 01 00 ff");
+  });
+
+  it("encodes a 576-dot raster as 72 width bytes and preserves its exact payload", () => {
+    const widthBytes = 72;
+    const height = 3;
+    const payload = Uint8Array.from(
+      { length: widthBytes * height },
+      (_, index) => (index * 37) & 0xff,
+    );
+    const stream = encodeEscpos(
+      [{ type: "raster", bytes: payload, widthDots: 576 }],
+      sampleProfile(),
+    );
+
+    expect(Array.from(stream.slice(0, 8))).toEqual([
+      0x1d, 0x76, 0x30, 0x00,
+      0x48, 0x00,
+      0x03, 0x00,
+    ]);
+    expect(stream.byteLength).toBe(8 + widthBytes * height);
+    expect(stream.slice(8)).toEqual(payload);
   });
 
   it("rejects raster wider than the printable area and malformed row packing", () => {
@@ -194,7 +276,7 @@ describe("escpos: byte-level encoding", () => {
     expect(bytes[1]).toBe(0x6b);
     expect(bytes[2]).toBe(65); // function B CODE39
     expect(bytes[3]).toBe(7); // data length
-    expect(bytes.slice(4)).toEqual(Array.from(encodeTis620("ABC-123")));
+    expect(bytes.slice(4)).toEqual(Array.from(encodeCp874("ABC-123")));
 
     expect(() =>
       encodeEscpos(
@@ -225,10 +307,12 @@ describe("escpos: byte-level encoding", () => {
     const stream = encodeEscpos(
       [{ type: "text", value: "ก", style: "large", align: "center" }],
       sampleProfile(),
+      { thaiStrategy: "native-cp874" },
     );
     expect(hex(stream)).toBe(
       "1b 61 01 " // ESC a 1 (center)
       + "1b 21 30 " // ESC ! 0x30 (double width + height)
+      + "1b 74 46 " // ESC t 70 (PC874) immediately before Thai
       + "a1 " // ก
       + "0a " // LF
       + "1b 21 00 " // reset style
@@ -236,7 +320,7 @@ describe("escpos: byte-level encoding", () => {
     );
   });
 
-  it("wraps long text into multiple LF-terminated TIS-620 lines", () => {
+  it("wraps long text into multiple LF-terminated CP874 lines", () => {
     const stream = encodeEscpos(
       [{ type: "text", value: "A".repeat(60) }],
       sampleProfile(),
@@ -263,9 +347,9 @@ describe("escpos: byte-level encoding", () => {
       qrBlocks: [],
     } as const;
     const { operations } = composePrintOperations(document, sampleProfile());
-    const stream = encodeEscpos(operations, sampleProfile());
+    const stream = encodeEscpos(operations, sampleProfile(), { thaiStrategy: "native-cp874" });
     const bytes = Array.from(stream);
-    expect(bytes.slice(0, 5)).toEqual([0x1b, 0x40, 0x1b, 0x74, 0x16]); // ESC @ + ESC t 16
+    expect(bytes.slice(0, 5)).toEqual([0x1b, 0x40, 0x1b, 0x74, 0x46]); // diagnostic native mode
     expect(bytes.slice(-4)).toEqual([0x1d, 0x56, 0x42, 0x00]); // GS V 66 0
   });
 

@@ -35,8 +35,7 @@ const existingPayment = (overrides: Record<string, unknown> = {}) => ({
 });
 
 const createTx = () => ({
-  paymentRecord: { update: vi.fn().mockResolvedValue({}) },
-  packageSale: { update: vi.fn().mockResolvedValue({}) },
+  paymentRecord: { updateMany: vi.fn().mockResolvedValue({ count: 1 }) },
   paymentAuditLog: { create: vi.fn().mockResolvedValue({}) },
 });
 
@@ -53,7 +52,7 @@ describe("payment status -> package sale presentation mapping", () => {
     });
   });
 
-  it("mirrors the mapped status onto the package sale during a transition", async () => {
+  it("updates only the payment; package sale status is derived at read time", async () => {
     const tx = createTx();
     await applyPaymentStateTransition({
       tx,
@@ -67,27 +66,7 @@ describe("payment status -> package sale presentation mapping", () => {
       createReceiptNo: vi.fn().mockResolvedValue("RC-2026-0001"),
     });
 
-    expect(tx.packageSale.update).toHaveBeenCalledWith({
-      where: { id: "package-sale-1" },
-      data: { status: "PAID" },
-    });
-  });
-
-  it("does not touch a package sale for service-order payments", async () => {
-    const tx = createTx();
-    await applyPaymentStateTransition({
-      tx,
-      paymentId: "payment-1",
-      existing: existingPayment({ packageSaleId: null }),
-      nextStatus: "PENDING_VERIFICATION",
-      nextMethod: "TRANSFER",
-      nextSlipImageId: "slip-1",
-      actorId: "employee-1",
-      now,
-      createReceiptNo: vi.fn(),
-    });
-
-    expect(tx.packageSale.update).not.toHaveBeenCalled();
+    expect(tx.paymentRecord.updateMany).toHaveBeenCalledOnce();
   });
 });
 
@@ -206,7 +185,7 @@ describe("applyPaymentStateTransition bookkeeping", () => {
       createReceiptNo,
     });
     expect(createReceiptNo).not.toHaveBeenCalled();
-    expect(pendingTx.paymentRecord.update.mock.calls[0][0].data.receiptNo).toBeNull();
+    expect(pendingTx.paymentRecord.updateMany.mock.calls[0][0].data.receiptNo).toBeNull();
 
     const paidTx = createTx();
     await applyPaymentStateTransition({
@@ -221,7 +200,7 @@ describe("applyPaymentStateTransition bookkeeping", () => {
       createReceiptNo,
     });
     expect(createReceiptNo).toHaveBeenCalledTimes(1);
-    expect(paidTx.paymentRecord.update.mock.calls[0][0].data.receiptNo).toBe("RC-2026-0001");
+    expect(paidTx.paymentRecord.updateMany.mock.calls[0][0].data.receiptNo).toBe("RC-2026-0001");
   });
 
   it("keeps an existing receipt number on a later PAID write", async () => {
@@ -241,7 +220,7 @@ describe("applyPaymentStateTransition bookkeeping", () => {
     });
 
     expect(createReceiptNo).not.toHaveBeenCalled();
-    expect(tx.paymentRecord.update.mock.calls[0][0].data.receiptNo).toBe("RC-2026-0001");
+    expect(tx.paymentRecord.updateMany.mock.calls[0][0].data.receiptNo).toBe("RC-2026-0001");
   });
 
   it("writes an audit log entry when the status changes", async () => {
@@ -268,12 +247,39 @@ describe("applyPaymentStateTransition bookkeeping", () => {
     });
   });
 
-  it("skips the audit log when the status does not change (self-transition writes are silent)", async () => {
+  it("writes an audit log when a self-transition changes a field (method/slip)", async () => {
+    // Payment state PUTs overwrite method/slipImageId even when the status is
+    // unchanged; since the audit-gap fix, any changed field is recorded so the
+    // method cannot be swapped silently.
     const tx = createTx();
     await applyPaymentStateTransition({
       tx,
       paymentId: "payment-1",
       existing: existingPayment({ status: "PAID", paidAt: now, confirmedAt: now, confirmedById: "admin-1", receiptNo: "RC-1" }),
+      nextStatus: "PAID",
+      nextMethod: "CASH",
+      nextSlipImageId: null,
+      actorId: "admin-1",
+      now,
+      createReceiptNo: vi.fn(),
+    });
+
+    expect(tx.paymentAuditLog.create).toHaveBeenCalledTimes(1);
+  });
+
+  it("skips the audit log when nothing changes (self-transition writes are silent)", async () => {
+    const tx = createTx();
+    await applyPaymentStateTransition({
+      tx,
+      paymentId: "payment-1",
+      existing: existingPayment({
+        status: "PAID",
+        method: "CASH",
+        paidAt: now,
+        confirmedAt: now,
+        confirmedById: "admin-1",
+        receiptNo: "RC-1",
+      }),
       nextStatus: "PAID",
       nextMethod: "CASH",
       nextSlipImageId: null,

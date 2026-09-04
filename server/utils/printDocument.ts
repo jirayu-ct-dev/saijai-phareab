@@ -2,10 +2,10 @@
 // PRINT DOCUMENT BUILDER (PRN-03)
 // ============================
 //
-// Builds the frozen PrintDocument snapshot server-side from the source payment
-// (and its order/package source) plus the AppSetting QR configuration, inside
-// the same transaction that creates the PrintJob (C10 exact money, C12
-// snapshot safety, plan-xprinter-wifi-printing.md "Payment QR design").
+// Builds a canonical PrintDocument server-side from the source payment (and
+// its order/package source) plus the AppSetting QR configuration. Durable
+// PrintJob snapshots no longer exist; callers choose their own consistent read
+// boundary (see .agents/skills/xprinter-xp-c260m/references/saijai-architecture.md).
 //
 // - Money: Prisma Decimal -> exact integer minor units via string math only.
 // - QR: payload built with server/utils/paymentQr encoder and re-validated with
@@ -24,8 +24,9 @@ import type {
 import {
   evaluatePaymentQrEligibility,
   isPaymentQrReceiverActivated,
-} from "~~/shared/utils/printJobState";
-import { formatMinor } from "~~/shared/utils/printComposer";
+} from "~~/shared/utils/paymentQrEligibility";
+import { formatMinor, formatPrintIssuedAt } from "~~/shared/utils/printComposer";
+import { paymentMethodLabels } from "~~/shared/config/paymentConfig";
 import { buildPromptPayPayload } from "~~/server/utils/paymentQr/encoder";
 import { validatePromptPayPayload } from "~~/server/utils/paymentQr/validator";
 
@@ -193,13 +194,6 @@ export function buildPaymentQrSettingSnapshot(
 // SOURCE SHAPES (structural — filled from the tx read)
 // ============================
 
-export type PrintShopLegacySource = {
-  name: string | null;
-  phone: string | null;
-  address: string | null;
-  lineQrImageUrl: string | null;
-} | null;
-
 /** AppSetting row shape (structural) as read inside the create transaction. */
 export type PrintSettingSource = {
   name: string | null;
@@ -225,6 +219,11 @@ export type PrintPaymentSource = {
   amount: DecimalInput;
   status: PaymentStatus;
   note: string | null;
+  createdAt?: Date;
+  paidAt?: Date | null;
+  confirmedAt?: Date | null;
+  method?: "CASH" | "TRANSFER" | null;
+  metadata?: unknown;
   updatedAt: Date;
   user: { name: string | null; phoneNumber: string | null } | null;
   serviceOrder: {
@@ -235,6 +234,26 @@ export type PrintPaymentSource = {
     discountAmount: DecimalInput;
     note: string | null;
     weightKg: DecimalInput | null;
+    washFoldPricePerKgSnapshot?: DecimalInput | null;
+    status?: string;
+    receivedAt?: Date;
+    completedAt?: Date | null;
+    dueAt?: Date | null;
+    employee?: { name: string | null } | null;
+    hangerCharge?: unknown;
+    memberEntitlement?: {
+      product: { name: string };
+      creditInitial: number | null;
+      creditRemaining: number | null;
+      endAt: Date | null;
+    } | null;
+    addonUsageRecords?: Array<{ productName: string | null; credits: number }>;
+    usageHistory?: Array<{
+      orderNo: string | null;
+      receivedAt: Date;
+      quantity: number;
+      isCurrent: boolean;
+    }>;
     serviceOrderItems: Array<{
       quantity: number;
       unitPrice: DecimalInput;
@@ -249,10 +268,13 @@ export type PrintPaymentSource = {
   } | null;
   packageSale: {
     id: string;
+    note?: string | null;
+    soldBy?: { name: string | null } | null;
     subtotalAmount: DecimalInput;
     discountAmount: DecimalInput;
     items: Array<{
       productName: string;
+      packageType?: "MAIN" | "ADDON";
       qty: number;
       unitPrice: DecimalInput;
       totalPrice: DecimalInput;
@@ -284,17 +306,16 @@ export function buildPrintDocument(input: {
   kind: PrintDocument["kind"];
   payment: PrintPaymentSource;
   setting: PrintSettingSource;
-  legacyShop?: PrintShopLegacySource;
   /** Decrypted receiver value, or null when not available/eligible. */
   receiverValue: string | null;
   now: Date;
 }): BuildPrintDocumentResult {
-  const { kind, payment, setting, legacyShop, receiverValue, now } = input;
+  const { kind, payment, setting, receiverValue, now } = input;
 
-  const shopName = setting.name ?? legacyShop?.name ?? "";
-  const shopAddress = setting.address ?? legacyShop?.address ?? null;
-  const shopPhone = setting.phone ?? legacyShop?.phone ?? null;
-  const lineQrImageUrl = setting.lineQrImageUrl ?? legacyShop?.lineQrImageUrl ?? null;
+  const shopName = setting.name ?? "";
+  const shopAddress = setting.address ?? null;
+  const shopPhone = setting.phone ?? null;
+  const lineQrImageUrl = setting.lineQrImageUrl ?? null;
 
   const amountMinor = decimalToMinorExact(payment.amount);
   const customerName = payment.user?.name?.trim() || "ลูกค้า";
@@ -344,7 +365,9 @@ export function buildPrintDocument(input: {
         quantity: item.qty,
         unitPriceMinor: decimalToMinorExact(item.unitPrice),
         totalPriceMinor: decimalToMinorExact(item.totalPrice),
-        note: null,
+        note: item.packageType === "MAIN"
+          ? "แพ็กเกจหลัก"
+          : item.packageType === "ADDON" ? "แพ็กเกจเสริม" : null,
       });
     }
   }
@@ -359,6 +382,125 @@ export function buildPrintDocument(input: {
     : payment.packageSale
       ? decimalToMinorExact(payment.packageSale.discountAmount)
       : 0;
+
+  const order = payment.serviceOrder;
+  const entitlement = order?.memberEntitlement ?? null;
+  const sellerName = payment.packageSale?.soldBy?.name?.trim()
+    || order?.employee?.name?.trim()
+    || null;
+  const documentNo =
+    kind === "RECEIPT"
+      ? payment.receiptNo ?? payment.paymentNo ?? payment.id
+      : payment.serviceOrder?.quotationNo ?? payment.serviceOrder?.orderNo ?? payment.id;
+  const issuedAt = (payment.createdAt ?? now).toISOString();
+  const informationRows: Array<{ label: string; value: string }> = [{
+    label: kind === "QUOTATION" ? "เลขที่ใบแจ้งราคา" : "เลขที่บิล",
+    value: documentNo,
+  }];
+  if (order?.orderNo) informationRows.push({ label: "เลขรับผ้า", value: order.orderNo });
+  if (kind === "QUOTATION" || !order) {
+    informationRows.push({
+      label: kind === "QUOTATION" ? "วันที่ออก" : "วันที่",
+      value: formatPrintIssuedAt(issuedAt),
+    });
+  }
+  if (order?.receivedAt) {
+    informationRows.push({ label: "วันที่รับผ้า", value: formatPrintIssuedAt(order.receivedAt.toISOString()) });
+  }
+  if (order) {
+    if (order.status === "COMPLETED") {
+      const deliveredAt = order.completedAt ?? payment.paidAt ?? null;
+      informationRows.push({
+        label: "วันที่ส่งผ้า",
+        value: deliveredAt ? formatPrintIssuedAt(deliveredAt.toISOString()) : "ไม่ระบุ",
+      });
+    } else {
+      informationRows.push({
+        label: "วันนัดรับ",
+        value: order.dueAt ? formatPrintIssuedAt(order.dueAt.toISOString()) : "ไม่ระบุ",
+      });
+    }
+  }
+  if (entitlement) {
+    informationRows.push({ label: "แพ็กเกจ", value: entitlement.product.name });
+    informationRows.push({ label: "รูปแบบ", value: "แพ็กเกจรายเดือน" });
+  }
+  informationRows.push({ label: "ชื่อลูกค้า", value: customerName });
+  if (sellerName) informationRows.push({ label: "พนักงาน", value: sellerName });
+  if (payment.user?.phoneNumber) informationRows.push({ label: "โทร", value: payment.user.phoneNumber });
+  if (kind === "RECEIPT" && amountMinor !== 0 && payment.method) {
+    informationRows.push({ label: "ช่องทางการชำระเงิน", value: paymentMethodLabels[payment.method] });
+  }
+  if (kind === "RECEIPT" && amountMinor !== 0) {
+    const paidAt = payment.confirmedAt ?? payment.paidAt ?? null;
+    if (paidAt) informationRows.push({ label: "วันที่ชำระเงิน", value: formatPrintIssuedAt(paidAt.toISOString()) });
+  }
+
+  const summaryRows: Array<{ label: string; value: string }> = [{
+    label: "รวมจำนวนรายการ",
+    value: `${items.reduce((sum, item) => sum + item.quantity, 0)} ชิ้น`,
+  }];
+  if (order?.weightKg != null) {
+    const pricePerKg = order.washFoldPricePerKgSnapshot == null
+      ? 0
+      : decimalToMinorExact(order.washFoldPricePerKgSnapshot);
+    const weightText = typeof order.weightKg === "object"
+      ? order.weightKg.toFixed(1)
+      : Number(order.weightKg).toFixed(1);
+    summaryRows.push({
+      label: "ซัก-พับ ชั่งกิโล",
+      value: `${weightText} กก. × ${formatMinor(pricePerKg)}`,
+    });
+  }
+  const hanger = (order?.hangerCharge ?? null) as { count?: unknown; total?: unknown } | null;
+  const hangerCount = Number(hanger?.count ?? 0);
+  const hangerTotalMinor = hanger?.total == null ? 0 : decimalToMinorExact(String(hanger.total));
+  if (hanger && order?.weightKg == null) {
+    summaryRows.push({ label: "รวมไม้แขวน", value: `${hangerCount} ชิ้น` });
+  }
+  summaryRows.push({ label: "ราคา", value: formatMinor(subtotalMinor) });
+  if (hangerTotalMinor > 0) {
+    summaryRows.push({ label: "ค่าไม้แขวน", value: formatMinor(hangerTotalMinor) });
+  }
+  summaryRows.push({ label: "ส่วนลด", value: formatMinor(discountMinor) });
+  const vat = (payment.metadata ?? null) as {
+    vat?: { rate?: unknown; amount?: unknown; included?: unknown; baseAmount?: unknown };
+  } | null;
+  const vatRate = Number(vat?.vat?.rate ?? 0);
+  if (Number.isFinite(vatRate) && vatRate > 0) {
+    const baseMinor = decimalToMinorExact(String(vat?.vat?.baseAmount ?? 0));
+    const vatMinor = decimalToMinorExact(String(vat?.vat?.amount ?? 0));
+    summaryRows.push({
+      label: vat?.vat?.included ? `ราคารวม VAT ${vatRate}% แล้ว` : "ราคาก่อน VAT",
+      value: formatMinor(baseMinor),
+    });
+    summaryRows.push({ label: `VAT ${vatRate}%`, value: formatMinor(vatMinor) });
+  }
+
+  const supplementalSections: Array<{ title: string; lines: string[] }> = [];
+  if (order?.addonUsageRecords?.length) {
+    supplementalSections.push({
+      title: "แพ็กเกจเสริม",
+      lines: order.addonUsageRecords.map((usage) =>
+        `${usage.productName || "แพ็กเกจเสริม"} ${usage.credits} เครดิต`),
+    });
+  }
+  if (entitlement) {
+    const history = order?.usageHistory ?? [];
+    const totalUsed = history.reduce((sum, row) => sum + row.quantity, 0);
+    supplementalSections.push({
+      title: "สรุปการใช้บริการ",
+      lines: [
+        ...history.map((row, index) =>
+          `ครั้งที่ ${index + 1}${row.isCurrent ? "*" : ""} ${formatPrintIssuedAt(row.receivedAt.toISOString()).split(" ")[0]} ${row.quantity} ชิ้น`),
+        `รวม ${totalUsed} ชิ้น`,
+        `คงเหลือ ${entitlement.creditRemaining ?? 0}/${entitlement.creditInitial ?? 0} เครดิต`,
+        ...(entitlement.endAt
+          ? [`หมดอายุ ${formatPrintIssuedAt(entitlement.endAt.toISOString()).split(" ")[0]}`]
+          : []),
+      ],
+    });
+  }
 
   // ---- QR blocks (payment first, then LINE — plan Display policy) ----
   const qrBlocks: PrintQrBlock[] = [];
@@ -405,9 +547,8 @@ export function buildPrintDocument(input: {
     }
   }
 
-  // Default recommendation: LINE QR on receipts only (payment QR on quotation).
-  const lineQrEnabled = settingSnapshot.lineQrEnabled;
-  if (kind === "RECEIPT" && lineQrEnabled && lineQrImageUrl) {
+  // A configured image is the display policy: removing it hides the LINE QR.
+  if (kind === "RECEIPT" && lineQrImageUrl) {
     qrBlocks.push({
       kind: "LINE",
       imageUrl: lineQrImageUrl,
@@ -415,22 +556,21 @@ export function buildPrintDocument(input: {
     });
   }
 
-  const documentNo =
-    kind === "RECEIPT"
-      ? payment.receiptNo ?? payment.paymentNo ?? payment.id
-      : payment.serviceOrder?.quotationNo ?? payment.serviceOrder?.orderNo ?? payment.id;
-
   const document: PrintDocument = {
     kind,
+    title: kind === "RECEIPT" && entitlement && amountMinor === 0
+      ? "ใบแจ้งการใช้บริการ"
+      : kind === "RECEIPT" ? "ใบเสร็จรับเงิน" : "ใบแจ้งราคา",
     documentId: kind === "RECEIPT" ? payment.id : payment.serviceOrder?.id ?? payment.id,
     documentNo,
     revision: 1,
-    issuedAt: now.toISOString(),
+    issuedAt,
     shop: {
       name: shopName,
       addressLine: shopAddress || null,
       phoneNumber: shopPhone || null,
       taxId: null,
+      logoUrl: "/logo-saijai-phareab.png",
     },
     customer: {
       name: customerName,
@@ -442,7 +582,23 @@ export function buildPrintDocument(input: {
       discountAmountMinor: discountMinor,
       totalAmountMinor: amountMinor,
     },
-    note: payment.note ?? null,
+    note: payment.note || payment.packageSale?.note || order?.note || null,
+    informationRows,
+    summaryRows,
+    totalDisplay: {
+      label: kind === "QUOTATION" ? "ยอดที่ต้องชำระ" : "รวมทั้งสิ้น",
+      value: kind === "RECEIPT" && entitlement && amountMinor === 0
+        ? "ใช้สิทธิ์แพ็กเกจ"
+        : formatMinor(amountMinor),
+    },
+    supplementalSections,
+    footerLines: kind === "RECEIPT"
+      ? ["ขอบคุณที่ใช้บริการ", "แล้วพบกันใหม่ค่ะ", "โปรดเก็บใบเสร็จไว้เป็นหลักฐาน"]
+      : [
+          "ขอบคุณที่ไว้วางใจใช้บริการ",
+          "เอกสารนี้เป็นใบแจ้งราคาเท่านั้น",
+          "ใบเสร็จจะออกให้เมื่อชำระเงินเรียบร้อยแล้ว",
+        ],
     qrBlocks,
   };
 

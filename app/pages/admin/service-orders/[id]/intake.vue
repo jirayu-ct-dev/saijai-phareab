@@ -11,7 +11,7 @@ type ServiceOrderResponse = {
   payments: Array<{ id: string; createdAt?: string }>;
 };
 
-const { data } = useFetch<ServiceOrderResponse>(
+const { data, error } = useFetch<ServiceOrderResponse>(
   () => `/api/admin/service-orders/${serviceOrderId.value}`,
   { key: () => `service-order-intake-redirect-${serviceOrderId.value}`, lazy: true, server: false },
 );
@@ -29,7 +29,7 @@ watchEffect(async () => {
   <UDashboardPanel id="service-order-intake-redirect">
     <template #body>
       <div class="flex h-full items-center justify-center p-10">
-        <div v-if="!paymentId && data" class="text-center">
+        <div v-if="!paymentId && (data || error)" class="text-center">
           <p class="text-base font-semibold text-highlighted">ไม่พบใบเสร็จของรายการนี้</p>
           <p class="mt-2 text-sm text-muted">กรุณาตรวจสอบรายการชำระเงิน</p>
           <div class="mt-4">

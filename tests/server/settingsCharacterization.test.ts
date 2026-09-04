@@ -1,9 +1,8 @@
 /**
  * DB-01 characterization tests — settings projection.
  *
- * These tests protect CURRENT behavior of the settings boundary before any
- * schema consolidation (AppSetting read cutover). They document today's
- * actual behavior, including quirks:
+ * These tests protect the canonical AppSetting boundary. They document
+ * current behavior, including quirks:
  *   - businessSetting loader caches values for the cache TTL and falls back
  *     to "QT-"/"RC-" when the stored prefix is an empty string.
  *   - The public shop-settings endpoint exposes an explicit allow-list of
@@ -18,10 +17,6 @@ import { Prisma } from "~~/app/generated/prisma/client";
 const prismaMock = vi.hoisted(() => ({
   appSetting: {
     upsert: vi.fn(),
-    findFirst: vi.fn(),
-    findUnique: vi.fn(),
-  },
-  shopSetting: {
     findFirst: vi.fn(),
     findUnique: vi.fn(),
   },
@@ -69,8 +64,6 @@ beforeEach(() => {
   prismaMock.appSetting.upsert.mockReset();
   prismaMock.appSetting.findFirst.mockReset();
   prismaMock.appSetting.findUnique.mockReset();
-  prismaMock.shopSetting.findFirst.mockReset();
-  prismaMock.shopSetting.findUnique.mockReset();
 });
 
 describe("business setting projection (server/utils/appSetting.ts)", () => {
@@ -132,19 +125,7 @@ describe("business setting projection (server/utils/appSetting.ts)", () => {
 
 describe("public shop settings projection (server/api/public/shop-settings.get.ts)", () => {
   it("returns only the public allow-list and never leaks other setting fields", async () => {
-    // DB-06 read cutover: identity resolves from AppSetting; sensitive fields
-    // that may exist on either row must never appear in the response.
-    prismaMock.shopSetting.findUnique.mockResolvedValue({
-      id: "singleton",
-      name: "ร้านซักผ้าสายใจ",
-      phone: "0812345678",
-      address: "กรุงเทพฯ",
-      logoUrl: "https://example.com/logo.png",
-      lineQrImageUrl: "https://example.com/line-qr.png",
-      paymentQrConfig: "sensitive-qr-config",
-      internalNote: "internal-only",
-      updatedAt: new Date("2026-05-01T00:00:00.000Z"),
-    });
+    // Sensitive fields on AppSetting must never appear in the response.
     prismaMock.appSetting.findUnique.mockResolvedValue({
       name: "ร้านซักผ้าสายใจ",
       phone: "0812345678",
@@ -175,7 +156,6 @@ describe("public shop settings projection (server/api/public/shop-settings.get.t
   });
 
   it("falls back to empty strings/null and 60 THB/kg when no rows exist", async () => {
-    prismaMock.shopSetting.findUnique.mockResolvedValue(null);
     prismaMock.appSetting.findUnique.mockResolvedValue(null);
 
     const handler = await importHandler("../../server/api/public/shop-settings.get");
@@ -194,7 +174,6 @@ describe("public shop settings projection (server/api/public/shop-settings.get.t
   it("uses the Decimal wash-fold price when a business row exists, even for zero", async () => {
     // Quirk: the guard checks truthiness of the raw value; a Prisma Decimal
     // zero is an object (truthy), so 0 is returned rather than the 60 default.
-    prismaMock.shopSetting.findUnique.mockResolvedValue(null);
     prismaMock.appSetting.findUnique.mockResolvedValue({
       name: null,
       phone: null,
