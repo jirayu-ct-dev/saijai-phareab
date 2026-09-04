@@ -2,6 +2,7 @@ import { z } from "zod";
 import { auth } from "~~/app/utils/auth";
 import { hashCustomerClaimToken, isInternalCustomerEmail } from "~~/server/utils/customerAccount";
 import { enforceCustomerClaimRateLimit } from "~~/server/utils/customerClaimRateLimit";
+import { getRateLimitClientIp } from "~~/server/utils/requestIp";
 import { prisma } from "~~/server/utils/prisma";
 import { Prisma } from "~~/app/generated/prisma/client";
 import { getUserFromEvent } from "~~/server/utils/auth";
@@ -17,7 +18,7 @@ export default defineEventHandler(async (event) => {
   if (getUserFromEvent(event)) {
     throw createError({ statusCode: 409, statusMessage: "กรุณาออกจากระบบก่อนเปิดใช้งานบัญชีลูกค้า" });
   }
-  enforceCustomerClaimRateLimit(getRequestIP(event, { xForwardedFor: true }) || "unknown");
+  enforceCustomerClaimRateLimit(getRateLimitClientIp(event));
   const body = await readValidatedBody(event, schema.parse);
   if (isInternalCustomerEmail(body.email)) {
     throw createError({ statusCode: 400, statusMessage: "ไม่สามารถใช้อีเมลภายในระบบได้" });

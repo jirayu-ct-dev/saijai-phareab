@@ -265,14 +265,13 @@ export default defineEventHandler(async (event) => {
 
     await prisma.$transaction(async (tx) => {
       if (existing.memberEntitlementId && existing.creditUsed) {
-        // Only refund credits if the entitlement is still ACTIVE.
-        // If it was suspended/expired/cancelled after this order was created,
-        // restoring credits would bypass the suspension.
+        // Preserve balance accounting even if the entitlement is currently
+        // suspended/expired/cancelled; its status still prevents further use.
         const { count } = await tx.memberEntitlement.updateMany({
           where: {
             id: existing.memberEntitlementId,
-            status: "ACTIVE",
-            creditRemaining: { gte: 0 },
+            deletedAt: null,
+            creditRemaining: { not: null },
           },
           data: {
             creditRemaining: { increment: existing.creditUsed },
@@ -287,7 +286,7 @@ export default defineEventHandler(async (event) => {
         }
       }
 
-      if (shouldReplaceAddonUsages) {
+      if (shouldReplaceAddonUsages || serviceOrderStatus === "CANCELLED") {
         attemptedCompatPaths.add("addon-refund");
         refundOutcome = await refundAddonUsages(tx, existing.id, existing.addonUsages);
         await voidPendingAddonUsageRecords(tx, existing.id);
@@ -295,7 +294,10 @@ export default defineEventHandler(async (event) => {
 
       let nextEntitlementId: string | null = null;
 
-      if (requestedEntitlementId) {
+      // A cancelled order holds no package credits — never re-deduct an
+      // entitlement for it, or the stored creditUsed would trigger a second
+      // refund on a later cancel/delete.
+      if (requestedEntitlementId && serviceOrderStatus !== "CANCELLED") {
         const entitlement = await tx.memberEntitlement.findFirst({
           where: {
             id: requestedEntitlementId,
@@ -360,7 +362,11 @@ export default defineEventHandler(async (event) => {
       };
       const pendingAddonUsages: PendingAddonUsage[] = [];
       const storedAddonUsages: PendingAddonUsage[] = [];
-      const rawAddonEntitlements = shouldReplaceAddonUsages ? body.addonEntitlements ?? [] : [];
+      // A cancelled order holds no addon usage — skip re-deducting any
+      // entitlements the client may still send alongside the cancel.
+      const rawAddonEntitlements = shouldReplaceAddonUsages && serviceOrderStatus !== "CANCELLED"
+        ? body.addonEntitlements ?? []
+        : [];
       for (const entry of rawAddonEntitlements) {
         const credits = Math.floor(Number(entry.credits ?? 0));
         if (!entry.entitlementId || credits <= 0) continue;
@@ -447,7 +453,7 @@ export default defineEventHandler(async (event) => {
         });
       }
 
-      if (shouldReplaceAddonUsages) {
+      if (shouldReplaceAddonUsages && serviceOrderStatus !== "CANCELLED") {
         await createAddonUsageRecords(tx, id, pendingAddonUsages);
       }
 

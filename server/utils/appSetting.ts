@@ -195,6 +195,7 @@ export type ShopIdentityValues = {
   address: string;
   logoUrl: string | null;
   lineQrImageUrl: string | null;
+  lineQrEnabled: boolean;
 };
 
 const emitSettingRead = (path: "shop" | "notification", outcomes: CompatReadOutcome[]): void => {
@@ -216,7 +217,7 @@ export const getShopIdentity = async (): Promise<
   const [app, legacy] = await Promise.all([
     prisma.appSetting.findUnique({
       where: { id: "singleton" },
-      select: { name: true, phone: true, address: true, logoUrl: true, lineQrImageUrl: true, updatedAt: true },
+      select: { name: true, phone: true, address: true, logoUrl: true, lineQrImageUrl: true, lineQrEnabled: true, updatedAt: true },
     }),
     prisma.shopSetting.findUnique({ where: { id: "singleton" } }),
   ]);
@@ -230,6 +231,7 @@ export const getShopIdentity = async (): Promise<
       address: legacy?.address ?? "",
       logoUrl: legacy?.logoUrl ?? null,
       lineQrImageUrl: legacy?.lineQrImageUrl ?? null,
+      lineQrEnabled: Boolean(legacy?.lineQrImageUrl),
       updatedAt: legacy?.updatedAt ?? new Date(0),
     };
   }
@@ -248,6 +250,7 @@ export const getShopIdentity = async (): Promise<
     address: address.value,
     logoUrl: logoUrl.value,
     lineQrImageUrl: lineQrImageUrl.value,
+    lineQrEnabled: app.lineQrEnabled ?? Boolean(lineQrImageUrl.value),
     updatedAt: app.updatedAt,
   };
 };

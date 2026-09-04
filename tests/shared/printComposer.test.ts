@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { PrintDocument, PrinterProfile } from "../../shared/types/printing";
-import { createPrinterCapabilities } from "../../shared/utils/printJobState";
+import { createPrinterCapabilities } from "../../shared/utils/printCapabilities";
 import {
   composePrintOperations,
   formatPrintIssuedAt,
@@ -61,6 +61,19 @@ const sampleDocument = (overrides: Partial<PrintDocument> = {}): PrintDocument =
 });
 
 describe("printComposer", () => {
+  it("places the configured raster logo before the shop heading", () => {
+    const logoBitmap = { bytes: new Uint8Array(72 * 8).fill(0xff), widthDots: 576 };
+    const { operations } = composePrintOperations(sampleDocument(), sampleProfile(), { logoBitmap });
+
+    expect(operations[0]).toEqual({ type: "initialize" });
+    expect(operations[1]).toEqual({ type: "raster", ...logoBitmap });
+    expect(operations[2]).toEqual(expect.objectContaining({
+      type: "text",
+      value: "Saijai Phareab",
+      align: "center",
+    }));
+  });
+
   it("starts with initialize and ends with feed then partialCut when capable", () => {
     const { operations } = composePrintOperations(sampleDocument(), sampleProfile());
     expect(operations[0]).toEqual({ type: "initialize" });
@@ -85,10 +98,105 @@ describe("printComposer", () => {
       .join("\n");
     expect(text).toContain("Saijai Phareab");
     expect(text).toContain("ใบเสนอราคา");
-    expect(text).toContain("เลขที่: QT-2026-0001");
-    expect(text).toContain("ลูกค้า: ลูกค้าทดสอบ");
+    expect(text).toContain("เลขที่ใบแจ้งราคา:");
+    expect(text).toContain("QT-2026-0001");
+    expect(text).toContain("ชื่อลูกค้า:");
+    expect(text).toContain("ลูกค้าทดสอบ");
     expect(text).toContain("175.00");
     expect(text).not.toContain("ใบเสร็จรับเงิน");
+  });
+
+  it("prints every server-owned information, summary and supplemental line", () => {
+    const { operations } = composePrintOperations(sampleDocument({
+      informationRows: [
+        { label: "เลขรับผ้า", value: "ORD-2026-0001" },
+        { label: "วันนัดรับ", value: "4/9/2026 17:30" },
+        { label: "พนักงาน", value: "คุณใจดี" },
+      ],
+      summaryRows: [
+        { label: "รวมจำนวนรายการ", value: "5 ชิ้น" },
+        { label: "ค่าไม้แขวน", value: "20.00" },
+        { label: "VAT 7%", value: "11.45" },
+      ],
+      supplementalSections: [{
+        title: "แพ็กเกจเสริม",
+        lines: ["รับ-ส่ง 1 เครดิต", "ซักผ้านวม 2 เครดิต"],
+      }],
+      footerLines: ["ขอบคุณที่ไว้วางใจใช้บริการ", "เอกสารนี้เป็นใบแจ้งราคาเท่านั้น"],
+    }), sampleProfile());
+    const text = operations
+      .filter((operation) => operation.type === "text")
+      .map((operation) => operation.value)
+      .join("\n");
+
+    for (const expected of [
+      "เลขรับผ้า", "ORD-2026-0001", "วันนัดรับ", "4/9/2026 17:30", "พนักงาน",
+      "รวมจำนวนรายการ", "5 ชิ้น", "ค่าไม้แขวน", "VAT 7%", "แพ็กเกจเสริม",
+      "รับ-ส่ง 1 เครดิต", "ซักผ้านวม 2 เครดิต", "ขอบคุณที่ไว้วางใจใช้บริการ",
+      "เอกสารนี้เป็นใบแจ้งราคาเท่านั้น",
+    ]) expect(text).toContain(expected);
+  });
+
+  it("keeps canonical information rows as left/right columns", () => {
+    const informationRows = [
+      { label: "เลขที่ใบแจ้งราคา", value: "QT-2026-0003" },
+      { label: "เลขรับผ้า", value: "ORD-20260904-9IB7TH" },
+      { label: "วันนัดรับ", value: "ไม่ระบุ" },
+    ];
+    const { operations } = composePrintOperations(sampleDocument({ informationRows }), sampleProfile());
+
+    expect(operations.filter((operation) => operation.type === "text" && operation.columns))
+      .toEqual(expect.arrayContaining(informationRows.map((row) => expect.objectContaining({
+        columns: { left: `${row.label}:`, right: row.value },
+      }))));
+  });
+
+  it("composes the receipt item header and every item as four positioned columns", () => {
+    const { operations } = composePrintOperations(sampleDocument({
+      items: [{
+        name: "ซัก-พับ กระโปรงยาว / พลิ้ว",
+        quantity: 4,
+        unitPriceMinor: 2_000,
+        totalPriceMinor: 8_000,
+        note: "ผ้าบาง",
+      }],
+    }), sampleProfile());
+    const tableRows = operations
+      .filter((operation) => operation.type === "text" && operation.tableColumns)
+      .map((operation) => operation.tableColumns);
+
+    expect(tableRows).toEqual([
+      { item: "รายการ", unitPrice: "ราคา/ชิ้น", quantity: "จำนวน", total: "รวม" },
+      {
+        item: "ซัก-พับ กระโปรงยาว / พลิ้ว\nผ้าบาง",
+        unitPrice: "20.00",
+        quantity: "x4",
+        total: "80.00",
+      },
+    ]);
+  });
+
+  it("emphasizes the final total as a large left/right row", () => {
+    const { operations } = composePrintOperations(sampleDocument({
+      totalDisplay: { label: "ยอดที่ต้องชำระ", value: "354.00" },
+    }), sampleProfile());
+
+    const totalIndex = operations.findIndex((operation) => operation.type === "text"
+      && operation.columns?.left === "ยอดที่ต้องชำระ");
+
+    expect(operations[totalIndex]).toEqual(expect.objectContaining({
+      type: "text",
+      style: "large",
+      columns: { left: "ยอดที่ต้องชำระ", right: "354.00" },
+    }));
+    expect(operations[totalIndex - 1]).toEqual(expect.objectContaining({
+      type: "text",
+      value: "------------------------------------------------",
+    }));
+    expect(operations[totalIndex + 1]).toEqual(expect.objectContaining({
+      type: "text",
+      value: "------------------------------------------------",
+    }));
   });
 
   it("uses the receipt title for RECEIPT documents", () => {
@@ -101,6 +209,21 @@ describe("printComposer", () => {
       .map((op) => (op as { value: string }).value)
       .join("\n");
     expect(text).toContain("ใบเสร็จรับเงิน");
+  });
+
+  it("uses the server-owned document title and package-covered total display", () => {
+    const { operations } = composePrintOperations(sampleDocument({
+      kind: "RECEIPT",
+      title: "ใบแจ้งการใช้บริการ",
+      totalDisplay: { label: "รวมทั้งสิ้น", value: "ใช้สิทธิ์แพ็กเกจ" },
+    }), sampleProfile());
+    const text = operations
+      .filter((operation) => operation.type === "text")
+      .map((operation) => operation.value)
+      .join("\n");
+    expect(text).toContain("ใบแจ้งการใช้บริการ");
+    expect(text).toContain("รวมทั้งสิ้น");
+    expect(text).toContain("ใช้สิทธิ์แพ็กเกจ");
   });
 
   it("formats dates in Asia/Bangkok time from the ISO instant", () => {
@@ -240,11 +363,23 @@ describe("printComposer", () => {
 
   it("returns a JSON-safe report with the printable width", () => {
     const { report } = composePrintOperations(sampleDocument(), sampleProfile());
-    expect(report.textEncoding).toBe("TIS620");
+    expect(report.textEncoding).toBe("ASCII_NATIVE_THAI_RASTER");
     expect(report.widthDots).toBe(576);
     expect(report.skippedQrBlocks).toEqual([]);
     const roundTrip = JSON.parse(JSON.stringify(report)) as typeof report;
     expect(roundTrip).toEqual(report);
+  });
+
+  it("keeps receipt totals as semantic columns for accurate raster alignment", () => {
+    const { operations } = composePrintOperations(sampleDocument(), sampleProfile());
+    const total = operations.find(
+      (operation) => operation.type === "text" && operation.columns?.left === "ยอดรวม",
+    );
+    expect(total).toMatchObject({
+      type: "text",
+      style: "large",
+      columns: { left: "ยอดรวม", right: "175.00" },
+    });
   });
 
   // ============================

@@ -27,7 +27,7 @@ type PaymentStateTransitionOperationInput = Omit<PaymentStateTransitionInput, "r
   paymentId: string;
   tx: {
     paymentRecord: {
-      update: Prisma.TransactionClient["paymentRecord"]["update"];
+      updateMany: Prisma.TransactionClient["paymentRecord"]["updateMany"];
     };
     packageSale: {
       update: Prisma.TransactionClient["packageSale"]["update"];
@@ -127,10 +127,29 @@ export const applyPaymentStateTransition = async ({
     receiptNo,
   });
 
-  await tx.paymentRecord.update({
-    where: { id: paymentId },
+  // Guard on the status the caller read so two concurrent transitions cannot
+  // both apply (the second write would, e.g. for PAID, reset entitlement
+  // credits to full). The read happened outside this transaction.
+  const { count: updatedCount } = await tx.paymentRecord.updateMany({
+    where: {
+      id: paymentId,
+      status: existing.status,
+      method: existing.method,
+      paidAt: existing.paidAt,
+      confirmedAt: existing.confirmedAt,
+      confirmedById: existing.confirmedById,
+      receiptNo: existing.receiptNo,
+      slipImageId: existing.slipImageId,
+      deletedAt: null,
+    },
     data: transition.updateData,
   });
+  if (updatedCount !== 1) {
+    throw createError({
+      statusCode: 409,
+      statusMessage: "สถานะการชำระเงินถูกเปลี่ยนโดยผู้ใช้อื่น กรุณาลองใหม่",
+    });
+  }
 
   if (existing.packageSaleId) {
     await tx.packageSale.update({
@@ -139,7 +158,13 @@ export const applyPaymentStateTransition = async ({
     });
   }
 
-  if (existing.status !== nextStatus) {
+  // Same-status calls can still change method/slip; record an audit entry
+  // whenever any audited field actually changed, not only on status changes.
+  const fieldsChanged =
+    existing.status !== nextStatus
+    || JSON.stringify(transition.beforeJson) !== JSON.stringify(transition.afterJson);
+
+  if (fieldsChanged) {
     await tx.paymentAuditLog.create({
       data: {
         paymentId,

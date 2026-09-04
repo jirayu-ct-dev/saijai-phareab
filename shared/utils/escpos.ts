@@ -12,11 +12,12 @@
 //
 // Command notes verified against common ESC/POS / Xprinter firmware; anything
 // firmware-specific is flagged in a comment and must be confirmed on the
-// physical unit (HW-01/HW-02 in docs/plan-xprinter-wifi-printing.md).
+// physical unit (G1/G8 in docs/plan-database-printing-master-orchestration.md).
 
 import type {
   PrintOperation,
   PrinterProfile,
+  ThaiPrintStrategy,
 } from "../types/printing";
 
 // ============================
@@ -58,19 +59,20 @@ export function concatBytes(parts: Uint8Array[]): Uint8Array {
 const bytes = (...values: number[]): Uint8Array => Uint8Array.from(values);
 
 // ============================
-// THAI TEXT: TIS-620 (ISO 8859-11) MAPPING
+// THAI TEXT: WINDOWS-874 / PC874 MAPPING
 // ============================
 //
 // Mapping policy (exact):
 // - U+0E01..U+0E3A  -> byte + 0xA0 (0xA1..0xDA). All Thai combining marks
 //   (U+0E31, U+0E34..U+0E3A, U+0E47..U+0E4E) live in these ranges and DO have
-//   TIS-620 slots, so they encode fine; they only need zero-width layout
+//   CP874 slots, so they encode fine; they only need zero-width layout
 //   treatment (see displayWidth).
 // - U+0E3F..U+0E5B  -> byte + 0xA0 (0xDF..0xFB), includes BAHT U+0E3F -> 0xDF.
-// - U+0E3B..U+0E3E  -> unassigned in both Unicode and TIS-620 -> '?'.
+// - U+0E3B..U+0E3E  -> unassigned in both Unicode and CP874 -> '?'.
 // - 0x20..0x7E ASCII and LF (0x0A) map to themselves; CR (0x0D) is dropped.
+// - Windows punctuation uses the defined CP874 extension bytes.
 // - Non-Thai combining marks (U+0300..U+036F diacritical range) are DROPPED:
-//   they have no TIS-620 slot and would render as '?' garbage next to Thai.
+//   they have no CP874 slot and would render as '?' garbage next to Thai.
 // - Everything else (symbols, emoji, other scripts) -> '?' (0x3F).
 // The result is a single-byte stream printed in the printer's Thai codepage.
 
@@ -81,32 +83,53 @@ const THAI_RANGE_2_END = 0x0e5b;
 const LATIN_COMBINING_START = 0x0300;
 const LATIN_COMBINING_END = 0x036f;
 
-export function encodeTis620Char(codePoint: number): number | null {
+const CP874_EXTENSIONS = new Map<number, number>([
+  [0x20ac, 0x80], // EURO SIGN
+  [0x2026, 0x85], // HORIZONTAL ELLIPSIS
+  [0x2018, 0x91],
+  [0x2019, 0x92],
+  [0x201c, 0x93],
+  [0x201d, 0x94],
+  [0x2022, 0x95],
+  [0x2013, 0x96],
+  [0x2014, 0x97],
+  [0x00a0, 0xa0],
+]);
+
+export function encodeCp874Char(codePoint: number): number | null {
   if (codePoint === 0x0a) return 0x0a;
   if (codePoint === 0x0d) return null;
   if (codePoint >= 0x20 && codePoint <= 0x7e) return codePoint;
+  const extension = CP874_EXTENSIONS.get(codePoint);
+  if (extension !== undefined) return extension;
   if (
     (codePoint >= THAI_RANGE_1_START && codePoint <= THAI_RANGE_1_END)
     || (codePoint >= THAI_RANGE_2_START && codePoint <= THAI_RANGE_2_END)
   ) {
-    // +0xA0 maps both ranges exactly (0xDB..0xDE of TIS-620 are unused).
+    // +0xA0 maps both ranges exactly (0xDB..0xDE of CP874 are unused).
     return codePoint + 0xa0;
   }
   if (codePoint >= LATIN_COMBINING_START && codePoint <= LATIN_COMBINING_END) {
-    return null; // drop: no TIS-620 slot, would corrupt Thai output
+    return null; // drop: no CP874 slot, would corrupt Thai output
   }
   return 0x3f; // '?' fallback
 }
 
-export function encodeTis620(text: string): Uint8Array {
+/** Backward-compatible alias for callers using the former subset name. */
+export const encodeTis620Char = encodeCp874Char;
+
+export function encodeCp874(text: string): Uint8Array {
   const out: number[] = [];
   // Array.from iterates code points, so surrogate pairs never split.
   for (const char of text) {
-    const mapped = encodeTis620Char(char.codePointAt(0) ?? 0x3f);
+    const mapped = encodeCp874Char(char.codePointAt(0) ?? 0x3f);
     if (mapped !== null) out.push(mapped);
   }
   return Uint8Array.from(out);
 }
+
+/** Backward-compatible alias; CP874 preserves the same Thai byte positions. */
+export const encodeTis620 = encodeCp874;
 
 // ============================
 // THAI LAYOUT: ZERO-WIDTH COMBINING MARKS AND WRAPPING
@@ -167,6 +190,15 @@ export function wrapText(text: string, columns: number): string[] {
   for (let index = 0; index < chars.length; index += 1) {
     const char = chars[index]!;
     const codePoint = char.codePointAt(0) ?? 0;
+    if (char === "\r") continue;
+    if (char === "\n") {
+      // Explicit document line breaks are semantic. Preserve even blank lines
+      // so raster rendering never merges or silently drops multi-line notes.
+      lines.push(current.replace(/ +$/, ""));
+      current = "";
+      width = 0;
+      continue;
+    }
     if (isThaiCombiningMark(codePoint)) {
       // Zero-width: always attaches to whatever base precedes it, even if the
       // line is already at full column count.
@@ -275,6 +307,7 @@ export function splitRasterBands(
 function encodeTextOperation(
   operation: Extract<PrintOperation, { type: "text" }>,
   profile: PrinterProfile,
+  thaiStrategy: ThaiPrintStrategy,
 ): Uint8Array {
   const columns = columnsForProfile(profile);
   const style = operation.style ?? "normal";
@@ -290,7 +323,16 @@ function encodeTextOperation(
   const parts: Uint8Array[] = [bytes(ESC, 0x61, alignByte), bytes(ESC, 0x21, styleByte)];
   const lines = wrapText(operation.value, columns);
   for (const line of lines) {
-    parts.push(encodeTis620(line));
+    if (/[฀-๿]/u.test(line)) {
+      if (thaiStrategy === "raster-thai") {
+        throw new PrintEncodeError("text", "Thai text must be rasterized before ESC/POS encoding");
+      }
+      // Select the unit's physically reported Thai page immediately before
+      // every native Thai line. Page 70 (0x46) is the default; page 255 is an
+      // explicit test-only fallback until confirmed on the actual printer.
+      parts.push(bytes(ESC, 0x74, thaiStrategy === "native-thai-255" ? 0xff : 0x46));
+    }
+    parts.push(encodeCp874(line));
     parts.push(bytes(0x0a)); // LF
   }
   parts.push(bytes(ESC, 0x21, 0x00)); // reset style
@@ -321,8 +363,11 @@ function encodeRasterOperation(
     throw new PrintEncodeError("raster", `height ${heightDots} exceeds 65535 dots`);
   }
   // GS v 0: 1D 76 30 00 xL xH yL yH <data>
+  // xL/xH is the number of BYTES in one raster row, not the number of dots.
+  // Using widthDots here makes a 576-dot printer expect 576 bytes per row
+  // instead of 72, so it consumes following commands as image payload.
   return concatBytes([
-    bytes(GS, 0x76, 0x30, 0x00, widthDots & 0xff, (widthDots >> 8) & 0xff, heightDots & 0xff, (heightDots >> 8) & 0xff),
+    bytes(GS, 0x76, 0x30, 0x00, rowBytes & 0xff, (rowBytes >> 8) & 0xff, heightDots & 0xff, (heightDots >> 8) & 0xff),
     rawBytes,
   ]);
 }
@@ -330,7 +375,7 @@ function encodeRasterOperation(
 function encodeNativeQrOperation(
   operation: Extract<PrintOperation, { type: "nativeQr" }>,
 ): Uint8Array {
-  const data = encodeTis620(operation.data);
+  const data = encodeCp874(operation.data);
   if (data.length === 0) {
     throw new PrintEncodeError("nativeQr", "QR payload must not be empty");
   }
@@ -380,7 +425,7 @@ function encodeNativeBarcodeOperation(
       `unsupported symbology "${operation.symbology}" (supported: ${Object.keys(BARCODE_SYMBOLOGIES).join(", ")})`,
     );
   }
-  const data = encodeTis620(operation.data);
+  const data = encodeCp874(operation.data);
   if (data.length === 0 || data.length > 255) {
     throw new PrintEncodeError("nativeBarcode", "barcode data must be 1..255 bytes");
   }
@@ -457,19 +502,29 @@ function clamp2msUnits(ms: number): number {
  * Each operation is encoded independently; anything unencodable throws a
  * PrintEncodeError naming the operation — nothing is silently dropped.
  */
-export function encodeEscpos(operations: PrintOperation[], profile: PrinterProfile): Uint8Array {
+export type EncodeEscposOptions = {
+  thaiStrategy?: ThaiPrintStrategy;
+};
+
+export function encodeEscpos(
+  operations: PrintOperation[],
+  profile: PrinterProfile,
+  options: EncodeEscposOptions = {},
+): Uint8Array {
+  const thaiStrategy = options.thaiStrategy ?? "raster-thai";
   const parts: Uint8Array[] = [];
   for (const operation of operations) {
     switch (operation.type) {
       case "initialize":
-        // ESC @ (1B 40), then ESC t n selects the Thai (TIS-620) codepage.
-        // 0x16 (22) = TIS-620 on common XP/Epson firmware, but the value is
-        // profile-unverified: confirm on the physical unit's self-test page
-        // and adjust per printer if it differs.
-        parts.push(bytes(ESC, 0x40), bytes(ESC, 0x74, 0x16));
+        // Raster mode leaves the printer on its default ASCII page. Native
+        // Thai pages are selected only for an explicit diagnostic strategy.
+        parts.push(bytes(ESC, 0x40));
+        if (thaiStrategy !== "raster-thai") {
+          parts.push(bytes(ESC, 0x74, thaiStrategy === "native-thai-255" ? 0xff : 0x46));
+        }
         break;
       case "text":
-        parts.push(encodeTextOperation(operation, profile));
+        parts.push(encodeTextOperation(operation, profile, thaiStrategy));
         break;
       case "raster":
         parts.push(encodeRasterOperation(operation, profile));

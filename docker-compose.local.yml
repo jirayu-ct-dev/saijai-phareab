@@ -1,5 +1,7 @@
 # Local/demo workflow with PostgreSQL and deterministic test data.
 
+name: saijai-phareab
+
 services:
   db:
     image: postgres:16-alpine
@@ -28,7 +30,7 @@ services:
     command:
       - sh
       - -c
-      - ./node_modules/.bin/prisma db push && ./node_modules/.bin/tsx prisma/seed-full.ts
+      - ./node_modules/.bin/prisma db push --accept-data-loss && ./node_modules/.bin/tsx prisma/seed-full.ts
     environment:
       NODE_ENV: production
       DIRECT_URL: postgresql://postgres:123@db:5432/saijai
@@ -53,6 +55,9 @@ services:
       BETTER_AUTH_TRUSTED_ORIGINS: ${BETTER_AUTH_TRUSTED_ORIGINS:-http://localhost:3004,http://127.0.0.1:3004}
       NUXT_PUBLIC_HOSTNAME: ${NUXT_PUBLIC_HOSTNAME:-localhost}
       NUXT_PUBLIC_BASE_URL: ${NUXT_PUBLIC_BASE_URL:-http://localhost:3004}
+      NUXT_PUBLIC_PRINT_GATEWAY_ENABLED: ${NUXT_PUBLIC_PRINT_GATEWAY_ENABLED:-true}
+      NUXT_PUBLIC_PRINT_GATEWAY_URL: ${NUXT_PUBLIC_PRINT_GATEWAY_URL:-http://127.0.0.1:17321}
+      NUXT_PUBLIC_PRINT_LEGACY_DIRECT: ${NUXT_PUBLIC_PRINT_LEGACY_DIRECT:-true}
       NUXT_PUBLIC_LINE_BIZ_CHAT_URL: ${LINE_BIZ_CHAT_URL:-}
       INTERNAL_BASE_URL: ${INTERNAL_BASE_URL:-http://127.0.0.1:3000}
       DIRECT_URL: postgresql://postgres:123@db:5432/saijai

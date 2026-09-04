@@ -1,6 +1,6 @@
 /**
- * Transport error carrying only safe information: a PrintJobFailureCode-style
- * code and, when KNOWN, how many bytes of the current call were written.
+ * Transport error carrying only a safe code and, when KNOWN, how many bytes
+ * of the current call were written.
  *
  * `bytesWritten` semantics for the runner:
  *   - number          -> exactly that many bytes of this call reached the wire

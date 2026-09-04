@@ -71,12 +71,6 @@ const adminMenu = [
       onSelect: closeSidebar,
     },
     {
-      label: "ระบบพิมพ์",
-      icon: "i-lucide-printer",
-      to: "/admin/printing",
-      onSelect: closeSidebar,
-    },
-    {
       label: "ตั้งค่าระบบ",
       icon: "i-lucide-settings",
       to: "/admin/settings",

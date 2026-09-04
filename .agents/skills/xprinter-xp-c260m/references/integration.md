@@ -13,8 +13,10 @@ Choose one path and make it observable:
 For a web POS, use this shape:
 
 ```text
-Browser UI -> authenticated backend or local print bridge -> per-printer queue -> XP-C260M
+Browser UI -> authenticated backend or local print bridge -> per-printer serialization -> XP-C260M
 ```
+
+Serialization may be a durable queue or an immediate-attempt mutex depending on the product's duplicate and recovery policy. Do not add a durable queue when the product deliberately prefers immediate printing and explicit human retry after ambiguous failures.
 
 Do not let a browser-supplied arbitrary host or port become the destination. Map trusted printer identifiers to server-side allowlisted endpoints to avoid SSRF and unauthorized internal-network access.
 

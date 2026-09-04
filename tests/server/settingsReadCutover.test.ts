@@ -86,6 +86,7 @@ describe("getShopIdentity read cutover", () => {
       address: legacyShopRow.address,
       logoUrl: null,
       lineQrImageUrl: legacyShopRow.lineQrImageUrl,
+      lineQrEnabled: true,
       updatedAt,
     });
     prismaMock.shopSetting.findUnique.mockResolvedValue(legacyShopRow);
@@ -99,6 +100,7 @@ describe("getShopIdentity read cutover", () => {
       address: legacyShopRow.address,
       logoUrl: null,
       lineQrImageUrl: legacyShopRow.lineQrImageUrl,
+      lineQrEnabled: true,
       updatedAt,
     });
   });
@@ -123,6 +125,21 @@ describe("getShopIdentity read cutover", () => {
     expect(identity.logoUrl).toBeNull();
   });
 
+  it("serves an explicit disabled LINE QR toggle without deleting the image", async () => {
+    const { getShopIdentity } = await import("../../server/utils/appSetting");
+    prismaMock.appSetting.findUnique.mockResolvedValue({
+      ...legacyShopRow,
+      lineQrEnabled: false,
+      updatedAt,
+    });
+    prismaMock.shopSetting.findUnique.mockResolvedValue(legacyShopRow);
+
+    const identity = await getShopIdentity();
+
+    expect(identity.lineQrImageUrl).toBe(legacyShopRow.lineQrImageUrl);
+    expect(identity.lineQrEnabled).toBe(false);
+  });
+
   it("uses the legacy row entirely when AppSetting has no row yet", async () => {
     const { getShopIdentity } = await import("../../server/utils/appSetting");
     prismaMock.shopSetting.findUnique.mockResolvedValue(legacyShopRow);
@@ -136,6 +153,7 @@ describe("getShopIdentity read cutover", () => {
       address: legacyShopRow.address,
       logoUrl: null,
       lineQrImageUrl: legacyShopRow.lineQrImageUrl,
+      lineQrEnabled: true,
       updatedAt,
     });
   });

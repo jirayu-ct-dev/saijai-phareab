@@ -6,7 +6,8 @@ import { normalizeThaiPhoneNumber } from "~~/shared/utils/phone";
 const schema = z.object({
   name: z.string().trim().min(1).max(100).nullish(),
   phoneNumber: z.string().trim().max(20).nullish(),
-  image: z.string().url().nullish(),
+  // https-only: z.string().url() alone also accepts javascript:/data: URLs.
+  image: z.string().url().startsWith("https://").nullish(),
 });
 
 export default defineEventHandler(async (event) => {

@@ -100,6 +100,18 @@ describe("AppSetting compatibility writers", () => {
     expect(result).toBe(shopRow);
   });
 
+  it("derives LINE QR display from whether an image is configured", async () => {
+    const { updateShopSetting } = await import("../../server/utils/appSetting");
+
+    txMock.shopSetting.upsert.mockResolvedValueOnce({ ...shopRow, lineQrImageUrl: null });
+    await updateShopSetting({ ...shopRow, lineQrImageUrl: null });
+
+    expect(txMock.appSetting.upsert).toHaveBeenCalledWith(expect.objectContaining({
+      create: expect.objectContaining({ lineQrImageUrl: null, lineQrEnabled: false }),
+      update: expect.objectContaining({ lineQrImageUrl: null, lineQrEnabled: false }),
+    }));
+  });
+
   it("mirrors every persisted notification policy field to AppSetting", async () => {
     const { updateNotificationSetting } = await import("../../server/utils/appSetting");
 

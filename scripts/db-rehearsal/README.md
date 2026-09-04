@@ -1,10 +1,25 @@
 # scripts/db-rehearsal — disposable migration rehearsal + read-only preflight
 
 Preparation artifacts for packet DB-02 (see
-`docs/plan-database-printing-master-orchestration.md` Wave 1 and
+`docs/plan-database-consolidation.md` migration rehearsal and
 `docs/plan-database-consolidation.md` section 9.2). Nothing here targets a
 production or shared database. The runbook with full workflows lives at
 `docs/db-rehearsal-runbook.md`.
+
+## Direct Print schema removal
+
+`run-direct-print-drop-rehearsal.sh` recreates the schema immediately before
+the forward-only printer drop, loads synthetic printer/job rows, records an
+aggregate inventory, verifies no unexpected FK/view dependency, applies the
+drop, compares count+checksum signatures for every business table, checks the
+result against `prisma/schema.prisma`, and proves the pre-drop backup restores.
+
+```bash
+REHEARSAL_KEEP_STAGE=1 bash scripts/db-rehearsal/run-direct-print-drop-rehearsal.sh
+```
+
+`sql/08-printer-drop-preflight.sql` is the separate read-only production
+preflight. It reports aggregates only and does not authorize the migration.
 
 ## Contents
 

@@ -43,11 +43,11 @@ describe("service-order status transitions", () => {
     await refundAddonUsages(tx as never, "order-1", []);
 
     expect(tx.memberEntitlement.updateMany).toHaveBeenCalledWith({
-      where: { id: "primary-entitlement-1" },
+      where: { id: "primary-entitlement-1", deletedAt: null, creditRemaining: { not: null } },
       data: { creditRemaining: { increment: 3 } },
     });
     expect(tx.memberEntitlement.updateMany).toHaveBeenCalledWith({
-      where: { id: "addon-entitlement-1" },
+      where: { id: "addon-entitlement-1", deletedAt: null, creditRemaining: { not: null } },
       data: { creditRemaining: { increment: 2 } },
     });
     expect(tx.serviceOrderAddonUsage.updateMany).toHaveBeenCalledWith({

@@ -1,7 +1,5 @@
 # แผนปรับฐานข้อมูลโดยรักษาข้อมูล Production เดิม
 
-แผนนี้อยู่ภายใต้ [แผนควบคุมกลาง Database + Printing](./plan-database-printing-master-orchestration.md) หากข้อความขัดกัน ให้ใช้ canonical decisions และ execution gates ในแผนกลาง
-
 สถานะเอกสาร: แผนก่อนลงมือ — เอกสารนี้ไม่อนุญาตให้รัน migration, seed, reset หรือคำสั่งเขียนข้อมูลบน production โดยอัตโนมัติ
 
 อัปเดตหลักฐานล่าสุด: 2026-09-01 (Asia/Bangkok)
@@ -9,7 +7,7 @@
 เอกสารที่เกี่ยวข้อง:
 
 - [Prisma schema ปัจจุบัน](../prisma/schema.prisma)
-- [แผนระบบพิมพ์ Xprinter](./plan-xprinter-wifi-printing.md)
+- [แผน Direct Print และลบ Printer Database](./plan-database-printing-master-orchestration.md)
 - [กติกาการหัก/คืนเครดิตและ add-on](../server/utils/serviceOrderCredits.ts)
 - [กติกาเปลี่ยนสถานะการชำระเงิน](../server/utils/paymentStateTransition.ts)
 - [การประกอบข้อมูลเอกสารชำระเงิน](../server/utils/paymentDocument.ts)
@@ -245,7 +243,7 @@ mapping แสดงผล package sale:
    - idempotency key, payload hash, failure code และ compact timeline JSON
    - source payment/order version เพื่อ reject QR/job ที่ stale ก่อน claim และก่อนพิมพ์
 
-ยังไม่เพิ่ม `PrintBridge`, `PrinterConnection` หรือ `PrintJobEvent` จนกว่าจะมี requirement ที่ query/lifecycle ของสิ่งเหล่านั้นแยกจาก printer/job จริง ดูรายละเอียด flow ใน [แผนระบบพิมพ์ Xprinter](./plan-xprinter-wifi-printing.md)
+ข้อสรุปส่วนนี้ถูกแทนที่แล้วสำหรับระบบพิมพ์: แผนปัจจุบันเลิกใช้ durable print queue และลบ `Printer`/`PrintJob` ตาม [แผน Direct Print](./plan-database-printing-master-orchestration.md)
 
 ## 5. หลักความปลอดภัยของ migration
 

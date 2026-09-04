@@ -1,11 +1,24 @@
 ---
 name: xprinter-xp-c260m
-description: Configure, integrate, operate, or troubleshoot an Xprinter XP-C260M thermal receipt or kitchen printer over USB, Ethernet, or Wi-Fi, including ESC/POS, Thai output, cutters, barcodes, and POS printing. Verify the actual hardware revision before relying on model-family specifications.
+description: Configure, integrate, operate, or troubleshoot an Xprinter XP-C260M thermal receipt or kitchen printer over USB, Ethernet, or Wi-Fi, including the Saijai Phareab LAN Print Gateway, ESC/POS, Thai output, QR codes, cutters, and POS printing. Verify the actual unit before relying on model-family specifications.
 ---
 
 # Xprinter XP-C260M
 
 Support the XP-C260M without assuming every unit has the same interfaces, firmware, speed, power label, code pages, or network defaults.
+
+## Saijai Phareab project
+
+When working in this repository, read [references/saijai-architecture.md](references/saijai-architecture.md) first. It records the implemented print path, trust boundary, Hybrid rendering, immediate-send semantics, and source files that define current behavior.
+
+- For installation, `.env`, Docker, LAN addressing, HTTPS, pairing, or first-time setup, also read [references/saijai-setup.md](references/saijai-setup.md).
+- For normal use, printer replacement, safe verification, or incident handling, also read [references/saijai-operations.md](references/saijai-operations.md).
+- Treat values marked **unconfirmed** in those references as discovery work, not configuration facts. Re-check the implementation and `.env.example` before changing configuration because the working tree may contain newer work.
+- The project references refine the generic guidance below. In particular, Saijai deliberately uses an immediate one-attempt print flow with a per-printer mutex, not a durable print-job queue.
+- For receipt/quotation content or cutter changes, compare the canonical web
+  document with the server-owned `PrintDocument`; do not infer missing fields.
+  The inspected XP-C260M cutter is enabled only as one trailing partial-cut
+  command after the complete document and tear-off feed.
 
 ## Establish the actual unit
 

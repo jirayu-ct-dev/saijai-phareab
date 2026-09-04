@@ -10,10 +10,10 @@
 //   integer minor units and are only DISPLAY-formatted via formatMinor()
 //   (integer math, no floats). QR payloads are copied verbatim from the
 //   document; the composer never builds or mutates a QR payload.
-// - HYBRID vs RASTER: text is always emitted as native ESC/POS text
-//   operations (encoded by shared/utils/escpos.ts). Shaped-raster rendering
-//   of Thai text for RASTER-mode profiles is a bridge-side concern supplied
-//   through `bitmapFor`; the composer itself never rasterizes text.
+// - HYBRID rendering: the composer emits semantic text operations. The server
+//   renderer keeps ASCII native and replaces Thai/mixed blocks with shaped
+//   raster operations before shared/utils/escpos.ts encodes the stream. The
+//   composer itself remains pure and does not load fonts or rasterize text.
 // - Native QR and raster fallback encode the SAME payload string: the exact
 //   `block.payload` is passed to both the nativeQr operation and the bitmap
 //   provider (plan acceptance criterion 19).
@@ -51,7 +51,7 @@ export type BitmapForQr = (
 
 export type ComposeReport = {
   skippedQrBlocks: { kind: PrintQrBlock["kind"]; reason: string }[];
-  textEncoding: "TIS620";
+  textEncoding: "ASCII_NATIVE_THAI_RASTER" | "CP874" | "THAI_PAGE_255";
   widthDots: number;
 };
 
@@ -63,6 +63,8 @@ export type ComposeResult = {
 export type ComposePrintOptions = {
   /** Raster provider for QR blocks when native QR is unavailable. */
   bitmapFor?: BitmapForQr;
+  /** Pre-rendered, paper-width logo bitmap supplied by the trusted server renderer. */
+  logoBitmap?: { bytes: Uint8Array; widthDots: number } | null;
   /** Max raster band height in dots (PRN-05 band splitting). Default 64. */
   bandHeightDots?: number;
   /** Tear-off feed lines before the cut. Default 4. */
@@ -156,8 +158,36 @@ export function composePrintOperations(
   ) => {
     operations.push({ type: "text", value, ...(style ? { style } : {}), ...(align ? { align } : {}) });
   };
+  const pushColumns = (left: string, right: string, style?: "normal" | "bold" | "large") => {
+    operations.push({
+      type: "text",
+      value: twoColumnLine(left, right, columns),
+      columns: { left, right },
+      ...(style ? { style } : {}),
+    });
+  };
+  const pushTableColumns = (
+    tableColumns: NonNullable<Extract<PrintOperation, { type: "text" }>["tableColumns"]>,
+    style?: "normal" | "bold" | "large",
+  ) => {
+    operations.push({
+      type: "text",
+      value: [
+        tableColumns.item,
+        tableColumns.unitPrice,
+        tableColumns.quantity,
+        tableColumns.total,
+      ].join(" "),
+      tableColumns,
+      ...(style ? { style } : {}),
+    });
+  };
 
   operations.push({ type: "initialize" });
+
+  if (options.logoBitmap) {
+    pushQrRaster(options.logoBitmap, profile, bandHeightDots, operations);
+  }
 
   // ---- Shop header (centered) ----
   pushText(document.shop.name, "large", "center");
@@ -167,37 +197,56 @@ export function composePrintOperations(
   pushText(separatorLine(columns));
 
   // ---- Document identity ----
-  pushText(DOCUMENT_TITLES[document.kind], "bold", "center");
-  pushText(`เลขที่: ${document.documentNo}`);
-  pushText(`วันที่: ${formatPrintIssuedAt(document.issuedAt)}`);
-  if (document.revision > 1) pushText(`ฉบับที่: ${document.revision}`);
-  pushText(`ลูกค้า: ${document.customer.name}`);
-  if (document.customer.phoneNumber) pushText(`โทร: ${document.customer.phoneNumber}`);
+  pushText(document.title ?? DOCUMENT_TITLES[document.kind], "large", "center");
+  if (document.informationRows?.length) {
+    for (const row of document.informationRows) pushColumns(`${row.label}:`, row.value);
+  } else {
+    // Backward-compatible fallback for callers that only provide the core
+    // PrintDocument fields. The server builder supplies the canonical ordered
+    // rows used by the receipt/quotation UI.
+    pushColumns(document.kind === "QUOTATION" ? "เลขที่ใบแจ้งราคา:" : "เลขที่บิล:", document.documentNo);
+    pushColumns(document.kind === "QUOTATION" ? "วันที่ออก:" : "วันที่:", formatPrintIssuedAt(document.issuedAt));
+    if (document.revision > 1) pushColumns("ฉบับที่:", String(document.revision));
+    pushColumns("ชื่อลูกค้า:", document.customer.name ?? "ลูกค้า");
+    if (document.customer.phoneNumber) pushColumns("โทร:", document.customer.phoneNumber);
+  }
   pushText(separatorLine(columns));
 
   // ---- Line items (display-only money from integer minor units) ----
+  pushTableColumns({ item: "รายการ", unitPrice: "ราคา/ชิ้น", quantity: "จำนวน", total: "รวม" }, "bold");
+  pushText(separatorLine(columns));
   for (const item of document.items) {
-    pushText(item.name);
-    if (item.note) pushText(`  * ${item.note}`);
-    const left = `  ${item.quantity} x ${formatMinor(item.unitPriceMinor)}`;
-    const right = formatMinor(item.totalPriceMinor);
-    if (displayWidth(left) + displayWidth(right) + 1 <= columns) {
-      pushText(twoColumnLine(left, right, columns));
-    } else {
-      pushText(left);
-      pushText(right, "normal", "right");
-    }
+    pushTableColumns({
+      item: item.note ? `${item.name}\n${item.note}` : item.name,
+      unitPrice: formatMinor(item.unitPriceMinor),
+      quantity: `x${item.quantity}`,
+      total: formatMinor(item.totalPriceMinor),
+    });
   }
   pushText(separatorLine(columns));
 
   // ---- Totals ----
-  pushText(twoColumnLine("รวมมูลค่า", formatMinor(document.totals.subtotalAmountMinor), columns));
-  if (document.totals.discountAmountMinor > 0) {
-    pushText(twoColumnLine("ส่วนลด", formatMinor(document.totals.discountAmountMinor), columns));
+  if (document.summaryRows?.length) {
+    for (const row of document.summaryRows) pushColumns(row.label, row.value);
+  } else {
+    pushColumns("ราคา", formatMinor(document.totals.subtotalAmountMinor));
+    pushColumns("ส่วนลด", formatMinor(document.totals.discountAmountMinor));
   }
-  pushText(twoColumnLine("ยอดรวม", formatMinor(document.totals.totalAmountMinor), columns), "bold");
+  pushText(separatorLine(columns));
+  pushColumns(
+    document.totalDisplay?.label ?? "ยอดรวม",
+    document.totalDisplay?.value ?? formatMinor(document.totals.totalAmountMinor),
+    "large",
+  );
+  pushText(separatorLine(columns));
   if (document.note) {
     pushText(`หมายเหตุ: ${document.note}`);
+  }
+
+  for (const section of document.supplementalSections ?? []) {
+    pushText(separatorLine(columns));
+    pushText(section.title, "bold", "center");
+    for (const line of section.lines) pushText(line);
   }
 
   // ---- QR blocks (server-built; same payload for native and raster paths) ----
@@ -227,6 +276,10 @@ export function composePrintOperations(
     }
   }
 
+  for (const line of document.footerLines ?? []) {
+    pushText(line, line === document.footerLines?.[0] ? "bold" : "normal", "center");
+  }
+
   // ---- Tear-off feed and cut ----
   operations.push({ type: "feed", lines: tearOffFeedLines });
   if (profile.capabilities.partialCut) {
@@ -237,7 +290,7 @@ export function composePrintOperations(
     operations,
     report: {
       skippedQrBlocks,
-      textEncoding: "TIS620",
+      textEncoding: "ASCII_NATIVE_THAI_RASTER",
       widthDots: profile.printableDots,
     },
   };

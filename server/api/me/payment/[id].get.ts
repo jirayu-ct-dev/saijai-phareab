@@ -1,6 +1,7 @@
 import { requireUser } from "~~/server/utils/auth";
 import { prisma } from "~~/server/utils/prisma";
 import { extractPaymentVat } from "~~/server/utils/paymentMeta";
+import { loadPaymentQrPresentation } from "~~/server/utils/paymentQrPresentation";
 
 const toNumber = (value: unknown) => Number(value ?? 0);
 
@@ -121,6 +122,10 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 404, statusMessage: "Payment not found" });
   }
 
+  const paymentQr = payment.serviceOrder
+    ? await loadPaymentQrPresentation({ paymentId: payment.id, userId: user.id })
+    : null;
+
   const usageHistory = payment.serviceOrder?.memberEntitlementId
     ? await prisma.serviceOrder.findMany({
         where: {
@@ -200,6 +205,7 @@ export default defineEventHandler(async (event) => {
     confirmedAt: payment.confirmedAt?.toISOString() ?? null,
     amount: toNumber(payment.amount),
     note: payment.note,
+    paymentQr,
     vat: extractPaymentVat(payment.metadata),
     slipImage: payment.slipImage
       ? {

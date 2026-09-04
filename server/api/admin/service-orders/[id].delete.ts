@@ -45,8 +45,8 @@ export default defineEventHandler(async (event) => {
       refundOutcome = await refundAddonUsages(tx, existing.id, existing.addonUsages);
       await voidPendingAddonUsageRecords(tx, existing.id);
 
-      await tx.serviceOrder.update({
-        where: { id },
+      const { count: deletedOrderCount } = await tx.serviceOrder.updateMany({
+        where: { id, deletedAt: null },
         data: {
           deletedAt,
           deletedById: actor.id,
@@ -55,6 +55,12 @@ export default defineEventHandler(async (event) => {
           addonUsages: [],
         },
       });
+      if (deletedOrderCount !== 1) {
+        throw createError({
+          statusCode: 409,
+          statusMessage: "รายการรับผ้าถูกลบหรือแก้ไขโดยผู้ใช้อื่น กรุณาลองใหม่",
+        });
+      }
 
       await tx.serviceOrderItem.updateMany({
         where: {

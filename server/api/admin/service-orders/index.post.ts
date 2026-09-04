@@ -116,6 +116,15 @@ export default defineEventHandler(async (event) => {
   if (!isServiceOrderStatus(serviceOrderStatus)) {
     throw createError({ statusCode: 400, statusMessage: "สถานะรายการรับผ้าไม่ถูกต้อง" });
   }
+  // A new order must not be born cancelled: the create flow deducts package
+  // credits with no refund branch, so a CANCELLED create would permanently
+  // consume credits. Cancel via the status endpoint instead (it refunds).
+  if (serviceOrderStatus === "CANCELLED") {
+    throw createError({
+      statusCode: 400,
+      statusMessage: "ไม่สามารถสร้างรายการรับผ้าในสถานะยกเลิกได้ กรุณาสร้างรายการก่อนแล้วยกเลิกผ่านหน้าจอเปลี่ยนสถานะ",
+    });
+  }
   const receivedAt = new Date();
   const dueAt = parseBangkokDateTime(body.dueAt);
 

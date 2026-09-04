@@ -5,7 +5,7 @@ import type {
   PrintQrBlock,
   PrinterProfile,
 } from "../../shared/types/printing";
-import { createPrinterCapabilities } from "../../shared/utils/printJobState";
+import { createPrinterCapabilities } from "../../shared/utils/printCapabilities";
 
 const sampleDocument = (): PrintDocument => ({
   kind: "QUOTATION",
@@ -62,6 +62,7 @@ describe("printing contracts", () => {
   it("keeps every PrintOperation variant JSON-safe except raw raster bytes", () => {
     const operations: PrintOperation[] = [
       { type: "initialize" },
+      { type: "text", value: "ยอดรวม 105.00", columns: { left: "ยอดรวม", right: "105.00" } },
       { type: "nativeQr", data: "payload", size: 6 },
       { type: "nativeBarcode", symbology: "CODE128", data: "123" },
       { type: "nvLogo", key: "logo-1" },

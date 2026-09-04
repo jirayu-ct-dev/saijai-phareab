@@ -9,6 +9,62 @@ Use this reference for hardware capability, consumables, electrical safety, and 
 
 The unit used to prepare this profile is labeled `260 mm/s` with `USB + Ethernet + Wi-Fi`. Do not infer that every XP-C260M has that combination.
 
+## Saijai unit self-test — 2026-09-04
+
+The user supplied a self-test for the physical Saijai printer. Treat the values
+in this section as confirmed for that unit only, not for every XP-C260M.
+
+| Field | Confirmed value |
+| --- | --- |
+| Model | Xprinter XP-C260M |
+| Firmware | `7.022PROY`, modified `2026-02-03` |
+| Speed | 260 mm/s |
+| Interfaces | USB printing, 10/100 Ethernet, Wi-Fi `802.11a/g/n` via WF-B30D (2.4/5 GHz) |
+| Ethernet network | TCP/IP, static address `192.168.123.100/24`, gateway `192.168.123.1`, DHCP disabled |
+| Ethernet MAC | `00-30-91-63-5C-18` |
+| Wi-Fi transport | TCP Server with confirmed raw TCP port `9100` |
+| Wi-Fi network | STA mode, connected to SSID `lxibel` with WPA2PSK/AES; DHCP address `172.20.10.2/28`, gateway `172.20.10.1` |
+| Wi-Fi MAC | `78:1E:B8:7D:69:22` |
+| Printable width | 72 mm; Font A 48 columns, Font B 64 columns |
+| Default text settings | Font A, Page 0 / PC437 |
+| Confirmed Thai code pages | Page 70 = PC874; Page 255 = Thai |
+| Cutter and beeper | Reported available; self-test reports `Yes` for peel mode, cutter alarm, and idle alarm |
+| 2D codes | QR Code, PDF417, Data Matrix |
+| 1D codes | UPC-A/E, EAN/JAN-13/8, CODE39, CODABAR, ITF, CODE93, CODE128 |
+| Other | NV image download and font customization supported; black mark disabled |
+| Reliability settings | Avoid Lost Document off; printer queueing unavailable |
+| Density | Level 5, maximum 8 |
+
+The self-test confirms feature presence, not application-command compatibility.
+Keep native QR, beeper, NV image, and custom-font commands disabled in
+the application until each command is physically verified on this firmware.
+The Saijai application now enables only the confirmed cutter capability and
+places one partial-cut command after the complete document and tear-off feed;
+the next physical receipt should confirm command compatibility.
+
+The 72 mm width is consistent with a 576-dot target at the model-family 203 DPI
+profile, but `576` remains a derived render setting until a width/alignment test
+passes. The latest self-test confirms `TCP Server` on raw TCP port `9100` for
+the current Wi-Fi interface.
+
+The Wi-Fi radio is now a connected station/client, replacing the older AP-mode
+self-test. Its current `172.20.10.2` address comes from a mobile hotspot and is
+valid only for home/hotspot testing. It is not the final shop production
+address. After installation at the shop, obtain the new DHCP address and create
+a reservation for Wi-Fi MAC `78:1E:B8:7D:69:22` before changing production
+discovery. Never record the router password in this repository.
+
+The physical Page 70 / CP874 test on firmware `7.022PROY` produced Chinese or
+incorrect glyphs even though ASCII was correct. The application therefore uses
+Prompt-font raster blocks for every text operation containing Thai. Page 70
+(`ESC t 0x46`) and Page 255 (`ESC t 0xFF`) remain explicit diagnostic options
+only and are not production defaults.
+
+Keep the two interface identities separate: Ethernet uses MAC
+`00-30-91-63-5C-18` and static address `192.168.123.100`; Wi-Fi uses MAC
+`78:1E:B8:7D:69:22` and currently has the temporary hotspot address above.
+Neither address is the Print Gateway host address.
+
 ## Core profile
 
 | Capability | XP-C260M family / inspected unit |

@@ -120,7 +120,13 @@ export default defineEventHandler(async (event) => {
     const totalAmount = vat.totalAmount;
     const now = new Date();
 
-    const allowedStatuses = ["UNPAID", "PENDING_VERIFICATION", "PAID", "CANCELLED"] as const;
+    if (body.status === "CANCELLED") {
+      throw createError({
+        statusCode: 400,
+        statusMessage: "ไม่สามารถสร้างรายการขายในสถานะยกเลิกได้ กรุณาสร้างรายการก่อนแล้วจึงยกเลิก",
+      });
+    }
+    const allowedStatuses = ["UNPAID", "PENDING_VERIFICATION", "PAID"] as const;
     const paymentStatus = allowedStatuses.includes(body.status as typeof allowedStatuses[number])
       ? (body.status as typeof allowedStatuses[number])
       : "PAID";

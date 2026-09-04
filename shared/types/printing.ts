@@ -6,12 +6,10 @@
 // Nothing here may depend on Prisma, the database, network transports,
 // hardware or any runtime dependency. All shapes are JSON-safe.
 //
-// Canonical decisions C7–C12 of docs/plan-database-printing-master-orchestration.md:
-// v1 has only `Printer` and `PrintJob` concepts; QR settings live in AppSetting
-// (only the setting *shape* needed by eligibility is defined here); money uses
-// exact integer minor units (`amountMinor`).
+// Direct Print keeps reusable document/operation/profile contracts without a
+// durable Printer/PrintJob lifecycle. QR settings remain in AppSetting and
+// money uses exact integer minor units (`amountMinor`).
 
-import type { PaymentStatus } from "./enums";
 import type { ReceiptPayload } from "./receipt";
 
 // ============================
@@ -28,6 +26,8 @@ export type ShopPrintInfo = {
   addressLine: string | null;
   phoneNumber: string | null;
   taxId: string | null;
+  /** Server-approved public asset; never an arbitrary printer-supplied URL. */
+  logoUrl?: string | null;
 };
 
 /**
@@ -46,6 +46,17 @@ export type PrintTotals = {
   subtotalAmountMinor: number;
   discountAmountMinor: number;
   totalAmountMinor: number;
+};
+
+/** Server-owned display rows derived from existing business data. */
+export type PrintDisplayRow = {
+  label: string;
+  value: string;
+};
+
+export type PrintSupplementalSection = {
+  title: string;
+  lines: string[];
 };
 
 /**
@@ -71,6 +82,8 @@ export type PrintQrBlock =
 
 export type PrintDocument = {
   kind: PrintDocumentKind;
+  /** Established business-facing title; defaults from kind for old callers. */
+  title?: string;
   documentId: string;
   documentNo: string;
   revision: number;
@@ -81,6 +94,16 @@ export type PrintDocument = {
   items: PrintLineItem[];
   totals: PrintTotals;
   note: string | null;
+  /** Canonical ordered info rows matching the receipt/quotation UI. */
+  informationRows?: PrintDisplayRow[];
+  /** Canonical ordered summary rows, including displayed price/discount. */
+  summaryRows?: PrintDisplayRow[];
+  /** Established final-total label/value (for example package-covered use). */
+  totalDisplay?: PrintDisplayRow;
+  /** Package/add-on history and similar variable-length business sections. */
+  supplementalSections?: PrintSupplementalSection[];
+  /** Document-specific closing copy sourced from the established UI. */
+  footerLines?: string[];
   qrBlocks: PrintQrBlock[];
 };
 
@@ -97,7 +120,21 @@ export type PrintTextStyle = "normal" | "bold" | "large";
 
 export type PrintOperation =
   | { type: "initialize" }
-  | { type: "text"; value: string; style?: PrintTextStyle; align?: "left" | "center" | "right" } // PRN-05 (additive)
+  | {
+      type: "text";
+      value: string;
+      style?: PrintTextStyle;
+      align?: "left" | "center" | "right";
+      /** Optional semantic columns so raster output can anchor the right value. */
+      columns?: { left: string; right: string };
+      /** Four-column receipt row rendered at fixed paper-relative anchors. */
+      tableColumns?: {
+        item: string;
+        unitPrice: string;
+        quantity: string;
+        total: string;
+      };
+    } // PRN-05 (additive)
   | { type: "raster"; bytes: Uint8Array; widthDots: number }
   | { type: "nativeQr"; data: string; size: number }
   | { type: "nativeBarcode"; symbology: string; data: string }
@@ -120,6 +157,13 @@ export type PaperWidthMm = 80 | 58;
 export type PrintableDots = 576 | 512 | 384;
 
 export type PrintRenderMode = "RASTER" | "HYBRID";
+
+/**
+ * Thai text strategy for the verified XP-C260M firmware. Raster is the
+ * production default because physical output disproved native page 70.
+ * Native pages remain explicit diagnostic options only.
+ */
+export type ThaiPrintStrategy = "native-cp874" | "native-thai-255" | "raster-thai";
 
 /** Optional capabilities are all default-false until physically verified. */
 export type PrinterCapabilities = {
@@ -146,108 +190,47 @@ export type PrinterProfile = {
 };
 
 // ============================
-// PRINT JOB LIFECYCLE
+// DIRECT PRINT LIFECYCLE
 // ============================
 
-export type PrintJobStatus =
-  | "QUEUED"
-  | "CLAIMED"
-  | "RENDERING"
-  | "READY"
-  | "SENDING"
+/**
+ * One immediate print attempt. Direct printing deliberately has no durable
+ * queue or automatic retry: once sending starts the physical outcome can no
+ * longer be inferred safely from a browser/network error.
+ */
+export type DirectPrintResultCode =
   | "SENT"
-  | "ACKNOWLEDGED"
-  | "RETRY_WAIT"
-  | "STALE_DOCUMENT"
-  | "NEEDS_REVIEW"
-  | "RESOLVED_PRINTED"
-  | "RESOLVED_NOT_PRINTED"
-  | "REPRINTED"
-  | "FAILED";
+  | "BUSY"
+  | "NOT_CONNECTED"
+  | "OFFLINE"
+  | "TIMEOUT"
+  | "UNKNOWN_PROGRESS";
 
-/**
- * Safe failure codes only. Never store raw printer responses, stack traces,
- * endpoints or credentials in `failureMessageSafe`.
- */
-export type PrintJobFailureCode =
-  | "FAILED_CONFIG"
-  | "FAILED_OFFLINE"
-  | "FAILED_TIMEOUT"
-  | "FAILED_DEVICE"
-  | "FAILED_RENDER"
-  | "STALE_DOCUMENT"
-  | "NEEDS_REVIEW";
-
-/** Per-printer lease held by the Local Print Bridge while processing a job. */
-export type PrintJobLease = {
-  leaseToken: string | null;
-  /** ISO 8601 string, or null when no lease is held. */
-  leaseExpiresAt: string | null;
-  /** Monotonically increasing token; events must carry the current value. */
-  fencingToken: number | null;
-};
-
-/** One bounded, safe timeline entry (no raw payloads, no PII). */
-export type PrintJobTimelineEntry = {
-  /** ISO 8601 string. */
-  at: string;
-  status: PrintJobStatus;
-  note: string | null;
-};
-
-/** Snapshot provenance of the rendered document. */
-export type PrintJobSnapshotRef = {
-  snapshotHash: string;
-  renderVersion: string;
-  /** ISO 8601 string, or null (retention decided in D11). */
-  snapshotExpiresAt: string | null;
-};
-
-/** Source payment facts captured at job creation (never client-supplied). */
-export type PrintJobSource = {
-  sourcePaymentId: string;
-  /** Document revision the snapshot was rendered from. */
-  sourceRevision: number;
-  /** Payment status at creation. */
-  sourceStatus: PaymentStatus;
-  /** Exact minor units at creation. */
-  amountMinor: number;
-  /** QR config version at creation; null when the snapshot has no payment QR. */
-  qrConfigVersion: number | null;
-  /** Whether the rendered snapshot contains a PAYMENT QR block. */
-  snapshotHasPaymentQr: boolean;
-};
-
-/** Core mutable lifecycle state of a PrintJob (JSON-safe projection). */
-export type PrintJobLifecycleState = {
-  status: PrintJobStatus;
-  attemptCount: number;
-  /** ISO 8601 string; when this passes a queued job becomes claimable again. */
-  availableAt: string;
-  /** ISO 8601 string when bytes were first written to the transport. */
-  sendStartedAt: string | null;
-  lease: PrintJobLease;
-  failure: {
-    code: PrintJobFailureCode | null;
-    messageSafe: string | null;
-  };
-  timeline: PrintJobTimelineEntry[];
-};
+export type DirectPrintResult =
+  | { ok: true; code: "SENT" }
+  | {
+      ok: false;
+      code: Exclude<DirectPrintResultCode, "SENT">;
+      /** True means bytes may already have reached the printer. */
+      bytesMayHaveBeenWritten: boolean;
+    };
 
 // ============================
-// IDEMPOTENCY
+// LAN PRINT GATEWAY
 // ============================
 
-/**
- * Unique scope of a create-job request: requester + document + transport +
- * client-generated request ID (guards double-click / network retry).
- */
-export type PrintJobIdempotencyScope = {
-  requestedById: string;
-  documentType: PrintDocumentKind;
-  documentId: string;
-  transport: PrintTransport;
-  requestId: string;
+/** Browser-safe descriptor. Network addresses remain Gateway-local. */
+export type LanPrinterDescriptor = {
+  id: string;
+  name: string;
+  model: PrinterModel;
+  online: boolean;
+};
+
+/** Short-lived discovery identity; it cannot be used as a network target. */
+export type LanPrinterCandidate = {
+  id: string;
+  name: string;
 };
 
 // ============================

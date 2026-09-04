@@ -235,7 +235,7 @@ describe("refundAddonUsages (normalized records authoritative, legacy JSON fallb
     });
     expect(fakeTx.memberEntitlement.updateMany).toHaveBeenCalledTimes(1);
     expect(fakeTx.memberEntitlement.updateMany).toHaveBeenCalledWith({
-      where: { id: "ent-1" },
+      where: { id: "ent-1", deletedAt: null, creditRemaining: { not: null } },
       data: { creditRemaining: { increment: 2 } },
     });
     expect(fakeTx.serviceOrderAddonUsage.updateMany).toHaveBeenCalledWith({
@@ -261,10 +261,29 @@ describe("refundAddonUsages (normalized records authoritative, legacy JSON fallb
     expect(outcome).toBe("legacy-fallback");
     expect(fakeTx.memberEntitlement.updateMany).toHaveBeenCalledTimes(2);
     expect(fakeTx.memberEntitlement.updateMany).toHaveBeenCalledWith({
-      where: { id: "ent-legacy" },
+      where: { id: "ent-legacy", deletedAt: null, creditRemaining: { not: null } },
       data: { creditRemaining: { increment: 3 } },
     });
     expect(fakeTx.serviceOrderAddonUsage.updateMany).not.toHaveBeenCalled();
+    // The refund is tombstoned as normalized rows so a second cancel/delete
+    // can never re-enter the legacy fallback and refund twice.
+    expect(fakeTx.serviceOrderAddonUsage.createMany).toHaveBeenCalledTimes(1);
+    expect(fakeTx.serviceOrderAddonUsage.createMany).toHaveBeenCalledWith({
+      data: [
+        expect.objectContaining({
+          serviceOrderId: "order-1",
+          memberEntitlementId: "ent-legacy",
+          credits: 3,
+          refundedAt: expect.any(Date),
+        }),
+        expect.objectContaining({
+          serviceOrderId: "order-1",
+          memberEntitlementId: "ent-legacy-2",
+          credits: 1,
+          refundedAt: expect.any(Date),
+        }),
+      ],
+    });
   });
 
   it("ignores invalid legacy JSON entries during the fallback", async () => {
@@ -280,7 +299,7 @@ describe("refundAddonUsages (normalized records authoritative, legacy JSON fallb
     expect(outcome).toBe("legacy-fallback");
     expect(fakeTx.memberEntitlement.updateMany).toHaveBeenCalledTimes(1);
     expect(fakeTx.memberEntitlement.updateMany).toHaveBeenCalledWith({
-      where: { id: "ent-good" },
+      where: { id: "ent-good", deletedAt: null, creditRemaining: { not: null } },
       data: { creditRemaining: { increment: 2 } },
     });
   });
@@ -331,6 +350,15 @@ describe("refundAddonUsages (normalized records authoritative, legacy JSON fallb
     expect(outcome).toBe("already-refunded");
     expect(fakeTx.memberEntitlement.updateMany).not.toHaveBeenCalled();
   });
+
+  it("fails closed without marking a normalized usage refunded when its entitlement is unavailable", async () => {
+    const fakeTx = tx();
+    fakeTx.serviceOrderAddonUsage.findMany.mockResolvedValue([usageRecord()]);
+    fakeTx.memberEntitlement.updateMany.mockResolvedValue({ count: 0 });
+
+    await expect(refundAddonUsages(fakeTx as never, "order-1", [])).rejects.toMatchObject({ statusCode: 409 });
+    expect(fakeTx.serviceOrderAddonUsage.updateMany).not.toHaveBeenCalled();
+  });
 });
 
 describe("refundPrimaryCredit", () => {
@@ -338,7 +366,7 @@ describe("refundPrimaryCredit", () => {
     const fakeTx = tx();
     await refundPrimaryCredit(fakeTx as never, { memberEntitlementId: "ent-1", creditUsed: 3 });
     expect(fakeTx.memberEntitlement.updateMany).toHaveBeenCalledWith({
-      where: { id: "ent-1" },
+      where: { id: "ent-1", deletedAt: null, creditRemaining: { not: null } },
       data: { creditRemaining: { increment: 3 } },
     });
   });
@@ -349,6 +377,15 @@ describe("refundPrimaryCredit", () => {
     await refundPrimaryCredit(fakeTx as never, { memberEntitlementId: "ent-1", creditUsed: null });
     await refundPrimaryCredit(fakeTx as never, { memberEntitlementId: "ent-1", creditUsed: 0 });
     expect(fakeTx.memberEntitlement.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("fails closed when the entitlement cannot receive the refund", async () => {
+    const fakeTx = tx();
+    fakeTx.memberEntitlement.updateMany.mockResolvedValue({ count: 0 });
+
+    await expect(
+      refundPrimaryCredit(fakeTx as never, { memberEntitlementId: "missing-ent", creditUsed: 1 }),
+    ).rejects.toMatchObject({ statusCode: 409 });
   });
 });
 

@@ -48,6 +48,10 @@ onMounted(async () => {
         reason.value = null;
         return;
     }
+    if (reason.value === "inactive") {
+        notify.error("บัญชีพนักงานของคุณถูกระงับการใช้งาน");
+        reason.value = null;
+    }
 })
 </script>
 

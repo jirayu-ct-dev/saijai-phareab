@@ -1,5 +1,5 @@
 /**
- * Verified TCP transport (PRN-04 "verified TCP first").
+ * TCP transport for the immediate local bridge.
  *
  * Connects a node:net socket to the locally configured tcpTarget {host, port}.
  * The host and port are read from local config ONLY — they are never included
@@ -9,17 +9,24 @@
  *   - write() resolves with the number of bytes accepted by the socket.
  *   - A write timeout mid-send is UNKNOWN with respect to what reached the
  *     printer (the OS may have flushed part of the buffer), so the error
- *     carries no bytesWritten — the runner must treat it as NEEDS_REVIEW (C8).
- *   - An immediate socket error reported by the write callback is treated as
- *     a known-zero-byte failure (FAILED_DEVICE).
+ *     carries no bytesWritten. The bridge treats every failure after write()
+ *     begins as UNKNOWN_PROGRESS, regardless of this diagnostic count.
  */
 
 import net from "node:net";
 import { TransportError } from "./transportError.js";
+import { fingerprintBuffer } from "../byteFingerprint.mjs";
 
 const defaultSleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-export function createTcpTransport({ host, port, timeoutMs = 10000, sleep = defaultSleep } = {}) {
+export function createTcpTransport({
+  host,
+  port,
+  timeoutMs = 10000,
+  sleep = defaultSleep,
+  debugBytes = false,
+  log = console,
+} = {}) {
   if (typeof host !== "string" || host.length === 0) {
     throw new Error("TCP transport requires a host");
   }
@@ -81,7 +88,13 @@ export function createTcpTransport({ host, port, timeoutMs = 10000, sleep = defa
       if (!connected || !socket) {
         throw new TransportError("FAILED_OFFLINE", "TCP transport is not connected");
       }
-      const payload = Buffer.isBuffer(bytes) ? bytes : Buffer.from(bytes ?? new Uint8Array());
+      if (!Buffer.isBuffer(bytes)) {
+        throw new TypeError("TCP print transport requires a Buffer");
+      }
+      const payload = bytes;
+      if (debugBytes) {
+        log.debug(`Print payload F ${JSON.stringify(fingerprintBuffer(payload))}`, "PRINT_BYTES_F");
+      }
 
       await new Promise((resolve, reject) => {
         let settled = false;
@@ -114,6 +127,7 @@ export function createTcpTransport({ host, port, timeoutMs = 10000, sleep = defa
           resolve(payload.byteLength);
         });
       });
+      return payload.byteLength;
     },
 
     /** Half-closes after flushing pending data; resolves when the peer ACKs. */

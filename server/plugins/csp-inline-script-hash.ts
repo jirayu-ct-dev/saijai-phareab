@@ -16,6 +16,20 @@ export default defineNitroPlugin((nitroApp) => {
     const policy = event.node.res.getHeader("Content-Security-Policy");
     if (typeof policy !== "string" || !policy.includes("script-src")) return;
 
+    let nextPolicy = policy;
+    const gatewayConfig = useRuntimeConfig(event).public;
+    const gatewayUrl = gatewayConfig.printGatewayUrl;
+    if (gatewayConfig.printGatewayEnabled === true && typeof gatewayUrl === "string" && gatewayUrl.length > 0) {
+      try {
+        const gatewayOrigin = new URL(gatewayUrl).origin;
+        if (gatewayOrigin === gatewayUrl && /^https?:$/.test(new URL(gatewayOrigin).protocol)) {
+          nextPolicy = nextPolicy.replace(/connect-src[^;]*/, (directive) => `${directive} ${gatewayOrigin}`);
+        }
+      } catch {
+        // Invalid runtime configuration stays fail-closed: no CSP exception.
+      }
+    }
+
     const hashes = new Set<string>();
     for (const match of response.body.matchAll(INLINE_SCRIPT_PATTERN)) {
       const attrs = match[1] ?? "";
@@ -26,11 +40,14 @@ export default defineNitroPlugin((nitroApp) => {
       // string without trimming.
       hashes.add(`'sha256-${createHash("sha256").update(content).digest("base64")}'`);
     }
-    if (hashes.size === 0) return;
+    if (hashes.size === 0) {
+      if (nextPolicy !== policy) event.node.res.setHeader("Content-Security-Policy", nextPolicy);
+      return;
+    }
 
     event.node.res.setHeader(
       "Content-Security-Policy",
-      policy.replace(/script-src[^;]*/, (directive) => `${directive} ${[...hashes].join(" ")}`)
+      nextPolicy.replace(/script-src[^;]*/, (directive) => `${directive} ${[...hashes].join(" ")}`)
     );
   });
 });

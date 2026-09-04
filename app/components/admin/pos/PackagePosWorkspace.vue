@@ -92,7 +92,6 @@ const paymentStatusOptions: Array<{ label: string; value: PaymentStatus }> = [
   { label: paymentStatusLabels.PAID, value: "PAID" },
   { label: paymentStatusLabels.PENDING_VERIFICATION, value: "PENDING_VERIFICATION" },
   { label: paymentStatusLabels.UNPAID, value: "UNPAID" },
-  { label: paymentStatusLabels.CANCELLED, value: "CANCELLED" },
 ];
 
 const form = reactive(createEmptyForm());
@@ -251,8 +250,12 @@ const handleSubmit = async () => {
       resetForm();
       await refresh();
     }
-  } catch {
-    notify.error("ไม่สามารถอัปโหลดสลิปได้");
+  } catch (error) {
+    if (error && typeof error === "object" && "statusCode" in error && error.statusCode !== 500) {
+      notify.error((error as { statusMessage?: string }).statusMessage || "ไม่สามารถบันทึกรายการได้");
+    } else {
+      notify.error("ไม่สามารถบันทึกรายการขายแพ็กเกจได้");
+    }
   } finally {
     isSubmitting.value = false;
   }

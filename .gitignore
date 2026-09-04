@@ -64,3 +64,8 @@ pricing.json
 
 backups*
 database_export/
+
+# LAN Print Gateway local state and TLS material
+print-bridge/gateway-state.json
+print-bridge/*.key
+print-bridge/*.crt

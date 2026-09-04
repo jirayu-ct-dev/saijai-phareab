@@ -225,6 +225,30 @@ describe("payment QR eligibility matrix (C9 display policy)", () => {
 });
 
 describe("document content", () => {
+  it("orders quotation information and summary rows like the canonical document", () => {
+    const document = buildPrintDocument({
+      kind: "QUOTATION",
+      payment: makePayment({ createdAt: new Date("2026-09-04T13:18:00.000Z") }),
+      setting: APP_SETTING,
+      receiverValue: null,
+      now: new Date("2026-09-04T14:00:00.000Z"),
+    }).document;
+
+    expect(document.informationRows).toEqual([
+      { label: "เลขที่ใบแจ้งราคา", value: "QT-0001" },
+      { label: "เลขรับผ้า", value: "ORD-0001" },
+      { label: "วันที่ออก", value: "4/9/2026 20:18" },
+      { label: "วันนัดรับ", value: "ไม่ระบุ" },
+      { label: "ชื่อลูกค้า", value: "ลูกค้า ตัวอย่าง" },
+      { label: "โทร", value: "0812345678" },
+    ]);
+    expect(document.summaryRows).toEqual([
+      { label: "รวมจำนวนรายการ", value: "3 ชิ้น" },
+      { label: "ราคา", value: "1,234.56" },
+      { label: "ส่วนลด", value: "0.00" },
+    ]);
+  });
+
   it("builds line items and totals in minor units from the service order", () => {
     const built = buildPrintDocument({
       kind: "RECEIPT",
@@ -248,6 +272,119 @@ describe("document content", () => {
     expect(built.sourceRevision).toBe(new Date("2026-06-01T03:00:00.000Z").getTime());
   });
 
+  it("shows the receipt LINE QR whenever an image is configured, without a separate toggle", () => {
+    const document = buildPrintDocument({
+      kind: "RECEIPT",
+      payment: makePayment(),
+      setting: { ...APP_SETTING, lineQrEnabled: false },
+      receiverValue: null,
+      now: new Date("2026-06-01T03:00:00.000Z"),
+    }).document;
+
+    expect(document.qrBlocks.map((block) => block.kind)).toEqual(["LINE"]);
+  });
+
+  it("preserves the established receipt fields from service-order business data", () => {
+    const base = makePayment();
+    const built = buildPrintDocument({
+      kind: "RECEIPT",
+      payment: makePayment({
+        status: "PAID",
+        receiptNo: "RC-0001",
+        createdAt: new Date("2026-09-03T01:00:00.000Z"),
+        paidAt: new Date("2026-09-03T02:00:00.000Z"),
+        confirmedAt: new Date("2026-09-03T02:05:00.000Z"),
+        method: "TRANSFER",
+        metadata: { vat: { rate: 7, amount: 80.75, included: true, baseAmount: 1153.81 } },
+        note: null,
+        serviceOrder: {
+          ...base.serviceOrder!,
+          status: "PROCESSING",
+          receivedAt: new Date("2026-09-02T01:30:00.000Z"),
+          dueAt: new Date("2026-09-05T10:00:00.000Z"),
+          washFoldPricePerKgSnapshot: null,
+          employee: { name: "พนักงานหนึ่ง" },
+          hangerCharge: { count: 3, pricePerUnit: 5, total: 15 },
+          note: "ระวังสีตก\nแยกซัก",
+          memberEntitlement: {
+            product: { name: "แพ็กเกจรายเดือน 30 ชิ้น" },
+            creditInitial: 30,
+            creditRemaining: 25,
+            endAt: new Date("2026-10-01T00:00:00.000Z"),
+          },
+          addonUsageRecords: [{ productName: "บริการรับ-ส่ง", credits: 1 }],
+          usageHistory: [{
+            orderNo: "ORD-0001",
+            receivedAt: new Date("2026-09-02T01:30:00.000Z"),
+            quantity: 3,
+            isCurrent: true,
+          }],
+        },
+      }),
+      setting: { ...APP_SETTING, lineQrEnabled: false },
+      receiverValue: null,
+      now: new Date("2026-09-04T03:00:00.000Z"),
+    }).document;
+
+    expect(built.issuedAt).toBe("2026-09-03T01:00:00.000Z");
+    expect(built.title).toBe("ใบเสร็จรับเงิน");
+    expect(built.totalDisplay).toEqual({ label: "รวมทั้งสิ้น", value: "1,234.56" });
+    expect(built.note).toBe("ระวังสีตก\nแยกซัก");
+    expect(built.informationRows).toEqual(expect.arrayContaining([
+      { label: "เลขรับผ้า", value: "ORD-0001" },
+      { label: "วันนัดรับ", value: "5/9/2026 17:00" },
+      { label: "แพ็กเกจ", value: "แพ็กเกจรายเดือน 30 ชิ้น" },
+      { label: "พนักงาน", value: "พนักงานหนึ่ง" },
+      { label: "ช่องทางการชำระเงิน", value: "โอนเงิน" },
+      { label: "วันที่ชำระเงิน", value: "3/9/2026 09:05" },
+    ]));
+    expect(built.summaryRows).toEqual(expect.arrayContaining([
+      { label: "รวมจำนวนรายการ", value: "3 ชิ้น" },
+      { label: "รวมไม้แขวน", value: "3 ชิ้น" },
+      { label: "ค่าไม้แขวน", value: "15.00" },
+      { label: "ราคารวม VAT 7% แล้ว", value: "1,153.81" },
+      { label: "VAT 7%", value: "80.75" },
+    ]));
+    expect(built.supplementalSections).toEqual([
+      { title: "แพ็กเกจเสริม", lines: ["บริการรับ-ส่ง 1 เครดิต"] },
+      {
+        title: "สรุปการใช้บริการ",
+        lines: expect.arrayContaining([
+          "ครั้งที่ 1* 2/9/2026 3 ชิ้น",
+          "รวม 3 ชิ้น",
+          "คงเหลือ 25/30 เครดิต",
+          "หมดอายุ 1/10/2026",
+        ]),
+      },
+    ]);
+  });
+
+  it("uses the established package-covered receipt title and total text", () => {
+    const base = makePayment();
+    const document = buildPrintDocument({
+      kind: "RECEIPT",
+      payment: makePayment({
+        status: "PAID",
+        amount: decimal("0"),
+        serviceOrder: {
+          ...base.serviceOrder!,
+          memberEntitlement: {
+            product: { name: "แพ็กเกจรายเดือน" },
+            creditInitial: 30,
+            creditRemaining: 29,
+            endAt: null,
+          },
+        },
+      }),
+      setting: { ...APP_SETTING, lineQrEnabled: false },
+      receiverValue: null,
+      now: new Date("2026-09-04T03:00:00.000Z"),
+    }).document;
+
+    expect(document.title).toBe("ใบแจ้งการใช้บริการ");
+    expect(document.totalDisplay).toEqual({ label: "รวมทั้งสิ้น", value: "ใช้สิทธิ์แพ็กเกจ" });
+  });
+
   it("falls back to the legacy shop row for identity fields", () => {
     const built = buildPrintDocument({
       kind: "RECEIPT",
@@ -267,6 +404,7 @@ describe("document content", () => {
       addressLine: "ที่อยู่เดิม",
       phoneNumber: "02-999-9999",
       taxId: null,
+      logoUrl: "/logo-saijai-phareab.png",
     });
   });
 

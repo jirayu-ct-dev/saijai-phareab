@@ -21,6 +21,20 @@ type RefundableOrder = {
   addonUsages: unknown;
 };
 
+const refundEntitlementCredits = async (tx: TxClient, entitlementId: string, credits: number) => {
+  const { count } = await tx.memberEntitlement.updateMany({
+    where: { id: entitlementId, deletedAt: null, creditRemaining: { not: null } },
+    data: { creditRemaining: { increment: credits } },
+  });
+
+  if (count !== 1) {
+    throw createError({
+      statusCode: 409,
+      statusMessage: "ไม่สามารถคืนเครดิตได้ เนื่องจากไม่พบสิทธิ์แพ็กเกจที่ใช้งานรายการนี้",
+    });
+  }
+};
+
 export const parseAddonUsages = (value: unknown): StoredAddonUsage[] => {
   if (!Array.isArray(value)) return [];
   return (value as unknown[])
@@ -44,17 +58,16 @@ export const parseAddonUsages = (value: unknown): StoredAddonUsage[] => {
 
 /**
  * Refund primary member credits recorded on a service order back to the
- * linked entitlement. No-op when there is nothing to refund.
+ * linked entitlement. No-op when there is nothing to refund. Entitlement
+ * status is intentionally not changed: suspended/expired/cancelled rows keep
+ * blocking use, while their balance remains correct if they are reactivated.
  */
 export const refundPrimaryCredit = async (tx: TxClient, order: Pick<RefundableOrder, "memberEntitlementId" | "creditUsed">) => {
   if (!order.memberEntitlementId) return;
   const credits = Number(order.creditUsed ?? 0);
   if (credits <= 0) return;
 
-  await tx.memberEntitlement.updateMany({
-    where: { id: order.memberEntitlementId },
-    data: { creditRemaining: { increment: credits } },
-  });
+  await refundEntitlementCredits(tx, order.memberEntitlementId, credits);
 };
 
 export const createAddonUsageRecords = async (
@@ -176,9 +189,11 @@ export const refundAddonUsages = async (
     const refundedAt = new Date();
     for (const usage of refundable) {
       if (usage.memberEntitlementId) {
-        await tx.memberEntitlement.updateMany({
-          where: { id: usage.memberEntitlementId },
-          data: { creditRemaining: { increment: usage.credits } },
+        await refundEntitlementCredits(tx, usage.memberEntitlementId, usage.credits);
+      } else {
+        throw createError({
+          statusCode: 409,
+          statusMessage: "ไม่สามารถคืนเครดิตได้ เนื่องจากรายการใช้สิทธิ์ไม่มีแพ็กเกจอ้างอิง",
         });
       }
     }
@@ -191,12 +206,26 @@ export const refundAddonUsages = async (
 
   const legacyUsages = parseAddonUsages(addonUsages);
   if (legacyUsages.length === 0) return "no-usage";
+  const refundedAt = new Date();
   for (const usage of legacyUsages) {
-    await tx.memberEntitlement.updateMany({
-      where: { id: usage.entitlementId },
-      data: { creditRemaining: { increment: usage.credits } },
-    });
+    await refundEntitlementCredits(tx, usage.entitlementId, usage.credits);
   }
+  // Tombstone: persist the legacy refund as normalized rows marked refunded so
+  // a second cancel/delete can never re-enter this fallback and refund the
+  // same credits twice.
+  await tx.serviceOrderAddonUsage.createMany({
+    data: legacyUsages.map((usage) => ({
+      serviceOrderId,
+      memberEntitlementId: usage.entitlementId,
+      productId: usage.productId ?? null,
+      productName: usage.productName ?? null,
+      credits: usage.credits,
+      deductOn: usage.deductOn,
+      isDelivery: usage.isDelivery ?? false,
+      deductedAt: usage.deductedAt ? new Date(usage.deductedAt) : null,
+      refundedAt,
+    })),
+  });
   return "legacy-fallback";
 };
 

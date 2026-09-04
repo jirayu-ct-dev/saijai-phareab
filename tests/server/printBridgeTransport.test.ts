@@ -3,6 +3,8 @@
 import { describe, expect, it } from "vitest";
 import { FakeTransport } from "../../print-bridge/transport/fake.js";
 import { TransportError } from "../../print-bridge/transport/transportError.js";
+import { createTcpTransport } from "../../print-bridge/transport/tcp.js";
+import net from "node:net";
 
 const PAYLOAD = Uint8Array.from([0x1b, 0x40, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06]);
 
@@ -60,5 +62,30 @@ describe("print bridge fake transport", () => {
   it("refuses writes before connect", async () => {
     const transport = new FakeTransport();
     await expect(transport.write(PAYLOAD)).rejects.toMatchObject({ code: "FAILED_OFFLINE" });
+  });
+});
+
+describe("TCP print transport binary contract", () => {
+  it("writes the exact Buffer bytes to a TCP socket and rejects text-like inputs", async () => {
+    const received: Buffer[] = [];
+    const server = net.createServer((socket) => {
+      socket.on("data", (chunk) => received.push(chunk));
+    });
+    await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+    const port = (server.address() as net.AddressInfo).port;
+    const transport = createTcpTransport({ host: "127.0.0.1", port, timeoutMs: 1000 });
+    const payload = Buffer.from([0x1b, 0x40, 0x00, 0xff, 0x80, 0x1d, 0x76, 0x30]);
+
+    try {
+      await transport.connect();
+      await expect(transport.write(new Uint8Array([1, 2, 3]))).rejects.toThrow(/requires a Buffer/);
+      await expect(transport.write(payload)).resolves.toBe(payload.byteLength);
+      await transport.end();
+      await new Promise((resolve) => setTimeout(resolve, 10));
+      expect(Buffer.concat(received)).toEqual(payload);
+    } finally {
+      await transport.close();
+      await new Promise<void>((resolve) => server.close(() => resolve()));
+    }
   });
 });

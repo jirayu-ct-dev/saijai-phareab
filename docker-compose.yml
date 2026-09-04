@@ -1,6 +1,8 @@
 # Production workflow. Required values are loaded from `.env` or the deployment
 # platform. This stack never creates a database or inserts demo data.
 
+name: saijai-phareab-production
+
 services:
   migrate:
     build:

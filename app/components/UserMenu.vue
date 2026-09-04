@@ -17,7 +17,9 @@ const isStaff = computed(() => {
 });
 
 const profileRoute = computed(() => (isStaff.value ? "/admin/settings/profile" : "/me/settings/profile"));
-const settingsRoute = computed(() => (isStaff.value ? "/admin/settings/billing" : "/me/settings/notification"));
+// Staff settings live on the role-employee account page; /admin/settings/billing
+// is role-admin and would bounce employees to the public home page.
+const settingsRoute = computed(() => (isStaff.value ? "/admin/settings/account" : "/me/settings/notification"));
 const homeRoute = computed(() => "/");
 const adminHomeRoute = computed(() =>
   user.value?.role === "ADMIN" ? "/admin" : "/admin/employee-dashboard",

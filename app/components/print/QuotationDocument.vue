@@ -2,7 +2,6 @@
 import ThermalHeader from "~~/app/components/thermal/ThermalHeader.vue";
 import ThermalTitle from "~~/app/components/thermal/ThermalTitle.vue";
 import ThermalInfoRows from "~~/app/components/thermal/ThermalInfoRows.vue";
-import ThermalLineQr from "~~/app/components/thermal/ThermalLineQr.vue";
 import { formatCurrency, formatDateTime } from "~~/shared/utils/format";
 import type { ReceiptPayload } from "~~/shared/types/receipt";
 
@@ -111,7 +110,7 @@ const infoRows = computed(() => {
       :name="shop?.name ?? ''"
       :address="shop?.address ?? ''"
       :phone="shop?.phone ?? ''"
-      :logo-url="shop?.logoUrl"
+      logo-url="/logo-saijai-phareab.png"
     />
 
     <ThermalTitle text="ใบแจ้งราคา" />
@@ -205,6 +204,7 @@ const infoRows = computed(() => {
 
     <div class="thermal-rule mt-4" />
 
+
     <section class="mt-3">
       <div class="grand-total-row flex items-end justify-between gap-4 text-[36px] font-bold">
         <span class="shrink-0 whitespace-nowrap">ยอดที่ต้องชำระ</span>
@@ -213,9 +213,14 @@ const infoRows = computed(() => {
       <div class="mt-1 border-b-4 border-double border-black" />
     </section>
 
-    <div class="mt-4 flex flex-col items-center">
-      <ThermalLineQr :image-url="shop?.lineQrImageUrl" />
-    </div>
+    <section v-if="data.paymentQr" class="mt-4 flex flex-col items-center gap-1 text-center">
+      <img
+        :src="data.paymentQr.imageDataUrl"
+        :alt="`QR Code PromptPay ยอด ${formatCurrency(data.amount)}`"
+        class="size-60 object-contain"
+      >
+      <p class="max-w-full text-[20px] leading-6 wrap-break-word">{{ data.paymentQr.caption }}</p>
+    </section>
 
     <div class="thermal-dash mt-6" />
 

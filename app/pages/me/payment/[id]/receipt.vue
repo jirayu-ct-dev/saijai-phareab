@@ -46,6 +46,7 @@ const receiptCode = computed(
     fallback-path="/me/payment"
     empty-title="ไม่พบข้อมูลใบเสร็จ"
     print-label="พิมพ์ใบเสร็จ"
+    :show-actions="false"
     @retry="refresh()"
   >
     <ReceiptDocument v-if="data" :data="data" :shop="shopSettings ?? null" />

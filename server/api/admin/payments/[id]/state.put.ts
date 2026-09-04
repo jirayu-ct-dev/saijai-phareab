@@ -49,6 +49,9 @@ export default defineEventHandler(async (event) => {
       receiptNo: true,
       packageSaleId: true,
       slipImageId: true,
+      serviceOrder: {
+        select: { status: true },
+      },
       packageSale: {
         select: {
           customerId: true,
@@ -92,6 +95,15 @@ export default defineEventHandler(async (event) => {
 
   if (!canTransitionPaymentStatus(existing.status, nextStatus)) {
     throw createError({ statusCode: 409, statusMessage: "ไม่สามารถเปลี่ยนสถานะการชำระเงินนี้ได้" });
+  }
+
+  // A cancelled service order must never become payable — marking its payment
+  // PAID would generate a receipt and count as revenue for a cancelled order.
+  if (nextStatus === "PAID" && existing.serviceOrder?.status === "CANCELLED") {
+    throw createError({
+      statusCode: 409,
+      statusMessage: "ไม่สามารถยืนยันการชำระเงินได้ เนื่องจากรายการรับผ้าถูกยกเลิกแล้ว",
+    });
   }
 
   const packageEntitlements = existing.packageSale?.items.flatMap((item) => item.memberEntitlements) ?? [];
@@ -176,7 +188,9 @@ export default defineEventHandler(async (event) => {
     throw error;
   }
 
-  if (nextStatus === "PAID") {
+  // Skip the customer notification for a repeated PAID call on an already-paid
+  // payment — only the first transition to PAID should send a receipt.
+  if (nextStatus === "PAID" && existing.status !== "PAID") {
     void notifyReceipt({ paymentId }).catch((err) => {
       console.error("[state.put] notifyReceipt failed", err);
     });

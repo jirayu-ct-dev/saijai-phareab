@@ -1,0 +1,13 @@
+services:
+  print-gateway:
+    environment:
+      PRINT_GATEWAY_PUBLIC_URL: ${PRINT_GATEWAY_PUBLIC_URL:?required}
+      PRINT_GATEWAY_ALLOWED_ORIGINS: ${PRINT_GATEWAY_ALLOWED_ORIGINS:?required}
+      PRINT_GATEWAY_DISCOVERY_CIDRS: ${PRINT_GATEWAY_DISCOVERY_CIDRS:?required}
+      PRINT_GATEWAY_DISCOVERY_PORTS: ${PRINT_GATEWAY_DISCOVERY_PORTS:?required}
+      PRINT_GATEWAY_PAIRING_SECRET: ${PRINT_GATEWAY_PAIRING_SECRET:?required}
+      PRINT_GATEWAY_TLS_CERT_PATH: /run/secrets/tls.crt
+      PRINT_GATEWAY_TLS_KEY_PATH: /run/secrets/tls.key
+    volumes:
+      - ${PRINT_GATEWAY_TLS_CERT_HOST_PATH:?required}:/run/secrets/tls.crt:ro
+      - ${PRINT_GATEWAY_TLS_KEY_HOST_PATH:?required}:/run/secrets/tls.key:ro

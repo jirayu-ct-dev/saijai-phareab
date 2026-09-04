@@ -49,6 +49,7 @@ const documentCode = computed(
     fallback-path="/me/payment"
     empty-title="ไม่พบใบแจ้งราคา"
     print-label="พิมพ์ใบแจ้งราคา"
+    :show-actions="false"
     @retry="refresh()"
   >
     <QuotationDocument v-if="quotationData" :data="quotationData" :shop="shopSettings ?? null" />

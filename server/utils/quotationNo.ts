@@ -12,6 +12,33 @@ const getBangkokYear = (date = new Date()) =>
 
 const padSeq = (n: number) => n.toString().padStart(4, "0");
 
+// Lexicographic ordering of quotation numbers breaks once the yearly sequence
+// passes 9999 ("QT-2026-10000" sorts before "QT-2026-9999"), which would
+// forever regenerate an already-used number. From this threshold on, fall
+// back to a numeric scan of the year's quotation numbers.
+const SEQ_SCAN_THRESHOLD = 9990;
+
+const resolveLastSeq = async (
+  db: TxClient,
+  yearPrefix: string,
+  lexicographicLast: string | null,
+) => {
+  let lastSeq = lexicographicLast ? parseInt(lexicographicLast.slice(yearPrefix.length), 10) : 0;
+  lastSeq = Number.isFinite(lastSeq) ? lastSeq : 0;
+  if (lastSeq < SEQ_SCAN_THRESHOLD) return lastSeq;
+
+  const rows = await db.serviceOrder.findMany({
+    where: { quotationNo: { startsWith: yearPrefix } },
+    select: { quotationNo: true },
+  });
+  for (const row of rows) {
+    if (!row.quotationNo) continue;
+    const seq = parseInt(row.quotationNo.slice(yearPrefix.length), 10);
+    if (Number.isFinite(seq) && seq > lastSeq) lastSeq = seq;
+  }
+  return lastSeq;
+};
+
 export const createQuotationNo = async (date = new Date(), quotationTxClient?: TxClient) => {
   const db = quotationTxClient ?? prisma;
   const { getBusinessSetting } = await import("./appSetting");
@@ -26,6 +53,6 @@ export const createQuotationNo = async (date = new Date(), quotationTxClient?: T
     select: { quotationNo: true },
   });
 
-  const lastSeq = last?.quotationNo ? parseInt(last.quotationNo.slice(yearPrefix.length), 10) : 0;
-  return `${yearPrefix}${padSeq((Number.isFinite(lastSeq) ? lastSeq : 0) + 1)}`;
+  const lastSeq = await resolveLastSeq(db, yearPrefix, last?.quotationNo ?? null);
+  return `${yearPrefix}${padSeq(lastSeq + 1)}`;
 };
