@@ -60,7 +60,6 @@ describe("current direct print document read", () => {
     const tx = {
       paymentRecord: { findFirst: vi.fn().mockResolvedValue(payment) },
       appSetting: { findUnique: vi.fn().mockResolvedValue(setting) },
-      shopSetting: { findUnique: vi.fn().mockResolvedValue(null) },
     };
     prismaMock.$transaction.mockImplementation(async (work: (value: typeof tx) => unknown) => work(tx));
     const { loadDirectPrintDocument } = await import("../../server/utils/directPrintDocument");
@@ -103,7 +102,6 @@ describe("current direct print document read", () => {
     const tx = {
       paymentRecord: { findFirst: vi.fn().mockResolvedValue(payment) },
       appSetting: { findUnique: vi.fn().mockResolvedValue(setting) },
-      shopSetting: { findUnique: vi.fn().mockResolvedValue(null) },
     };
     prismaMock.$transaction.mockImplementation(async (work: (value: typeof tx) => unknown) => work(tx));
     const { loadDirectPrintDocument } = await import("../../server/utils/directPrintDocument");

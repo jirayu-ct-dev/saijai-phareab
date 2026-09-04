@@ -36,7 +36,6 @@ const existingPayment = (overrides: Record<string, unknown> = {}) => ({
 
 const createTx = () => ({
   paymentRecord: { updateMany: vi.fn().mockResolvedValue({ count: 1 }) },
-  packageSale: { update: vi.fn().mockResolvedValue({}) },
   paymentAuditLog: { create: vi.fn().mockResolvedValue({}) },
 });
 
@@ -53,7 +52,7 @@ describe("payment status -> package sale presentation mapping", () => {
     });
   });
 
-  it("mirrors the mapped status onto the package sale during a transition", async () => {
+  it("updates only the payment; package sale status is derived at read time", async () => {
     const tx = createTx();
     await applyPaymentStateTransition({
       tx,
@@ -67,27 +66,7 @@ describe("payment status -> package sale presentation mapping", () => {
       createReceiptNo: vi.fn().mockResolvedValue("RC-2026-0001"),
     });
 
-    expect(tx.packageSale.update).toHaveBeenCalledWith({
-      where: { id: "package-sale-1" },
-      data: { status: "PAID" },
-    });
-  });
-
-  it("does not touch a package sale for service-order payments", async () => {
-    const tx = createTx();
-    await applyPaymentStateTransition({
-      tx,
-      paymentId: "payment-1",
-      existing: existingPayment({ packageSaleId: null }),
-      nextStatus: "PENDING_VERIFICATION",
-      nextMethod: "TRANSFER",
-      nextSlipImageId: "slip-1",
-      actorId: "employee-1",
-      now,
-      createReceiptNo: vi.fn(),
-    });
-
-    expect(tx.packageSale.update).not.toHaveBeenCalled();
+    expect(tx.paymentRecord.updateMany).toHaveBeenCalledOnce();
   });
 });
 

@@ -18,20 +18,6 @@ export default defineEventHandler(async (event) => {
             image: true,
           },
         },
-        memberEntitlement: {
-          select: {
-            id: true,
-            product: {
-              select: {
-                id: true,
-                name: true,
-                packageType: true,
-                credits: true,
-                validityDays: true,
-              },
-            },
-          },
-        },
         packageSale: {
           select: {
             id: true,
@@ -93,7 +79,7 @@ export default defineEventHandler(async (event) => {
       const customerPhoneNumber = row.user.phoneNumber;
 
       const saleMainItem = row.packageSale?.items[0] ?? null;
-      const packageProduct = row.memberEntitlement?.product ?? saleMainItem?.product ?? null;
+      const packageProduct = saleMainItem?.product ?? null;
       const packageSaleItems = (row.packageSale?.items ?? []).map((item) => ({
         id: item.id,
         productId: item.product.id,
@@ -126,7 +112,7 @@ export default defineEventHandler(async (event) => {
           image: row.user.image,
         },
         packageSale: {
-          memberEntitlementId: row.memberEntitlement?.id ?? null,
+          memberEntitlementId: null,
           packageSaleId: row.packageSale?.id ?? null,
           productId: packageProduct?.id ?? null,
           productName: packageProduct?.name ?? null,

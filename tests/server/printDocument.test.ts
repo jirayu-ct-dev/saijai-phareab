@@ -385,24 +385,18 @@ describe("document content", () => {
     expect(document.totalDisplay).toEqual({ label: "รวมทั้งสิ้น", value: "ใช้สิทธิ์แพ็กเกจ" });
   });
 
-  it("falls back to the legacy shop row for identity fields", () => {
+  it("uses safe empty identity values when canonical settings are absent", () => {
     const built = buildPrintDocument({
       kind: "RECEIPT",
       payment: makePayment({ serviceOrder: null, packageSale: null }),
       setting: { ...APP_SETTING, name: null, phone: null, address: null, lineQrImageUrl: null },
-      legacyShop: {
-        name: "ชื่อเดิม",
-        phone: "02-999-9999",
-        address: "ที่อยู่เดิม",
-        lineQrImageUrl: null,
-      },
       receiverValue: null,
       now: new Date("2026-06-01T03:00:00.000Z"),
     });
     expect(built.document.shop).toEqual({
-      name: "ชื่อเดิม",
-      addressLine: "ที่อยู่เดิม",
-      phoneNumber: "02-999-9999",
+      name: "",
+      addressLine: null,
+      phoneNumber: null,
       taxId: null,
       logoUrl: "/logo-saijai-phareab.png",
     });

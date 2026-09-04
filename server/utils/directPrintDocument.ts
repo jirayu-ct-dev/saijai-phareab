@@ -122,10 +122,7 @@ export const loadDirectPrintDocument = async (
     throw createError({ statusCode: 409, statusMessage: "รายการนี้ไม่มีใบเสนอราคา" });
   }
 
-  const [setting, legacyShop] = await Promise.all([
-    tx.appSetting.findUnique({ where: { id: "singleton" } }),
-    tx.shopSetting.findUnique({ where: { id: "singleton" } }),
-  ]);
+  const setting = await tx.appSetting.findUnique({ where: { id: "singleton" } });
   const settingSnapshot = {
     name: setting?.name ?? null,
     phone: setting?.phone ?? null,
@@ -186,14 +183,6 @@ export const loadDirectPrintDocument = async (
         : null,
     },
     setting: settingSnapshot,
-    legacyShop: legacyShop
-      ? {
-          name: legacyShop.name,
-          phone: legacyShop.phone,
-          address: legacyShop.address,
-          lineQrImageUrl: legacyShop.lineQrImageUrl,
-        }
-      : null,
     receiverValue,
     now: input.now ?? new Date(),
   }).document;

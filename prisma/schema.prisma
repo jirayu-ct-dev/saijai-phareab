@@ -28,13 +28,6 @@ enum DeductOn {
   COMPLETED
 }
 
-enum PackageSaleStatus {
-  DRAFT
-  PENDING
-  PAID
-  CANCELLED
-}
-
 enum PackageItemType {
   MAIN
   ADDON
@@ -218,7 +211,6 @@ model Image {
   deletedById String?
   deletedBy   User?     @relation("ImageDeletedBy", fields: [deletedById], references: [id])
 
-  serviceOrderItems      ServiceOrderItem[]      @relation("ServiceOrderItemImage")
   serviceOrderItemImages ServiceOrderItemImage[] @relation("ServiceOrderItemImageAsset")
   serviceOrders          ServiceOrder[]          @relation("ServiceOrderImage")
   serviceOrderDeliveries ServiceOrder[]          @relation("ServiceOrderDeliveryImage")
@@ -252,27 +244,25 @@ model PackageProduct {
 }
 
 model PackageSale {
-  id             String            @id @default(cuid())
+  id             String    @id @default(cuid())
   customerId     String
-  customer       User              @relation("PackageSaleCustomer", fields: [customerId], references: [id])
+  customer       User      @relation("PackageSaleCustomer", fields: [customerId], references: [id])
   soldById       String?
-  soldBy         User?             @relation("PackageSaleSeller", fields: [soldById], references: [id])
-  status         PackageSaleStatus @default(DRAFT)
+  soldBy         User?     @relation("PackageSaleSeller", fields: [soldById], references: [id])
   subtotalAmount Decimal
-  discountAmount Decimal           @default(0)
+  discountAmount Decimal   @default(0)
   totalAmount    Decimal
   note           String?
-  createdAt      DateTime          @default(now())
-  updatedAt      DateTime          @updatedAt
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
   deletedAt      DateTime?
   deletedById    String?
-  deletedBy      User?             @relation("PackageSaleDeletedBy", fields: [deletedById], references: [id])
+  deletedBy      User?     @relation("PackageSaleDeletedBy", fields: [deletedById], references: [id])
 
   items    PackageSaleItem[]
   payments PaymentRecord[]
 
   @@index([customerId, createdAt])
-  @@index([status, createdAt])
   @@map("package_sale")
 }
 
@@ -318,7 +308,6 @@ model MemberEntitlement {
   deletedBy        User?             @relation("MemberEntitlementDeletedBy", fields: [deletedById], references: [id])
 
   serviceOrders           ServiceOrder[]
-  payments                PaymentRecord[]
   serviceOrderAddonUsages ServiceOrderAddonUsage[]
   expiryNotifications     PackageExpiryNotification[]
 
@@ -427,8 +416,6 @@ model ServiceOrder {
   weightKg                   Decimal?
   washFoldPricePerKgSnapshot Decimal?
   note                       String?
-  usedBonuses                Json?
-  addonUsages                Json?
   deliveryAddressSnapshot    Json?
   imageId                    String?
   image                      Image?             @relation("ServiceOrderImage", fields: [imageId], references: [id])
@@ -466,8 +453,6 @@ model ServiceOrderItem {
   quantity          Int
   unitPrice         Decimal
   totalPrice        Decimal
-  imageId           String?
-  image             Image?           @relation("ServiceOrderItemImage", fields: [imageId], references: [id])
   notes             String?
   createdAt         DateTime         @default(now())
   updatedAt         DateTime         @updatedAt
@@ -525,40 +510,37 @@ model ServiceOrderAddonUsage {
 }
 
 model PaymentRecord {
-  id                  String             @id @default(cuid())
-  paymentNo           String?            @unique
-  receiptNo           String?            @unique
-  userId              String
-  user                User               @relation("PaymentUser", fields: [userId], references: [id])
-  memberEntitlementId String?
-  memberEntitlement   MemberEntitlement? @relation(fields: [memberEntitlementId], references: [id])
-  packageSaleId       String?
-  packageSale         PackageSale?       @relation(fields: [packageSaleId], references: [id])
-  serviceOrderId      String?
-  serviceOrder        ServiceOrder?      @relation(fields: [serviceOrderId], references: [id])
-  amount              Decimal
-  status              PaymentStatus      @default(UNPAID)
-  method              PaymentMethod?
-  slipImageId         String?
-  slipImage           Image?             @relation("PaymentSlipImage", fields: [slipImageId], references: [id])
-  note                String?
-  paidAt              DateTime?
-  confirmedAt         DateTime?
-  confirmedById       String?
-  confirmedBy         User?              @relation("PaymentConfirmedBy", fields: [confirmedById], references: [id])
-  metadata            Json?
-  createdAt           DateTime           @default(now())
-  updatedAt           DateTime           @updatedAt
-  deletedAt           DateTime?
-  deletedById         String?
-  deletedBy           User?              @relation("PaymentRecordDeletedBy", fields: [deletedById], references: [id])
+  id             String         @id @default(cuid())
+  paymentNo      String?        @unique
+  receiptNo      String?        @unique
+  userId         String
+  user           User           @relation("PaymentUser", fields: [userId], references: [id])
+  packageSaleId  String?
+  packageSale    PackageSale?   @relation(fields: [packageSaleId], references: [id])
+  serviceOrderId String?
+  serviceOrder   ServiceOrder?  @relation(fields: [serviceOrderId], references: [id])
+  amount         Decimal
+  status         PaymentStatus  @default(UNPAID)
+  method         PaymentMethod?
+  slipImageId    String?
+  slipImage      Image?         @relation("PaymentSlipImage", fields: [slipImageId], references: [id])
+  note           String?
+  paidAt         DateTime?
+  confirmedAt    DateTime?
+  confirmedById  String?
+  confirmedBy    User?          @relation("PaymentConfirmedBy", fields: [confirmedById], references: [id])
+  metadata       Json?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  deletedAt      DateTime?
+  deletedById    String?
+  deletedBy      User?          @relation("PaymentRecordDeletedBy", fields: [deletedById], references: [id])
 
   auditLogs PaymentAuditLog[]
 
+  @@unique([packageSaleId])
+  @@unique([serviceOrderId])
   @@index([userId, createdAt])
-  @@index([memberEntitlementId])
-  @@index([packageSaleId])
-  @@index([serviceOrderId])
   @@index([paymentNo])
   @@index([receiptNo])
   @@index([status, createdAt])
@@ -605,18 +587,6 @@ model UserAddress {
   @@map("user_address")
 }
 
-model ShopSetting {
-  id             String   @id @default("singleton")
-  name           String   @default("")
-  phone          String   @default("")
-  address        String   @default("")
-  logoUrl        String?
-  lineQrImageUrl String?
-  updatedAt      DateTime @updatedAt
-
-  @@map("shop_setting")
-}
-
 model AppSetting {
   id                 String  @id @default("singleton")
   hangerPricePerUnit Decimal @default(10)
@@ -631,35 +601,26 @@ model AppSetting {
   minimumOrderAmount Decimal @default(0)
   packageRefundDays  Int     @default(7)
 
-  // ===== DB-03 expand: future AppSetting target fields (plan 4.2) =====
-  // All added nullable with no default: during the expand/dual-write phases
-  // This table still serves the legacy business-setting read path while the
-  // compatibility writers mirror shop/notification values into this row;
-  // `null` means "not migrated yet — fall back to the legacy source"
-  // (shop_setting / notification_setting / lineQrImageUrl presence).
-  // Policy semantics are decided by application code at read cutover, never
-  // baked into this expand migration.
-
-  // ร้าน (from ShopSetting)
-  name           String?
-  phone          String?
-  address        String?
+  // Canonical shop identity and notification policy. These fields were
+  // backfilled from the former singleton tables before the contract migration.
+  name           String  @default("")
+  phone          String  @default("")
+  address        String  @default("")
   logoUrl        String?
   lineQrImageUrl String?
 
-  // notification policy (from NotificationSetting)
-  notifyCustomerOnQuotation       Boolean?
-  notifyCustomerOnReceived        Boolean?
-  notifyCustomerOnProcessing      Boolean?
-  notifyCustomerOnDelivering      Boolean?
-  notifyCustomerOnCompleted       Boolean?
-  notifyCustomerOnCancelled       Boolean?
-  notifyCustomerReceipt           Boolean?
-  notifyStaffOnNewOrder           Boolean?
-  notifyCustomerOnPackageExpiring Boolean?
+  notifyCustomerOnQuotation       Boolean @default(true)
+  notifyCustomerOnReceived        Boolean @default(true)
+  notifyCustomerOnProcessing      Boolean @default(true)
+  notifyCustomerOnDelivering      Boolean @default(true)
+  notifyCustomerOnCompleted       Boolean @default(true)
+  notifyCustomerOnCancelled       Boolean @default(true)
+  notifyCustomerReceipt           Boolean @default(true)
+  notifyStaffOnNewOrder           Boolean @default(true)
+  notifyCustomerOnPackageExpiring Boolean @default(true)
 
   // print/QR (canonical fields; server-only, never serialized to browsers raw)
-  lineQrEnabled               Boolean?
+  lineQrEnabled               Boolean   @default(false)
   paymentQrEnabled            Boolean?
   paymentQrProvider           String? // PROMPTPAY_LOCAL | BANK_MERCHANT (validated by Zod, not a DB enum)
   paymentQrReceiverType       String? // MOBILE | NATIONAL_OR_TAX_ID | EWALLET
@@ -675,22 +636,6 @@ model AppSetting {
   updatedAt DateTime @updatedAt
 
   @@map("business_setting")
-}
-
-model NotificationSetting {
-  id                              String   @id @default("singleton")
-  notifyCustomerOnQuotation       Boolean  @default(true)
-  notifyCustomerOnReceived        Boolean  @default(true)
-  notifyCustomerOnProcessing      Boolean  @default(true)
-  notifyCustomerOnDelivering      Boolean  @default(true)
-  notifyCustomerOnCompleted       Boolean  @default(true)
-  notifyCustomerOnCancelled       Boolean  @default(true)
-  notifyCustomerReceipt           Boolean  @default(true)
-  notifyStaffOnNewOrder           Boolean  @default(true)
-  notifyCustomerOnPackageExpiring Boolean  @default(true)
-  updatedAt                       DateTime @updatedAt
-
-  @@map("notification_setting")
 }
 
 model PackageExpiryNotification {

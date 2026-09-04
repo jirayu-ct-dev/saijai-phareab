@@ -12,9 +12,6 @@ export default defineEventHandler(async (event) => {
         user: {
           select: { id: true, name: true, email: true, phoneNumber: true, image: true },
         },
-        memberEntitlement: {
-          select: { id: true, product: { select: { id: true, name: true, packageType: true, credits: true, validityDays: true } } },
-        },
         packageSale: {
           select: {
             id: true, note: true,
@@ -48,7 +45,7 @@ export default defineEventHandler(async (event) => {
       const customerPhoneNumber = row.user.phoneNumber;
 
       const saleMainItem = row.packageSale?.items[0] ?? null;
-      const packageProduct = row.memberEntitlement?.product ?? saleMainItem?.product ?? null;
+      const packageProduct = saleMainItem?.product ?? null;
       const packageSaleItems = (row.packageSale?.items ?? []).map((item) => ({
         id: item.id, productId: item.product.id, productName: item.product.name,
         packageType: item.product.packageType, quantity: item.qty, totalPrice: Number(item.totalPrice),
@@ -64,7 +61,7 @@ export default defineEventHandler(async (event) => {
           id: row.user.id, name: customerName, email: customerEmail, phoneNumber: customerPhoneNumber, image: row.user.image,
         },
         packageSale: {
-          memberEntitlementId: row.memberEntitlement?.id ?? null, packageSaleId: row.packageSale?.id ?? null,
+          memberEntitlementId: null, packageSaleId: row.packageSale?.id ?? null,
           productId: packageProduct?.id ?? null, productName: packageProduct?.name ?? null,
           packageType: packageProduct?.packageType ?? null, credits: packageProduct?.credits ?? null,
           validityDays: packageProduct?.validityDays ?? null, items: packageSaleItems,

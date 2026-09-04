@@ -40,7 +40,7 @@ describe("service-order status transitions", () => {
       memberEntitlementId: "primary-entitlement-1",
       creditUsed: 3,
     });
-    await refundAddonUsages(tx as never, "order-1", []);
+    await refundAddonUsages(tx as never, "order-1");
 
     expect(tx.memberEntitlement.updateMany).toHaveBeenCalledWith({
       where: { id: "primary-entitlement-1", deletedAt: null, creditRemaining: { not: null } },

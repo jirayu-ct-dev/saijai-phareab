@@ -1,7 +1,5 @@
-import { COMPAT_METRICS, emitCompatFailure, emitCompatTelemetry } from "~~/server/utils/compatTelemetry";
 import { requireRole } from "~~/server/utils/auth";
 import { prisma } from "~~/server/utils/prisma";
-import { packageSaleStatusByPaymentStatus } from "~~/server/utils/paymentStateTransition";
 import { buildPaymentEntitlementEdit } from "~~/server/utils/paymentEntitlementEdit";
 
 interface UpdatePaymentBody {
@@ -188,16 +186,10 @@ export default defineEventHandler(async (event) => {
       const nextSubtotalAmount = isStructureUpdateRequested ? nextAmount + nextDiscountAmount : currentSubtotalAmount;
       const nextTotalAmount = isStructureUpdateRequested ? nextAmount : currentSubtotalAmount - nextDiscountAmount;
 
-      // Mirror the sale status from the payment status instead of forcing PAID —
-      // editing an unpaid payment must not mark the sale (or the receipt trail)
-      // as paid, and editing a cancelled one is rejected above.
-      const nextSaleStatus = packageSaleStatusByPaymentStatus[existing.status];
-
       await tx.packageSale.update({
         where: { id: existingPackageSale.id },
         data: {
           customerId: nextCustomerId,
-          status: nextSaleStatus,
           subtotalAmount: nextSubtotalAmount,
           discountAmount: nextDiscountAmount,
           totalAmount: nextTotalAmount,
@@ -253,7 +245,6 @@ export default defineEventHandler(async (event) => {
         where: { id, status: existing.status, updatedAt: existing.updatedAt, deletedAt: null },
         data: {
           userId: nextCustomerId,
-          memberEntitlementId: null,
           packageSaleId: existingPackageSale.id,
           amount: nextTotalAmount,
           slipImageId: nextSlipImageId ?? null,
@@ -293,13 +284,8 @@ export default defineEventHandler(async (event) => {
       return tx.paymentRecord.findUniqueOrThrow({ where: { id } });
     });
 
-    // The payment → package-sale status mirror is a compatibility path during
-    // consolidation; report it only after the transaction has committed.
-    emitCompatTelemetry({ metric: COMPAT_METRICS.paymentStatusSync, path: "edit", result: "success" });
-
     return updated;
   } catch (error) {
-    emitCompatFailure(COMPAT_METRICS.paymentStatusSync, "edit", error);
     if (error && typeof error === "object" && "statusCode" in error) {
       throw error;
     }

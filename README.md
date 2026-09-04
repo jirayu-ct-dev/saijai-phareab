@@ -161,7 +161,7 @@ docker compose -f docker-compose.print-gateway.yml up --build -d
 
 Local Compose เปิด PostgreSQL บน host port `5434`, เว็บบน [http://localhost:3004](http://localhost:3004) และ Gateway บน `http://127.0.0.1:17321` ค่า default ของ Gateway ค้นหาเพียง fake target `127.0.0.1:19100` จึงไม่สแกน LAN หรือแตะเครื่องพิมพ์จริง การใช้ local profile ไม่บังคับเพิ่ม `PRINT_GATEWAY_*` ลง `.env`; Compose มี fallback ที่ปลอดภัยสำหรับ profile นี้
 
-การพิมพ์ภาษาไทยของ XP-C260M ใช้ Hybrid raster เป็นค่าเริ่มต้น: ASCII/ตัวเลขล้วนยังเป็น native ESC/POS เพื่อความเร็ว แต่ทุก text block ที่มีภาษาไทยจะ render ด้วย Prompt font ที่ bundle ใน `public/fonts/` แล้วส่งเป็น `GS v 0` raster bands ไม่เกิน 576 dots ดูขั้นตอนสร้างและตรวจ physical fixture ที่ [`docs/xprinter-thai-raster-physical-test.md`](docs/xprinter-thai-raster-physical-test.md)
+การพิมพ์ภาษาไทยของ XP-C260M ใช้ Hybrid raster เป็นค่าเริ่มต้น: ASCII/ตัวเลขล้วนยังเป็น native ESC/POS เพื่อความเร็ว แต่ทุก text block ที่มีภาษาไทยจะ render ด้วย Prompt font ที่ bundle ใน `public/fonts/` แล้วส่งเป็น `GS v 0` raster bands ไม่เกิน 576 dots ขั้นตอนสร้างและตรวจ physical fixture อยู่ใน [คู่มือ operations ของ skill](.agents/skills/xprinter-xp-c260m/references/saijai-operations.md)
 
 ตรวจสถานะหลังเริ่มระบบ:
 
@@ -400,4 +400,3 @@ tests/                       Vitest tests ของ domain logic และ share
 ## ข้อมูลอ้างอิง
 
 - [`AGENTS.md`](./AGENTS.md) — โครงสร้าง สถาปัตยกรรม แนวทางการแก้ไข และข้อควรระวังสำหรับ coding agents
-- [`IDEA.md`](./IDEA.md) — แนวคิดและภาพรวมผลิตภัณฑ์เดิม ซึ่งอาจไม่ตรงกับ implementation ล่าสุดทุกจุด

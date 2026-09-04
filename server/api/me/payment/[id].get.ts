@@ -2,6 +2,7 @@ import { requireUser } from "~~/server/utils/auth";
 import { prisma } from "~~/server/utils/prisma";
 import { extractPaymentVat } from "~~/server/utils/paymentMeta";
 import { loadPaymentQrPresentation } from "~~/server/utils/paymentQrPresentation";
+import { packageSaleStatusByPaymentStatus } from "~~/server/utils/paymentStateTransition";
 
 const toNumber = (value: unknown) => Number(value ?? 0);
 
@@ -95,9 +96,6 @@ export default defineEventHandler(async (event) => {
                   },
                 },
               },
-              image: {
-                select: { id: true, url: true, secureUrl: true },
-              },
               photos: {
                 where: { deletedAt: null },
                 include: { image: { select: { id: true, url: true, secureUrl: true } } },
@@ -168,7 +166,9 @@ export default defineEventHandler(async (event) => {
     isPackageIncluded: item.isPackageIncluded,
     isWashFold: isWashFoldOrder,
     weightKg: null as number | null,
-    image: item.image ? { id: item.image.id, url: item.image.url, secureUrl: item.image.secureUrl } : null,
+    image: item.photos[0]?.image
+      ? { id: item.photos[0].image.id, url: item.photos[0].image.url, secureUrl: item.photos[0].image.secureUrl }
+      : null,
     photos: item.photos.map((photo) => ({
       id: photo.id,
       imageId: photo.imageId,
@@ -224,7 +224,7 @@ export default defineEventHandler(async (event) => {
     packageSale: payment.packageSale
       ? {
           id: payment.packageSale.id,
-          status: payment.packageSale.status,
+          status: packageSaleStatusByPaymentStatus[payment.status],
           note: payment.packageSale.note,
           subtotalAmount: toNumber(payment.packageSale.subtotalAmount),
           discountAmount: toNumber(payment.packageSale.discountAmount),

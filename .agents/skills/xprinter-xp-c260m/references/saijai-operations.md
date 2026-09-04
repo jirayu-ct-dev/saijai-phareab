@@ -49,7 +49,7 @@ pnpm exec vitest run \
   tests/server/printBridgeDirectConfig.test.ts \
   tests/server/printBridgeDirectServer.test.ts \
   tests/server/printBridgeTransport.test.ts \
-  tests/server/printGatewayAuthDiscovery.test.ts \
+  tests/server/printGatewayDiscovery.test.ts \
   tests/server/printGatewayState.test.ts \
   tests/server/directPrintDocument.test.ts \
   tests/server/directPrintRenderer.test.ts \
@@ -63,6 +63,35 @@ docker compose -f docker-compose.print-gateway.yml config --quiet
 ```
 
 Run `pnpm run build` when changing Nuxt runtime configuration, Docker build inputs, server rendering, or deployment behavior. There is no working lint command in this repository.
+
+### Minimal Thai raster fixture
+
+Before sending anything to physical hardware, generate the software-only
+fixture at an absolute writable path:
+
+```bash
+pnpm print:test-receipt -- /tmp/xp-c260m-minimal-raster.bin
+```
+
+The fixture contains `ESC @`, a 288-dot raster block for `TEST 123`, a raster
+block for `ทดสอบไทย`, and two feed lines. It contains no QR and no cut command.
+Its reported `rasterWidthBytes` must be `36` because `GS v 0` encodes width in
+bytes per row, not dots. Record `byteLength`, `sha256`, `rasterWidthDots`,
+`rasterWidthBytes`, and `cut`; expected structural values are 288 dots, 36
+bytes, and `cut=false`.
+
+Only after the fixture is structurally valid and the physical target is
+explicitly authorized should it be sent to the confirmed raw TCP endpoint.
+The paper must show readable `TEST 123` and `ทดสอบไทย` without binary garbage.
+Then verify a real receipt with combining marks (`น้ำ`, `กุ้ง`, `ไข่`, `ข้าว`),
+mixed receipt numbers/phone/amounts, center and right alignment, wrapping, and
+no Chinese glyphs or native Thai UTF-8 bytes.
+
+For byte-boundary diagnosis in development only, set `PRINT_DEBUG_BYTES=true`
+on Nuxt and `PRINT_GATEWAY_DEBUG_BYTES=true` on the Gateway. Compare
+`byteLength`, `sha256`, and `first32Hex` at each stage and stop at the first
+boundary whose hash changes. Never enable byte previews in production because
+they can contain receipt text.
 
 ### Network checks
 

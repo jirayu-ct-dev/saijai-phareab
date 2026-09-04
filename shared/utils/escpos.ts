@@ -12,7 +12,7 @@
 //
 // Command notes verified against common ESC/POS / Xprinter firmware; anything
 // firmware-specific is flagged in a comment and must be confirmed on the
-// physical unit (see docs/xprinter-thai-raster-physical-test.md).
+// physical unit (see the project xprinter skill's saijai-operations reference).
 
 import type {
   PrintOperation,

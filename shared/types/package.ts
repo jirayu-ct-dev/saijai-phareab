@@ -6,7 +6,6 @@ import type {
   SoftDeletable,
 } from "./enums";
 import type { User } from "./auth";
-import type { PaymentRecord } from "./payment";
 
 // ============================
 // PACKAGE PRODUCT
@@ -48,5 +47,4 @@ export interface MemberEntitlement extends Timestamps, SoftDeletable {
 
   customer?: User;
   product?: PackageProduct;
-  payments?: PaymentRecord[];
 }

@@ -88,14 +88,14 @@ log "applied $(cat "$STAGE_DIR/migrations-applied.count") migrations"
 
 # ---- stage 2: synthetic fixture ------------------------------------------
 log "stage 2/7: loading synthetic non-PII fixture"
-psql_a -q <"$SCRIPT_DIR/fixture/01-synthetic-fixture.sql" >"$STAGE_DIR/fixture.log" 2>&1 \
+psql_a -q <"$SCRIPT_DIR/fixture/04-current-fixture.sql" >"$STAGE_DIR/fixture.log" 2>&1 \
   || { fail "fixture load failed — see $STAGE_DIR/fixture.log"; exit 1; }
 
 # ---- stage 3: enforced preflight on A ------------------------------------
 log "stage 3/7: preflight --enforce on the replayed database"
 if ! (cd "$REPO_ROOT" \
       && DATABASE_URL="$DB_A_URL" \
-      node scripts/db-rehearsal/run-preflight.mjs --confirm-disposable --enforce \
+      node scripts/db-rehearsal/run-preflight.mjs --confirm-disposable --enforce --profile current \
         --report-file "$STAGE_DIR/preflight-a.json") \
       >"$STAGE_DIR/preflight-a.log" 2>&1; then
   fail "preflight on A failed — see $STAGE_DIR/preflight-a.log"
@@ -125,7 +125,7 @@ psql_b -q <"$STAGE_DIR/rehearsal-dump.sql" >"$STAGE_DIR/restore.log" 2>&1 \
 log "stage 6/7: preflight --enforce, report equality and schema diff on the restored copy"
 if ! (cd "$REPO_ROOT" \
       && DATABASE_URL="$DB_B_URL" \
-      node scripts/db-rehearsal/run-preflight.mjs --confirm-disposable --enforce \
+      node scripts/db-rehearsal/run-preflight.mjs --confirm-disposable --enforce --profile current \
         --report-file "$STAGE_DIR/preflight-b.json") \
       >"$STAGE_DIR/preflight-b.log" 2>&1; then
   fail "preflight on restored B failed — see $STAGE_DIR/preflight-b.log"
@@ -162,14 +162,14 @@ log "restored copy is schema- and report-identical to A"
 
 # ---- stage 7: negative self-test (gate must fail closed) ------------------
 log "stage 7/7: negative self-test — violations overlay must make the gate exit 3"
-psql_b -q <"$SCRIPT_DIR/fixture/02-violations-overlay.sql" \
+psql_b -q <"$SCRIPT_DIR/fixture/05-current-violations-overlay.sql" \
   >"$STAGE_DIR/violations-overlay.log" 2>&1 \
   || { fail "violations overlay failed to load — see $STAGE_DIR/violations-overlay.log"; exit 1; }
 
 set +e
 (cd "$REPO_ROOT" \
   && DATABASE_URL="$DB_B_URL" \
-  node scripts/db-rehearsal/run-preflight.mjs --confirm-disposable --enforce) \
+  node scripts/db-rehearsal/run-preflight.mjs --confirm-disposable --enforce --profile current) \
   >"$STAGE_DIR/preflight-negative.log" 2>&1
 NEGATIVE_EXIT=$?
 set -e

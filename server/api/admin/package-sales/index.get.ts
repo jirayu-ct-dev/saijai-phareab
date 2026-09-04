@@ -44,6 +44,7 @@ export default defineEventHandler(async (event) => {
           take: 1,
           select: {
             id: true,
+            status: true,
             amount: true,
             note: true,
             paidAt: true,
@@ -61,7 +62,11 @@ export default defineEventHandler(async (event) => {
 
     return sales.map((sale) => ({
       id: sale.id,
-      status: sale.status,
+      status: sale.payments[0]?.status === "PAID"
+        ? "PAID"
+        : sale.payments[0]?.status === "CANCELLED"
+          ? "CANCELLED"
+          : "PENDING",
       subtotalAmount: Number(sale.subtotalAmount),
       discountAmount: Number(sale.discountAmount),
       totalAmount: Number(sale.totalAmount),

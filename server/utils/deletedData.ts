@@ -119,14 +119,12 @@ export const getDeletedDataImpact = async (
   }
 
   if (type === "member_entitlement") {
-    const [payments, orders, addonUsages, notifications] = await Promise.all([
-      prisma.paymentRecord.count({ where: { memberEntitlementId: id } }),
+    const [orders, addonUsages, notifications] = await Promise.all([
       prisma.serviceOrder.count({ where: { memberEntitlementId: id } }),
       prisma.serviceOrderAddonUsage.count({ where: { memberEntitlementId: id } }),
       prisma.packageExpiryNotification.count({ where: { entitlementId: id } }),
     ]);
     return [
-      `${payments} การชำระเงิน`,
       `${orders} ออเดอร์ที่ใช้แพ็กเกจหลัก`,
       `${addonUsages} ออเดอร์ที่ใช้แพ็กเกจเสริม`,
       `${notifications} ประวัติแจ้งเตือนหมดอายุ`,
@@ -450,10 +448,6 @@ const hardDeletePayments = async (tx: Tx, ids: string[]) => {
 
 const hardDeleteMemberEntitlements = async (tx: Tx, ids: string[]) => {
   if (!ids.length) return;
-  const payments = await tx.paymentRecord.findMany({
-    where: { memberEntitlementId: inIds(ids) },
-    select: { id: true },
-  });
   await tx.serviceOrder.updateMany({
     where: { memberEntitlementId: inIds(ids) },
     data: { memberEntitlementId: null },
@@ -463,7 +457,6 @@ const hardDeleteMemberEntitlements = async (tx: Tx, ids: string[]) => {
     data: { memberEntitlementId: null },
   });
   await tx.packageExpiryNotification.deleteMany({ where: { entitlementId: inIds(ids) } });
-  await hardDeletePayments(tx, payments.map((payment) => payment.id));
   await tx.memberEntitlement.deleteMany({ where: { id: inIds(ids) } });
 };
 
@@ -475,7 +468,7 @@ const hardDeleteServiceOrders = async (tx: Tx, ids: string[]) => {
   });
   const items = await tx.serviceOrderItem.findMany({
     where: { serviceOrderId: inIds(ids) },
-    select: { id: true, imageId: true },
+    select: { id: true },
   });
   const itemIds = items.map((item) => item.id);
   const photos = await tx.serviceOrderItemImage.findMany({
@@ -488,7 +481,6 @@ const hardDeleteServiceOrders = async (tx: Tx, ids: string[]) => {
   });
   const imageIds = [
     ...orders.flatMap((order) => [order.imageId, order.deliveryImageId]),
-    ...items.map((item) => item.imageId),
     ...photos.map((photo) => photo.imageId),
   ].filter((id): id is string => Boolean(id));
 

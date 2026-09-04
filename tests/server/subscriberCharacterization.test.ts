@@ -24,10 +24,6 @@ const prismaMock = vi.hoisted(() => ({
     delete: vi.fn(),
     findMany: vi.fn(),
   },
-  notificationSetting: {
-    upsert: vi.fn(),
-    findUnique: vi.fn(),
-  },
   appSetting: {
     findUnique: vi.fn(),
   },
@@ -177,7 +173,7 @@ describe("DELETE /api/admin/settings/notification-subscribers/:id (delete)", () 
 
 describe("GET /api/admin/settings/notification (subscriber list projection)", () => {
   it("lists every subscriber row (including disabled ones) with the fixed projection and LINE link flag", async () => {
-    prismaMock.notificationSetting.upsert.mockResolvedValue({ id: "singleton", notifyStaffOnNewOrder: true });
+    prismaMock.appSetting.findUnique.mockResolvedValue({ id: "singleton", notifyStaffOnNewOrder: true });
     prismaMock.notificationSubscriber.findMany.mockResolvedValue([
       subscriberRow({
         user: {

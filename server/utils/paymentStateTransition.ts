@@ -29,9 +29,6 @@ type PaymentStateTransitionOperationInput = Omit<PaymentStateTransitionInput, "r
     paymentRecord: {
       updateMany: Prisma.TransactionClient["paymentRecord"]["updateMany"];
     };
-    packageSale: {
-      update: Prisma.TransactionClient["packageSale"]["update"];
-    };
     paymentAuditLog: {
       create: Prisma.TransactionClient["paymentAuditLog"]["create"];
     };
@@ -148,13 +145,6 @@ export const applyPaymentStateTransition = async ({
     throw createError({
       statusCode: 409,
       statusMessage: "สถานะการชำระเงินถูกเปลี่ยนโดยผู้ใช้อื่น กรุณาลองใหม่",
-    });
-  }
-
-  if (existing.packageSaleId) {
-    await tx.packageSale.update({
-      where: { id: existing.packageSaleId },
-      data: { status: packageSaleStatusByPaymentStatus[nextStatus] },
     });
   }
 

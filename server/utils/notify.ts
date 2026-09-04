@@ -836,7 +836,6 @@ export const notifyReceipt = async (params: { paymentId: string }): Promise<void
         confirmedBy: { select: { id: true, name: true } },
         user: { select: { name: true, email: true, phoneNumber: true } },
         metadata: true,
-        memberEntitlementId: true,
         slipImage: { select: { secureUrl: true, url: true } },
         serviceOrder: {
           select: {

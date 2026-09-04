@@ -1,6 +1,7 @@
 import { requireRole } from "~~/server/utils/auth";
 import { prisma } from "~~/server/utils/prisma";
 import { isInternalCustomerEmail } from "~~/server/utils/customerAccount";
+import { packageSaleStatusByPaymentStatus } from "~~/server/utils/paymentStateTransition";
 
 export default defineEventHandler(async (event) => {
   requireRole(event, ["ADMIN"]);
@@ -110,7 +111,6 @@ export default defineEventHandler(async (event) => {
           take: 10,
           select: {
             id: true,
-            status: true,
             totalAmount: true,
             note: true,
             createdAt: true,
@@ -136,6 +136,7 @@ export default defineEventHandler(async (event) => {
               select: {
                 id: true,
                 amount: true,
+                status: true,
                 paidAt: true,
                 createdAt: true,
               },
@@ -291,7 +292,9 @@ export default defineEventHandler(async (event) => {
       })),
       recentSales: user.packageSales.map((sale) => ({
         id: sale.id,
-        status: sale.status,
+        status: sale.payments[0]
+          ? packageSaleStatusByPaymentStatus[sale.payments[0].status]
+          : "PENDING",
         totalAmount: Number(sale.totalAmount),
         note: sale.note,
         createdAt: sale.createdAt,

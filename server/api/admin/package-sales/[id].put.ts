@@ -190,7 +190,6 @@ export default defineEventHandler(async (event) => {
         where: { id },
         data: {
           customerId: body.customerId,
-          status: "PAID",
           subtotalAmount,
           discountAmount,
           totalAmount,
@@ -243,7 +242,6 @@ export default defineEventHandler(async (event) => {
           },
           data: {
             userId: body.customerId,
-            memberEntitlementId: null,
             amount: totalAmount,
             slipImageId: body.slipImageId ?? null,
             note: body.note?.trim() || null,

@@ -10,7 +10,6 @@ import { createServiceOrderNo } from "~~/server/utils/serviceOrderNo";
 import { createOfflineCustomer, isCustomerUniqueConflict, resolveOfflineCustomerConflict } from "~~/server/utils/customerAccount";
 import { notifyQuotationCreated, notifyServiceOrderCreated, notifyServiceOrderStatusChanged } from "~~/server/utils/notify";
 import { createAddonUsageRecords } from "~~/server/utils/serviceOrderCredits";
-import { COMPAT_METRICS, emitCompatFailure, emitCompatTelemetry } from "~~/server/utils/compatTelemetry";
 import { isServiceOrderStatus, resolveServiceOrderCompletedAt } from "~~/server/utils/serviceOrderStatusTransition";
 import { parseBangkokDateTime } from "~~/shared/utils/pickup";
 
@@ -76,19 +75,24 @@ export default defineEventHandler(async (event) => {
   const normalizedItems = body.items
     .map((item) => {
       const rawPhotos = Array.isArray(item.photos) ? item.photos : [];
-      const photos = rawPhotos
+      const parsedPhotos = rawPhotos
         .map((photo, index) => ({
           imageId: photo.imageId?.trim() || "",
           isDamaged: Boolean(photo.isDamaged),
           sortOrder: Number.isFinite(photo.sortOrder) ? Number(photo.sortOrder) : index,
         }))
         .filter((photo) => photo.imageId);
+      const legacyImageId = item.imageId?.trim() || "";
+      const photos = parsedPhotos.length > 0
+        ? parsedPhotos
+        : legacyImageId
+          ? [{ imageId: legacyImageId, isDamaged: false, sortOrder: 0 }]
+          : [];
 
       return {
         storefrontPriceId: item.storefrontPriceId,
         quantity: Number(item.quantity ?? 1),
         unitPriceOverride: item.unitPrice != null && Number.isFinite(Number(item.unitPrice)) ? Number(item.unitPrice) : null,
-        imageId: item.imageId?.trim() || photos[0]?.imageId || null,
         notes: item.notes?.trim() || null,
         photos,
       };
@@ -131,8 +135,6 @@ export default defineEventHandler(async (event) => {
   if (dueAt && Number.isNaN(dueAt.getTime())) {
     throw createError({ statusCode: 400, statusMessage: "วันนัดรับไม่ถูกต้อง" });
   }
-
-  const attemptedCompatPaths = new Set<"item-photo">();
 
   try {
     const priceIds = [...new Set(normalizedItems.map((item) => item.storefrontPriceId))];
@@ -183,7 +185,6 @@ export default defineEventHandler(async (event) => {
         quantity: item.quantity,
         unitPrice,
         totalPrice: unitPrice * item.quantity,
-        imageId: item.imageId,
         notes: item.notes,
         photos: item.photos,
       };
@@ -312,7 +313,6 @@ export default defineEventHandler(async (event) => {
         deductedAt?: string;
       };
       const pendingAddonUsages: PendingAddonUsage[] = [];
-      const storedAddonUsages: PendingAddonUsage[] = [];
       const rawAddonEntitlements = Array.isArray(body.addonEntitlements) ? body.addonEntitlements : [];
       for (const entry of rawAddonEntitlements) {
         const credits = Math.floor(Number(entry.credits ?? 0));
@@ -356,7 +356,6 @@ export default defineEventHandler(async (event) => {
           const deductedAt = new Date().toISOString();
           usage.appliedAt = deductedAt;
           usage.deductedAt = deductedAt;
-          storedAddonUsages.push(usage);
         }
         pendingAddonUsages.push(usage);
       }
@@ -386,7 +385,6 @@ export default defineEventHandler(async (event) => {
           washFoldPricePerKgSnapshot: washFoldPriceSnapshot,
           note: body.note?.trim() || null,
           imageId: orderImageId,
-          addonUsages: storedAddonUsages.length ? storedAddonUsages : undefined,
         },
       });
 
@@ -415,14 +413,12 @@ export default defineEventHandler(async (event) => {
               quantity: row.qty,
               unitPrice: item.unitPrice,
               totalPrice: row.totalPrice,
-              imageId: row.attachPhotos ? item.imageId : null,
               notes: item.notes,
             },
             select: { id: true },
           });
 
           if (row.attachPhotos && item.photos.length > 0) {
-            attemptedCompatPaths.add("item-photo");
             await tx.serviceOrderItemImage.createMany({
               data: item.photos.map((photo, index) => ({
                 serviceOrderItemId: createdItem.id,
@@ -511,15 +507,8 @@ export default defineEventHandler(async (event) => {
       await notifyQuotationCreated({ serviceOrderId: created.id });
     }
 
-    if (attemptedCompatPaths.has("item-photo")) {
-      emitCompatTelemetry({ metric: COMPAT_METRICS.itemPhotoWrite, path: "create", result: "success" });
-    }
-
     return { ...created, activationToken };
   } catch (error) {
-    if (attemptedCompatPaths.has("item-photo")) {
-      emitCompatFailure(COMPAT_METRICS.itemPhotoWrite, "create", error);
-    }
     if (error && typeof error === "object" && "statusCode" in error) {
       throw error;
     }

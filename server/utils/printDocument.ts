@@ -194,13 +194,6 @@ export function buildPaymentQrSettingSnapshot(
 // SOURCE SHAPES (structural — filled from the tx read)
 // ============================
 
-export type PrintShopLegacySource = {
-  name: string | null;
-  phone: string | null;
-  address: string | null;
-  lineQrImageUrl: string | null;
-} | null;
-
 /** AppSetting row shape (structural) as read inside the create transaction. */
 export type PrintSettingSource = {
   name: string | null;
@@ -313,17 +306,16 @@ export function buildPrintDocument(input: {
   kind: PrintDocument["kind"];
   payment: PrintPaymentSource;
   setting: PrintSettingSource;
-  legacyShop?: PrintShopLegacySource;
   /** Decrypted receiver value, or null when not available/eligible. */
   receiverValue: string | null;
   now: Date;
 }): BuildPrintDocumentResult {
-  const { kind, payment, setting, legacyShop, receiverValue, now } = input;
+  const { kind, payment, setting, receiverValue, now } = input;
 
-  const shopName = setting.name ?? legacyShop?.name ?? "";
-  const shopAddress = setting.address ?? legacyShop?.address ?? null;
-  const shopPhone = setting.phone ?? legacyShop?.phone ?? null;
-  const lineQrImageUrl = setting.lineQrImageUrl ?? legacyShop?.lineQrImageUrl ?? null;
+  const shopName = setting.name ?? "";
+  const shopAddress = setting.address ?? null;
+  const shopPhone = setting.phone ?? null;
+  const lineQrImageUrl = setting.lineQrImageUrl ?? null;
 
   const amountMinor = decimalToMinorExact(payment.amount);
   const customerName = payment.user?.name?.trim() || "ลูกค้า";

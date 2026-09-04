@@ -1,11 +1,9 @@
 import type { ServiceOrderStatus } from "~~/shared/types/enums";
 import type { Prisma } from "~~/app/generated/prisma/client";
-import { COMPAT_METRICS, emitCompatFailure, emitCompatTelemetry } from "~~/server/utils/compatTelemetry";
 import { requireRole } from "~~/server/utils/auth";
 import { notifyServiceOrderStatusChanged } from "~~/server/utils/notify";
 import { prisma } from "~~/server/utils/prisma";
-import { deductAddonUsageRecords, parseAddonUsages, refundAddonUsages, refundPrimaryCredit, voidPendingAddonUsageRecords } from "~~/server/utils/serviceOrderCredits";
-import type { AddonRefundOutcome } from "~~/server/utils/serviceOrderCredits";
+import { deductAddonUsageRecords, refundAddonUsages, refundPrimaryCredit, voidPendingAddonUsageRecords } from "~~/server/utils/serviceOrderCredits";
 import { canTransitionServiceOrderStatus, isServiceOrderStatus, resolveServiceOrderCompletedAt } from "~~/server/utils/serviceOrderStatusTransition";
 
 type UpdateServiceOrderStatusBody = {
@@ -27,8 +25,6 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, statusMessage: "สถานะรายการรับผ้าไม่ถูกต้อง" });
   }
 
-  const attemptedCompatPaths = new Set<"addon-refund">();
-
   try {
     const existing = await prisma.serviceOrder.findFirst({
       where: {
@@ -41,7 +37,6 @@ export default defineEventHandler(async (event) => {
         completedAt: true,
         memberEntitlementId: true,
         creditUsed: true,
-        addonUsages: true,
       },
     });
 
@@ -60,29 +55,21 @@ export default defineEventHandler(async (event) => {
       });
     }
 
-    let refundOutcome: AddonRefundOutcome | undefined;
-
     await prisma.$transaction(async (tx) => {
       const transitionAt = new Date();
       const shouldRefundCredits = existing.status !== "CANCELLED" && nextStatus === "CANCELLED";
       const shouldDeductCompletedAddons = existing.status !== "CANCELLED" && nextStatus === "COMPLETED";
-      let nextAddonUsages: Prisma.InputJsonValue | undefined;
-
       if (shouldRefundCredits) {
         await refundPrimaryCredit(tx, {
           memberEntitlementId: existing.memberEntitlementId,
           creditUsed: existing.creditUsed,
         });
-        attemptedCompatPaths.add("addon-refund");
-        refundOutcome = await refundAddonUsages(tx, existing.id, existing.addonUsages);
+        await refundAddonUsages(tx, existing.id);
         await voidPendingAddonUsageRecords(tx, existing.id);
       }
 
       if (shouldDeductCompletedAddons) {
-        const deducted = await deductAddonUsageRecords(tx, existing.id, "COMPLETED");
-        if (deducted.length > 0) {
-          nextAddonUsages = [...parseAddonUsages(existing.addonUsages), ...deducted] as Prisma.InputJsonValue;
-        }
+        await deductAddonUsageRecords(tx, existing.id, "COMPLETED");
       }
 
       const updateData: Prisma.ServiceOrderUncheckedUpdateManyInput = {
@@ -95,14 +82,9 @@ export default defineEventHandler(async (event) => {
         }),
       };
 
-      if (nextAddonUsages !== undefined) {
-        updateData.addonUsages = nextAddonUsages;
-      }
-
       if (shouldRefundCredits) {
         updateData.creditUsed = null;
         updateData.memberEntitlementId = null;
-        updateData.addonUsages = [];
       }
 
       const { count } = await tx.serviceOrder.updateMany({
@@ -116,17 +98,6 @@ export default defineEventHandler(async (event) => {
           data: { code: "SERVICE_ORDER_STATUS_CONFLICT" },
         });
       }
-    });
-
-    // Compat telemetry: success is only reported after the transaction has
-    // committed.
-    if (refundOutcome) {
-      emitCompatTelemetry({ metric: COMPAT_METRICS.addonRefund, path: "status-patch", result: refundOutcome });
-    }
-    emitCompatTelemetry({
-      metric: COMPAT_METRICS.orderTransition,
-      path: "status-patch",
-      result: nextStatus === "COMPLETED" ? "completed" : "transitioned",
     });
 
     if (nextStatus === "DELIVERING") {
@@ -145,18 +116,6 @@ export default defineEventHandler(async (event) => {
 
     return { success: true };
   } catch (error) {
-    if (attemptedCompatPaths.has("addon-refund")) {
-      emitCompatFailure(COMPAT_METRICS.addonRefund, "status-patch", error);
-    }
-    if (
-      error && typeof error === "object" && "data" in error &&
-      (error as { data?: { code?: unknown } }).data?.code === "SERVICE_ORDER_STATUS_CONFLICT"
-    ) {
-      emitCompatTelemetry({ metric: COMPAT_METRICS.orderTransition, path: "status-patch", result: "conflict" });
-    } else {
-      emitCompatFailure(COMPAT_METRICS.orderTransition, "status-patch", error);
-    }
-
     if (error && typeof error === "object" && "statusCode" in error) {
       throw error;
     }

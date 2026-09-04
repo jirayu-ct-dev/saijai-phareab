@@ -1,10 +1,17 @@
 # scripts/db-rehearsal — disposable migration rehearsal + read-only preflight
 
-Preparation artifacts for packet DB-02 (see
-`docs/plan-database-consolidation.md` migration rehearsal and
-`docs/plan-database-consolidation.md` section 9.2). Nothing here targets a
-production or shared database. The runbook with full workflows lives at
-`docs/db-rehearsal-runbook.md`.
+Migration rehearsal, compatibility, preflight, and schema-comparison tools for
+the database consolidation work. Nothing here targets a production or shared
+database unless the separately approved production read-only mode is selected.
+This README is the canonical runbook for these scripts.
+
+`run-preflight.mjs` รองรับสอง schema profiles:
+
+- `--profile current` ตรวจ schema หลัง migration `20260905000000_consolidate_current_database_flow` และถูกใช้โดย `run-rehearsal.sh`
+- `--profile legacy` เป็นค่า default สำหรับหลักฐาน/backfill ก่อน contract เท่านั้น
+
+หลัง apply contract แล้วต้องระบุ `--profile current`; legacy profile อ้างตารางและคอลัมน์ที่ถูกลบไปแล้ว
+`run-backfill-rehearsal.sh` เป็นหลักฐานของ DB-05 ก่อน contract และไม่ใช่ runner สำหรับ current HEAD; ใช้ `run-rehearsal.sh` สำหรับ schema ปัจจุบัน
 
 ## Direct Print schema removal
 
@@ -41,6 +48,9 @@ preflight. It reports aggregates only and does not authorize the migration.
 | `schema-allowlist.json` | expected schema differences (empty = must be identical) |
 | `fixture/01-synthetic-fixture.sql` | dedicated synthetic non-PII dataset satisfying every hard invariant |
 | `fixture/02-violations-overlay.sql` | negative self-test overlay: gate must exit 3 after loading |
+| `sql-current/` | aggregate-only invariants สำหรับ consolidated schema |
+| `fixture/04-current-fixture.sql` | synthetic non-PII dataset สำหรับ consolidated schema |
+| `fixture/05-current-violations-overlay.sql` | negative self-test ของ current profile |
 | `run-rehearsal.sh` | one-command rehearsal on a disposable `postgres:16` container (see below) |
 | `run-old-binary-drill.sh` | actual pre-consolidation Nitro binary + HTTP rollback drill for G2 |
 | `old-binary-http-check.mjs` | guarded Better Auth login, legacy read/write, and preservation assertions used by the old-binary drill |
@@ -297,11 +307,9 @@ removal, while any other schema difference still blocks the run. The empty
 
 Raw backfill evidence can contain database row identifiers and is kept only
 in a mode-0700 temporary directory when requested or when a run fails. The
-archive and raw evidence must never be committed. Approval boundaries,
-required metadata, pass criteria, retention, and the exact invocation are in
-[`docs/db-g3-production-approval-packet.md`](../../docs/db-g3-production-approval-packet.md).
-Passing this rehearsal permits requesting a production preflight/backfill
-window; it does not itself pass production G3 or authorize DB-06.
+archive and raw evidence must never be committed. Passing this rehearsal only
+provides evidence for a separately approved production operation; it does not
+authorize production migration, backfill, deploy, restart, or read cutover.
 
 ## Runner exit codes
 

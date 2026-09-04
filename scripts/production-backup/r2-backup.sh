@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Hourly encrypted production backup for the external-encrypted-backups policy
-# (docs/db-g3-production-approval-packet.md section 4.1): pg_dump -> AES-256
+# (see scripts/production-backup/README.md): pg_dump -> AES-256
 # encryption -> Cloudflare R2 upload -> retention prune. Fail-closed; never
 # prints connection strings or keys. Run from cron/launchd with secrets in the
 # environment, never committed:

@@ -20,13 +20,6 @@ type CreatePackageSaleBody = {
   status?: "UNPAID" | "PENDING_VERIFICATION" | "PAID" | "CANCELLED" | null;
 };
 
-const packageSaleStatusByPaymentStatus = {
-  UNPAID: "PENDING",
-  PENDING_VERIFICATION: "PENDING",
-  PAID: "PAID",
-  CANCELLED: "CANCELLED",
-} as const;
-
 const buildEntitlementState = (
   validityDays: number | null | undefined,
   credits: number | null | undefined,
@@ -137,7 +130,6 @@ export default defineEventHandler(async (event) => {
         data: {
           customerId: body.customerId,
           soldById: actor.id,
-          status: packageSaleStatusByPaymentStatus[paymentStatus],
           subtotalAmount,
           discountAmount,
           totalAmount,
