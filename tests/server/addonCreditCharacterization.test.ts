@@ -123,6 +123,26 @@ describe("parseAddonUsages (legacy JSON shape)", () => {
 });
 
 describe("deductAddonUsageRecords (normalized deduction)", () => {
+  it.each([true, false])("allows an expired pending add-on only for a recorded historical intake: %s", async (isHistorical) => {
+    const fakeTx = { ...tx(), serviceOrder: { findFirst: vi.fn().mockResolvedValue(isHistorical ? { receivedAt: new Date("2026-09-01T02:00:00Z") } : null) } };
+    fakeTx.serviceOrderAddonUsage.findMany.mockResolvedValue([{
+      id: "usage-1", memberEntitlementId: "ent-1", credits: 1,
+      deductOn: "COMPLETED", productName: "รับส่ง", isDelivery: true,
+      memberEntitlement: { status: "EXPIRED", product: { name: "รับส่ง" } },
+    }]);
+    if (!isHistorical) fakeTx.memberEntitlement.updateMany.mockResolvedValue({ count: 0 });
+    if (isHistorical) {
+      await deductAddonUsageRecords(fakeTx as never, "order-1", "COMPLETED");
+      expect(fakeTx.memberEntitlement.updateMany).toHaveBeenCalledWith({
+        where: expect.objectContaining({ status: { in: ["ACTIVE", "EXPIRED"] }, creditRemaining: { gte: 1 }, AND: expect.arrayContaining([{ OR: [{ endAt: null }, { endAt: { gte: new Date("2026-09-01T02:00:00Z") } }] }]) }),
+        data: { creditRemaining: { decrement: 1 } },
+      });
+    } else {
+      await expect(deductAddonUsageRecords(fakeTx as never, "order-1", "COMPLETED")).rejects.toMatchObject({ statusCode: 409 });
+      expect(fakeTx.serviceOrderAddonUsage.update).not.toHaveBeenCalled();
+    }
+  });
+
   it("decrements the entitlement and stamps deductedAt only for matching pending usages", async () => {
     const fakeTx = tx();
     fakeTx.serviceOrderAddonUsage.findMany.mockResolvedValue([

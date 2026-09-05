@@ -26,7 +26,6 @@ export default defineEventHandler(async (event) => {
       status: true,
       receivedAt: true,
       dueAt: true,
-      updatedAt: true,
       subtotalAmount: true,
       discountAmount: true,
       totalAmount: true,
@@ -35,6 +34,9 @@ export default defineEventHandler(async (event) => {
       customer: { select: { name: true, email: true, phoneNumber: true } },
       employee: { select: { name: true } },
       memberEntitlement: { select: { product: { select: { name: true } } } },
+      completedAt: true,
+      note: true,
+      payments: { where: { deletedAt: null }, select: { paidAt: true }, take: 1 },
       weightKg: true,
       addonUsageRecords: {
         select: {
@@ -48,7 +50,15 @@ export default defineEventHandler(async (event) => {
       _count: { select: { serviceOrderItems: { where: { deletedAt: null } } } },
       serviceOrderItems: {
         where: { deletedAt: null },
-        select: { quantity: true },
+        select: {
+          quantity: true,
+          storefrontPrice: {
+            select: {
+              storefrontItem: { select: { name: true } },
+              storefrontService: { select: { name: true } },
+            },
+          },
+        },
       },
     },
   });
@@ -59,11 +69,22 @@ export default defineEventHandler(async (event) => {
     const hanger = (o.hangerCharge ?? null) as { count?: number; total?: number } | null;
     const addonNames = o.addonUsageRecords.map((usage) => usage.productName || "แพ็กเกจเสริม").filter(Boolean);
     const addonCredits = o.addonUsageRecords.reduce((sum, usage) => sum + Number(usage.credits ?? 0), 0);
+    const itemSummary = o.serviceOrderItems
+      .map((item) => {
+        const name = item.storefrontPrice
+          ? `${item.storefrontPrice.storefrontItem.name} (${item.storefrontPrice.storefrontService.name})`
+          : "รายการไม่ระบุ";
+        return `${name} × ${item.quantity}`;
+      })
+      .join(", ");
+    // วันที่ส่งจริง: completedAt ที่บันทึกตอนเข้าสถานะเสร็จสิ้น ถ้าไม่มี (งานเก่า) ใช้วันที่ชำระเงินแทน
+    const paidAt = o.payments[0]?.paidAt ?? null;
+    const deliveredAt = o.status === "COMPLETED" ? (o.completedAt ?? paidAt) : null;
     return {
       "เลขรับผ้า": o.orderNo ?? o.id,
       "วันที่รับผ้า": formatBangkokDateTime(o.receivedAt),
       "นัดรับ": formatBangkokDateTime(o.dueAt),
-      "วันที่ส่ง": o.status === "COMPLETED" ? formatBangkokDateTime(o.updatedAt) : "",
+      "วันที่ส่ง": deliveredAt ? formatBangkokDateTime(deliveredAt) : "",
       "สถานะ": statusLabel[o.status] ?? o.status,
       "ลูกค้า": o.customer.name ?? "",
       "อีเมล": isInternalCustomerEmail(o.customer.email) ? "" : o.customer.email,
@@ -73,6 +94,7 @@ export default defineEventHandler(async (event) => {
       "แพ็กเกจเสริม": addonNames.join(", "),
       "เครดิตแพ็กเกจเสริม": addonCredits,
       "จำนวนชิ้น": totalQty,
+      "รายการผ้า": itemSummary,
       "น้ำหนัก (กก.)": isWashFold ? Number(o.weightKg) : 0,
       "ใช้เครดิต": o.creditUsed ?? 0,
       "ราคารวม": Number(o.subtotalAmount),
@@ -81,6 +103,7 @@ export default defineEventHandler(async (event) => {
       "จำนวนไม้แขวน": Number(hanger?.count ?? 0),
       "ยอดสุทธิ": o.totalAmount != null ? Number(o.totalAmount) : 0,
       "พนักงาน": o.employee?.name ?? "",
+      "หมายเหตุ": o.note ?? "",
     };
   });
 
@@ -88,9 +111,9 @@ export default defineEventHandler(async (event) => {
     "เลขรับผ้า", "วันที่รับผ้า", "นัดรับ", "วันที่ส่ง", "สถานะ",
     "ลูกค้า", "อีเมล", "เบอร์",
     "รูปแบบ", "แพ็กเกจ", "แพ็กเกจเสริม", "เครดิตแพ็กเกจเสริม",
-    "จำนวนชิ้น", "น้ำหนัก (กก.)", "ใช้เครดิต",
+    "จำนวนชิ้น", "รายการผ้า", "น้ำหนัก (กก.)", "ใช้เครดิต",
     "ราคารวม", "ส่วนลด", "ค่าไม้แขวน", "จำนวนไม้แขวน", "ยอดสุทธิ",
-    "พนักงาน",
+    "พนักงาน", "หมายเหตุ",
   ];
   const csv = buildCsv(headers, rows);
   const fromTag = formatBangkokDateTag(from);

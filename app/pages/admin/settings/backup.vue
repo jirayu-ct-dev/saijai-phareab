@@ -28,49 +28,57 @@ const reports = [
   {
     key: "customers",
     label: "รายงานลูกค้า",
-    description: "บัญชีลูกค้าหน้าร้านและลูกค้าที่เปิดใช้งานแล้ว พร้อมจำนวนออเดอร์และสถานะ LINE",
+    description: "ข้อมูลลูกค้าทั้งหมด (snapshot ปัจจุบัน ไม่จำกัดช่วงเวลา) พร้อมจำนวนออเดอร์และสถานะ LINE",
     icon: "i-lucide-users-round",
     endpoint: "/api/admin/exports/customers",
+    noRange: true,
   },
   {
     key: "sales",
     label: "รายงานยอดขาย",
-    description: "ประวัติการชำระเงินทั้งหมดในช่วงเวลา (เลขที่บิล, ลูกค้า, ยอด, วิธีชำระเงิน)",
+    description: "รายการชำระเงินทุกสถานะในช่วงเวลา (เลขที่บิล/ใบเสร็จ, ลูกค้า, ยอด, สถานะและวิธีชำระเงิน)",
     icon: "i-lucide-receipt",
     endpoint: "/api/admin/exports/sales",
   },
   {
     key: "orders",
     label: "รายงานออเดอร์",
-    description: "ServiceOrder ทุกใบ (เลขรับ, ลูกค้า, สถานะ, ยอด, แพ็กเกจหลักและแพ็กเกจเสริม)",
+    description: "ServiceOrder ทุกใบที่รับในช่วงเวลา (เลขรับ, ลูกค้า, สถานะ, ยอด, แพ็กเกจหลักและแพ็กเกจเสริม)",
     icon: "i-lucide-shirt",
     endpoint: "/api/admin/exports/orders",
   },
   {
+    key: "package-sales",
+    label: "รายงานขายแพ็กเกจ",
+    description: "รายการขายแพ็กเกจในช่วงเวลา (ลูกค้า, แพ็กเกจที่ซื้อ, ราคา/ส่วนลด, สถานะชำระเงิน, ผู้ขาย)",
+    icon: "i-lucide-package",
+    endpoint: "/api/admin/exports/package-sales",
+  },
+  {
     key: "addon-usages",
     label: "รายงานแพ็กเกจเสริม",
-    description: "การใช้แพ็กเกจเสริมใน service_order_addon_usage (เลขรับ, ลูกค้า, เครดิตที่ใช้, วันที่หัก)",
+    description: "การใช้แพ็กเกจเสริมในออเดอร์ของช่วงเวลา (เลขรับ, ลูกค้า, เครดิตที่ใช้, วันที่หัก/คืนเครดิต)",
     icon: "i-lucide-package-plus",
     endpoint: "/api/admin/exports/addon-usages",
   },
   {
     key: "members",
     label: "รายงานสมาชิก",
-    description: "ประวัติ MemberEntitlement (ลูกค้า, แพ็กเกจ, เครดิต, วันเริ่ม/หมดอายุ)",
+    description: "สิทธิ์แพ็กเกจที่สร้างในช่วงเวลา (ลูกค้า, แพ็กเกจ, เครดิต, วันเริ่มใช้/หมดอายุ)",
     icon: "i-lucide-crown",
     endpoint: "/api/admin/exports/members",
   },
   {
     key: "employee-performance",
     label: "รายงานพนักงาน",
-    description: "สรุปออเดอร์ที่แต่ละคนรับและยอดรวม สำหรับคำนวณค่าคอมมิชชั่น",
+    description: "สรุปออเดอร์ที่แต่ละคนรับในช่วงเวลาและยอดรวม สำหรับคำนวณค่าคอมมิชชั่น",
     icon: "i-lucide-users",
     endpoint: "/api/admin/exports/employee-performance",
   },
   {
     key: "expenses",
     label: "รายงานรายจ่าย",
-    description: "รายจ่ายร้านแยกตามวันที่ หมวดหมู่ จำนวนเงิน และผู้บันทึก",
+    description: "รายจ่ายร้านในช่วงเวลา แยกตามวันที่ หมวดหมู่ จำนวนเงิน และผู้บันทึก",
     icon: "i-lucide-badge-minus",
     endpoint: "/api/admin/exports/expenses",
   },
@@ -78,11 +86,12 @@ const reports = [
 
 const downloadingKey = ref<string | null>(null);
 
-const onDownload = async (key: string, endpoint: string) => {
-  if (!fromDate.value || !toDate.value) return;
+const onDownload = async (key: string, endpoint: string, noRange?: boolean) => {
   downloadingKey.value = key;
   try {
-    const url = `${endpoint}?from=${fromDate.value}&to=${toDate.value}`;
+    const url = noRange
+      ? endpoint
+      : `${endpoint}?from=${fromDate.value}&to=${toDate.value}`;
     window.location.href = url;
   } finally {
     setTimeout(() => {
@@ -122,7 +131,7 @@ const setPreset = (preset: "this-month" | "last-month" | "last-30-days" | "this-
     <section class="-mx-2 border border-default/30 bg-default p-4 dark:border-default/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg">
       <div class="mb-4">
         <p class="font-semibold text-highlighted">เลือกช่วงเวลา</p>
-        <p class="mt-1 text-xs text-muted">รายงานจะรวมเฉพาะข้อมูลในช่วงเวลาที่เลือก</p>
+        <p class="mt-1 text-xs text-muted">ใช้กับรายงานธุรกรรม (ขาย, ออเดอร์, แพ็กเกจ, พนักงาน, รายจ่าย) — รายงานลูกค้าเป็น snapshot ทั้งหมด</p>
       </div>
 
       <div class="mb-3 grid grid-cols-1 gap-3 md:grid-cols-2">
@@ -159,8 +168,7 @@ const setPreset = (preset: "this-month" | "last-month" | "last-30-days" | "this-
           <UButton
             icon="i-lucide-download"
             :loading="downloadingKey === r.key"
-            :disabled="!fromDate || !toDate"
-            @click="onDownload(r.key, r.endpoint)"
+            @click="onDownload(r.key, r.endpoint, r.noRange)"
           >
             CSV
           </UButton>
@@ -170,7 +178,7 @@ const setPreset = (preset: "this-month" | "last-month" | "last-30-days" | "this-
 
     <div class="flex flex-row items-start justify-start gap-2 rounded-lg border border-dashed border-default/30 bg-default/55 px-3 py-5 text-left text-xs text-muted dark:border-default/20 dark:bg-elevated/30">
       <UIcon name="i-lucide-lightbulb" class="mt-0.5 size-4 shrink-0 text-primary" />
-      <span>ไฟล์ CSV รองรับภาษาไทย (UTF-8 with BOM) สามารถเปิดด้วย Excel หรือ Google Sheets ได้ทันที</span>
+      <span>ไฟล์ CSV รองรับภาษาไทย (UTF-8 with BOM) สามารถเปิดด้วย Excel หรือ Google Sheets ได้ทันที — รายงานยอดขาย/ขายแพ็กเกจมีคอลัมน์ 'สถานะชำระเงิน' ให้กรองก่อนรวมยอด</span>
     </div>
   </div>
 </template>

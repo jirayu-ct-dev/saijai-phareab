@@ -1,3 +1,13 @@
+export type PosMemberEntitlementOption = {
+  id: string;
+  productId: string;
+  productName: string;
+  creditInitial: number | null;
+  creditRemaining: number | null;
+  startAt: string | null;
+  endAt: string | null;
+};
+
 export type PosCustomerOption = {
   id: string;
   label: string;
@@ -6,14 +16,8 @@ export type PosCustomerOption = {
   phoneNumber: string | null;
   customerAccountStatus?: "OFFLINE" | "ACTIVE";
   image?: string | null;
-  activeMemberEntitlement?: {
-    id: string;
-    productId: string;
-    productName: string;
-    creditInitial: number | null;
-    creditRemaining: number | null;
-    endAt: string | null;
-  } | null;
+  activeMemberEntitlement?: PosMemberEntitlementOption | null;
+  memberEntitlementOptions?: PosMemberEntitlementOption[];
   addonEntitlements?: Array<{
     id: string;
     productId: string;
@@ -26,11 +30,11 @@ export type PosCustomerOption = {
   }>;
 };
 
-export const useAdminCustomerOptions = () => {
+export const useAdminCustomerOptions = (receivedAt?: Ref<string | undefined>) => {
   const searchQuery = ref("");
   const debouncedSearchQuery = refDebounced(searchQuery, 250);
   const { data: customers, status, refresh } = useFetch<PosCustomerOption[]>("/api/admin/customer-options", {
-    query: { q: debouncedSearchQuery, limit: 50 },
+    query: { q: debouncedSearchQuery, limit: 50, ...(receivedAt ? { receivedAt } : {}) },
     default: () => [],
   });
 

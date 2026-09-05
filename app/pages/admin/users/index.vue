@@ -501,7 +501,6 @@ const columns: TableColumn<AdminUser>[] = [
         h(UBadge, {
           color: user.isActive ? 'success' : 'warning',
           variant: 'subtle',
-          size: 'xs',
         }, () => user.isActive ? 'ใช้งาน' : 'พักงาน'),
       ])
     }

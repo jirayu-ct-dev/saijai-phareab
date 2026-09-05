@@ -1,6 +1,8 @@
 import type { ServiceOrderStatus } from "~~/shared/types/enums";
+import type { BackdatedOrderInput } from "~~/shared/utils/backdatedOrder";
 
 export type CreateAdminServiceOrderBody = {
+  backdated?: BackdatedOrderInput;
   customerId?: string | null;
   newCustomer?: {
     name: string;
@@ -49,6 +51,7 @@ export type AdminServiceOrder = {
   id: string;
   orderNo: string | null;
   status: ServiceOrderStatus;
+  backdated?: boolean;
   creditUsed: number | null;
   addonUsages?: Array<{
     id?: string;

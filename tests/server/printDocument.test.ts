@@ -336,7 +336,7 @@ describe("document content", () => {
       { label: "แพ็กเกจ", value: "แพ็กเกจรายเดือน 30 ชิ้น" },
       { label: "พนักงาน", value: "พนักงานหนึ่ง" },
       { label: "ช่องทางการชำระเงิน", value: "โอนเงิน" },
-      { label: "วันที่ชำระเงิน", value: "3/9/2026 09:05" },
+      { label: "วันที่ชำระเงิน", value: "3/9/2026 09:00" },
     ]));
     expect(built.summaryRows).toEqual(expect.arrayContaining([
       { label: "รวมจำนวนรายการ", value: "3 ชิ้น" },

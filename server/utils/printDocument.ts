@@ -432,7 +432,7 @@ export function buildPrintDocument(input: {
     informationRows.push({ label: "ช่องทางการชำระเงิน", value: paymentMethodLabels[payment.method] });
   }
   if (kind === "RECEIPT" && amountMinor !== 0) {
-    const paidAt = payment.confirmedAt ?? payment.paidAt ?? null;
+    const paidAt = payment.paidAt ?? payment.confirmedAt ?? null;
     if (paidAt) informationRows.push({ label: "วันที่ชำระเงิน", value: formatPrintIssuedAt(paidAt.toISOString()) });
   }
 

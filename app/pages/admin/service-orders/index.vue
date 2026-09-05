@@ -7,8 +7,9 @@ import EditServiceOrderModal from "~~/app/components/admin/service-orders/EditSe
 import EditServiceOrderStatusModal from "~~/app/components/admin/service-orders/EditServiceOrderStatusModal.vue";
 import type { AdminServiceOrder } from "~~/app/composables/useAdminServiceOrders";
 import { orderStatusColors, orderStatusLabels } from "~~/shared/config/orderConfig";
+import { paymentStatusColors, paymentStatusLabels } from "~~/shared/config/paymentConfig";
 import { formatCurrency, formatDate, formatDateTime } from "~~/shared/utils/format";
-import type { ServiceOrderStatus } from "~~/shared/types/enums";
+import type { PaymentStatus, ServiceOrderStatus } from "~~/shared/types/enums";
 import { columnSortIcon, cycleColumnSorting } from "~~/shared/utils/table";
 
 definePageMeta({
@@ -62,6 +63,14 @@ const serviceOrderStatusOptions: Array<{ label: string; value: ServiceOrderStatu
   { label: orderStatusLabels.CANCELLED, value: "CANCELLED" },
 ];
 
+const paymentFilterOptions: Array<{ label: string; value: PaymentStatus | "all" }> = [
+  { label: "ทุกสถานะชำระเงิน", value: "all" },
+  { label: "ยังไม่ชำระ", value: "UNPAID" },
+  { label: "รอตรวจสอบ", value: "PENDING_VERIFICATION" },
+  { label: "ชำระแล้ว", value: "PAID" },
+  { label: "ยกเลิก", value: "CANCELLED" },
+];
+
 const table = useTemplateRef<TableInstance>("table");
 const rowSelection = ref<Record<string, boolean>>({});
 const pagination = ref({
@@ -95,6 +104,8 @@ onActivated(async () => {
 const searchQuery = ref("");
 const statusFilter = ref<ServiceOrderStatus | "all">("all");
 const customerTypeFilter = ref<CustomerTypeFilter>("all");
+const backdatedFilter = ref<"normal" | "backdated" | "all">("normal");
+const paymentFilter = ref<PaymentStatus | "all">("all");
 
 watch(
   () => route.query.status,
@@ -113,19 +124,22 @@ const filteredServiceOrders = computed<AdminServiceOrder[]>(() => {
   return (serviceOrders.value ?? []).filter((order) => {
     const matchKeyword = keyword
       ? [
-          order.orderNo ?? "",
-          order.customer.name ?? "",
-          order.customer.email ?? "",
-          order.customer.phoneNumber ?? "",
-          order.note ?? "",
-          ...order.items.map((item) => item.label),
-        ]
-          .join(" ")
-          .toLowerCase()
-          .includes(keyword)
+        order.orderNo ?? "",
+        order.customer.name ?? "",
+        order.customer.email ?? "",
+        order.customer.phoneNumber ?? "",
+        order.note ?? "",
+        ...order.items.map((item) => item.label),
+      ]
+        .join(" ")
+        .toLowerCase()
+        .includes(keyword)
       : true;
 
     const matchStatus = statusFilter.value === "all" || order.status === statusFilter.value;
+    const matchPayment = paymentFilter.value === "all" || (order.payment?.status ?? "UNPAID") === paymentFilter.value;
+    const matchBackdated = backdatedFilter.value === "all"
+      || (backdatedFilter.value === "backdated" ? Boolean(order.backdated) : !order.backdated);
     const matchCustomerType = (() => {
       if (customerTypeFilter.value === "all") return true;
       if (customerTypeFilter.value === "offline") return order.customer.customerAccountStatus === "OFFLINE";
@@ -133,7 +147,7 @@ const filteredServiceOrders = computed<AdminServiceOrder[]>(() => {
       return order.customer.customerAccountStatus !== "OFFLINE";
     })();
 
-    return matchKeyword && matchStatus && matchCustomerType;
+    return matchKeyword && matchStatus && matchPayment && matchBackdated && matchCustomerType;
   });
 });
 
@@ -148,7 +162,7 @@ const setPage = (page: number) => {
   pagination.value = { ...pagination.value, pageIndex: page - 1 };
 };
 
-watch([searchQuery, statusFilter, customerTypeFilter], () => {
+watch([searchQuery, statusFilter, customerTypeFilter, backdatedFilter, paymentFilter], () => {
   pagination.value = { ...pagination.value, pageIndex: 0 };
   rowSelection.value = {};
 });
@@ -327,8 +341,41 @@ const onPaymentUpdated = async () => {
   await refresh();
 };
 
+const canEditPaymentFor = (order: AdminServiceOrder) => Boolean(order.payment?.id) && order.status !== "COMPLETED";
+
+const paymentBadgeClass = (editable: boolean) => [
+  "inline-flex rounded-full text-left transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary",
+  editable ? "cursor-pointer hover:opacity-80" : "cursor-default",
+];
+
+const renderPaymentBadge = (order: AdminServiceOrder, extraClass?: string) => {
+  const payment = order.payment;
+  if (!payment) return null;
+  const editable = canEditPaymentFor(order);
+  return h(
+    "button",
+    {
+      type: "button",
+      class: [...paymentBadgeClass(editable), extraClass ?? ""],
+      title: editable ? "แก้ไขการชำระเงิน" : undefined,
+      onClick: editable
+        ? (e: MouseEvent) => { e.stopPropagation(); openEditPaymentModal(order); }
+        : undefined,
+    },
+    [
+      h(UBadge, {
+        color: paymentStatusColors[payment.status],
+        variant: "subtle",
+        size: "md",
+        icon: editable ? "i-lucide-pencil" : undefined,
+      }, () => paymentStatusLabels[payment.status]),
+    ],
+  );
+};
+
 const getActionItems = (order: AdminServiceOrder) => {
   const primaryItems: Array<Record<string, unknown>> = [
+    { label: "ดูรายละเอียด", icon: "i-lucide-eye", onSelect: () => openDetailPage(order) },
     { label: "แก้ไขรายการ", icon: "i-lucide-pencil", onSelect: () => openEditModal(order) },
     order.payment?.status === "PAID"
       ? { label: "ดูใบเสร็จ", icon: "i-lucide-receipt", onSelect: () => openDocument(order) }
@@ -352,6 +399,7 @@ const getActionItems = (order: AdminServiceOrder) => {
 const columns: TableColumn<AdminServiceOrder>[] = [
   {
     id: "select",
+    meta: { class: { th: "w-9", td: "w-9" } },
     header: ({ table }) =>
       h("div", [
         h(UCheckbox, {
@@ -372,6 +420,7 @@ const columns: TableColumn<AdminServiceOrder>[] = [
   {
     accessorKey: "orderNo",
     header: ({ column }) => sortableHeader("เลขรับผ้า", column),
+    meta: { class: { th: "w-40", td: "w-40" } },
     cell: ({ row }) => h("div", { class: "font-mono text-xs text-muted cursor-pointer hover:underline", onClick: (e: MouseEvent) => { e.stopPropagation(); openDetailPage(row.original); } }, row.original.orderNo || row.original.id),
   },
   {
@@ -381,16 +430,16 @@ const columns: TableColumn<AdminServiceOrder>[] = [
     cell: ({ row }) => {
       const customer = row.original.customer;
       const entitlement = row.original.memberEntitlement;
-      return h("div", { class: "flex items-center gap-3 cursor-pointer", onClick: (e: MouseEvent) => openCustomerPage(row.original, e) }, [
+      return h("div", { class: "flex min-w-0 items-center gap-3 cursor-pointer", onClick: (e: MouseEvent) => openCustomerPage(row.original, e) }, [
         h(UAvatar, { ...getAvatarProps(customer) }),
-        h("div", { class: "space-y-0.5" }, [
-          h("div", { class: "flex flex-wrap items-center gap-1.5" }, [
-            h("p", { class: "font-medium text-highlighted hover:underline" }, customer.name || "-"),
+        h("div", { class: "min-w-0 space-y-0.5" }, [
+          h("div", { class: "flex min-w-0 flex-wrap items-center gap-1.5" }, [
+            h("p", { class: "min-w-0 truncate font-medium text-highlighted hover:underline" }, customer.name || "-"),
             entitlement
               ? h(UBadge, { color: "success", variant: "subtle", size: "xs" }, () => "รายเดือน")
               : null,
           ]),
-          h("p", { class: "text-xs text-muted" }, customer.phoneNumber || customerEmailLabel(customer.email)),
+          h("p", { class: "truncate text-xs text-muted" }, customer.phoneNumber || customerEmailLabel(customer.email)),
         ]),
       ]);
     },
@@ -412,7 +461,8 @@ const columns: TableColumn<AdminServiceOrder>[] = [
   {
     id: "amount",
     accessorFn: (order) => Number(order.totalAmount ?? 0),
-    header: ({ column }) => sortableHeader("ยอด / เครดิต", column, "right"),
+    header: ({ column }) => sortableHeader("ยอด/เครดิต", column, "right"),
+    meta: { class: { th: "w-28", td: "w-28" } },
     cell: ({ row }) => {
       const order = row.original;
       const entitlement = order.memberEntitlement;
@@ -435,9 +485,16 @@ const columns: TableColumn<AdminServiceOrder>[] = [
     },
   },
   {
+    id: "payment",
+    header: "ชำระเงิน",
+    meta: { class: { th: "w-28", td: "w-28" } },
+    cell: ({ row }) => renderPaymentBadge(row.original),
+  },
+  {
     id: "status",
     accessorFn: (order) => order.status,
     header: ({ column }) => sortableHeader("สถานะ", column),
+    meta: { class: { th: "w-32", td: "w-32" } },
     cell: ({ row }) => {
       const order = row.original;
       return h(
@@ -458,6 +515,7 @@ const columns: TableColumn<AdminServiceOrder>[] = [
     id: "dates",
     accessorFn: (order) => new Date(order.receivedAt).getTime(),
     header: ({ column }) => sortableHeader("วัน", column),
+    meta: { class: { th: "w-44", td: "w-44" } },
     cell: ({ row }) => {
       const order = row.original;
       const isCompleted = order.status === "COMPLETED";
@@ -473,22 +531,20 @@ const columns: TableColumn<AdminServiceOrder>[] = [
   {
     id: "actions",
     header: "",
+    meta: { class: { th: "w-20", td: "w-20" } },
     cell: ({ row }) => {
       const order = row.original;
 
-      const canEditPayment = Boolean(order.payment?.id) && order.status !== "COMPLETED";
-
       return h("div", { class: "flex items-center justify-end gap-1" }, [
-        canEditPayment
-          ? h(UButton, {
-              icon: "i-lucide-credit-card",
-              size: "xs",
-              color: "primary",
-              variant: "ghost",
-              title: "แก้ไขการชำระเงิน",
-              onClick: () => openEditPaymentModal(order),
-            })
-          : null,
+        h(UButton, {
+          icon: "i-lucide-eye",
+          size: "xs",
+          color: "neutral",
+          variant: "ghost",
+          title: "ดูรายละเอียด",
+          "aria-label": "ดูรายละเอียด",
+          onClick: () => openDetailPage(order),
+        }),
         h(
           UDropdownMenu,
           { items: getActionItems(order), content: { align: "end" } },
@@ -512,49 +568,33 @@ const columns: TableColumn<AdminServiceOrder>[] = [
 <template>
   <div class="contents">
     <UDashboardPanel id="service-orders">
-    <template #header>
-      <UDashboardNavbar title="รายการรับผ้า" icon="i-lucide-shopping-basket">
-        <template #leading>
-          <UDashboardSidebarCollapse class="hidden lg:inline-flex" />
-        </template>
+      <template #header>
+        <UDashboardNavbar title="รายการรับผ้า" icon="i-lucide-shopping-basket">
+          <template #leading>
+            <UDashboardSidebarCollapse class="hidden lg:inline-flex" />
+          </template>
 
-        <template #right>
-          <div class="flex flex-wrap items-center gap-2">
-            <UButton
-              label="เพิ่มรายการรับผ้า"
-              icon="i-lucide-plus"
-              color="primary"
-              class="shrink-0"
-              aria-label="เพิ่มรายการรับผ้า"
-              :ui="{ label: 'hidden sm:inline' }"
-              to="/admin/sales"
-            />
-          </div>
-        </template>
-      </UDashboardNavbar>
-    </template>
+          <template #right>
+            <div class="flex flex-wrap items-center gap-2">
+              <UButton label="เพิ่มรายการรับผ้า" icon="i-lucide-plus" color="primary" class="shrink-0"
+                aria-label="เพิ่มรายการรับผ้า" :ui="{ label: 'hidden sm:inline' }" to="/admin/sales" />
+            </div>
+          </template>
+        </UDashboardNavbar>
+      </template>
 
-    <template #body>
+      <template #body>
         <div class="flex flex-col gap-3 p-2 sm:p-6">
           <section class="flex flex-col gap-1">
-            <div class="-mx-2 rounded-lg border border-default/30 bg-default p-2 px-3! py-3! dark:border-default/40 dark:bg-default/80 space-y-2 sm:mx-0 md:flex md:items-center md:justify-between md:gap-3 md:space-y-0">
+            <div
+              class="-mx-2 rounded-lg border border-default/30 bg-default p-2 px-3! py-3! dark:border-default/40 dark:bg-default/80 space-y-2 sm:mx-0 md:flex md:items-center md:justify-between md:gap-3 md:space-y-0">
               <div class="flex min-w-0 items-center gap-2 md:flex-1 md:max-w-sm">
-                <UInput
-                  v-model="searchQuery"
-                  class="min-w-0 flex-1"
-                  icon="i-lucide-search"
-                  placeholder="ค้นหาเลขรับผ้า ลูกค้า เบอร์โทร หรือชื่อรายการ"
-                />
+                <UInput v-model="searchQuery" class="min-w-0 flex-1" icon="i-lucide-search"
+                  placeholder="ค้นหาเลขรับผ้า ลูกค้า เบอร์โทร หรือชื่อรายการ" />
 
-                <UButton
-                  v-if="selectedRowsCount"
-                  color="error"
-                  variant="subtle"
-                  icon="i-lucide-trash"
-                  class="shrink-0 md:hidden"
-                  :aria-label="`ลบ ${selectedRowsCount} รายการ`"
-                  @click="isBulkDeleteOpen = true"
-                >
+                <UButton v-if="selectedRowsCount" color="error" variant="subtle" icon="i-lucide-trash"
+                  class="shrink-0 md:hidden" :aria-label="`ลบ ${selectedRowsCount} รายการ`"
+                  @click="isBulkDeleteOpen = true">
                   <template #trailing>
                     <UKbd class="hidden sm:inline-flex">{{ selectedRowsCount }}</UKbd>
                   </template>
@@ -564,33 +604,27 @@ const columns: TableColumn<AdminServiceOrder>[] = [
               </div>
 
               <div class="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center md:justify-end">
-                <USelect
-                  v-model="customerTypeFilter"
-                  :items="[
-                    { label: 'ลูกค้าทุกประเภท', value: 'all' },
-                    { label: 'ยังไม่เปิดใช้งาน', value: 'offline' },
-                    { label: 'เปิดใช้งานแล้ว', value: 'active' },
-                    { label: 'ลูกค้ารายเดือน', value: 'monthly' },
-                  ]"
-                  value-key="value"
-                  class="min-w-0 sm:w-44"
-                />
-                <USelect
-                  v-model="statusFilter"
-                  :items="[{ label: 'ทุกสถานะงาน', value: 'all' }, ...serviceOrderStatusOptions]"
-                  value-key="value"
-                  class="min-w-0 sm:w-40"
-                />
+                <USelect v-model="backdatedFilter" :items="[
+                  { label: 'รายการปกติ', value: 'normal' },
+                  { label: 'รายการย้อนหลัง', value: 'backdated' },
+                  { label: 'รายการทั้งหมด', value: 'all' },
+                ]" value-key="value" class="min-w-0 sm:w-40" aria-label="เลือกประเภทรายการ" />
+                <USelect v-model="customerTypeFilter" :items="[
+                  { label: 'ลูกค้าทุกประเภท', value: 'all' },
+                  { label: 'ยังไม่เปิดใช้งาน', value: 'offline' },
+                  { label: 'เปิดใช้งานแล้ว', value: 'active' },
+                  { label: 'ลูกค้ารายเดือน', value: 'monthly' },
+                ]" value-key="value" class="min-w-0 sm:w-44" />
+                <USelect v-model="statusFilter"
+                  :items="[{ label: 'ทุกสถานะงาน', value: 'all' }, ...serviceOrderStatusOptions]" value-key="value"
+                  class="min-w-0 sm:w-40" />
 
-                <UButton
-                  v-if="selectedRowsCount"
-                  color="error"
-                  variant="subtle"
-                  icon="i-lucide-trash"
-                  class="hidden shrink-0 md:inline-flex"
-                  :aria-label="`ลบ ${selectedRowsCount} รายการ`"
-                  @click="isBulkDeleteOpen = true"
-                >
+                <USelect v-model="paymentFilter" :items="paymentFilterOptions" value-key="value" class="min-w-0 sm:w-40"
+                  aria-label="เลือกสถานะการชำระเงิน" />
+
+                <UButton v-if="selectedRowsCount" color="error" variant="subtle" icon="i-lucide-trash"
+                  class="hidden shrink-0 md:inline-flex" :aria-label="`ลบ ${selectedRowsCount} รายการ`"
+                  @click="isBulkDeleteOpen = true">
                   <template #trailing>
                     <UKbd class="hidden sm:inline-flex">{{ selectedRowsCount }}</UKbd>
                   </template>
@@ -602,11 +636,8 @@ const columns: TableColumn<AdminServiceOrder>[] = [
 
             <template v-if="showSkeleton">
               <div class="-mx-2 space-y-1 sm:mx-0 md:hidden">
-                <div
-                  v-for="i in 5"
-                  :key="`so-mob-sk-${i}`"
-                  class="overflow-hidden border border-default/30 bg-default transition-[background-color,border-color] duration-200 hover:border-default/45 hover:bg-default dark:border-default/20 dark:bg-elevated/55 dark:hover:bg-elevated/70"
-                >
+                <div v-for="i in 5" :key="`so-mob-sk-${i}`"
+                  class="overflow-hidden border border-default/30 bg-default transition-[background-color,border-color] duration-200 hover:border-default/45 hover:bg-default dark:border-default/20 dark:bg-elevated/55 dark:hover:bg-elevated/70">
                   <div class="flex items-center gap-2 p-2">
                     <USkeleton class="size-4 rounded-lg shrink-0" />
                     <USkeleton class="size-8 rounded-full shrink-0" />
@@ -636,7 +667,8 @@ const columns: TableColumn<AdminServiceOrder>[] = [
                   </div>
                 </div>
               </div>
-              <div class="hidden rounded-lg border border-default/30 bg-default p-0! dark:border-default/20 dark:bg-elevated/55 md:block">
+              <div
+                class="hidden rounded-lg border border-default/30 bg-default p-0! dark:border-default/20 dark:bg-elevated/55 md:block">
                 <div class="space-y-2 p-3">
                   <USkeleton v-for="i in 8" :key="`so-dt-sk-${i}`" class="h-12 w-full rounded-lg" />
                 </div>
@@ -649,55 +681,44 @@ const columns: TableColumn<AdminServiceOrder>[] = [
                   <USkeleton v-for="i in 5" :key="i" class="h-40 w-full rounded-lg" />
                 </div>
 
-                <div v-else-if="!paginatedServiceOrders.length" class="flex flex-col items-center justify-center rounded-lg border border-dashed border-default/30 bg-default/55 px-3 py-5 text-center text-muted dark:border-default/20 dark:bg-elevated/30">
+                <div v-else-if="!paginatedServiceOrders.length"
+                  class="flex flex-col items-center justify-center rounded-lg border border-dashed border-default/30 bg-default/55 px-3 py-5 text-center text-muted dark:border-default/20 dark:bg-elevated/30">
                   <UIcon name="i-lucide-shopping-basket" class="mb-3 size-10 opacity-60" />
                   <p>ไม่พบรายการรับผ้า</p>
                 </div>
 
                 <div v-else class="-mx-2 space-y-1 sm:mx-0">
-                  <div
-                    v-for="(order, index) in paginatedServiceOrders"
-                    :key="order.id"
-                    class="overflow-hidden border border-default/30 bg-default transition-[background-color,border-color] duration-200 hover:border-default/45 hover:bg-default dark:border-default/20 dark:bg-elevated/55 dark:hover:bg-elevated/70"
-                  >
+                  <div v-for="(order, index) in paginatedServiceOrders" :key="order.id"
+                    class="overflow-hidden border border-default/30 bg-default transition-[background-color,border-color] duration-200 hover:border-default/45 hover:bg-default dark:border-default/20 dark:bg-elevated/55 dark:hover:bg-elevated/70">
                     <div class="flex items-center gap-2 p-2">
-                      <UCheckbox
-                        :model-value="isMobileRowSelected(index)"
-                        aria-label="เลือกรายการ"
-                        class="shrink-0"
-                        @update:model-value="setMobileRowSelected(index, $event)"
-                      />
+                      <UCheckbox :model-value="isMobileRowSelected(index)" aria-label="เลือกรายการ" class="shrink-0"
+                        @update:model-value="setMobileRowSelected(index, $event)" />
 
                       <UAvatar v-bind="getAvatarProps(order.customer)" size="sm" class="shrink-0" />
 
                       <div class="min-w-0 flex-1">
                         <div class="flex min-w-0 items-start justify-between gap-2">
                           <div class="min-w-0 flex-1">
-                            <button
-                              type="button"
+                            <button type="button"
                               class="block max-w-full truncate text-left text-sm font-medium text-highlighted hover:underline"
-                              @click="openCustomerPage(order, $event)"
-                            >
+                              @click="openCustomerPage(order, $event)">
                               {{ order.customer.name || "-" }}
-                              <span class="text-[11px] font-normal text-muted">· {{ order.customer.phoneNumber || customerEmailLabel(order.customer.email) }}</span>
+                              <span class="text-[11px] font-normal text-muted">· {{ order.customer.phoneNumber ||
+                                customerEmailLabel(order.customer.email) }}</span>
                             </button>
-                            <button
-                              type="button"
+                            <button type="button"
                               class="block max-w-full truncate font-mono text-[10px] text-muted hover:underline"
-                              @click="openDetailPage(order)"
-                            >
+                              @click="openDetailPage(order)">
                               {{ order.orderNo || order.id }}
                             </button>
                           </div>
 
-                          <div class="flex shrink-0 flex-col items-end gap-1.5">
-                            <button
-                              type="button"
+                          <div class="flex shrink-0 flex-col items-end gap-2">
+                            <button type="button"
                               class="inline-flex transition hover:opacity-85 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-                              title="อัปเดตสถานะผ้า"
-                              @click="openEditStatusModal(order, $event)"
-                            >
-                              <UBadge :color="orderStatusColors[order.status]" variant="soft" size="xs" icon="i-lucide-pencil" class="font-medium">
+                              title="อัปเดตสถานะผ้า" @click="openEditStatusModal(order, $event)">
+                              <UBadge :color="orderStatusColors[order.status]" variant="soft" size="sm"
+                                icon="i-lucide-pencil" class="font-medium">
                                 {{ orderStatusLabels[order.status] }}
                               </UBadge>
                             </button>
@@ -705,7 +726,17 @@ const columns: TableColumn<AdminServiceOrder>[] = [
                               <span class="text-[13px] font-semibold leading-none text-success">ใช้เครดิต</span>
                               <span class="text-[10px] text-muted">{{ order.creditUsed ?? 0 }} เครดิต</span>
                             </template>
-                            <span v-else class="text-[13px] font-semibold leading-none tabular-nums text-primary">{{ formatCurrency(Number(order.totalAmount ?? 0)) }}</span>
+                            <span v-else class="text-[13px] font-semibold leading-none tabular-nums text-primary">{{
+                              formatCurrency(Number(order.totalAmount ?? 0)) }}</span>
+                            <button v-if="order.payment" type="button"
+                              :class="paymentBadgeClass(canEditPaymentFor(order))"
+                              :title="canEditPaymentFor(order) ? 'แก้ไขการชำระเงิน' : undefined"
+                              @click.stop="canEditPaymentFor(order) && openEditPaymentModal(order)">
+                              <UBadge :color="paymentStatusColors[order.payment.status]" variant="subtle" size="sm"
+                                :icon="canEditPaymentFor(order) ? 'i-lucide-pencil' : undefined" class="font-medium">
+                                {{ paymentStatusLabels[order.payment.status] }}
+                              </UBadge>
+                            </button>
                           </div>
                         </div>
 
@@ -717,20 +748,17 @@ const columns: TableColumn<AdminServiceOrder>[] = [
 
                         <div class="mt-1 flex items-center justify-between gap-2">
                           <div class="min-w-0 truncate text-[11px] text-muted">
-                            รับ {{ formatOptionalShortDate(order.receivedAt) }} · {{ order.status === "COMPLETED" ? "ส่ง" : "นัด" }} {{ formatOptionalShortDate((order.status === "COMPLETED" ? order.payment?.paidAt : order.dueAt) || order.dueAt) }}
+                            รับ {{ formatOptionalShortDate(order.receivedAt) }} · {{ order.status === "COMPLETED" ?
+                              "ส่ง" : "นัด" }} {{
+                              formatOptionalShortDate((order.status === "COMPLETED" ? order.payment?.paidAt : order.dueAt)
+                                || order.dueAt) }}
                           </div>
                           <div class="flex shrink-0 items-center justify-end gap-1">
-                            <UButton
-                              v-if="order.payment?.id && order.status !== 'COMPLETED'"
-                              icon="i-lucide-credit-card"
-                              size="xs"
-                              color="primary"
-                              variant="ghost"
-                              aria-label="แก้ไขการชำระเงิน"
-                              @click="openEditPaymentModal(order)"
-                            />
+                            <UButton icon="i-lucide-eye" size="xs" color="neutral" variant="ghost"
+                              aria-label="ดูรายละเอียดรายการรับผ้า" @click="openDetailPage(order)" />
                             <UDropdownMenu :items="getActionItems(order)" :content="{ align: 'end' }">
-                              <UButton icon="i-lucide-ellipsis" size="xs" color="neutral" variant="ghost" aria-label="เมนูเพิ่มเติม" />
+                              <UButton icon="i-lucide-ellipsis" size="xs" color="neutral" variant="ghost"
+                                aria-label="เมนูเพิ่มเติม" />
                             </UDropdownMenu>
                           </div>
                         </div>
@@ -740,30 +768,25 @@ const columns: TableColumn<AdminServiceOrder>[] = [
                 </div>
               </div>
 
-              <div class="hidden overflow-hidden rounded-lg border border-default/30 bg-default p-0! dark:border-default/20 dark:bg-elevated/55 md:block">
-                <UTable
-                  ref="table"
-                  v-model:row-selection="rowSelection"
-                  v-model:pagination="pagination"
-                  :pagination-options="{ getPaginationRowModel: getPaginationRowModel() }"
-                  :data="filteredServiceOrders"
-                  :columns="columns"
-                  :loading="isLoading"
-                  :ui="{
+              <div
+                class="hidden overflow-hidden rounded-lg border border-default/30 bg-default p-0! dark:border-default/20 dark:bg-elevated/55 md:block">
+                <UTable ref="table" v-model:row-selection="rowSelection" v-model:pagination="pagination"
+                  :pagination-options="{ getPaginationRowModel: getPaginationRowModel() }" :data="filteredServiceOrders"
+                  :columns="columns" :loading="isLoading" :ui="{
                     root: 'relative overflow-x-auto',
-                    base: 'table-fixed border-separate border-spacing-0',
+                    base: 'table-fixed w-full min-w-[1120px] border-separate border-spacing-0',
                     thead: 'sticky top-0 z-1 [&>tr]:bg-default dark:[&>tr]:bg-default/80 [&>tr]:after:content-none',
                     tbody: '[&>tr]:last:[&>td]:border-b-0 [&>tr:hover>td]:bg-primary/5 dark:[&>tr:hover>td]:bg-elevated/45',
-                    th: 'border-b border-default bg-default py-2.5 text-xs font-semibold uppercase tracking-wide text-toned dark:border-default/40 dark:bg-default/80',
-                    td: 'border-b border-default py-2.5 transition-colors dark:border-default/25',
+                    th: 'border-b border-default bg-default px-3 py-2.5 text-xs font-semibold uppercase tracking-wide text-toned dark:border-default/40 dark:bg-default/80',
+                    td: 'border-b border-default px-3 py-2.5 transition-colors dark:border-default/25',
                     separator: 'h-0',
-                  }"
-                >
+                  }">
                   <template #empty>
                     <div v-if="isLoading" class="space-y-2 p-3">
                       <USkeleton v-for="i in 6" :key="`so-tbl-${i}`" class="h-12 w-full rounded-lg" />
                     </div>
-                    <div v-else class="flex flex-col items-center justify-center rounded-lg border border-dashed border-default/30 bg-default/55 px-3 py-5 text-center text-muted dark:border-default/20 dark:bg-elevated/30">
+                    <div v-else
+                      class="flex flex-col items-center justify-center rounded-lg border border-dashed border-default/30 bg-default/55 px-3 py-5 text-center text-muted dark:border-default/20 dark:bg-elevated/30">
                       <UIcon name="i-lucide-shopping-basket" class="mb-3 size-10 opacity-60" />
                       <p>ไม่พบรายการรับผ้า</p>
                     </div>
@@ -784,115 +807,78 @@ const columns: TableColumn<AdminServiceOrder>[] = [
               <template v-else>{{ paginationSummary }}</template>
             </div>
 
-            <UPagination
-              v-if="!showSkeleton"
-              :page="pagination.pageIndex + 1"
-              :items-per-page="pagination.pageSize"
-              :total="filteredRowCount"
-              @update:page="setPage"
-            />
+            <UPagination v-if="!showSkeleton" :page="pagination.pageIndex + 1" :items-per-page="pagination.pageSize"
+              :total="filteredRowCount" @update:page="setPage" />
           </div>
         </div>
-    </template>
+      </template>
     </UDashboardPanel>
 
     <ClientOnly>
-      <EditServiceOrderModal
-        v-model:open="isFormOpen"
-        :order="editingOrder"
-        @updated="onServiceOrderUpdated"
-      />
+      <EditServiceOrderModal v-model:open="isFormOpen" :order="editingOrder" @updated="onServiceOrderUpdated" />
 
-      <EditServiceOrderStatusModal
-        v-model:open="editStatusOpen"
-        :order="editStatusTarget"
-        @updated="onServiceOrderStatusUpdated"
-      />
+      <EditServiceOrderStatusModal v-model:open="editStatusOpen" :order="editStatusTarget"
+        @updated="onServiceOrderStatusUpdated" />
 
-      <UModal
-      v-model:open="isBulkDeleteOpen"
-      title="ลบรายการรับผ้าที่เลือก"
-      :description="`ยืนยันการลบ ${selectedRowsCount} รายการ`"
-    >
-      <template #body>
-        <div v-if="selectedOrders.length" class="max-h-72 space-y-3 overflow-auto pr-1">
-          <div
-            v-for="order in selectedOrders"
-            :key="order.id"
-            class="flex items-start gap-3"
-          >
-            <UAvatar v-bind="getAvatarProps(order.customer)" />
-            <div class="min-w-0 flex-1">
-              <p class="truncate font-medium text-highlighted">
-                {{ order.customer.name || order.customer.email }}
-              </p>
-              <p class="truncate text-sm text-muted">
-                {{ order.orderNo || order.id }}
-              </p>
+      <UModal v-model:open="isBulkDeleteOpen" title="ลบรายการรับผ้าที่เลือก"
+        :description="`ยืนยันการลบ ${selectedRowsCount} รายการ`">
+        <template #body>
+          <div v-if="selectedOrders.length" class="max-h-72 space-y-3 overflow-auto pr-1">
+            <div v-for="order in selectedOrders" :key="order.id" class="flex items-start gap-3">
+              <UAvatar v-bind="getAvatarProps(order.customer)" />
+              <div class="min-w-0 flex-1">
+                <p class="truncate font-medium text-highlighted">
+                  {{ order.customer.name || order.customer.email }}
+                </p>
+                <p class="truncate text-sm text-muted">
+                  {{ order.orderNo || order.id }}
+                </p>
+              </div>
+              <UButton icon="i-lucide-x" variant="ghost" size="xs" color="neutral"
+                @click="handleOrderDeselected(order)" />
             </div>
-            <UButton
-              icon="i-lucide-x"
-              variant="ghost"
-              size="xs"
-              color="neutral"
-              @click="handleOrderDeselected(order)"
-            />
           </div>
-        </div>
-        <p v-else class="py-6 text-center text-sm text-muted">
-          ยังไม่มีรายการที่เลือก
-        </p>
-      </template>
+          <p v-else class="py-6 text-center text-sm text-muted">
+            ยังไม่มีรายการที่เลือก
+          </p>
+        </template>
 
-      <template #footer>
-        <div class="flex w-full justify-end gap-3">
-          <UButton label="ยกเลิก" color="neutral" variant="outline" @click="isBulkDeleteOpen = false" />
-          <UButton label="ลบ" color="error" :disabled="!selectedRowsCount" :loading="isDeleting" @click="confirmBulkDelete" />
-        </div>
-      </template>
+        <template #footer>
+          <div class="flex w-full justify-end gap-3">
+            <UButton label="ยกเลิก" color="neutral" variant="outline" @click="isBulkDeleteOpen = false" />
+            <UButton label="ลบ" color="error" :disabled="!selectedRowsCount" :loading="isDeleting"
+              @click="confirmBulkDelete" />
+          </div>
+        </template>
       </UModal>
 
-      <UIConfirmModal
-      v-model:open="isDeleteOpen"
-      title="ลบรายการรับผ้า"
-      description="ยืนยันการลบรายการรับผ้านี้ออกจากระบบ"
-      icon="i-lucide-trash-2"
-      icon-color="error"
-      confirm-label="ลบรายการ"
-      confirm-color="error"
-      :loading="isDeleting"
-      @confirm="confirmDelete"
-    >
-      <template #message>
-        ต้องการลบรายการของ
-        <strong class="text-highlighted">
-          {{ deletingOrder?.customer.name || deletingOrder?.customer.email }}
-        </strong>
-        ใช่หรือไม่?
-      </template>
+      <UIConfirmModal v-model:open="isDeleteOpen" title="ลบรายการรับผ้า"
+        description="ยืนยันการลบรายการรับผ้านี้ออกจากระบบ" icon="i-lucide-trash-2" icon-color="error"
+        confirm-label="ลบรายการ" confirm-color="error" :loading="isDeleting" @confirm="confirmDelete">
+        <template #message>
+          ต้องการลบรายการของ
+          <strong class="text-highlighted">
+            {{ deletingOrder?.customer.name || deletingOrder?.customer.email }}
+          </strong>
+          ใช่หรือไม่?
+        </template>
 
-      <template #subMessage>
-        <div class="space-y-1">
-          <p class="text-sm text-muted">เลขรับผ้า: {{ deletingOrder?.orderNo || "-" }}</p>
-          <p class="text-sm text-muted">จำนวนรายการ: {{ deletingOrder?.items.length || 0 }} รายการ</p>
-          <p class="text-sm text-muted">ยอดรวม: {{ formatCurrency(Number(deletingOrder?.totalAmount ?? 0)) }}</p>
-        </div>
-      </template>
+        <template #subMessage>
+          <div class="space-y-1">
+            <p class="text-sm text-muted">เลขรับผ้า: {{ deletingOrder?.orderNo || "-" }}</p>
+            <p class="text-sm text-muted">จำนวนรายการ: {{ deletingOrder?.items.length || 0 }} รายการ</p>
+            <p class="text-sm text-muted">ยอดรวม: {{ formatCurrency(Number(deletingOrder?.totalAmount ?? 0)) }}</p>
+          </div>
+        </template>
       </UIConfirmModal>
 
 
 
-    <EditPaymentStateModal
-      v-if="editPaymentTarget?.payment?.id"
-      v-model:open="editPaymentOpen"
-      :payment-id="editPaymentTarget.payment.id"
-      :payment-no="editPaymentTarget.payment.paymentNo"
-      :amount="Number(editPaymentTarget.payment.amount ?? 0)"
-      :status="editPaymentTarget.payment.status"
-      :method="editPaymentTarget.payment.method"
-      :existing-slip="editPaymentTarget.payment.slipImage ?? null"
-      @updated="onPaymentUpdated"
-    />
+      <EditPaymentStateModal v-if="editPaymentTarget?.payment?.id" v-model:open="editPaymentOpen"
+        :payment-id="editPaymentTarget.payment.id" :payment-no="editPaymentTarget.payment.paymentNo"
+        :amount="Number(editPaymentTarget.payment.amount ?? 0)" :status="editPaymentTarget.payment.status"
+        :method="editPaymentTarget.payment.method" :existing-slip="editPaymentTarget.payment.slipImage ?? null"
+        @updated="onPaymentUpdated" />
 
     </ClientOnly>
   </div>

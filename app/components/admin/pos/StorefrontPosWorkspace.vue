@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { parseDate, type CalendarDate } from "@internationalized/date";
+import { parseDate, today, type CalendarDate } from "@internationalized/date";
 import { useMediaQuery } from "@vueuse/core";
 import PosCatalogCard from "~~/app/components/admin/pos/PosCatalogCard.vue";
 import PosCheckoutPanel from "~~/app/components/admin/pos/PosCheckoutPanel.vue";
@@ -8,6 +8,8 @@ import type { AdminSaleSlipImage } from "~~/app/composables/useAdminSales";
 import type { AdminServiceOrderImage } from "~~/app/composables/useAdminServiceOrders";
 import { useBusinessSetting } from "~~/app/composables/useBusinessSetting";
 import { formatCurrency } from "~~/shared/utils/format";
+import { backdatedOrderSchema, type BackdatedOrderInput } from "~~/shared/utils/backdatedOrder";
+import { parseBangkokDateTime } from "~~/shared/utils/pickup";
 
 const dashboardCardClass =
   "-mx-2 border border-default/30 bg-default p-4 dark:border-default/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg";
@@ -30,12 +32,74 @@ type FormItemState = {
 
 const BANGKOK_OFFSET_MS = 7 * 60 * 60 * 1000;
 
+const props = withDefaults(defineProps<{
+  backdated?: boolean;
+}>(), {
+  backdated: false,
+});
+
 const emit = defineEmits<{
-  completed: [payload: { paymentId: string; serviceOrderId: string; orderNo: string | null; activationToken?: string | null; saleType: "STOREFRONT"; title: string }];
+  completed: [payload: { paymentId: string; serviceOrderId: string; orderNo: string | null; activationToken?: string | null; saleType: "STOREFRONT"; title: string; paid?: boolean }];
 }>();
 
 const notify = useNotify();
-const { customers, isLoading: isCustomersLoading, setSearch: setCustomerSearch } = useAdminCustomerOptions();
+const backdatedEnabled = computed(() => props.backdated);
+const historicalMaxDate = today("Asia/Bangkok");
+const historicalReceivedDate = shallowRef<CalendarDate | null>(null);
+const historicalReceivedTime = ref("00:00");
+const historicalCompletedDate = shallowRef<CalendarDate | null>(null);
+const historicalCompletedTime = ref("00:00");
+const historicalStatus = ref<BackdatedOrderInput["status"]>("RECEIVED");
+const historicalPaymentStatus = ref<"UNPAID" | "PAID">("PAID");
+const historicalPaidDate = shallowRef<CalendarDate | null>(null);
+const historicalPaidTime = ref("00:00");
+const historicalReceivedTimeSearch = ref("");
+const historicalCompletedTimeSearch = ref("");
+const historicalPaidTimeSearch = ref("");
+const historicalMethod = ref<"CASH" | "TRANSFER">("CASH");
+const historicalError = ref("");
+const historicalPaid = computed(() => historicalPaymentStatus.value === "PAID");
+const historicalDateTime = (date: CalendarDate | null, time: string) => date
+  ? `${date.toString()}T${time}`
+  : "";
+const historicalReceivedAt = computed(() => historicalReceivedDate.value
+  ? historicalDateTime(historicalReceivedDate.value, historicalReceivedTime.value)
+  : "");
+const historicalCompletedAt = computed(() => historicalDateTime(historicalCompletedDate.value, historicalCompletedTime.value));
+const historicalPaidAt = computed(() => historicalDateTime(historicalPaidDate.value, historicalPaidTime.value));
+const historicalCustomerDate = computed(() => {
+  const date = parseBangkokDateTime(historicalReceivedAt.value);
+  return backdatedEnabled.value && date && !Number.isNaN(date.getTime()) && date <= new Date()
+    ? date.toISOString() : undefined;
+});
+const { customers, isLoading: isCustomersLoading, setSearch: setCustomerSearch } = useAdminCustomerOptions(historicalCustomerDate);
+const historicalStatusOptions = [
+  { label: "รับผ้าแล้ว", value: "RECEIVED" },
+  { label: "กำลังดำเนินการ", value: "PROCESSING" },
+  { label: "กำลังจัดส่ง", value: "DELIVERING" },
+  { label: "เสร็จแล้ว", value: "COMPLETED" },
+];
+const historicalPaymentStatusOptions = [
+  { label: "ยังไม่ชำระ", value: "UNPAID" },
+  { label: "ชำระแล้ว", value: "PAID" },
+];
+const historicalPaymentOptions = [{ label: "เงินสด", value: "CASH" }, { label: "โอนเงิน", value: "TRANSFER" }];
+const normalizeHistoricalTime = (value: string) => {
+  const input = value.trim().replace(".", ":");
+  const match = input.match(/^(\d{1,2}):?(\d{2})$/);
+  if (!match) return input;
+  const hour = Number(match[1]);
+  const minute = Number(match[2]);
+  if (hour > 23 || minute > 59) return input;
+  return `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
+};
+const setHistoricalTime = (field: "received" | "completed" | "paid", value: string) => {
+  if (!value.trim()) return;
+  const normalized = normalizeHistoricalTime(value);
+  if (field === "received") historicalReceivedTime.value = normalized;
+  if (field === "completed") historicalCompletedTime.value = normalized;
+  if (field === "paid") historicalPaidTime.value = normalized;
+};
 const { hangerPricePerUnit, washFoldPricePerKg, washFoldMinKg, vatRate, vatIncluded, computeVatPreview } = useBusinessSetting();
 const { items, isLoading: isCatalogLoading, refresh } = useStorefrontCatalog();
 const { createServiceOrderOrThrow, uploadOrderImage } = useAdminServiceOrders({
@@ -127,13 +191,65 @@ const customerOptions = computed(() =>
     phoneNumber: customer.phoneNumber,
     customerAccountStatus: customer.customerAccountStatus,
     activeMemberEntitlement: customer.activeMemberEntitlement ?? null,
+    memberEntitlementOptions: customer.memberEntitlementOptions ?? [],
     addonEntitlements: customer.addonEntitlements ?? [],
   })),
 );
 const selectedCustomer = computed(() => customerOptions.value.find((customer) => customer.value === form.customerId) ?? null);
 const activeMemberEntitlement = computed(() => selectedCustomer.value?.activeMemberEntitlement ?? null);
 const activeAddonEntitlements = computed(() => selectedCustomer.value?.addonEntitlements ?? []);
-const canUseMemberPackage = computed(() => form.customerMode === "existing" && Boolean(activeMemberEntitlement.value));
+const memberEntitlementOptions = computed(() => selectedCustomer.value?.memberEntitlementOptions ?? []);
+const selectedMemberEntitlement = computed(() =>
+  memberEntitlementOptions.value.find((option) => option.id === form.memberEntitlementId) ?? activeMemberEntitlement.value
+);
+const canUseMemberPackage = computed(() => form.customerMode === "existing" && Boolean(selectedMemberEntitlement.value));
+const formatEntitlementDate = (value: string | null) => {
+  if (!value) return "?";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "?";
+  const bkk = new Date(date.getTime() + BANGKOK_OFFSET_MS);
+  return `${String(bkk.getUTCDate()).padStart(2, "0")}/${String(bkk.getUTCMonth() + 1).padStart(2, "0")}/${bkk.getUTCFullYear()}`;
+};
+const memberEntitlementPickerItems = computed(() => memberEntitlementOptions.value.map((option) => ({
+  label: `${option.productName} · ${formatEntitlementDate(option.startAt)}–${formatEntitlementDate(option.endAt)} · เครดิตคงเหลือ ${option.creditRemaining ?? 0}`,
+  value: option.id,
+})));
+const memberEntitlementPickerValue = computed({
+  get: () => form.memberEntitlementId ?? undefined,
+  set: (value: string | undefined) => { form.memberEntitlementId = value ?? null; },
+});
+const entitlementCalendarDate = (value: string | null) => {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  const bkk = new Date(date.getTime() + BANGKOK_OFFSET_MS);
+  return parseDate(`${bkk.getUTCFullYear()}-${String(bkk.getUTCMonth() + 1).padStart(2, "0")}-${String(bkk.getUTCDate()).padStart(2, "0")}`);
+};
+const historicalReceivedInstant = computed(() => {
+  if (!backdatedEnabled.value) return null;
+  const date = parseBangkokDateTime(historicalReceivedAt.value);
+  return date && !Number.isNaN(date.getTime()) ? date : null;
+});
+const entitlementWindowError = computed(() => {
+  if (!backdatedEnabled.value || !form.memberEntitlementId || isCustomersLoading.value) return "";
+  const entitlement = memberEntitlementOptions.value.find((option) => option.id === form.memberEntitlementId);
+  if (!entitlement) return "แพ็กเกจที่เลือกไม่ครอบคลุมวันรับผ้านี้ กรุณาเลือกแพ็กเกจใหม่";
+  const receivedAt = historicalReceivedInstant.value;
+  if (!receivedAt) return "";
+  const startAt = entitlement.startAt ? new Date(entitlement.startAt) : null;
+  const endAt = entitlement.endAt ? new Date(entitlement.endAt) : null;
+  if ((startAt && receivedAt < startAt) || (endAt && receivedAt > endAt)) {
+    return `วันและเวลารับผ้าต้องอยู่ในช่วงสิทธิ์ ${formatEntitlementDate(entitlement.startAt)}–${formatEntitlementDate(entitlement.endAt)} เท่านั้น`;
+  }
+  return "";
+});
+const historicalReceivedDateBounds = computed(() => {
+  const entitlement = backdatedEnabled.value && form.memberEntitlementId ? selectedMemberEntitlement.value : null;
+  return {
+    minValue: entitlement ? entitlementCalendarDate(entitlement.startAt) ?? undefined : undefined,
+    maxValue: entitlement ? entitlementCalendarDate(entitlement.endAt) ?? historicalMaxDate : historicalMaxDate,
+  };
+});
 const canUseAddonPackages = computed(() => form.customerMode === "existing" && activeAddonEntitlements.value.length > 0);
 
 const filteredCatalog = computed(() => {
@@ -250,7 +366,7 @@ const sanitizedDiscountAmount = computed(() => {
   return Math.min(raw, subtotalAmount.value);
 });
 
-const dueTimeOptions = computed(() => {
+const timeOptions = computed(() => {
   const options: Array<{ label: string; value: string }> = [];
   for (let hour = 0; hour < 24; hour += 1) {
     for (let minute = 0; minute < 60; minute += 30) {
@@ -273,6 +389,9 @@ const formatDueDateLabel = (value: CalendarDate | null) => {
   return `${dd}/${mm}/${value.year}`;
 };
 const dueDateLabel = computed(() => formatDueDateLabel(dueDate.value));
+const historicalReceivedDateLabel = computed(() => formatDueDateLabel(historicalReceivedDate.value));
+const historicalCompletedDateLabel = computed(() => formatDueDateLabel(historicalCompletedDate.value));
+const historicalPaidDateLabel = computed(() => formatDueDateLabel(historicalPaidDate.value));
 
 const setPickupDow = (targetDow: number) => {
   const now = new Date();
@@ -295,7 +414,7 @@ const clearDueDate = () => {
   dueTime.value = "00:00";
 };
 
-const creditAvailable = computed(() => Math.max(0, Number(activeMemberEntitlement.value?.creditRemaining ?? 0)));
+const creditAvailable = computed(() => Math.max(0, Number(selectedMemberEntitlement.value?.creditRemaining ?? 0)));
 const creditUsedPreview = computed(() => {
   if (!form.memberEntitlementId) return 0;
   return Math.min(totalQuantity.value, creditAvailable.value);
@@ -510,6 +629,19 @@ const setAddonCredits = (entitlementId: string, value: number | string | null | 
 };
 
 const resetForm = () => {
+  historicalReceivedDate.value = null;
+  historicalReceivedTime.value = "00:00";
+  historicalReceivedTimeSearch.value = "";
+  historicalCompletedDate.value = null;
+  historicalCompletedTime.value = "00:00";
+  historicalCompletedTimeSearch.value = "";
+  historicalPaidDate.value = null;
+  historicalPaidTime.value = "00:00";
+  historicalPaidTimeSearch.value = "";
+  historicalStatus.value = "RECEIVED";
+  historicalPaymentStatus.value = "PAID";
+  historicalMethod.value = "CASH";
+  historicalError.value = "";
   Object.assign(form, createEmptyForm());
   dueDate.value = null;
   dueTime.value = "00:00";
@@ -566,6 +698,9 @@ watch(
   [() => form.customerMode, activeMemberEntitlement],
   ([customerMode, entitlement]) => {
     if (customerMode !== "existing" || !entitlement) { form.memberEntitlementId = null; return; }
+    // Keep an explicit pick as long as it still covers the receive date;
+    // re-default only when the current selection is no longer offered.
+    if (form.memberEntitlementId && memberEntitlementOptions.value.some((option) => option.id === form.memberEntitlementId)) return;
     form.memberEntitlementId = (entitlement.creditRemaining ?? 0) > 0 ? entitlement.id : null;
   },
   { immediate: true },
@@ -594,6 +729,29 @@ watch(() => form.hangerCount, (raw) => { const v = Number.isFinite(raw) ? raw : 
 watch(() => form.missingHangerCount, (raw) => { const v = Number.isFinite(raw) ? raw : 0; form.missingHangerCount = v; if (v !== form.hangerCount) form.hangerCount = v; });
 
 const handleSubmit = async () => {
+  if (isSubmitting.value) return;
+  historicalError.value = "";
+  const backdated: BackdatedOrderInput | undefined = backdatedEnabled.value ? {
+    receivedAt: historicalReceivedAt.value,
+    status: historicalStatus.value,
+    ...(historicalStatus.value === "COMPLETED" ? { completedAt: historicalCompletedAt.value } : {}),
+    ...(historicalPaid.value && !isMemberWithZeroTotal.value ? { payment: { paidAt: historicalPaidAt.value, method: historicalMethod.value } } : {}),
+  } : undefined;
+  if (backdated) {
+    const validation = backdatedOrderSchema().safeParse(backdated);
+    if (!validation.success) {
+      historicalError.value = validation.error.issues[0]?.message || "กรุณาตรวจสอบข้อมูลย้อนหลัง";
+      return;
+    }
+    if (isCustomersLoading.value) {
+      historicalError.value = "กำลังตรวจสอบแพ็กเกจตามวันรับผ้า กรุณารอสักครู่";
+      return;
+    }
+    if (entitlementWindowError.value) {
+      historicalError.value = entitlementWindowError.value;
+      return;
+    }
+  }
   if (form.customerMode === "existing" && !form.customerId) return notify.validationError("กรุณาเลือกลูกค้า");
   if (form.customerMode === "new" && !form.newCustomerName.trim()) return notify.validationError("กรุณากรอกชื่อลูกค้า");
   if (form.customerMode === "new" && !form.newCustomerPhone.trim()) return notify.validationError("กรุณากรอกเบอร์โทรลูกค้า");
@@ -613,6 +771,7 @@ const handleSubmit = async () => {
     await uploadOrderImagesIfNeeded();
 
     const result = await createServiceOrderOrThrow({
+      backdated,
       customerId: form.customerMode === "existing" ? form.customerId : undefined,
       newCustomer: form.customerMode === "new" ? {
         name: form.newCustomerName.trim(),
@@ -642,7 +801,8 @@ const handleSubmit = async () => {
         orderNo: result.orderNo,
         activationToken: result.activationToken,
         saleType: "STOREFRONT",
-        title: "บันทึกรายการรับผ้าสำเร็จ",
+        paid: Boolean(backdated?.payment) || isMemberWithZeroTotal.value,
+        title: backdated ? "บันทึกรายการรับผ้าย้อนหลังสำเร็จ" : "บันทึกรายการรับผ้าสำเร็จ",
       });
       resetForm();
       await refresh();
@@ -880,7 +1040,7 @@ const useDuplicateCustomer = async () => {
         total-label="ยอดรวมสุทธิ"
         :total-value="formatCurrency(totalAmount)"
         :total-meta="`${cartItems.length} รายการ | ${totalQuantity} ชิ้น`"
-        submit-label="บันทึกรับผ้า"
+        :submit-label="backdatedEnabled ? 'บันทึกรับผ้าย้อนหลัง' : 'บันทึกรับผ้า'"
         :is-submitting="isSubmitting"
         :slip-file="slipFile"
         :uploaded-slip-url="uploadedSlip?.secureUrl || uploadedSlip?.url"
@@ -899,6 +1059,116 @@ const useDuplicateCustomer = async () => {
         @reset="resetForm"
       >
         <template #cart>
+          <div v-if="backdatedEnabled" :class="[checkoutSectionClass, 'space-y-3']">
+            <UFormField label="วันและเวลารับผ้าจริง" required>
+              <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                <UPopover>
+                  <UButton
+                    :label="historicalReceivedDateLabel"
+                    icon="i-lucide-calendar"
+                    color="neutral"
+                    variant="outline"
+                    block
+                    class="justify-start font-normal"
+                  />
+                  <template #content>
+                    <UCalendar v-model="historicalReceivedDate" v-bind="historicalReceivedDateBounds" locale="th-TH" class="p-2" />
+                  </template>
+                </UPopover>
+                <UInputMenu
+                  v-model="historicalReceivedTime"
+                  v-model:search-term="historicalReceivedTimeSearch"
+                  :items="timeOptions"
+                  value-key="value"
+                  create-item="always"
+                  icon="i-lucide-clock"
+                  placeholder="เช่น 09:15"
+                  class="w-full"
+                  @create="setHistoricalTime('received', $event)"
+                  @blur="setHistoricalTime('received', historicalReceivedTimeSearch)"
+                />
+              </div>
+            </UFormField>
+            <UFormField label="สถานะปัจจุบัน" required>
+              <USelect v-model="historicalStatus" :items="historicalStatusOptions" value-key="value" class="w-full" />
+            </UFormField>
+            <UFormField v-if="historicalStatus === 'COMPLETED'" label="วันและเวลาเสร็จจริง" required>
+              <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                <UPopover>
+                  <UButton
+                    :label="historicalCompletedDateLabel"
+                    icon="i-lucide-calendar"
+                    color="neutral"
+                    variant="outline"
+                    block
+                    class="justify-start font-normal"
+                  />
+                  <template #content>
+                    <UCalendar v-model="historicalCompletedDate" :max-value="historicalMaxDate" locale="th-TH" class="p-2" />
+                  </template>
+                </UPopover>
+                <UInputMenu
+                  v-model="historicalCompletedTime"
+                  v-model:search-term="historicalCompletedTimeSearch"
+                  :items="timeOptions"
+                  value-key="value"
+                  create-item="always"
+                  icon="i-lucide-clock"
+                  placeholder="เช่น 16:45"
+                  class="w-full"
+                  @create="setHistoricalTime('completed', $event)"
+                  @blur="setHistoricalTime('completed', historicalCompletedTimeSearch)"
+                />
+              </div>
+            </UFormField>
+            <template v-if="!isMemberWithZeroTotal">
+              <UFormField label="สถานะการชำระเงิน" required>
+                <URadioGroup
+                  v-model="historicalPaymentStatus"
+                  :items="historicalPaymentStatusOptions"
+                  value-key="value"
+                  variant="card"
+                  orientation="horizontal"
+                  :ui="{ fieldset: 'grid grid-cols-2 gap-2' }"
+                />
+              </UFormField>
+              <template v-if="historicalPaid">
+                <UFormField label="วันและเวลาชำระเงินจริง" required>
+                  <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                    <UPopover>
+                      <UButton
+                        :label="historicalPaidDateLabel"
+                        icon="i-lucide-calendar"
+                        color="neutral"
+                        variant="outline"
+                        block
+                        class="justify-start font-normal"
+                      />
+                      <template #content>
+                        <UCalendar v-model="historicalPaidDate" :max-value="historicalMaxDate" locale="th-TH" class="p-2" />
+                      </template>
+                    </UPopover>
+                    <UInputMenu
+                      v-model="historicalPaidTime"
+                      v-model:search-term="historicalPaidTimeSearch"
+                      :items="timeOptions"
+                      value-key="value"
+                      create-item="always"
+                      icon="i-lucide-clock"
+                      placeholder="เช่น 10:20"
+                      class="w-full"
+                      @create="setHistoricalTime('paid', $event)"
+                      @blur="setHistoricalTime('paid', historicalPaidTimeSearch)"
+                    />
+                  </div>
+                </UFormField>
+                <UFormField label="วิธีชำระเงิน" required>
+                  <USelect v-model="historicalMethod" :items="historicalPaymentOptions" value-key="value" class="w-full" />
+                </UFormField>
+              </template>
+            </template>
+            <p v-if="historicalError" role="alert" class="text-sm text-error">{{ historicalError }}</p>
+          </div>
           <div :class="[checkoutSectionClass, 'space-y-3']">
             <div v-if="form.washFoldMode" class="border-l-2 border-warning pl-3">
               <div class="flex items-center justify-between gap-3">
@@ -920,19 +1190,32 @@ const useDuplicateCustomer = async () => {
               <div v-if="canUseMemberPackage" class="border-l-2 border-success pl-3">
                 <div class="flex items-start justify-between gap-3">
                   <div class="min-w-0">
-                    <p class="truncate text-sm font-medium text-success">{{ activeMemberEntitlement?.productName }}</p>
+                    <p class="truncate text-sm font-medium text-success">{{ selectedMemberEntitlement?.productName }}</p>
                     <p class="text-xs text-muted">
-                      เครดิตคงเหลือ {{ activeMemberEntitlement?.creditRemaining ?? 0 }} | ใช้ {{ creditUsedPreview }} เครดิต
+                      เครดิตคงเหลือ {{ selectedMemberEntitlement?.creditRemaining ?? 0 }} | ใช้ {{ creditUsedPreview }} เครดิต
                       <span v-if="form.memberEntitlementId && cashQuantity > 0">| คิดเพิ่ม {{ cashQuantity }} ชิ้น ({{ formatCurrency(cashSubtotal) }})</span>
                     </p>
+                    <p v-if="backdatedEnabled && selectedMemberEntitlement" class="text-xs text-muted">
+                      ช่วงสิทธิ์ {{ formatEntitlementDate(selectedMemberEntitlement.startAt) }}–{{ formatEntitlementDate(selectedMemberEntitlement.endAt) }}
+                    </p>
+                    <p v-if="entitlementWindowError" class="text-xs font-medium text-error">{{ entitlementWindowError }}</p>
                   </div>
                   <USwitch
                     :model-value="Boolean(form.memberEntitlementId)"
                     color="success"
                     size="sm"
-                    @update:model-value="form.memberEntitlementId = $event ? activeMemberEntitlement?.id ?? null : null"
+                    @update:model-value="form.memberEntitlementId = $event ? selectedMemberEntitlement?.id ?? null : null"
                   />
                 </div>
+                <USelect
+                  v-if="backdatedEnabled && memberEntitlementOptions.length > 1"
+                  v-model="memberEntitlementPickerValue"
+                  :items="memberEntitlementPickerItems"
+                  value-key="value"
+                  size="xs"
+                  class="mt-2 w-full"
+                  aria-label="เลือกแพ็กเกจที่ใช้"
+                />
               </div>
 
               <div class="divide-y divide-default">
@@ -1093,7 +1376,7 @@ const useDuplicateCustomer = async () => {
                     <UCalendar v-model="dueDate" locale="th-TH" class="p-2" />
                   </template>
                 </UPopover>
-                <USelect v-model="dueTime" :items="dueTimeOptions" value-key="value" icon="i-lucide-clock" class="w-full" />
+                <USelect v-model="dueTime" :items="timeOptions" value-key="value" icon="i-lucide-clock" class="w-full" />
               </div>
               <p v-else class="text-xs text-muted">ไม่ระบุวันนัด — กดพุธ / เสาร์ หรือ
                 <button class="underline" @click="setPickupDow(3)">เลือกวัน</button>

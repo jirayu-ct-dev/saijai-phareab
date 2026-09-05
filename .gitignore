@@ -69,3 +69,4 @@ database_export/
 print-bridge/gateway-state.json
 print-bridge/*.key
 print-bridge/*.crt
+backups/

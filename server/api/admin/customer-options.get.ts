@@ -3,15 +3,22 @@ import { requireRole } from "~~/server/utils/auth";
 import { isInternalCustomerEmail } from "~~/server/utils/customerAccount";
 import { z } from "zod";
 import { normalizeThaiPhoneNumber } from "~~/shared/utils/phone";
+import { parseBangkokDateTime } from "~~/shared/utils/pickup";
+import { backdatedEntitlementWhere } from "~~/server/utils/backdatedEntitlement";
 
 const querySchema = z.object({
   q: z.string().trim().max(100).optional().default(""),
   limit: z.coerce.number().int().min(1).max(50).optional().default(20),
+  receivedAt: z.string().optional(),
 });
 
 export default defineEventHandler(async (event) => {
   await requireRole(event, ["EMPLOYEE", "ADMIN"]);
-  const { q, limit } = await getValidatedQuery(event, querySchema.parse);
+  const { q, limit, receivedAt } = await getValidatedQuery(event, querySchema.parse);
+  const historicalDate = parseBangkokDateTime(receivedAt);
+  if (receivedAt !== undefined && (!historicalDate || Number.isNaN(historicalDate.getTime()) || historicalDate > new Date())) {
+    throw createError({ statusCode: 400, statusMessage: "วันรับผ้าย้อนหลังไม่ถูกต้อง" });
+  }
   const normalizedPhoneQuery = q ? normalizeThaiPhoneNumber(q) : null;
 
   try {
@@ -45,6 +52,9 @@ export default defineEventHandler(async (event) => {
           where: {
             deletedAt: null,
             status: "ACTIVE",
+            ...(historicalDate
+              ? backdatedEntitlementWhere(historicalDate)
+              : { OR: [{ endAt: null }, { endAt: { gte: new Date() } }] }),
           },
           orderBy: [
             { product: { packageType: "asc" } },
@@ -55,6 +65,7 @@ export default defineEventHandler(async (event) => {
             id: true,
             creditInitial: true,
             creditRemaining: true,
+            startAt: true,
             endAt: true,
             product: {
               select: {
@@ -87,6 +98,17 @@ export default defineEventHandler(async (event) => {
         phoneNumber: user.phoneNumber,
         image: user.image,
         customerAccountStatus: user.customerAccountStatus,
+        memberEntitlementOptions: user.memberEntitlements
+          .filter((entitlement) => entitlement.product.packageType === "MAIN")
+          .map((entitlement) => ({
+            id: entitlement.id,
+            productId: entitlement.product.id,
+            productName: entitlement.product.name,
+            creditInitial: entitlement.creditInitial,
+            creditRemaining: entitlement.creditRemaining,
+            startAt: entitlement.startAt?.toISOString() ?? null,
+            endAt: entitlement.endAt?.toISOString() ?? null,
+          })),
         activeMemberEntitlement: activeMemberEntitlement
           ? {
               id: activeMemberEntitlement.id,
@@ -94,6 +116,7 @@ export default defineEventHandler(async (event) => {
               productName: activeMemberEntitlement.product.name,
               creditInitial: activeMemberEntitlement.creditInitial,
               creditRemaining: activeMemberEntitlement.creditRemaining,
+              startAt: activeMemberEntitlement.startAt?.toISOString() ?? null,
               endAt: activeMemberEntitlement.endAt?.toISOString() ?? null,
             }
           : null,

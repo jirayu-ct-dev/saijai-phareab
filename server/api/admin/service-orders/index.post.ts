@@ -12,8 +12,11 @@ import { notifyQuotationCreated, notifyServiceOrderCreated, notifyServiceOrderSt
 import { createAddonUsageRecords } from "~~/server/utils/serviceOrderCredits";
 import { isServiceOrderStatus, resolveServiceOrderCompletedAt } from "~~/server/utils/serviceOrderStatusTransition";
 import { parseBangkokDateTime } from "~~/shared/utils/pickup";
+import { backdatedOrderSchema } from "~~/shared/utils/backdatedOrder";
+import { backdatedEntitlementWhere } from "~~/server/utils/backdatedEntitlement";
 
 type CreateServiceOrderBody = {
+  backdated?: unknown;
   customerId?: string | null;
   newCustomer?: { name?: string | null; phoneNumber?: string | null; email?: string | null } | null;
   memberEntitlementId?: string | null;
@@ -44,6 +47,15 @@ type CreateServiceOrderBody = {
 export default defineEventHandler(async (event) => {
   const actor = requireRole(event, ["EMPLOYEE", "ADMIN"]);
   const body = await readBody<CreateServiceOrderBody>(event);
+  const recordedAt = new Date();
+  const historyResult = backdatedOrderSchema(recordedAt).optional().safeParse(body.backdated);
+  if (!historyResult.success) {
+    throw createError({ statusCode: 400, statusMessage: historyResult.error.issues[0]?.message || "ข้อมูลย้อนหลังไม่ถูกต้อง" });
+  }
+  const history = historyResult.data;
+  // Without backdating, an entitlement is usable only while its validity window
+  // covers "now" — status alone stays ACTIVE after endAt passes.
+  const activeEntitlementGuard = { OR: [{ endAt: null }, { endAt: { gte: recordedAt } }] };
 
   const customerId = body.customerId?.trim() || null;
   const newCustomer = body.newCustomer ?? null;
@@ -116,7 +128,7 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, statusMessage: "จำนวนส่วนลดต้องเป็น 0 หรือมากกว่า" });
   }
 
-  const serviceOrderStatus: ServiceOrderStatus = body.serviceOrderStatus ?? "RECEIVED";
+  const serviceOrderStatus: ServiceOrderStatus = history?.status ?? body.serviceOrderStatus ?? "RECEIVED";
   if (!isServiceOrderStatus(serviceOrderStatus)) {
     throw createError({ statusCode: 400, statusMessage: "สถานะรายการรับผ้าไม่ถูกต้อง" });
   }
@@ -129,11 +141,14 @@ export default defineEventHandler(async (event) => {
       statusMessage: "ไม่สามารถสร้างรายการรับผ้าในสถานะยกเลิกได้ กรุณาสร้างรายการก่อนแล้วยกเลิกผ่านหน้าจอเปลี่ยนสถานะ",
     });
   }
-  const receivedAt = new Date();
+  const receivedAt = history?.receivedAt ?? recordedAt;
   const dueAt = parseBangkokDateTime(body.dueAt);
 
   if (dueAt && Number.isNaN(dueAt.getTime())) {
     throw createError({ statusCode: 400, statusMessage: "วันนัดรับไม่ถูกต้อง" });
+  }
+  if (history && dueAt && dueAt < receivedAt) {
+    throw createError({ statusCode: 400, statusMessage: "วันนัดรับต้องไม่ก่อนวันรับผ้า" });
   }
 
   try {
@@ -247,7 +262,8 @@ export default defineEventHandler(async (event) => {
             id: requestedEntitlementId,
             customerId: paymentUserId!,
             deletedAt: null,
-            status: "ACTIVE",
+            ...(history ? backdatedEntitlementWhere(receivedAt) : { status: "ACTIVE" as const, ...activeEntitlementGuard }),
+            product: { packageType: "MAIN" },
           },
           select: {
             id: true,
@@ -257,7 +273,12 @@ export default defineEventHandler(async (event) => {
         });
 
         if (!memberEntitlement) {
-          throw createError({ statusCode: 404, statusMessage: "ไม่พบสิทธิ์แพ็กเกจรายเดือนที่เลือก" });
+          throw createError({
+            statusCode: 404,
+            statusMessage: history
+              ? "แพ็กเกจที่เลือกไม่ครอบคลุมวันรับผ้าที่ระบุ หรือไม่ใช่สิทธิ์ของลูกค้านี้"
+              : "ไม่พบสิทธิ์แพ็กเกจรายเดือนที่เลือก",
+          });
         }
       }
 
@@ -283,11 +304,14 @@ export default defineEventHandler(async (event) => {
       const vat = computeVat({ amount: beforeVat, rate: business.vatRate, included: business.vatIncluded });
       const payableAmount = vat.totalAmount;
       const isPackageFullyCovered = Boolean(memberEntitlement && creditUsed > 0 && payableAmount === 0);
+      const isPaid = isPackageFullyCovered || Boolean(history?.payment);
+      const paidAt = history?.payment?.paidAt ?? (isPackageFullyCovered ? receivedAt : null);
 
       if (memberEntitlement && creditUsed > 0) {
         const { count } = await tx.memberEntitlement.updateMany({
           where: {
             id: memberEntitlement.id,
+            ...(history ? backdatedEntitlementWhere(receivedAt) : activeEntitlementGuard),
             creditRemaining: { gte: creditUsed },
           },
           data: {
@@ -321,8 +345,8 @@ export default defineEventHandler(async (event) => {
           where: {
             id: entry.entitlementId,
             customerId: paymentUserId!,
-            status: "ACTIVE",
             deletedAt: null,
+            ...(history ? backdatedEntitlementWhere(receivedAt) : { status: "ACTIVE" as const, ...activeEntitlementGuard }),
             product: { packageType: "ADDON" },
           },
           include: { product: { select: { id: true, name: true, deductOn: true, isDelivery: true } } },
@@ -345,15 +369,17 @@ export default defineEventHandler(async (event) => {
             where: {
               id: addonEnt.id,
               creditRemaining: { gte: credits },
-              status: "ACTIVE",
               deletedAt: null,
+              ...(history ? backdatedEntitlementWhere(receivedAt) : { status: "ACTIVE" as const, ...activeEntitlementGuard }),
             },
             data: { creditRemaining: { decrement: credits } },
           });
           if (count === 0) {
             throw createError({ statusCode: 400, statusMessage: `เครดิตของ "${addonEnt.product.name}" ไม่พอ` });
           }
-          const deductedAt = new Date().toISOString();
+          const deductedAt = (history
+            ? (addonEnt.product.deductOn === "COMPLETED" ? history.completedAt! : receivedAt)
+            : recordedAt).toISOString();
           usage.appliedAt = deductedAt;
           usage.deductedAt = deductedAt;
         }
@@ -362,8 +388,8 @@ export default defineEventHandler(async (event) => {
 
       const serviceOrder = await tx.serviceOrder.create({
         data: {
-          orderNo: await createServiceOrderNo(receivedAt),
-          quotationNo: await createQuotationNo(receivedAt, tx),
+          orderNo: await createServiceOrderNo(recordedAt),
+          quotationNo: await createQuotationNo(recordedAt, tx),
           customerId: paymentUserId!,
           employeeId: actor.id,
           status: serviceOrderStatus,
@@ -371,7 +397,7 @@ export default defineEventHandler(async (event) => {
             fromStatus: null,
             toStatus: serviceOrderStatus,
             currentCompletedAt: null,
-            transitionAt: receivedAt,
+            transitionAt: history?.completedAt ?? receivedAt,
           }),
           memberEntitlementId: memberEntitlement?.id ?? null,
           creditUsed: memberEntitlement ? creditUsed : null,
@@ -434,20 +460,21 @@ export default defineEventHandler(async (event) => {
       const payment = await tx.paymentRecord.create({
         data: {
           paymentNo: await createPaymentNo(),
-          receiptNo: isPackageFullyCovered ? await createReceiptNo(receivedAt, tx) : null,
+          receiptNo: isPaid ? await createReceiptNo(recordedAt, tx) : null,
           userId: paymentUserId!,
           serviceOrderId: serviceOrder.id,
           amount: payableAmount,
-          status: isPackageFullyCovered ? "PAID" : "UNPAID",
-          method: null,
-          slipImageId: null,
+          status: isPaid ? "PAID" : "UNPAID",
+          method: history?.payment?.method ?? null,
+          slipImageId: history?.payment?.method === "TRANSFER" ? body.slipImageId?.trim() || null : null,
           note: body.note?.trim() || null,
-          paidAt: isPackageFullyCovered ? receivedAt : null,
-          confirmedAt: isPackageFullyCovered ? receivedAt : null,
-          confirmedById: isPackageFullyCovered ? actor.id : null,
+          paidAt,
+          confirmedAt: isPaid ? recordedAt : null,
+          confirmedById: isPaid ? actor.id : null,
           metadata: {
             createdByAdminId: actor.id,
             source: "admin-service-orders",
+            ...(history ? { backdated: { recordedAt: recordedAt.toISOString(), recordedById: actor.id, receivedAt: receivedAt.toISOString() } } : {}),
             orderNo: serviceOrder.orderNo,
             quotationNo: serviceOrder.quotationNo,
             subtotalAmount,
@@ -471,10 +498,11 @@ export default defineEventHandler(async (event) => {
       await tx.paymentAuditLog.create({
         data: {
           paymentId: payment.id,
-          action: isPackageFullyCovered ? "CONFIRMED" : "CREATED",
+          action: isPaid ? "CONFIRMED" : "CREATED",
           actorId: actor.id,
           afterJson: {
-            status: isPackageFullyCovered ? "PAID" : "UNPAID",
+            status: isPaid ? "PAID" : "UNPAID",
+            ...(history ? { backdated: true, receivedAt: receivedAt.toISOString(), completedAt: history.completedAt?.toISOString() ?? null, paidAt: paidAt?.toISOString() ?? null, recordedAt: recordedAt.toISOString() } : {}),
             amount: payableAmount,
             quotationNo: serviceOrder.quotationNo,
             receiptNo: payment.receiptNo,
@@ -489,12 +517,15 @@ export default defineEventHandler(async (event) => {
       };
     });
 
+    if (history) return { ...created, activationToken };
+
     if (serviceOrderStatus === "RECEIVED") {
       // Send RECEIVED notification first, then transition to PROCESSING
       await notifyServiceOrderCreated({ serviceOrderId: created.id });
       await notifyQuotationCreated({ serviceOrderId: created.id });
-      await prisma.serviceOrder.update({
-        where: { id: created.id },
+      // Guarded: a concurrent cancel must not be overwritten to PROCESSING.
+      await prisma.serviceOrder.updateMany({
+        where: { id: created.id, status: "RECEIVED", deletedAt: null },
         data: { status: "PROCESSING" },
       });
       void notifyServiceOrderStatusChanged({

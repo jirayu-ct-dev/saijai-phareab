@@ -8,6 +8,7 @@ import { prisma } from "~~/server/utils/prisma";
 import { createAddonUsageRecords, refundAddonUsages, voidPendingAddonUsageRecords } from "~~/server/utils/serviceOrderCredits";
 import { canTransitionServiceOrderStatus, isServiceOrderStatus, resolveServiceOrderCompletedAt } from "~~/server/utils/serviceOrderStatusTransition";
 import { parseBangkokDateTime } from "~~/shared/utils/pickup";
+import { backdatedEntitlementWhere } from "~~/server/utils/backdatedEntitlement";
 
 type UpdateServiceOrderBody = {
   customerId?: string | null;
@@ -294,12 +295,15 @@ export default defineEventHandler(async (event) => {
       // entitlement for it, or the stored creditUsed would trigger a second
       // refund on a later cancel/delete.
       if (requestedEntitlementId && serviceOrderStatus !== "CANCELLED") {
+        // An edit keeps the order's original receive date, so the replacement
+        // package must cover it — an edit cannot re-bill the order onto a
+        // package from another month (expired-but-covering stays allowed for
+        // backdated orders).
         const entitlement = await tx.memberEntitlement.findFirst({
           where: {
             id: requestedEntitlementId,
             customerId: customerId!,
-            deletedAt: null,
-            status: "ACTIVE",
+            ...backdatedEntitlementWhere(existing.receivedAt),
           },
           select: {
             id: true,
@@ -308,7 +312,7 @@ export default defineEventHandler(async (event) => {
         });
 
         if (!entitlement) {
-          throw createError({ statusCode: 404, statusMessage: "ไม่พบสิทธิ์แพ็กเกจรายเดือนที่เลือก" });
+          throw createError({ statusCode: 404, statusMessage: "ไม่พบสิทธิ์แพ็กเกจรายเดือนที่เลือก หรือช่วงสิทธิ์ไม่ครอบคลุมวันรับผ้าของรายการนี้" });
         }
 
         const creditAvailable = Math.max(0, Number(entitlement.creditRemaining ?? 0));
@@ -330,6 +334,7 @@ export default defineEventHandler(async (event) => {
             where: {
               id: entitlement.id,
               creditRemaining: { gte: creditUsed },
+              ...backdatedEntitlementWhere(existing.receivedAt),
             },
             data: {
               creditRemaining: {
@@ -369,8 +374,7 @@ export default defineEventHandler(async (event) => {
           where: {
             id: entry.entitlementId,
             customerId: customerId!,
-            status: "ACTIVE",
-            deletedAt: null,
+            ...backdatedEntitlementWhere(existing.receivedAt),
             product: { packageType: "ADDON" },
           },
           include: { product: { select: { id: true, name: true, deductOn: true, isDelivery: true } } },
@@ -393,8 +397,7 @@ export default defineEventHandler(async (event) => {
             where: {
               id: addonEnt.id,
               creditRemaining: { gte: credits },
-              status: "ACTIVE",
-              deletedAt: null,
+              ...backdatedEntitlementWhere(existing.receivedAt),
             },
             data: { creditRemaining: { decrement: credits } },
           });
@@ -515,16 +518,20 @@ export default defineEventHandler(async (event) => {
         }
       }
 
-      if (existing.payments[0]) {
+      if (existingPayment) {
         await tx.paymentRecord.update({
-          where: { id: existing.payments[0].id },
+          where: { id: existingPayment.id },
           data: {
             userId: paymentUserId!,
             amount: payableAmount,
             slipImageId: slipImageId ?? null,
             note: body.note?.trim() || null,
-            paidAt: existingPayment?.paidAt ?? new Date(),
+            // Keep the existing paidAt (including null on unpaid payments) and
+            // preserve earlier metadata such as the backdated marker.
             metadata: {
+              ...(existingPayment && typeof existingPayment.metadata === "object" && existingPayment.metadata
+                ? existingPayment.metadata
+                : {}),
               updatedByAdminId: actor.id,
               source: "admin-service-orders",
               orderNo: existing.orderNo,
@@ -544,6 +551,24 @@ export default defineEventHandler(async (event) => {
             },
           },
         });
+
+        await tx.paymentAuditLog.create({
+          data: {
+            paymentId: existingPayment.id,
+            action: "UPDATED",
+            actorId: actor.id,
+            beforeJson: {
+              userId: existingPayment.userId,
+              amount: Number(existingPayment.amount),
+              slipImageId: existingPayment.slipImageId,
+            },
+            afterJson: {
+              userId: paymentUserId,
+              amount: payableAmount,
+              slipImageId: slipImageId ?? null,
+            },
+          },
+        });
       } else {
         await tx.paymentRecord.create({
           data: {
@@ -553,7 +578,6 @@ export default defineEventHandler(async (event) => {
             amount: payableAmount,
             slipImageId: slipImageId ?? null,
             note: body.note?.trim() || null,
-            paidAt: new Date(),
             metadata: {
               createdByAdminId: actor.id,
               source: "admin-service-orders",

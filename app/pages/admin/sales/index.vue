@@ -14,6 +14,7 @@ type PaymentTarget = {
 };
 
 type CompletedSalePayload = {
+  paid?: boolean;
   paymentId: string;
   saleType: "PACKAGE" | "STOREFRONT";
   serviceOrderId?: string;
@@ -27,7 +28,12 @@ definePageMeta({
   middleware: ["role-employee"],
 });
 
-const activeMode = ref<"packages" | "storefront">("storefront");
+const activeMode = ref<"packages" | "storefront" | "backdated">("storefront");
+const backdatedEntryType = ref<"storefront" | "package">("storefront");
+const backdatedEntryOptions = [
+  { label: "รับผ้าหน้าร้าน", value: "storefront", icon: "i-lucide-shirt" },
+  { label: "ขายแพ็กเกจ", value: "package", icon: "i-lucide-package" },
+] as const;
 const saleResultModalOpen = ref(false);
 const latestSaleResult = reactive<CompletedSalePayload>({
   paymentId: "",
@@ -39,7 +45,7 @@ const latestSaleResult = reactive<CompletedSalePayload>({
 });
 
 type ModeOption = {
-  value: "storefront" | "packages";
+  value: "storefront" | "packages" | "backdated";
   label: string;
   shortLabel: string;
   icon: string;
@@ -61,6 +67,13 @@ const modeOptions = [
     icon: "i-lucide-package",
     description: "ขายแพ็กเกจสมาชิกและรับชำระเงิน",
   },
+  {
+    value: "backdated",
+    label: "ลงรายการย้อนหลัง",
+    shortLabel: "ลงรายการย้อนหลัง",
+    icon: "i-lucide-history",
+    description: "บันทึกออเดอร์รับผ้าหรือการขายแพ็กเกจที่เกิดขึ้นแล้วแต่ยังไม่ได้ลงในระบบ",
+  },
 ] satisfies ModeOption[];
 
 const modeOptionMap = Object.fromEntries(modeOptions.map((option) => [option.value, option])) as Record<
@@ -70,6 +83,7 @@ const modeOptionMap = Object.fromEntries(modeOptions.map((option) => [option.val
 const activeModeOption = computed(() => modeOptionMap[activeMode.value]);
 
 const handleCompleted = (payload: CompletedSalePayload) => {
+  latestSaleResult.paid = payload.paid;
   latestSaleResult.paymentId = payload.paymentId;
   latestSaleResult.saleType = payload.saleType;
   latestSaleResult.serviceOrderId = payload.serviceOrderId ?? "";
@@ -86,7 +100,7 @@ const closeSaleResultModal = () => {
 const openDocument = () => {
   if (!latestSaleResult.paymentId) return;
 
-  const documentType = latestSaleResult.saleType === "PACKAGE" ? "receipt" : "quotation";
+  const documentType = latestSaleResult.saleType === "PACKAGE" || latestSaleResult.paid ? "receipt" : "quotation";
   const target = `/admin/payment/${latestSaleResult.paymentId}/${documentType}`;
   if (import.meta.client) {
     window.open(target, "_blank", "noopener,noreferrer");
@@ -146,13 +160,13 @@ const handleRefresh = async () => {
 };
 
 const resultDescription = computed(() =>
-  latestSaleResult.saleType === "PACKAGE"
+  latestSaleResult.saleType === "PACKAGE" || latestSaleResult.paid
     ? "บันทึกการขายและรับชำระเงินเรียบร้อยแล้ว คุณสามารถเปิดใบเสร็จได้เลย"
     : "บันทึกรับงานแล้ว คุณสามารถเปิดใบแจ้งราคาหรือไปหน้าการชำระเงินต่อได้",
 );
 
 const primaryActionLabel = computed(() =>
-  latestSaleResult.saleType === "PACKAGE" ? "เปิดใบเสร็จ" : "เปิดใบแจ้งราคา",
+  latestSaleResult.saleType === "PACKAGE" || latestSaleResult.paid ? "เปิดใบเสร็จ" : "เปิดใบแจ้งราคา",
 );
 const primaryActionIcon = computed(() =>
   latestSaleResult.saleType === "PACKAGE" ? "i-lucide-receipt" : "i-lucide-file-text",
@@ -211,17 +225,6 @@ const copyActivationLink = async () => {
               />
 
               <UButton
-                label="ชำระเงิน"
-                icon="i-lucide-receipt"
-                color="neutral"
-                variant="outline"
-                class="shrink-0"
-                aria-label="ดูประวัติการชำระเงิน"
-                :ui="{ label: 'hidden md:inline' }"
-                @click="navigateTo('/admin/payment')"
-              />
-
-              <UButton
                 label="รายการรับผ้า"
                 icon="i-lucide-shopping-basket"
                 color="neutral"
@@ -230,6 +233,17 @@ const copyActivationLink = async () => {
                 aria-label="ดูรายงานการขาย"
                 :ui="{ label: 'hidden md:inline' }"
                 @click="navigateTo('/admin/service-orders')"
+              />
+
+              <UButton
+                label="ชำระเงิน"
+                icon="i-lucide-receipt"
+                color="neutral"
+                variant="outline"
+                class="shrink-0"
+                aria-label="ดูประวัติการชำระเงิน"
+                :ui="{ label: 'hidden md:inline' }"
+                @click="navigateTo('/admin/payment')"
               />
             </div>
           </template>
@@ -250,34 +264,71 @@ const copyActivationLink = async () => {
                 </div>
               </div>
 
-              <div
-                class="grid grid-cols-2 gap-1 rounded-lg border border-default/30 bg-elevated p-1 lg:w-80"
-                role="tablist"
-                aria-label="เลือกประเภทงานขาย"
-              >
-                <button
-                  v-for="option in modeOptions"
-                  :key="option.value"
-                  type="button"
-                  class="flex min-w-0 cursor-pointer items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition"
-                  :class="[
-                    activeMode === option.value
-                      ? 'bg-default text-highlighted ring-1 ring-default'
-                      : 'text-muted hover:text-highlighted'
-                  ]"
-                  role="tab"
-                  :aria-selected="activeMode === option.value"
-                  @click="activeMode = option.value"
+              <div class="flex flex-col items-stretch gap-2 lg:items-end">
+                <div
+                  class="grid grid-cols-3 gap-1 rounded-lg border border-default/30 bg-elevated p-1 lg:w-[32rem]"
+                  role="tablist"
+                  aria-label="เลือกประเภทงานขาย"
                 >
-                  <UIcon :name="option.icon" class="size-4 shrink-0" />
-                  <span class="truncate">{{ option.shortLabel }}</span>
-                </button>
+                  <button
+                    v-for="option in modeOptions"
+                    :key="option.value"
+                    type="button"
+                    class="flex min-w-0 cursor-pointer items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition"
+                    :class="[
+                      activeMode === option.value
+                        ? 'bg-default text-highlighted ring-1 ring-default'
+                        : 'text-muted hover:text-highlighted'
+                    ]"
+                    role="tab"
+                    :aria-selected="activeMode === option.value"
+                    @click="activeMode = option.value"
+                  >
+                    <UIcon :name="option.icon" class="size-4 shrink-0" />
+                    <span class="truncate">{{ option.shortLabel }}</span>
+                  </button>
+                </div>
+
+                <div
+                  v-if="activeMode === 'backdated'"
+                  class="grid grid-cols-2 gap-1 rounded-lg border border-default/30 bg-elevated p-1 lg:w-80"
+                  role="tablist"
+                  aria-label="เลือกประเภทรายการย้อนหลัง"
+                >
+                  <button
+                    v-for="option in backdatedEntryOptions"
+                    :key="option.value"
+                    type="button"
+                    class="flex min-w-0 cursor-pointer items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition"
+                    :class="[
+                      backdatedEntryType === option.value
+                        ? 'bg-default text-highlighted ring-1 ring-default'
+                        : 'text-muted hover:text-highlighted'
+                    ]"
+                    role="tab"
+                    :aria-selected="backdatedEntryType === option.value"
+                    @click="backdatedEntryType = option.value"
+                  >
+                    <UIcon :name="option.icon" class="size-4 shrink-0" />
+                    <span class="truncate">{{ option.label }}</span>
+                  </button>
+                </div>
               </div>
             </div>
           </section>
 
-          <PackagePosWorkspace v-if="activeMode === 'packages'" @completed="handleCompleted" />
-          <StorefrontPosWorkspace v-else @completed="handleCompleted" />
+          <PackagePosWorkspace
+            v-if="activeMode === 'packages' || (activeMode === 'backdated' && backdatedEntryType === 'package')"
+            :key="activeMode === 'packages' ? 'packages' : 'backdated-package'"
+            :backdated="activeMode === 'backdated'"
+            @completed="handleCompleted"
+          />
+          <StorefrontPosWorkspace
+            v-else
+            :key="activeMode === 'backdated' ? 'backdated-storefront' : 'storefront'"
+            :backdated="activeMode === 'backdated'"
+            @completed="handleCompleted"
+          />
         </div>
       </template>
     </UDashboardPanel>

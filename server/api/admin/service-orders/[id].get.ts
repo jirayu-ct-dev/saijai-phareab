@@ -58,6 +58,11 @@ export default defineEventHandler(async (event) => {
           createdAt: "desc",
         },
         include: {
+          auditLogs: {
+            where: { afterJson: { path: ["backdated"], equals: true } },
+            select: { id: true },
+            take: 1,
+          },
           slipImage: {
             select: {
               id: true,
@@ -168,6 +173,8 @@ export default defineEventHandler(async (event) => {
     creditUsed: serviceOrder.creditUsed,
     note: serviceOrder.note,
     receivedAt: serviceOrder.receivedAt.toISOString(),
+    completedAt: serviceOrder.completedAt?.toISOString() ?? null,
+    isBackdated: serviceOrder.payments.some((payment) => payment.auditLogs.length > 0),
     dueAt: serviceOrder.dueAt?.toISOString() ?? null,
     createdAt: serviceOrder.createdAt.toISOString(),
     updatedAt: serviceOrder.updatedAt.toISOString(),

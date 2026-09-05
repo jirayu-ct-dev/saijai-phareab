@@ -1,5 +1,6 @@
 import type { DeductOn } from "~~/shared/types/enums";
 import type { Prisma } from "~~/app/generated/prisma/client";
+import { backdatedEntitlementWhere } from "~~/server/utils/backdatedEntitlement";
 
 type TxClient = Prisma.TransactionClient;
 
@@ -106,6 +107,17 @@ export const deductAddonUsageRecords = async (tx: TxClient, serviceOrderId: stri
   });
 
   if (usages.length === 0) return [];
+  // A missed intake may use a package that has since expired. Its pending
+  // completion usage retains eligibility at intake, without reactivating it.
+  const historicalOrder = usages.some((usage) => usage.memberEntitlement?.status === "EXPIRED")
+    ? await tx.serviceOrder.findFirst({
+        where: {
+          id: serviceOrderId,
+          payments: { some: { auditLogs: { some: { afterJson: { path: ["backdated"], equals: true } } } } },
+        },
+        select: { receivedAt: true },
+      })
+    : null;
   const deductedAt = new Date();
   const deducted: StoredAddonUsage[] = [];
 
@@ -117,8 +129,13 @@ export const deductAddonUsageRecords = async (tx: TxClient, serviceOrderId: stri
     const { count } = await tx.memberEntitlement.updateMany({
       where: {
         id: usage.memberEntitlementId,
-        status: "ACTIVE",
         deletedAt: null,
+        // For a backdated order the window filter also admits an expired
+        // entitlement that covered the historical receive date; otherwise
+        // only an ACTIVE entitlement may be deducted.
+        ...(historicalOrder
+          ? backdatedEntitlementWhere(historicalOrder.receivedAt)
+          : { status: "ACTIVE" as const }),
         creditRemaining: { gte: usage.credits },
       },
       data: { creditRemaining: { decrement: usage.credits } },

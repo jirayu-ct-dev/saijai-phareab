@@ -47,6 +47,7 @@ export default defineEventHandler(async (event) => {
     "สถานะ": statusLabel[e.status] ?? e.status,
     "วันที่ซื้อ": formatBangkokDateTime(e.createdAt),
     "วันเริ่มใช้": formatBangkokDateTime(e.startAt),
+    "วันที่เปิดใช้": formatBangkokDateTime(e.activatedAt),
     "วันหมดอายุ": formatBangkokDateTime(e.endAt),
   }));
 
@@ -54,7 +55,7 @@ export default defineEventHandler(async (event) => {
     "ลูกค้า", "อีเมล", "เบอร์",
     "แพ็กเกจ", "ประเภท", "ราคา",
     "เครดิตเริ่ม", "เครดิตคงเหลือ", "เครดิตที่ใช้",
-    "สถานะ", "วันที่ซื้อ", "วันเริ่มใช้", "วันหมดอายุ",
+    "สถานะ", "วันที่ซื้อ", "วันเริ่มใช้", "วันที่เปิดใช้", "วันหมดอายุ",
   ];
   const csv = buildCsv(headers, rows);
   const fromTag = formatBangkokDateTag(from);

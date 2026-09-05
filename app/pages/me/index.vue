@@ -16,6 +16,18 @@ const period = ref<Period>("daily");
 const { user } = useUser();
 
 const showEmailBanner = ref(true);
+const EMAIL_BANNER_KEY = "saijai-email-banner-dismissed";
+onMounted(() => {
+  if (localStorage.getItem(EMAIL_BANNER_KEY) === "1") showEmailBanner.value = false;
+});
+const dismissEmailBanner = () => {
+  showEmailBanner.value = false;
+  try {
+    localStorage.setItem(EMAIL_BANNER_KEY, "1");
+  } catch {
+    // localStorage ใช้ไม่ได้ (เช่น private mode) — ปิดเฉพาะรอบนี้
+  }
+};
 const isRefreshing = ref(false);
 const refreshTick = ref(0);
 const handleRefresh = async () => {
@@ -83,7 +95,7 @@ const handleRefresh = async () => {
                   variant: 'solid',
                 }]"
                 close
-                @update:open="showEmailBanner = false"
+                @update:open="dismissEmailBanner"
               />
             </div>
           </ClientOnly>
