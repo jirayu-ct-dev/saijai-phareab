@@ -60,8 +60,9 @@ const items = [
               size="lg"
               class="w-full"
               :ui="{
-                list: 'border border-default/50 bg-white shadow-xs',
-                trigger: 'min-h-11',
+                list: 'p-0 rounded-lg border border-default/50 bg-elevated',
+                trigger: 'min-h-11 rounded-lg',
+                indicator: 'rounded-lg inset-y-0',
               }"
             >
           <template #content="{ item }">
