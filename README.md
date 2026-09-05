@@ -332,6 +332,14 @@ Vercel ไม่ใช่ Print Gateway และไม่สามารถเ�
 ของเครื่องพิมพ์ในร้าน ต้องมีเครื่อง/mini PC ในร้านที่รัน Gateway อยู่เสมอสำหรับ
 Wi-Fi/Ethernet printing
 
+## สำรองข้อมูล (CSV export)
+
+Admin ดาวน์โหลดรายงาน CSV ได้ที่ `/admin/settings/backup` (`GET /api/admin/exports/*`, เฉพาะ ADMIN, UTF-8 with BOM):
+
+- `customers` — snapshot ลูกค้าทั้งหมด (ไม่จำกัดช่วงเวลา, ไม่นับ soft-deleted)
+- `sales`, `orders`, `package-sales`, `addon-usages`, `members`, `employee-performance`, `expenses` — รายงานธุรกรรมตามช่วงวันที่ `?from=&to=` (เวลาไทย, สูงสุด 366 วัน)
+- รายงานยอดขาย/ขายแพ็กเกจรวมทุกสถานะการชำระ (คอลัมน์ `สถานะชำระเงิน`), รายงานออเดอร์ใช้ `completedAt` เป็นวันที่ส่งจริง (fallback เป็นวันที่ชำระเงินสำหรับงานเก่า)
+
 ## ระบบพิมพ์
 
 เส้นทางพิมพ์ปัจจุบัน:
