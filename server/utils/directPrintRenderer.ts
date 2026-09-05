@@ -56,7 +56,12 @@ async function pngToBitmap(png: Buffer, widthDots: number) {
   return { bytes: packed, widthDots: info.width };
 }
 
-const promptFontCache = new Map<400 | 700, Promise<Font>>();
+type PromptFonts = {
+  thai: Font;
+  latin: Font;
+};
+
+const promptFontCache = new Map<400 | 700, Promise<PromptFonts>>();
 
 const loadPrintAsset = async (key: string, missingMessage: string) => {
   const value = await useStorage("assets:printing").getItemRaw(key);
@@ -73,43 +78,65 @@ const loadPromptFont = async (weight: 400 | 700) => {
 };
 
 const loadBundledPromptFont = async (weight: 400 | 700) => {
-  const filename = `Prompt-normal-${weight}-thai.woff2`;
-  const font = fontkit.create(
-    await loadPrintAsset(`fonts/${filename}`, "Thai print font is unavailable"),
-  );
-  if (!("layout" in font)) throw new Error("Thai print font is unavailable");
-  return font;
+  const loadSubset = async (subset: "thai" | "latin") => {
+    const filename = `Prompt-normal-${weight}-${subset}.woff2`;
+    const font = fontkit.create(
+      await loadPrintAsset(`fonts/${filename}`, "Print font is unavailable"),
+    );
+    if (!("layout" in font)) throw new Error("Print font is unavailable");
+    return font;
+  };
+  const [thai, latin] = await Promise.all([loadSubset("thai"), loadSubset("latin")]);
+  return { thai, latin };
 };
 
 const shapedText = (
   value: string,
-  font: Font,
+  fonts: PromptFonts,
   fontSize: number,
   x: number,
   baseline: number,
 ) => {
   if (!value) return { path: "", width: 0 };
-  const scale = fontSize / font.unitsPerEm;
-  const run = font.layout(value);
-  let cursorX = x;
-  let cursorY = baseline;
-  const paths: string[] = [];
-  for (let index = 0; index < run.glyphs.length; index += 1) {
-    const glyph = run.glyphs[index];
-    const position = run.positions[index];
-    if (!glyph || !position) continue;
-    const data = glyph.path
-      .scale(scale, -scale)
-      .translate(
-        cursorX + position.xOffset * scale,
-        cursorY - position.yOffset * scale,
-      )
-      .toSVG();
-    if (data) paths.push(`<path d="${data}"/>`);
-    cursorX += position.xAdvance * scale;
-    cursorY -= position.yAdvance * scale;
+  const runs: Array<{ font: Font; value: string }> = [];
+  for (const character of value) {
+    const codePoint = character.codePointAt(0)!;
+    const currentFont = runs.at(-1)?.font;
+    const font = currentFont?.hasGlyphForCodePoint(codePoint)
+      ? currentFont
+      : fonts.thai.hasGlyphForCodePoint(codePoint)
+        ? fonts.thai
+        : fonts.latin.hasGlyphForCodePoint(codePoint)
+          ? fonts.latin
+          : fonts.thai;
+    const currentRun = runs.at(-1);
+    if (currentRun?.font === font) currentRun.value += character;
+    else runs.push({ font, value: character });
   }
-  return { path: paths.join(""), width: run.advanceWidth * scale };
+
+  let cursorX = x;
+  const paths: string[] = [];
+  for (const fontRun of runs) {
+    const scale = fontSize / fontRun.font.unitsPerEm;
+    const layout = fontRun.font.layout(fontRun.value);
+    let cursorY = baseline;
+    for (let index = 0; index < layout.glyphs.length; index += 1) {
+      const glyph = layout.glyphs[index];
+      const position = layout.positions[index];
+      if (!glyph || !position) continue;
+      const data = glyph.path
+        .scale(scale, -scale)
+        .translate(
+          cursorX + position.xOffset * scale,
+          cursorY - position.yOffset * scale,
+        )
+        .toSVG();
+      if (data) paths.push(`<path d="${data}"/>`);
+      cursorX += position.xAdvance * scale;
+      cursorY -= position.yAdvance * scale;
+    }
+  }
+  return { path: paths.join(""), width: cursorX - x };
 };
 
 async function thaiTextBitmap(operation: Extract<PrintOperation, { type: "text" }>, profile: PrinterProfile) {
@@ -125,33 +152,33 @@ async function thaiTextBitmap(operation: Extract<PrintOperation, { type: "text" 
   const anchor = operation.align === "center" ? "middle" : operation.align === "right" ? "end" : "start";
   const x = operation.align === "center" ? profile.printableDots / 2 : operation.align === "right" ? profile.printableDots - 4 : 4;
   const weight: 400 | 700 = operation.style === "bold" || operation.style === "large" ? 700 : 400;
-  const font = await loadPromptFont(weight);
-  const baseline = 4 + font.ascent * fontSize / font.unitsPerEm;
+  const fonts = await loadPromptFont(weight);
+  const baseline = 4 + fonts.thai.ascent * fontSize / fonts.thai.unitsPerEm;
   const text = operation.tableColumns
     ? [
         ...lines.map((line, index) =>
-          shapedText(line, font, fontSize, 4, baseline + index * lineHeight).path),
+          shapedText(line, fonts, fontSize, 4, baseline + index * lineHeight).path),
         ...[
           [operation.tableColumns.unitPrice, Math.round(profile.printableDots * 0.64)],
           [operation.tableColumns.quantity, Math.round(profile.printableDots * 0.77)],
           [operation.tableColumns.total, profile.printableDots - 4],
         ].map(([value, right]) => {
-          const measured = shapedText(String(value), font, fontSize, 0, baseline);
-          return shapedText(String(value), font, fontSize, Number(right) - measured.width, baseline).path;
+          const measured = shapedText(String(value), fonts, fontSize, 0, baseline);
+          return shapedText(String(value), fonts, fontSize, Number(right) - measured.width, baseline).path;
         }),
       ].join("")
     : operation.columns
     ? (() => {
-        const right = shapedText(operation.columns.right, font, fontSize, 0, baseline);
+        const right = shapedText(operation.columns.right, fonts, fontSize, 0, baseline);
         return [
-          shapedText(operation.columns.left, font, fontSize, 4, baseline).path,
-          shapedText(operation.columns.right, font, fontSize, profile.printableDots - 4 - right.width, baseline).path,
+          shapedText(operation.columns.left, fonts, fontSize, 4, baseline).path,
+          shapedText(operation.columns.right, fonts, fontSize, profile.printableDots - 4 - right.width, baseline).path,
         ].join("");
       })()
     : lines.map((line, index) => {
-        const measured = shapedText(line, font, fontSize, 0, baseline);
+        const measured = shapedText(line, fonts, fontSize, 0, baseline);
         const lineX = anchor === "middle" ? x - measured.width / 2 : anchor === "end" ? x - measured.width : x;
-        return shapedText(line, font, fontSize, lineX, baseline + index * lineHeight).path;
+        return shapedText(line, fonts, fontSize, lineX, baseline + index * lineHeight).path;
       }).join("");
   const svg = Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="${profile.printableDots}" height="${height}">
     <rect width="100%" height="100%" fill="#fff"/><g fill="#000">${text}</g></svg>`);

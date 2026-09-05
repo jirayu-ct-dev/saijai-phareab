@@ -14,14 +14,18 @@ afterEach(() => {
 
 describe("direct print server assets", () => {
   it("renders Thai and the shop logo without a deployment-local public directory", async () => {
-    const [regularFont, boldFont, logo] = await Promise.all([
+    const [regularThaiFont, regularLatinFont, boldThaiFont, boldLatinFont, logo] = await Promise.all([
       readFile(path.join(originalCwd, "public/fonts/Prompt-normal-400-thai.woff2")),
+      readFile(path.join(originalCwd, "public/fonts/Prompt-normal-400-latin.woff2")),
       readFile(path.join(originalCwd, "public/fonts/Prompt-normal-700-thai.woff2")),
+      readFile(path.join(originalCwd, "public/fonts/Prompt-normal-700-latin.woff2")),
       readFile(path.join(originalCwd, "public/logo-saijai-phareab.png")),
     ]);
     const assets = new Map<string, Buffer>([
-      ["fonts/Prompt-normal-400-thai.woff2", regularFont],
-      ["fonts/Prompt-normal-700-thai.woff2", boldFont],
+      ["fonts/Prompt-normal-400-thai.woff2", regularThaiFont],
+      ["fonts/Prompt-normal-400-latin.woff2", regularLatinFont],
+      ["fonts/Prompt-normal-700-thai.woff2", boldThaiFont],
+      ["fonts/Prompt-normal-700-latin.woff2", boldLatinFont],
       ["logo-saijai-phareab.png", logo],
     ]);
     const assetStorage = { getItemRaw: async (key: string) => assets.get(key) ?? null };
