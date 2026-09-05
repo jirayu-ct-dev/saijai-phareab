@@ -12,7 +12,9 @@ import { encodeEscpos } from "../../shared/utils/escpos";
 beforeAll(async () => {
   const assets = new Map<string, Buffer>(await Promise.all([
     "fonts/Prompt-normal-400-thai.woff2",
+    "fonts/Prompt-normal-400-latin.woff2",
     "fonts/Prompt-normal-700-thai.woff2",
+    "fonts/Prompt-normal-700-latin.woff2",
     "logo-saijai-phareab.png",
   ].map(async (key) => [key, await readFile(path.join(process.cwd(), "public", key))] as const)));
   vi.stubGlobal("useStorage", () => ({
@@ -173,6 +175,17 @@ describe("direct Hybrid renderer", () => {
     );
 
     expect(await render("กกกก")).not.toEqual(await render("ขขขข"));
+  });
+
+  it("renders distinct digits in mixed Thai text", async () => {
+    const profile = createDirectPrinterProfile(576);
+    const render = async (value: string) => Buffer.concat(
+      (await rasterizeThaiOperations([{ type: "text", value }], profile))
+        .filter((operation) => operation.type === "raster")
+        .map((operation) => Buffer.from(operation.bytes)),
+    );
+
+    expect(await render("ราคา 105.00 บาท")).not.toEqual(await render("ราคา 205.00 บาท"));
   });
 
   it("keeps ASCII-only text native for speed", async () => {
