@@ -3,15 +3,22 @@ import { requireRole } from "~~/server/utils/auth";
 import { isInternalCustomerEmail } from "~~/server/utils/customerAccount";
 import { z } from "zod";
 import { normalizeThaiPhoneNumber } from "~~/shared/utils/phone";
+import { parseBangkokDateTime } from "~~/shared/utils/pickup";
+import { backdatedEntitlementWhere } from "~~/server/utils/backdatedEntitlement";
 
 const querySchema = z.object({
   q: z.string().trim().max(100).optional().default(""),
   limit: z.coerce.number().int().min(1).max(50).optional().default(20),
+  receivedAt: z.string().optional(),
 });
 
 export default defineEventHandler(async (event) => {
   await requireRole(event, ["EMPLOYEE", "ADMIN"]);
-  const { q, limit } = await getValidatedQuery(event, querySchema.parse);
+  const { q, limit, receivedAt } = await getValidatedQuery(event, querySchema.parse);
+  const historicalDate = parseBangkokDateTime(receivedAt);
+  if (receivedAt !== undefined && (!historicalDate || Number.isNaN(historicalDate.getTime()) || historicalDate > new Date())) {
+    throw createError({ statusCode: 400, statusMessage: "วันรับผ้าย้อนหลังไม่ถูกต้อง" });
+  }
   const normalizedPhoneQuery = q ? normalizeThaiPhoneNumber(q) : null;
 
   try {
@@ -45,6 +52,7 @@ export default defineEventHandler(async (event) => {
           where: {
             deletedAt: null,
             status: "ACTIVE",
+            ...(historicalDate ? backdatedEntitlementWhere(historicalDate) : {}),
           },
           orderBy: [
             { product: { packageType: "asc" } },

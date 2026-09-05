@@ -15,7 +15,7 @@ export default defineEventHandler(async (event) => {
 
   const [receivedToday, inProgress, readyToDeliver, completedToday] = await Promise.all([
     prisma.serviceOrder.count({
-      where: { deletedAt: null, status: { not: "CANCELLED" }, createdAt: { gte: todayStart, lt: todayEnd } },
+      where: { deletedAt: null, status: { not: "CANCELLED" }, receivedAt: { gte: todayStart, lt: todayEnd } },
     }),
     prisma.serviceOrder.count({
       where: { deletedAt: null, status: { in: ["RECEIVED", "PROCESSING"] } },
@@ -24,7 +24,14 @@ export default defineEventHandler(async (event) => {
       where: { deletedAt: null, status: "DELIVERING" },
     }),
     prisma.serviceOrder.count({
-      where: { deletedAt: null, status: "COMPLETED", updatedAt: { gte: todayStart, lt: todayEnd } },
+      where: {
+        deletedAt: null,
+        status: "COMPLETED",
+        OR: [
+          { completedAt: { gte: todayStart, lt: todayEnd } },
+          { completedAt: null, updatedAt: { gte: todayStart, lt: todayEnd } },
+        ],
+      },
     }),
   ]);
 

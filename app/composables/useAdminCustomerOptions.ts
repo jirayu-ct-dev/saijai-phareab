@@ -26,11 +26,11 @@ export type PosCustomerOption = {
   }>;
 };
 
-export const useAdminCustomerOptions = () => {
+export const useAdminCustomerOptions = (receivedAt?: Ref<string | undefined>) => {
   const searchQuery = ref("");
   const debouncedSearchQuery = refDebounced(searchQuery, 250);
   const { data: customers, status, refresh } = useFetch<PosCustomerOption[]>("/api/admin/customer-options", {
-    query: { q: debouncedSearchQuery, limit: 50 },
+    query: { q: debouncedSearchQuery, limit: 50, ...(receivedAt ? { receivedAt } : {}) },
     default: () => [],
   });
 

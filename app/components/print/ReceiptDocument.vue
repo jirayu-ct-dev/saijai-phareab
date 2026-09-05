@@ -135,9 +135,9 @@ const infoRows = computed(() => {
     },
     {
       label: "วันที่ชำระเงิน",
-      value: extras.value.confirmedAt
-        ? formatDateTime(extras.value.confirmedAt)
-        : (d.paidAt ? formatDateTime(d.paidAt) : null),
+      value: d.paidAt
+        ? formatDateTime(d.paidAt)
+        : (extras.value.confirmedAt ? formatDateTime(extras.value.confirmedAt) : null),
       show: !isMemberFreeOrder.value,
     },
   ];

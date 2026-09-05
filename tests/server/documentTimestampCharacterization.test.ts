@@ -3,8 +3,8 @@
  * boundary, and item photo contracts.
  *
  * C6 compatibility invariant: DB-03 added `completedAt` and DB-04 stamps new
- * completion transitions, but document reads deliberately remain on the
- * legacy `updatedAt` fallback until DB-06. `paidAt` must never be presented as
+ * completion transitions. Backdated intake requires documents to prefer it,
+ * retaining the legacy `updatedAt` fallback for rows without it. `paidAt` must never be presented as
  * the delivery timestamp. These tests pin that temporary read-old behavior.
  *
  * Also protects:
@@ -110,6 +110,16 @@ const buildPayload = async (payment: ReturnType<typeof paymentFixture>) => {
 };
 
 describe("legacy delivery timestamp fallback during DB-04 compatibility", () => {
+  it("preserves the actual backdated completion and payment dates when entered later", async () => {
+    const fixture = paymentFixture();
+    const payload = await buildPayload(paymentFixture({
+      serviceOrder: { ...fixture.serviceOrder, completedAt: new Date("2026-08-02T10:00:00Z") },
+      confirmedAt: new Date("2026-09-05T05:00:00Z"),
+    }));
+    expect(payload.serviceOrder!.deliveredAt).toBe("2026-08-02T10:00:00.000Z");
+    expect(payload.paidAt).toBe(paidAt.toISOString());
+    expect(payload.confirmedAt).toBe("2026-09-05T05:00:00.000Z");
+  });
   it("derives deliveredAt from updatedAt for a COMPLETED order", async () => {
     const payload = await buildPayload(paymentFixture());
 
@@ -139,7 +149,7 @@ describe("legacy delivery timestamp fallback during DB-04 compatibility", () => 
 
   it("mirrors the same COMPLETED->updatedAt fallback in the /api/me payment handler (source contract)", () => {
     expect(source("server/api/me/payment/[id].get.ts")).toMatch(
-      /deliveredAt:\s*payment\.serviceOrder\.status === "COMPLETED"\s*\?\s*payment\.serviceOrder\.updatedAt\.toISOString\(\)/,
+      /deliveredAt:\s*payment\.serviceOrder\.status === "COMPLETED"\s*\?\s*\(payment\.serviceOrder\.completedAt \?\? payment\.serviceOrder\.updatedAt\)\.toISOString\(\)/,
     );
   });
 

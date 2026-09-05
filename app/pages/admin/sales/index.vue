@@ -14,6 +14,7 @@ type PaymentTarget = {
 };
 
 type CompletedSalePayload = {
+  paid?: boolean;
   paymentId: string;
   saleType: "PACKAGE" | "STOREFRONT";
   serviceOrderId?: string;
@@ -27,7 +28,7 @@ definePageMeta({
   middleware: ["role-employee"],
 });
 
-const activeMode = ref<"packages" | "storefront">("storefront");
+const activeMode = ref<"packages" | "storefront" | "backdated">("storefront");
 const saleResultModalOpen = ref(false);
 const latestSaleResult = reactive<CompletedSalePayload>({
   paymentId: "",
@@ -39,7 +40,7 @@ const latestSaleResult = reactive<CompletedSalePayload>({
 });
 
 type ModeOption = {
-  value: "storefront" | "packages";
+  value: "storefront" | "packages" | "backdated";
   label: string;
   shortLabel: string;
   icon: string;
@@ -61,6 +62,13 @@ const modeOptions = [
     icon: "i-lucide-package",
     description: "ขายแพ็กเกจสมาชิกและรับชำระเงิน",
   },
+  {
+    value: "backdated",
+    label: "ลงรายการย้อนหลัง",
+    shortLabel: "ลงรายการย้อนหลัง",
+    icon: "i-lucide-history",
+    description: "บันทึกออเดอร์ที่รับผ้าไปแล้วแต่ยังไม่ได้ลงในระบบ",
+  },
 ] satisfies ModeOption[];
 
 const modeOptionMap = Object.fromEntries(modeOptions.map((option) => [option.value, option])) as Record<
@@ -70,6 +78,7 @@ const modeOptionMap = Object.fromEntries(modeOptions.map((option) => [option.val
 const activeModeOption = computed(() => modeOptionMap[activeMode.value]);
 
 const handleCompleted = (payload: CompletedSalePayload) => {
+  latestSaleResult.paid = payload.paid;
   latestSaleResult.paymentId = payload.paymentId;
   latestSaleResult.saleType = payload.saleType;
   latestSaleResult.serviceOrderId = payload.serviceOrderId ?? "";
@@ -86,7 +95,7 @@ const closeSaleResultModal = () => {
 const openDocument = () => {
   if (!latestSaleResult.paymentId) return;
 
-  const documentType = latestSaleResult.saleType === "PACKAGE" ? "receipt" : "quotation";
+  const documentType = latestSaleResult.saleType === "PACKAGE" || latestSaleResult.paid ? "receipt" : "quotation";
   const target = `/admin/payment/${latestSaleResult.paymentId}/${documentType}`;
   if (import.meta.client) {
     window.open(target, "_blank", "noopener,noreferrer");
@@ -146,13 +155,13 @@ const handleRefresh = async () => {
 };
 
 const resultDescription = computed(() =>
-  latestSaleResult.saleType === "PACKAGE"
+  latestSaleResult.saleType === "PACKAGE" || latestSaleResult.paid
     ? "บันทึกการขายและรับชำระเงินเรียบร้อยแล้ว คุณสามารถเปิดใบเสร็จได้เลย"
     : "บันทึกรับงานแล้ว คุณสามารถเปิดใบแจ้งราคาหรือไปหน้าการชำระเงินต่อได้",
 );
 
 const primaryActionLabel = computed(() =>
-  latestSaleResult.saleType === "PACKAGE" ? "เปิดใบเสร็จ" : "เปิดใบแจ้งราคา",
+  latestSaleResult.saleType === "PACKAGE" || latestSaleResult.paid ? "เปิดใบเสร็จ" : "เปิดใบแจ้งราคา",
 );
 const primaryActionIcon = computed(() =>
   latestSaleResult.saleType === "PACKAGE" ? "i-lucide-receipt" : "i-lucide-file-text",
@@ -251,7 +260,7 @@ const copyActivationLink = async () => {
               </div>
 
               <div
-                class="grid grid-cols-2 gap-1 rounded-lg border border-default/30 bg-elevated p-1 lg:w-80"
+                class="grid grid-cols-3 gap-1 rounded-lg border border-default/30 bg-elevated p-1 lg:w-[32rem]"
                 role="tablist"
                 aria-label="เลือกประเภทงานขาย"
               >
@@ -277,7 +286,12 @@ const copyActivationLink = async () => {
           </section>
 
           <PackagePosWorkspace v-if="activeMode === 'packages'" @completed="handleCompleted" />
-          <StorefrontPosWorkspace v-else @completed="handleCompleted" />
+          <StorefrontPosWorkspace
+            v-else
+            :key="activeMode"
+            :backdated="activeMode === 'backdated'"
+            @completed="handleCompleted"
+          />
         </div>
       </template>
     </UDashboardPanel>

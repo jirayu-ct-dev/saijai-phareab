@@ -9,9 +9,9 @@ export default defineEventHandler(async (event) => {
   const BKK_OFFSET = 7 * 60 * 60 * 1000;
 
   const orders = await prisma.serviceOrder.findMany({
-    where: { deletedAt: null, createdAt: { gte: from, lte: to } },
+    where: { deletedAt: null, receivedAt: { gte: from, lte: to } },
     select: {
-      createdAt: true,
+      receivedAt: true,
       memberEntitlementId: true,
       weightKg: true,
     },
@@ -21,7 +21,7 @@ export default defineEventHandler(async (event) => {
   const buckets = new Map<string, { storefront: number; washfold: number; package: number }>()
 
   for (const o of orders) {
-    const localMs = o.createdAt.getTime() + BKK_OFFSET;
+    const localMs = o.receivedAt.getTime() + BKK_OFFSET;
     const d = new Date(localMs);
     const key = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}`;
 

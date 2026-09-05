@@ -20,6 +20,8 @@ type ServiceOrderDetailResponse = {
   creditUsed: number | null;
   note: string | null;
   receivedAt: string;
+  isBackdated: boolean;
+  completedAt: string | null;
   dueAt: string | null;
   createdAt: string;
   updatedAt: string;
@@ -216,7 +218,7 @@ const orderRows = computed<InfoRow[]>(() => {
   if (!order.value) return [];
 
   const isCompleted = order.value.status === "COMPLETED";
-  const deliveredAt = order.value.payments[0]?.paidAt ?? null;
+  const deliveredAt = order.value.completedAt ?? order.value.payments[0]?.paidAt ?? null;
   const rows: InfoRow[] = [
     { label: "เลขรับผ้า", value: order.value.orderNo || order.value.id, valueClass: "font-mono text-xs" },
     { label: "สถานะงาน", value: orderStatusLabels[order.value.status] },
@@ -226,6 +228,7 @@ const orderRows = computed<InfoRow[]>(() => {
       : { label: order.value.hasDelivery ? "วันนัดส่งถึงลูกค้า" : "วันนัดรับที่ร้าน", value: order.value.dueAt ? formatDateTime(order.value.dueAt) : "-" },
   ];
 
+  if (order.value.isBackdated) rows.push({ label: "ลงรายการย้อนหลัง", value: `บันทึกเมื่อ ${formatDateTime(order.value.createdAt)}` });
   const active = order.value.activeEntitlements ?? [];
   if (active.length) {
     const value = active
@@ -591,7 +594,7 @@ const getItemPhotos = (item: ServiceOrderDetailItem) =>
                 </div>
                 <p class="text-sm text-muted">
                   รับงานเมื่อ {{ formatDateTime(order.receivedAt) }}<br>
-                  <span v-if="order.status === 'COMPLETED' && latestPayment?.paidAt">ส่งผ้า {{ formatDateTime(latestPayment.paidAt) }}</span>
+                  <span v-if="order.status === 'COMPLETED' && (order.completedAt || latestPayment?.paidAt)">ส่งผ้า {{ formatDateTime((order.completedAt || latestPayment?.paidAt)!) }}</span>
                   <span v-else-if="order.dueAt">นัดรับ {{ formatDateTime(order.dueAt) }}</span>
                 </p>
               </div>
