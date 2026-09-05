@@ -1,5 +1,3 @@
-import { readFile } from "node:fs/promises";
-import path from "node:path";
 import QRCode from "qrcode";
 import sharp from "sharp";
 import type {
@@ -65,6 +63,12 @@ async function pngToBitmap(png: Buffer, widthDots: number) {
 
 const promptFontCache = new Map<400 | 700, Promise<string>>();
 
+const loadPrintAsset = async (key: string, missingMessage: string) => {
+  const value = await useStorage("assets:printing").getItemRaw(key);
+  if (!(value instanceof Uint8Array)) throw new Error(missingMessage);
+  return Buffer.from(value.buffer, value.byteOffset, value.byteLength);
+};
+
 const loadPromptFont = async (weight: 400 | 700) => {
   const cached = promptFontCache.get(weight);
   if (cached) return cached;
@@ -75,16 +79,8 @@ const loadPromptFont = async (weight: 400 | 700) => {
 
 const loadBundledPromptFont = async (weight: 400 | 700) => {
   const filename = `Prompt-normal-${weight}-thai.woff2`;
-  const candidates = [
-    path.join(process.cwd(), ".output/public/fonts", filename),
-    path.join(process.cwd(), "public/fonts", filename),
-  ];
-  for (const candidate of candidates) {
-    try {
-      return (await readFile(candidate)).toString("base64");
-    } catch { /* try the next bundled location */ }
-  }
-  throw new Error("Thai print font is unavailable");
+  return (await loadPrintAsset(`fonts/${filename}`, "Thai print font is unavailable"))
+    .toString("base64");
 };
 
 async function thaiTextBitmap(operation: Extract<PrintOperation, { type: "text" }>, profile: PrinterProfile) {
@@ -169,18 +165,10 @@ async function lineQrBitmap(imageUrl: string, profile: PrinterProfile) {
 
 async function shopLogoBitmap(logoUrl: string | null | undefined, profile: PrinterProfile) {
   if (logoUrl !== "/logo-saijai-phareab.png") return null;
-  const candidates = [
-    path.join(process.cwd(), ".output", "public", "logo-saijai-phareab.png"),
-    path.join(process.cwd(), "public", "logo-saijai-phareab.png"),
-  ];
-  let source: Buffer | null = null;
-  for (const candidate of candidates) {
-    try {
-      source = await readFile(candidate);
-      break;
-    } catch { /* try the source-tree/deployment alternative */ }
-  }
-  if (!source) throw new Error("Shop print logo is unavailable");
+  const source = await loadPrintAsset(
+    "logo-saijai-phareab.png",
+    "Shop print logo is unavailable",
+  );
   const logoWidth = profile.paperWidthMm === 58 ? 112 : 144;
   const left = Math.floor((profile.printableDots - logoWidth) / 2);
   const right = profile.printableDots - logoWidth - left;

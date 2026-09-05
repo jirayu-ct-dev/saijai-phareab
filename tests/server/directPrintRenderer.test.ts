@@ -1,4 +1,6 @@
-import { describe, expect, it } from "vitest";
+import { readFile } from "node:fs/promises";
+import path from "node:path";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import type { PrintDocument } from "../../shared/types/printing";
 import {
   createDirectPrinterProfile,
@@ -6,6 +8,21 @@ import {
   renderDirectEscpos,
 } from "../../server/utils/directPrintRenderer";
 import { encodeEscpos } from "../../shared/utils/escpos";
+
+beforeAll(async () => {
+  const assets = new Map<string, Buffer>(await Promise.all([
+    "fonts/Prompt-normal-400-thai.woff2",
+    "fonts/Prompt-normal-700-thai.woff2",
+    "logo-saijai-phareab.png",
+  ].map(async (key) => [key, await readFile(path.join(process.cwd(), "public", key))] as const)));
+  vi.stubGlobal("useStorage", () => ({
+    getItemRaw: async (key: string) => assets.get(key) ?? null,
+  }));
+});
+
+afterAll(() => {
+  vi.unstubAllGlobals();
+});
 
 const documentFixture = (): PrintDocument => ({
   kind: "QUOTATION",
