@@ -94,18 +94,18 @@ const STATUS_OPTIONS = (Object.keys(STATUS_LABELS) as EntitlementStatus[]).map((
 /* Member drawer — single place to manage one member's packages.      */
 /* ------------------------------------------------------------------ */
 const selectedMember = ref<MemberRow | null>(null);
-const isDrawerOpen = ref(false);
+const isMemberOpen = ref(false);
 
 const openMember = (m: MemberRow) => {
   selectedMember.value = m;
-  isDrawerOpen.value = true;
+  isMemberOpen.value = true;
 };
 
 const syncSelectedAfterRefresh = async () => {
   await refresh();
   if (!selectedMember.value) return;
   selectedMember.value = members.value.find((m) => m.id === selectedMember.value!.id) ?? null;
-  if (!selectedMember.value) isDrawerOpen.value = false;
+  if (!selectedMember.value) isMemberOpen.value = false;
 };
 
 /* ------------------------------------------------------------------ */
@@ -320,7 +320,7 @@ const onConfirmDelete = async () => {
     notify.deleted();
     isDeleteOpen.value = false;
     selectedMember.value = null;
-    isDrawerOpen.value = false;
+    isMemberOpen.value = false;
     await refresh();
   } catch (error: unknown) {
     const message = error && typeof error === "object" && "statusMessage" in error
@@ -427,7 +427,7 @@ const onConfirmDelete = async () => {
             <div class="min-w-0 flex-1">
               <div class="flex min-w-0 items-center gap-1.5">
                 <p class="truncate text-sm font-semibold text-highlighted">{{ m.name || m.email }}</p>
-                <UBadge v-if="isExpiringSoon(m.earliestEndAt)" color="warning" variant="subtle" size="xs" class="shrink-0">
+                <UBadge v-if="isExpiringSoon(m.earliestEndAt)" color="warning" variant="subtle" size="sm" class="shrink-0">
                   ใกล้หมดอายุ
                 </UBadge>
               </div>
@@ -443,7 +443,7 @@ const onConfirmDelete = async () => {
               v-if="m.mainPackageName"
               color="primary"
               variant="subtle"
-              size="xs"
+              size="sm"
               class="max-w-[45%] shrink-0"
               :ui="{ label: 'truncate' }"
             >
@@ -454,13 +454,13 @@ const onConfirmDelete = async () => {
               :key="name"
               color="info"
               variant="subtle"
-              size="xs"
+              size="sm"
               class="max-w-[35%] shrink-0"
               :ui="{ label: 'truncate' }"
             >
               {{ name }}
             </UBadge>
-            <UBadge v-if="hiddenAddonPackageCount(m.addonPackageNames)" color="neutral" variant="subtle" size="xs" class="shrink-0">
+            <UBadge v-if="hiddenAddonPackageCount(m.addonPackageNames)" color="neutral" variant="subtle" size="sm" class="shrink-0">
               +{{ hiddenAddonPackageCount(m.addonPackageNames) }}
             </UBadge>
             <span v-if="!m.mainPackageName && !m.addonPackageNames.length" class="truncate text-xs text-muted">
@@ -496,10 +496,10 @@ const onConfirmDelete = async () => {
     </section>
 
     <!-- ศูนย์จัดการรายลูกค้า: โปรไฟล์ + สถิติ + แพ็กเกจทุกใบ พร้อมปุ่มจัดการชัดเจน -->
-    <UDrawer
-      v-model:open="isDrawerOpen"
-      direction="bottom"
-      :ui="{ content: 'max-h-[88vh] mx-auto w-full max-w-2xl rounded-t-lg' }"
+    <UModal
+      v-model:open="isMemberOpen"
+      title="จัดการสมาชิก"
+      :ui="{ content: 'max-w-2xl', body: '!bg-default p-4! sm:p-5! dark:!bg-elevated/55' }"
     >
       <template #body>
         <div v-if="selectedMember" class="space-y-4">
@@ -578,12 +578,12 @@ const onConfirmDelete = async () => {
               :key="ent.id"
               class="space-y-2 rounded-lg border border-default/30 bg-elevated/30 p-3"
             >
-              <div class="flex min-w-0 items-center gap-1.5">
-                <UBadge :color="ent.product.packageType === 'MAIN' ? 'primary' : 'info'" variant="subtle" size="xs" class="shrink-0">
+              <div class="flex min-w-0 items-center gap-2">
+                <UBadge :color="ent.product.packageType === 'MAIN' ? 'primary' : 'info'" variant="subtle" size="sm" class="shrink-0">
                   {{ ent.product.packageType === 'MAIN' ? 'หลัก' : 'เสริม' }}
                 </UBadge>
                 <span class="min-w-0 flex-1 truncate text-sm font-medium text-highlighted">{{ ent.product.name }}</span>
-                <UBadge :color="STATUS_COLORS[ent.status]" variant="subtle" size="xs" class="shrink-0">
+                <UBadge :color="STATUS_COLORS[ent.status]" variant="subtle" size="sm" class="shrink-0">
                   {{ STATUS_LABELS[ent.status] }}
                 </UBadge>
               </div>
@@ -650,7 +650,7 @@ const onConfirmDelete = async () => {
           <USkeleton class="h-40 w-full rounded-lg" />
         </div>
       </template>
-    </UDrawer>
+    </UModal>
 
     <UModal
       v-model:open="isEntOpen"
