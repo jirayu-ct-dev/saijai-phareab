@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const db = vi.hoisted(() => ({
   storefrontPrice: { findMany: vi.fn() },
   user: { findFirst: vi.fn() },
-  serviceOrder: { create: vi.fn(), update: vi.fn() },
+  serviceOrder: { create: vi.fn(), update: vi.fn(), updateMany: vi.fn() },
   serviceOrderItem: { create: vi.fn() },
   serviceOrderItemImage: { createMany: vi.fn() },
   paymentRecord: { create: vi.fn() },
@@ -75,7 +75,7 @@ describe("recording a missed laundry order", () => {
     delete body.backdated;
     await submit();
     expect(notifications.notifyServiceOrderCreated).toHaveBeenCalled();
-    expect(db.serviceOrder.update).toHaveBeenCalledWith({ where: { id: "order" }, data: { status: "PROCESSING" } });
+    expect(db.serviceOrder.updateMany).toHaveBeenCalledWith({ where: { id: "order", status: "RECEIVED", deletedAt: null }, data: { status: "PROCESSING" } });
   });
 
   it("rejects invalid dates before any writes", async () => {
@@ -97,6 +97,15 @@ describe("recording a missed laundry order", () => {
     body.memberEntitlementId = "entitlement";
     db.memberEntitlement.updateMany.mockResolvedValue({ count: 0 });
     await expect(submit()).rejects.toMatchObject({ statusCode: 409 });
+    expect(db.serviceOrder.create).not.toHaveBeenCalled();
+    expect(db.paymentRecord.create).not.toHaveBeenCalled();
+  });
+
+  it("rejects a package whose validity window does not cover the recorded receive date", async () => {
+    body.memberEntitlementId = "entitlement";
+    db.memberEntitlement.findFirst.mockResolvedValue(null);
+    await expect(submit()).rejects.toMatchObject({ statusCode: 404 });
+    expect(db.memberEntitlement.updateMany).not.toHaveBeenCalled();
     expect(db.serviceOrder.create).not.toHaveBeenCalled();
     expect(db.paymentRecord.create).not.toHaveBeenCalled();
   });

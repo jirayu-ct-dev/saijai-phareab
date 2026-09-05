@@ -129,9 +129,13 @@ export const deductAddonUsageRecords = async (tx: TxClient, serviceOrderId: stri
     const { count } = await tx.memberEntitlement.updateMany({
       where: {
         id: usage.memberEntitlementId,
-        status: "ACTIVE",
         deletedAt: null,
-        ...(historicalOrder ? backdatedEntitlementWhere(historicalOrder.receivedAt) : {}),
+        // For a backdated order the window filter also admits an expired
+        // entitlement that covered the historical receive date; otherwise
+        // only an ACTIVE entitlement may be deducted.
+        ...(historicalOrder
+          ? backdatedEntitlementWhere(historicalOrder.receivedAt)
+          : { status: "ACTIVE" as const }),
         creditRemaining: { gte: usage.credits },
       },
       data: { creditRemaining: { decrement: usage.credits } },

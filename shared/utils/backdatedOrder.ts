@@ -34,3 +34,22 @@ export const backdatedOrderSchema = (now = new Date()) => z.object({
 });
 
 export type BackdatedOrderInput = z.input<ReturnType<typeof backdatedOrderSchema>>;
+
+export const backdatedSaleSchema = (now = new Date()) => z.object({
+  soldAt: historicalDate,
+  payment: z.object({
+    paidAt: historicalDate,
+    method: z.enum(["CASH", "TRANSFER"]),
+  }).optional(),
+}).strict().superRefine((value, ctx) => {
+  const dates = [
+    { date: value.soldAt, path: ["soldAt"] },
+    { date: value.payment?.paidAt, path: ["payment", "paidAt"] },
+  ];
+  for (const { date, path } of dates) {
+    if (date && date > now) ctx.addIssue({ code: "custom", path, message: "ระบุวันในอนาคตไม่ได้" });
+    if (date && date < value.soldAt) ctx.addIssue({ code: "custom", path, message: "วันรับเงินต้องไม่ก่อนวันขายแพ็กเกจ" });
+  }
+});
+
+export type BackdatedSaleInput = z.input<ReturnType<typeof backdatedSaleSchema>>;

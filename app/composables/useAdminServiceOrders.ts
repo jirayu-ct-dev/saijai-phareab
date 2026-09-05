@@ -51,6 +51,7 @@ export type AdminServiceOrder = {
   id: string;
   orderNo: string | null;
   status: ServiceOrderStatus;
+  backdated?: boolean;
   creditUsed: number | null;
   addonUsages?: Array<{
     id?: string;

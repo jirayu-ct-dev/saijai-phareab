@@ -191,13 +191,65 @@ const customerOptions = computed(() =>
     phoneNumber: customer.phoneNumber,
     customerAccountStatus: customer.customerAccountStatus,
     activeMemberEntitlement: customer.activeMemberEntitlement ?? null,
+    memberEntitlementOptions: customer.memberEntitlementOptions ?? [],
     addonEntitlements: customer.addonEntitlements ?? [],
   })),
 );
 const selectedCustomer = computed(() => customerOptions.value.find((customer) => customer.value === form.customerId) ?? null);
 const activeMemberEntitlement = computed(() => selectedCustomer.value?.activeMemberEntitlement ?? null);
 const activeAddonEntitlements = computed(() => selectedCustomer.value?.addonEntitlements ?? []);
-const canUseMemberPackage = computed(() => form.customerMode === "existing" && Boolean(activeMemberEntitlement.value));
+const memberEntitlementOptions = computed(() => selectedCustomer.value?.memberEntitlementOptions ?? []);
+const selectedMemberEntitlement = computed(() =>
+  memberEntitlementOptions.value.find((option) => option.id === form.memberEntitlementId) ?? activeMemberEntitlement.value
+);
+const canUseMemberPackage = computed(() => form.customerMode === "existing" && Boolean(selectedMemberEntitlement.value));
+const formatEntitlementDate = (value: string | null) => {
+  if (!value) return "?";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "?";
+  const bkk = new Date(date.getTime() + BANGKOK_OFFSET_MS);
+  return `${String(bkk.getUTCDate()).padStart(2, "0")}/${String(bkk.getUTCMonth() + 1).padStart(2, "0")}/${bkk.getUTCFullYear()}`;
+};
+const memberEntitlementPickerItems = computed(() => memberEntitlementOptions.value.map((option) => ({
+  label: `${option.productName} · ${formatEntitlementDate(option.startAt)}–${formatEntitlementDate(option.endAt)} · เครดิตคงเหลือ ${option.creditRemaining ?? 0}`,
+  value: option.id,
+})));
+const memberEntitlementPickerValue = computed({
+  get: () => form.memberEntitlementId ?? undefined,
+  set: (value: string | undefined) => { form.memberEntitlementId = value ?? null; },
+});
+const entitlementCalendarDate = (value: string | null) => {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  const bkk = new Date(date.getTime() + BANGKOK_OFFSET_MS);
+  return parseDate(`${bkk.getUTCFullYear()}-${String(bkk.getUTCMonth() + 1).padStart(2, "0")}-${String(bkk.getUTCDate()).padStart(2, "0")}`);
+};
+const historicalReceivedInstant = computed(() => {
+  if (!backdatedEnabled.value) return null;
+  const date = parseBangkokDateTime(historicalReceivedAt.value);
+  return date && !Number.isNaN(date.getTime()) ? date : null;
+});
+const entitlementWindowError = computed(() => {
+  if (!backdatedEnabled.value || !form.memberEntitlementId || isCustomersLoading.value) return "";
+  const entitlement = memberEntitlementOptions.value.find((option) => option.id === form.memberEntitlementId);
+  if (!entitlement) return "แพ็กเกจที่เลือกไม่ครอบคลุมวันรับผ้านี้ กรุณาเลือกแพ็กเกจใหม่";
+  const receivedAt = historicalReceivedInstant.value;
+  if (!receivedAt) return "";
+  const startAt = entitlement.startAt ? new Date(entitlement.startAt) : null;
+  const endAt = entitlement.endAt ? new Date(entitlement.endAt) : null;
+  if ((startAt && receivedAt < startAt) || (endAt && receivedAt > endAt)) {
+    return `วันและเวลารับผ้าต้องอยู่ในช่วงสิทธิ์ ${formatEntitlementDate(entitlement.startAt)}–${formatEntitlementDate(entitlement.endAt)} เท่านั้น`;
+  }
+  return "";
+});
+const historicalReceivedDateBounds = computed(() => {
+  const entitlement = backdatedEnabled.value && form.memberEntitlementId ? selectedMemberEntitlement.value : null;
+  return {
+    minValue: entitlement ? entitlementCalendarDate(entitlement.startAt) ?? undefined : undefined,
+    maxValue: entitlement ? entitlementCalendarDate(entitlement.endAt) ?? historicalMaxDate : historicalMaxDate,
+  };
+});
 const canUseAddonPackages = computed(() => form.customerMode === "existing" && activeAddonEntitlements.value.length > 0);
 
 const filteredCatalog = computed(() => {
@@ -362,7 +414,7 @@ const clearDueDate = () => {
   dueTime.value = "00:00";
 };
 
-const creditAvailable = computed(() => Math.max(0, Number(activeMemberEntitlement.value?.creditRemaining ?? 0)));
+const creditAvailable = computed(() => Math.max(0, Number(selectedMemberEntitlement.value?.creditRemaining ?? 0)));
 const creditUsedPreview = computed(() => {
   if (!form.memberEntitlementId) return 0;
   return Math.min(totalQuantity.value, creditAvailable.value);
@@ -646,6 +698,9 @@ watch(
   [() => form.customerMode, activeMemberEntitlement],
   ([customerMode, entitlement]) => {
     if (customerMode !== "existing" || !entitlement) { form.memberEntitlementId = null; return; }
+    // Keep an explicit pick as long as it still covers the receive date;
+    // re-default only when the current selection is no longer offered.
+    if (form.memberEntitlementId && memberEntitlementOptions.value.some((option) => option.id === form.memberEntitlementId)) return;
     form.memberEntitlementId = (entitlement.creditRemaining ?? 0) > 0 ? entitlement.id : null;
   },
   { immediate: true },
@@ -690,6 +745,10 @@ const handleSubmit = async () => {
     }
     if (isCustomersLoading.value) {
       historicalError.value = "กำลังตรวจสอบแพ็กเกจตามวันรับผ้า กรุณารอสักครู่";
+      return;
+    }
+    if (entitlementWindowError.value) {
+      historicalError.value = entitlementWindowError.value;
       return;
     }
   }
@@ -1013,7 +1072,7 @@ const useDuplicateCustomer = async () => {
                     class="justify-start font-normal"
                   />
                   <template #content>
-                    <UCalendar v-model="historicalReceivedDate" :max-value="historicalMaxDate" locale="th-TH" class="p-2" />
+                    <UCalendar v-model="historicalReceivedDate" v-bind="historicalReceivedDateBounds" locale="th-TH" class="p-2" />
                   </template>
                 </UPopover>
                 <UInputMenu
@@ -1131,19 +1190,32 @@ const useDuplicateCustomer = async () => {
               <div v-if="canUseMemberPackage" class="border-l-2 border-success pl-3">
                 <div class="flex items-start justify-between gap-3">
                   <div class="min-w-0">
-                    <p class="truncate text-sm font-medium text-success">{{ activeMemberEntitlement?.productName }}</p>
+                    <p class="truncate text-sm font-medium text-success">{{ selectedMemberEntitlement?.productName }}</p>
                     <p class="text-xs text-muted">
-                      เครดิตคงเหลือ {{ activeMemberEntitlement?.creditRemaining ?? 0 }} | ใช้ {{ creditUsedPreview }} เครดิต
+                      เครดิตคงเหลือ {{ selectedMemberEntitlement?.creditRemaining ?? 0 }} | ใช้ {{ creditUsedPreview }} เครดิต
                       <span v-if="form.memberEntitlementId && cashQuantity > 0">| คิดเพิ่ม {{ cashQuantity }} ชิ้น ({{ formatCurrency(cashSubtotal) }})</span>
                     </p>
+                    <p v-if="backdatedEnabled && selectedMemberEntitlement" class="text-xs text-muted">
+                      ช่วงสิทธิ์ {{ formatEntitlementDate(selectedMemberEntitlement.startAt) }}–{{ formatEntitlementDate(selectedMemberEntitlement.endAt) }}
+                    </p>
+                    <p v-if="entitlementWindowError" class="text-xs font-medium text-error">{{ entitlementWindowError }}</p>
                   </div>
                   <USwitch
                     :model-value="Boolean(form.memberEntitlementId)"
                     color="success"
                     size="sm"
-                    @update:model-value="form.memberEntitlementId = $event ? activeMemberEntitlement?.id ?? null : null"
+                    @update:model-value="form.memberEntitlementId = $event ? selectedMemberEntitlement?.id ?? null : null"
                   />
                 </div>
+                <USelect
+                  v-if="backdatedEnabled && memberEntitlementOptions.length > 1"
+                  v-model="memberEntitlementPickerValue"
+                  :items="memberEntitlementPickerItems"
+                  value-key="value"
+                  size="xs"
+                  class="mt-2 w-full"
+                  aria-label="เลือกแพ็กเกจที่ใช้"
+                />
               </div>
 
               <div class="divide-y divide-default">

@@ -53,6 +53,9 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, statusMessage: historyResult.error.issues[0]?.message || "ข้อมูลย้อนหลังไม่ถูกต้อง" });
   }
   const history = historyResult.data;
+  // Without backdating, an entitlement is usable only while its validity window
+  // covers "now" — status alone stays ACTIVE after endAt passes.
+  const activeEntitlementGuard = { OR: [{ endAt: null }, { endAt: { gte: recordedAt } }] };
 
   const customerId = body.customerId?.trim() || null;
   const newCustomer = body.newCustomer ?? null;
@@ -259,8 +262,7 @@ export default defineEventHandler(async (event) => {
             id: requestedEntitlementId,
             customerId: paymentUserId!,
             deletedAt: null,
-            status: "ACTIVE",
-            ...(history ? backdatedEntitlementWhere(receivedAt) : {}),
+            ...(history ? backdatedEntitlementWhere(receivedAt) : { status: "ACTIVE" as const, ...activeEntitlementGuard }),
             product: { packageType: "MAIN" },
           },
           select: {
@@ -271,7 +273,12 @@ export default defineEventHandler(async (event) => {
         });
 
         if (!memberEntitlement) {
-          throw createError({ statusCode: 404, statusMessage: "ไม่พบสิทธิ์แพ็กเกจรายเดือนที่เลือก" });
+          throw createError({
+            statusCode: 404,
+            statusMessage: history
+              ? "แพ็กเกจที่เลือกไม่ครอบคลุมวันรับผ้าที่ระบุ หรือไม่ใช่สิทธิ์ของลูกค้านี้"
+              : "ไม่พบสิทธิ์แพ็กเกจรายเดือนที่เลือก",
+          });
         }
       }
 
@@ -304,7 +311,7 @@ export default defineEventHandler(async (event) => {
         const { count } = await tx.memberEntitlement.updateMany({
           where: {
             id: memberEntitlement.id,
-            ...(history ? backdatedEntitlementWhere(receivedAt) : {}),
+            ...(history ? backdatedEntitlementWhere(receivedAt) : activeEntitlementGuard),
             creditRemaining: { gte: creditUsed },
           },
           data: {
@@ -338,9 +345,8 @@ export default defineEventHandler(async (event) => {
           where: {
             id: entry.entitlementId,
             customerId: paymentUserId!,
-            status: "ACTIVE",
             deletedAt: null,
-            ...(history ? backdatedEntitlementWhere(receivedAt) : {}),
+            ...(history ? backdatedEntitlementWhere(receivedAt) : { status: "ACTIVE" as const, ...activeEntitlementGuard }),
             product: { packageType: "ADDON" },
           },
           include: { product: { select: { id: true, name: true, deductOn: true, isDelivery: true } } },
@@ -363,9 +369,8 @@ export default defineEventHandler(async (event) => {
             where: {
               id: addonEnt.id,
               creditRemaining: { gte: credits },
-              status: "ACTIVE",
               deletedAt: null,
-              ...(history ? backdatedEntitlementWhere(receivedAt) : {}),
+              ...(history ? backdatedEntitlementWhere(receivedAt) : { status: "ACTIVE" as const, ...activeEntitlementGuard }),
             },
             data: { creditRemaining: { decrement: credits } },
           });
@@ -518,8 +523,9 @@ export default defineEventHandler(async (event) => {
       // Send RECEIVED notification first, then transition to PROCESSING
       await notifyServiceOrderCreated({ serviceOrderId: created.id });
       await notifyQuotationCreated({ serviceOrderId: created.id });
-      await prisma.serviceOrder.update({
-        where: { id: created.id },
+      // Guarded: a concurrent cancel must not be overwritten to PROCESSING.
+      await prisma.serviceOrder.updateMany({
+        where: { id: created.id, status: "RECEIVED", deletedAt: null },
         data: { status: "PROCESSING" },
       });
       void notifyServiceOrderStatusChanged({

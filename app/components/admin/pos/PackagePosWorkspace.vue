@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import { useMediaQuery } from "@vueuse/core";
+import { today, type CalendarDate } from "@internationalized/date";
 import PosCatalogCard from "~~/app/components/admin/pos/PosCatalogCard.vue";
 import PosCheckoutPanel from "~~/app/components/admin/pos/PosCheckoutPanel.vue";
 import type { AdminSaleItemInput, AdminSaleSlipImage, CreateAdminSaleBody } from "~~/app/composables/useAdminSales";
 import type { PackageType, PaymentMethod, PaymentStatus } from "~~/shared/types/enums";
 import { paymentStatusLabels } from "~~/shared/config/paymentConfig";
 import { formatCurrency } from "~~/shared/utils/format";
+import { backdatedSaleSchema, type BackdatedSaleInput } from "~~/shared/utils/backdatedOrder";
 
 const dashboardCardClass =
   "-mx-2 border border-default/30 bg-default p-4 dark:border-default/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg";
@@ -21,8 +23,14 @@ type FormItemState = {
   quantity: number;
 };
 
+const props = withDefaults(defineProps<{
+  backdated?: boolean;
+}>(), {
+  backdated: false,
+});
+
 const emit = defineEmits<{
-  completed: [payload: { paymentId: string; saleType: "PACKAGE"; title: string }];
+  completed: [payload: { paymentId: string; saleType: "PACKAGE"; title: string; activationToken?: string | null }];
 }>();
 
 const packageTypeFilters: Array<{ label: string; value: "all" | PackageType }> = [
@@ -42,6 +50,60 @@ const { customers, isLoading: isCustomersLoading, setSearch: setCustomerSearch }
 const { products, isLoading: isCatalogLoading, refresh } = usePackageCatalog();
 const { uploadSlip } = useAdminPayments({ fetchList: false, refreshAfterMutation: false });
 const { vatRate, vatIncluded, computeVatPreview } = useBusinessSetting();
+
+const backdatedEnabled = computed(() => props.backdated);
+const historicalMaxDate = today("Asia/Bangkok");
+const historicalSoldDate = shallowRef<CalendarDate | null>(null);
+const historicalSoldTime = ref("00:00");
+const historicalSoldTimeSearch = ref("");
+const historicalPaymentStatus = ref<"UNPAID" | "PAID">("PAID");
+const historicalPaidDate = shallowRef<CalendarDate | null>(null);
+const historicalPaidTime = ref("00:00");
+const historicalPaidTimeSearch = ref("");
+const historicalError = ref("");
+const historicalPaid = computed(() => historicalPaymentStatus.value === "PAID");
+const historicalDateTime = (date: CalendarDate | null, time: string) => date
+  ? `${date.toString()}T${time}`
+  : "";
+const historicalSoldAt = computed(() => historicalDateTime(historicalSoldDate.value, historicalSoldTime.value));
+const historicalPaidAt = computed(() => historicalDateTime(historicalPaidDate.value, historicalPaidTime.value));
+const historicalPaymentStatusOptions = [
+  { label: paymentStatusLabels.UNPAID, value: "UNPAID" },
+  { label: paymentStatusLabels.PAID, value: "PAID" },
+];
+const normalizeHistoricalTime = (value: string) => {
+  const input = value.trim().replace(".", ":");
+  const match = input.match(/^(\d{1,2}):?(\d{2})$/);
+  if (!match) return input;
+  const hour = Number(match[1]);
+  const minute = Number(match[2]);
+  if (hour > 23 || minute > 59) return input;
+  return `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
+};
+const setHistoricalTime = (field: "sold" | "paid", value: string) => {
+  if (!value.trim()) return;
+  const normalized = normalizeHistoricalTime(value);
+  if (field === "sold") historicalSoldTime.value = normalized;
+  if (field === "paid") historicalPaidTime.value = normalized;
+};
+const timeOptions = computed(() => {
+  const options: Array<{ label: string; value: string }> = [];
+  for (let hour = 0; hour < 24; hour += 1) {
+    for (let minute = 0; minute < 60; minute += 30) {
+      const value = `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
+      options.push({ label: value, value });
+    }
+  }
+  return options;
+});
+const formatHistoricalDateLabel = (value: CalendarDate | null) => {
+  if (!value) return "เลือกวันที่";
+  const dd = String(value.day).padStart(2, "0");
+  const mm = String(value.month).padStart(2, "0");
+  return `${dd}/${mm}/${value.year}`;
+};
+const historicalSoldDateLabel = computed(() => formatHistoricalDateLabel(historicalSoldDate.value));
+const historicalPaidDateLabel = computed(() => formatHistoricalDateLabel(historicalPaidDate.value));
 
 const searchQuery = ref("");
 const packageTypeFilter = ref<"all" | PackageType>("all");
@@ -75,11 +137,16 @@ const createItemKey = () => `package-pos-item-${++itemKeySeed}`;
 
 const createEmptyForm = () => ({
   customerId: "",
+  customerMode: "existing" as "existing" | "new",
+  newCustomerName: "",
+  newCustomerPhone: "",
+  newCustomerEmail: "",
   items: [] as FormItemState[],
   discountAmount: 0,
   note: "",
   slipImageId: null as string | null,
-  method: "CASH" as PaymentMethod,
+  // Backdated intake defaults to bank transfer unless the operator picks cash.
+  method: (props.backdated ? "TRANSFER" : "CASH") as PaymentMethod,
   status: "PAID" as PaymentStatus,
 });
 
@@ -152,6 +219,14 @@ const resetSlip = () => {
 };
 
 const resetForm = () => {
+  historicalSoldDate.value = null;
+  historicalSoldTime.value = "00:00";
+  historicalSoldTimeSearch.value = "";
+  historicalPaidDate.value = null;
+  historicalPaidTime.value = "00:00";
+  historicalPaidTimeSearch.value = "";
+  historicalPaymentStatus.value = "PAID";
+  historicalError.value = "";
   Object.assign(form, createEmptyForm());
   resetSlip();
 };
@@ -224,20 +299,40 @@ const uploadSlipIfNeeded = async () => {
 };
 
 const handleSubmit = async () => {
-  if (!form.customerId) return notify.validationError("กรุณาเลือกลูกค้า");
+  if (form.customerMode === "existing" && !form.customerId) return notify.validationError("กรุณาเลือกลูกค้า");
+  if (form.customerMode === "new" && !form.newCustomerName.trim()) return notify.validationError("กรุณากรอกชื่อลูกค้า");
+  if (form.customerMode === "new" && !form.newCustomerPhone.trim()) return notify.validationError("กรุณากรอกเบอร์โทรลูกค้า");
   if (normalizedItems.value.length === 0) return notify.validationError("กรุณาเลือกแพ็กเกจอย่างน้อย 1 รายการ");
+  historicalError.value = "";
+  const history: BackdatedSaleInput | undefined = backdatedEnabled.value ? {
+    soldAt: historicalSoldAt.value,
+    ...(historicalPaid.value ? { payment: { paidAt: historicalPaidAt.value, method: form.method } } : {}),
+  } : undefined;
+  if (history) {
+    const validation = backdatedSaleSchema().safeParse(history);
+    if (!validation.success) {
+      historicalError.value = validation.error.issues[0]?.message || "กรุณาตรวจสอบข้อมูลย้อนหลัง";
+      return;
+    }
+  }
 
   isSubmitting.value = true;
   try {
     await uploadSlipIfNeeded();
     const payload: CreateAdminSaleBody = {
-      customerId: form.customerId,
+      customerId: form.customerMode === "existing" ? form.customerId : undefined,
+      newCustomer: form.customerMode === "new" ? {
+        name: form.newCustomerName.trim(),
+        phoneNumber: form.newCustomerPhone.trim(),
+        email: form.newCustomerEmail.trim() || null,
+      } : null,
       items: normalizedItems.value,
       discountAmount: sanitizedDiscountAmount.value,
       note: form.note.trim() || null,
       slipImageId: form.slipImageId,
       method: form.method,
-      status: form.status,
+      status: history ? (historicalPaid.value ? "PAID" : "UNPAID") : form.status,
+      ...(history ? { backdated: history } : {}),
     };
 
     const result = await createSale(payload);
@@ -245,7 +340,8 @@ const handleSubmit = async () => {
       emit("completed", {
         paymentId: result.paymentId,
         saleType: "PACKAGE",
-        title: "บันทึกรายการขายแพ็กเกจสำเร็จ",
+        title: history ? "บันทึกรายการขายแพ็กเกจย้อนหลังสำเร็จ" : "บันทึกรายการขายแพ็กเกจสำเร็จ",
+        activationToken: result.activationToken ?? null,
       });
       resetForm();
       await refresh();
@@ -345,16 +441,25 @@ const handleSubmit = async () => {
           :customer-id="form.customerId"
           :customer-options="customerOptions"
           :customer-loading="isCustomersLoading"
+          allow-new-customer
+          :customer-mode="form.customerMode"
+          :new-customer-name="form.newCustomerName"
+          :new-customer-phone="form.newCustomerPhone"
+          :new-customer-email="form.newCustomerEmail"
           :note="form.note"
           total-label="ยอดรวมสุทธิ"
           :total-value="formatCurrency(totalAmount)"
           :total-meta="`${cartItems.length} รายการ | ${totalQuantity} ชิ้น`"
-          submit-label="บันทึก"
+          :submit-label="backdatedEnabled ? 'บันทึกขายแพ็กเกจย้อนหลัง' : 'บันทึก'"
           :is-submitting="isSubmitting"
           :slip-file="slipFile"
           :uploaded-slip-url="uploadedSlip?.secureUrl || uploadedSlip?.url"
           :uploaded-slip-label="uploadedSlip?.secureUrl || uploadedSlip?.url || null"
           @update:customer-id="form.customerId = $event"
+          @update:customer-mode="form.customerMode = $event"
+          @update:new-customer-name="form.newCustomerName = $event"
+          @update:new-customer-phone="form.newCustomerPhone = $event"
+          @update:new-customer-email="form.newCustomerEmail = $event"
           @search-customer="setCustomerSearch"
           @update:note="form.note = $event"
           @update:slip-file="slipFile = $event"
@@ -363,6 +468,77 @@ const handleSubmit = async () => {
           @reset="resetForm"
         >
           <template #cart>
+            <div v-if="backdatedEnabled" :class="[checkoutSectionClass, 'space-y-3']">
+              <UFormField label="วันและเวลาขายจริง" required>
+                <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  <UPopover>
+                    <UButton
+                      :label="historicalSoldDateLabel"
+                      icon="i-lucide-calendar"
+                      color="neutral"
+                      variant="outline"
+                      block
+                      class="justify-start font-normal"
+                    />
+                    <template #content>
+                      <UCalendar v-model="historicalSoldDate" :max-value="historicalMaxDate" locale="th-TH" class="p-2" />
+                    </template>
+                  </UPopover>
+                  <UInputMenu
+                    v-model="historicalSoldTime"
+                    v-model:search-term="historicalSoldTimeSearch"
+                    :items="timeOptions"
+                    value-key="value"
+                    create-item="always"
+                    icon="i-lucide-clock"
+                    placeholder="เช่น 09:15"
+                    class="w-full"
+                    @create="setHistoricalTime('sold', $event)"
+                    @blur="setHistoricalTime('sold', historicalSoldTimeSearch)"
+                  />
+                </div>
+              </UFormField>
+              <UFormField label="สถานะการชำระเงิน" required>
+                <URadioGroup
+                  v-model="historicalPaymentStatus"
+                  :items="historicalPaymentStatusOptions"
+                  value-key="value"
+                  variant="card"
+                  orientation="horizontal"
+                  :ui="{ fieldset: 'grid grid-cols-2 gap-2' }"
+                />
+              </UFormField>
+              <UFormField v-if="historicalPaid" label="วันและเวลาชำระเงินจริง" required>
+                <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  <UPopover>
+                    <UButton
+                      :label="historicalPaidDateLabel"
+                      icon="i-lucide-calendar"
+                      color="neutral"
+                      variant="outline"
+                      block
+                      class="justify-start font-normal"
+                    />
+                    <template #content>
+                      <UCalendar v-model="historicalPaidDate" :max-value="historicalMaxDate" locale="th-TH" class="p-2" />
+                    </template>
+                  </UPopover>
+                  <UInputMenu
+                    v-model="historicalPaidTime"
+                    v-model:search-term="historicalPaidTimeSearch"
+                    :items="timeOptions"
+                    value-key="value"
+                    create-item="always"
+                    icon="i-lucide-clock"
+                    placeholder="เช่น 10:20"
+                    class="w-full"
+                    @create="setHistoricalTime('paid', $event)"
+                    @blur="setHistoricalTime('paid', historicalPaidTimeSearch)"
+                  />
+                </div>
+              </UFormField>
+              <p v-if="historicalError" role="alert" class="text-sm text-error">{{ historicalError }}</p>
+            </div>
             <div class="rounded-lg border border-default/30 bg-default p-2 dark:border-default/20 dark:bg-elevated/55">
               <div class="flex items-center justify-between gap-3">
                 <p class="font-medium text-highlighted">รายการที่เลือก</p>
@@ -396,7 +572,7 @@ const handleSubmit = async () => {
           </template>
 
           <template #discount>
-            <UFormField label="ช่องทางการชำระเงิน">
+            <UFormField v-if="!backdatedEnabled || historicalPaid" label="ช่องทางการชำระเงิน">
               <div class="grid grid-cols-2 gap-2">
                 <UButton
                   v-for="option in paymentMethodOptions"
@@ -411,7 +587,7 @@ const handleSubmit = async () => {
               </div>
             </UFormField>
 
-            <UFormField label="สถานะการชำระเงิน">
+            <UFormField v-if="!backdatedEnabled" label="สถานะการชำระเงิน">
               <USelect
                 v-model="form.status"
                 :items="paymentStatusOptions"

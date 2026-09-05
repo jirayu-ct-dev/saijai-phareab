@@ -95,6 +95,7 @@ onActivated(async () => {
 const searchQuery = ref("");
 const statusFilter = ref<ServiceOrderStatus | "all">("all");
 const customerTypeFilter = ref<CustomerTypeFilter>("all");
+const backdatedFilter = ref<"normal" | "backdated" | "all">("normal");
 
 watch(
   () => route.query.status,
@@ -126,6 +127,8 @@ const filteredServiceOrders = computed<AdminServiceOrder[]>(() => {
       : true;
 
     const matchStatus = statusFilter.value === "all" || order.status === statusFilter.value;
+    const matchBackdated = backdatedFilter.value === "all"
+      || (backdatedFilter.value === "backdated" ? Boolean(order.backdated) : !order.backdated);
     const matchCustomerType = (() => {
       if (customerTypeFilter.value === "all") return true;
       if (customerTypeFilter.value === "offline") return order.customer.customerAccountStatus === "OFFLINE";
@@ -133,7 +136,7 @@ const filteredServiceOrders = computed<AdminServiceOrder[]>(() => {
       return order.customer.customerAccountStatus !== "OFFLINE";
     })();
 
-    return matchKeyword && matchStatus && matchCustomerType;
+    return matchKeyword && matchStatus && matchBackdated && matchCustomerType;
   });
 });
 
@@ -148,7 +151,7 @@ const setPage = (page: number) => {
   pagination.value = { ...pagination.value, pageIndex: page - 1 };
 };
 
-watch([searchQuery, statusFilter, customerTypeFilter], () => {
+watch([searchQuery, statusFilter, customerTypeFilter, backdatedFilter], () => {
   pagination.value = { ...pagination.value, pageIndex: 0 };
   rowSelection.value = {};
 });
@@ -564,6 +567,17 @@ const columns: TableColumn<AdminServiceOrder>[] = [
               </div>
 
               <div class="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center md:justify-end">
+                <USelect
+                  v-model="backdatedFilter"
+                  :items="[
+                    { label: 'รายการปกติ', value: 'normal' },
+                    { label: 'รายการย้อนหลัง', value: 'backdated' },
+                    { label: 'รายการทั้งหมด', value: 'all' },
+                  ]"
+                  value-key="value"
+                  class="min-w-0 sm:w-40"
+                  aria-label="เลือกประเภทรายการ"
+                />
                 <USelect
                   v-model="customerTypeFilter"
                   :items="[

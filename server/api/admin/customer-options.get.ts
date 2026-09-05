@@ -52,7 +52,9 @@ export default defineEventHandler(async (event) => {
           where: {
             deletedAt: null,
             status: "ACTIVE",
-            ...(historicalDate ? backdatedEntitlementWhere(historicalDate) : {}),
+            ...(historicalDate
+              ? backdatedEntitlementWhere(historicalDate)
+              : { OR: [{ endAt: null }, { endAt: { gte: new Date() } }] }),
           },
           orderBy: [
             { product: { packageType: "asc" } },
@@ -63,6 +65,7 @@ export default defineEventHandler(async (event) => {
             id: true,
             creditInitial: true,
             creditRemaining: true,
+            startAt: true,
             endAt: true,
             product: {
               select: {
@@ -95,6 +98,17 @@ export default defineEventHandler(async (event) => {
         phoneNumber: user.phoneNumber,
         image: user.image,
         customerAccountStatus: user.customerAccountStatus,
+        memberEntitlementOptions: user.memberEntitlements
+          .filter((entitlement) => entitlement.product.packageType === "MAIN")
+          .map((entitlement) => ({
+            id: entitlement.id,
+            productId: entitlement.product.id,
+            productName: entitlement.product.name,
+            creditInitial: entitlement.creditInitial,
+            creditRemaining: entitlement.creditRemaining,
+            startAt: entitlement.startAt?.toISOString() ?? null,
+            endAt: entitlement.endAt?.toISOString() ?? null,
+          })),
         activeMemberEntitlement: activeMemberEntitlement
           ? {
               id: activeMemberEntitlement.id,
@@ -102,6 +116,7 @@ export default defineEventHandler(async (event) => {
               productName: activeMemberEntitlement.product.name,
               creditInitial: activeMemberEntitlement.creditInitial,
               creditRemaining: activeMemberEntitlement.creditRemaining,
+              startAt: activeMemberEntitlement.startAt?.toISOString() ?? null,
               endAt: activeMemberEntitlement.endAt?.toISOString() ?? null,
             }
           : null,

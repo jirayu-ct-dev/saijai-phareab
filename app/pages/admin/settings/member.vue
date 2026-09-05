@@ -202,6 +202,45 @@ const onConfirmEntDelete = async () => {
   }
 };
 
+const isEntExpiring = ref(false);
+const expiringEnt = ref<{ memberId: string; entitlement: MemberEntitlement } | null>(null);
+const isEntExpireOpen = ref(false);
+
+const openEntExpire = (memberId: string, ent: MemberEntitlement) => {
+  expiringEnt.value = { memberId, entitlement: ent };
+  isEntExpireOpen.value = true;
+};
+
+const onConfirmEntExpire = async () => {
+  if (!expiringEnt.value || isEntExpiring.value) return;
+  isEntExpiring.value = true;
+  try {
+    const { memberId, entitlement } = expiringEnt.value;
+    await $fetch(`/api/admin/members/${memberId}/entitlements/${entitlement.id}`, {
+      method: "PUT",
+      body: {
+        productId: entitlement.product.id,
+        status: "EXPIRED",
+        creditInitial: entitlement.creditInitial ?? 0,
+        creditRemaining: entitlement.creditRemaining ?? 0,
+        startAt: entitlement.startAt,
+        endAt: entitlement.endAt,
+      },
+    });
+    notify.updated();
+    expiringEnt.value = null;
+    isEntExpireOpen.value = false;
+    await refresh();
+  } catch (error: unknown) {
+    const message = error && typeof error === "object" && "statusMessage" in error
+      ? String((error as { statusMessage?: string }).statusMessage)
+      : "ไม่สามารถปิดใช้งานแพ็กเกจได้";
+    notify.error(message);
+  } finally {
+    isEntExpiring.value = false;
+  }
+};
+
 const isDeleteOpen = ref(false);
 const deletingMember = ref<MemberRow | null>(null);
 const isDeleting = ref(false);
@@ -488,6 +527,17 @@ const isExpiringSoon = (s: string | null) => {
                   @click="openEntEdit(m.id, ent)"
                 />
                 <UButton
+                  v-if="ent.status === 'ACTIVE'"
+                  icon="i-lucide-calendar-x"
+                  color="warning"
+                  variant="ghost"
+                  size="xs"
+                  title="ปิดใช้งาน (ตั้งเป็นหมดอายุ)"
+                  aria-label="ปิดใช้งานแพ็กเกจนี้"
+                  :loading="expiringEnt?.entitlement.id === ent.id && isEntExpiring"
+                  @click="openEntExpire(m.id, ent)"
+                />
+                <UButton
                   icon="i-lucide-trash-2"
                   color="error"
                   variant="ghost"
@@ -587,6 +637,32 @@ const isExpiringSoon = (s: string | null) => {
         <div class="flex w-full justify-between gap-2">
           <UButton color="neutral" variant="ghost" @click="isEntDeleteOpen = false">ยกเลิก</UButton>
           <UButton color="error" :loading="isEntDeleting" icon="i-lucide-trash-2" @click="onConfirmEntDelete">ยืนยันลบ</UButton>
+        </div>
+      </template>
+    </UModal>
+
+    <UModal
+      v-model:open="isEntExpireOpen"
+      title="ปิดใช้งานแพ็กเกจสมาชิก"
+      :ui="{ body: '!bg-default p-4! dark:!bg-elevated/55' }"
+    >
+      <template #body>
+        <div class="space-y-3 text-sm">
+          <p>
+            ปิดใช้งานแพ็กเกจ
+            <span class="font-semibold">{{ expiringEnt?.entitlement.product.name }}</span>
+            ของลูกค้านี้ใช่หรือไม่?
+          </p>
+          <div class="flex items-start gap-2 rounded-lg border border-warning/30 bg-warning/5 p-3 text-xs text-warning">
+            <UIcon name="i-lucide-triangle-alert" class="mt-0.5 size-3.5 shrink-0" />
+            <span>แพ็กเกจจะถูกตั้งเป็นหมดอายุ (EXPIRED) และไม่สามารถใช้เครดิตคงเหลือได้ทันที</span>
+          </div>
+        </div>
+      </template>
+      <template #footer>
+        <div class="flex w-full justify-between gap-2">
+          <UButton color="neutral" variant="ghost" @click="isEntExpireOpen = false">ยกเลิก</UButton>
+          <UButton color="warning" :loading="isEntExpiring" icon="i-lucide-calendar-x" @click="onConfirmEntExpire">ยืนยันปิดใช้งาน</UButton>
         </div>
       </template>
     </UModal>

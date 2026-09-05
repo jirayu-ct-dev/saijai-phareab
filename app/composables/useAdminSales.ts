@@ -1,4 +1,5 @@
 import type { PackageSaleStatus } from "~~/shared/types/enums";
+import type { BackdatedSaleInput } from "~~/shared/utils/backdatedOrder";
 
 export type AdminSaleSlipImage = {
   id: string;
@@ -48,13 +49,15 @@ export type AdminSaleItemInput = {
 };
 
 export type CreateAdminSaleBody = {
-  customerId: string;
+  customerId?: string;
+  newCustomer?: { name: string; phoneNumber: string; email: string | null } | null;
   items: AdminSaleItemInput[];
   discountAmount?: number;
   note?: string | null;
   slipImageId?: string | null;
   method?: "CASH" | "TRANSFER" | null;
   status?: "UNPAID" | "PENDING_VERIFICATION" | "PAID" | "CANCELLED" | null;
+  backdated?: BackdatedSaleInput;
 };
 
 export type UpdateAdminSaleBody = CreateAdminSaleBody;
@@ -62,6 +65,7 @@ export type UpdateAdminSaleBody = CreateAdminSaleBody;
 export type CreateAdminSaleResult = {
   id: string;
   paymentId: string;
+  activationToken?: string | null;
 };
 
 export const useAdminSales = () => {

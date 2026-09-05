@@ -16,9 +16,27 @@ type UpdatePackageSaleBody = {
   slipImageId?: string | null;
 };
 
-const buildEntitlementState = (validityDays: number | null | undefined, credits: number | null | undefined) => {
-  const startAt = new Date();
+// Mirrors the create path: unpaid sales stay PENDING until payment confirmation,
+// and the validity window is anchored at the sale date so backdated windows survive edits.
+const buildEntitlementState = (
+  validityDays: number | null | undefined,
+  credits: number | null | undefined,
+  active: boolean,
+  startAt: Date = new Date(),
+) => {
   const creditTotal = credits ?? 0;
+  if (!active) {
+    return {
+      status: "PENDING" as const,
+      startAt: null,
+      endAt: null,
+      activatedAt: null,
+      suspendedAt: null,
+      creditInitial: creditTotal,
+      creditRemaining: creditTotal,
+    };
+  }
+
   return {
     status: "ACTIVE" as const,
     startAt,
@@ -73,6 +91,7 @@ export default defineEventHandler(async (event) => {
       select: {
         id: true,
         customerId: true,
+        createdAt: true,
         items: {
           select: {
             id: true,
@@ -100,7 +119,7 @@ export default defineEventHandler(async (event) => {
         payments: {
           where: { deletedAt: null },
           orderBy: { createdAt: "asc" },
-          select: { id: true },
+          select: { id: true, status: true, metadata: true },
         },
       },
     });
@@ -167,9 +186,36 @@ export default defineEventHandler(async (event) => {
     const vat = computeVat({ amount: beforeVat, rate: business.vatRate, included: business.vatIncluded });
     const totalAmount = vat.totalAmount;
     const existingItemIds = existingSale.items.map((item) => item.id);
+    const existingPayment = existingSale.payments[0] ?? null;
+    const isPaid = existingPayment?.status === "PAID";
+    const soldAt = existingSale.createdAt;
 
     await prisma.$transaction(async (tx) => {
       if (existingItemIds.length > 0) {
+        // Re-check inside the transaction: a concurrent service order may have
+        // consumed a credit between the outer read and this commit.
+        const usedEntitlementCount = await tx.packageSaleItem.count({
+          where: {
+            id: { in: existingItemIds },
+            memberEntitlements: {
+              some: {
+                deletedAt: null,
+                OR: [
+                  { serviceOrders: { some: { deletedAt: null } } },
+                  { serviceOrderAddonUsages: { some: { refundedAt: null, serviceOrder: { deletedAt: null } } } },
+                ],
+              },
+            },
+          },
+        });
+
+        if (usedEntitlementCount > 0) {
+          throw createError({
+            statusCode: 409,
+            statusMessage: "ไม่สามารถแก้ไขรายการขายที่มีการใช้งานสิทธิ์ไปแล้ว",
+          });
+        }
+
         await tx.memberEntitlement.updateMany({
           where: {
             sourceSaleItemId: { in: existingItemIds },
@@ -229,34 +275,51 @@ export default defineEventHandler(async (event) => {
               customerId: body.customerId,
               sourceSaleItemId: saleItem.id,
               productId: saleItem.product.id,
-              ...buildEntitlementState(saleItem.product.validityDays, saleItem.product.credits),
+              ...buildEntitlementState(saleItem.product.validityDays, saleItem.product.credits, isPaid, soldAt),
             },
           });
         }
       }
 
-      if (existingSale.payments.length > 0) {
-        await tx.paymentRecord.updateMany({
-          where: {
-            id: { in: existingSale.payments.map((payment) => payment.id) },
-          },
+      const paymentMetadata = {
+        ...(existingPayment && typeof existingPayment.metadata === "object" && existingPayment.metadata
+          ? existingPayment.metadata
+          : {}),
+        updatedByAdminId: actor.id,
+        source: "admin-package-sales",
+        subtotalAmount,
+        discountAmount,
+        vat: {
+          rate: vat.vatRate,
+          amount: vat.vatAmount,
+          included: vat.vatIncluded,
+          baseAmount: vat.baseAmount,
+        },
+      };
+
+      if (existingPayment) {
+        await tx.paymentRecord.update({
+          where: { id: existingPayment.id },
           data: {
             userId: body.customerId,
             amount: totalAmount,
             slipImageId: body.slipImageId ?? null,
             note: body.note?.trim() || null,
-            paidAt: new Date(),
-            metadata: {
-              updatedByAdminId: actor.id,
-              source: "admin-package-sales",
+            metadata: paymentMetadata,
+          },
+        });
+
+        await tx.paymentAuditLog.create({
+          data: {
+            paymentId: existingPayment.id,
+            action: "UPDATED",
+            actorId: actor.id,
+            afterJson: {
+              userId: body.customerId,
+              amount: totalAmount,
               subtotalAmount,
               discountAmount,
-              vat: {
-                rate: vat.vatRate,
-                amount: vat.vatAmount,
-                included: vat.vatIncluded,
-                baseAmount: vat.baseAmount,
-              },
+              slipImageId: body.slipImageId ?? null,
             },
           },
         });
@@ -267,21 +330,13 @@ export default defineEventHandler(async (event) => {
             userId: body.customerId,
             packageSaleId: id,
             amount: totalAmount,
+            status: isPaid ? "PAID" : "UNPAID",
             slipImageId: body.slipImageId ?? null,
             note: body.note?.trim() || null,
-            paidAt: new Date(),
-            metadata: {
-              updatedByAdminId: actor.id,
-              source: "admin-package-sales",
-              subtotalAmount,
-              discountAmount,
-              vat: {
-                rate: vat.vatRate,
-                amount: vat.vatAmount,
-                included: vat.vatIncluded,
-                baseAmount: vat.baseAmount,
-              },
-            },
+            paidAt: isPaid ? new Date() : null,
+            confirmedAt: isPaid ? new Date() : null,
+            confirmedById: isPaid ? actor.id : null,
+            metadata: paymentMetadata,
           },
         });
       }

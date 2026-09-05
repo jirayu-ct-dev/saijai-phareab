@@ -34,8 +34,17 @@ type CustomerOption = {
     productName: string;
     creditInitial: number | null;
     creditRemaining: number | null;
+    startAt: string | null;
     endAt: string | null;
   } | null;
+  memberEntitlementOptions?: Array<{
+    id: string;
+    productName: string;
+    creditInitial: number | null;
+    creditRemaining: number | null;
+    startAt: string | null;
+    endAt: string | null;
+  }>;
   addonEntitlements?: Array<{
     id: string;
     productName: string;
@@ -65,7 +74,10 @@ const serviceOrderStatusOptions: Array<{ label: string; value: ServiceOrderStatu
 
 const notify = useNotify();
 const { updateServiceOrder, uploadOrderImage } = useAdminServiceOrders({ fetchList: false, refreshAfterMutation: false });
-const { customers, isLoading: isCustomersLoading, setSearch: setCustomerSearch } = useAdminCustomerOptions();
+// Entitlement choices must match the order's own receive date, so editing a
+// backdated order keeps seeing the package that covered that date.
+const orderReceivedAt = computed(() => props.order?.receivedAt);
+const { customers, isLoading: isCustomersLoading, setSearch: setCustomerSearch } = useAdminCustomerOptions(orderReceivedAt);
 const { items: catalogItems, isLoading: isCatalogLoading, refresh: refreshCatalog } = useStorefrontCatalog();
 const { uploadSlip } = useAdminPayments({ fetchList: false, refreshAfterMutation: false });
 const { hangerPricePerUnit, washFoldPricePerKg, washFoldMinKg } = useBusinessSetting();
@@ -141,9 +153,20 @@ const currentOrderCustomer = computed<CustomerOption | null>(() => {
           productName: props.order.memberEntitlement.product.name,
           creditInitial: props.order.memberEntitlement.creditInitial,
           creditRemaining: props.order.memberEntitlement.creditRemaining,
+          startAt: null,
           endAt: props.order.memberEntitlement.endAt,
         }
       : null,
+    memberEntitlementOptions: props.order?.memberEntitlement
+      ? [{
+          id: props.order.memberEntitlement.id,
+          productName: props.order.memberEntitlement.product.name,
+          creditInitial: props.order.memberEntitlement.creditInitial,
+          creditRemaining: props.order.memberEntitlement.creditRemaining,
+          startAt: null,
+          endAt: props.order.memberEntitlement.endAt,
+        }]
+      : [],
     addonEntitlements: [],
   };
 });
@@ -158,6 +181,7 @@ const customerOptions = computed<CustomerOption[]>(() => {
     phoneNumber: customer.phoneNumber,
     customerAccountStatus: customer.customerAccountStatus,
     activeMemberEntitlement: customer.activeMemberEntitlement ?? null,
+    memberEntitlementOptions: customer.memberEntitlementOptions ?? [],
     addonEntitlements: customer.addonEntitlements ?? [],
   }));
   const current = currentOrderCustomer.value;
@@ -174,6 +198,17 @@ const hasDeliveryUsage = computed(() => activeAddonEntitlements.value.some(
   (addon) => addon.isDelivery && (selectedAddonCreditMap.value.get(addon.id) ?? 0) > 0,
 ));
 const canUseMemberPackage = computed(() => Boolean(activeMemberEntitlement.value));
+const selectedMemberEntitlement = computed(() => {
+  if (!form.memberEntitlementId) return null;
+  return (selectedCustomer.value?.memberEntitlementOptions ?? []).find((option) => option.id === form.memberEntitlementId) ?? activeMemberEntitlement.value;
+});
+const formatEntitlementDate = (value: string | null) => {
+  if (!value) return "?";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "?";
+  const bkk = new Date(date.getTime() + BANGKOK_OFFSET_MS);
+  return `${String(bkk.getUTCDate()).padStart(2, "0")}/${String(bkk.getUTCMonth() + 1).padStart(2, "0")}/${bkk.getUTCFullYear()}`;
+};
 
 const existingAddonCredits = computed(() => {
   const credits = new Map<string, number>();
@@ -241,7 +276,7 @@ const sanitizedDiscountAmount = computed(() => {
   if (!Number.isFinite(raw) || raw <= 0) return 0;
   return Math.min(raw, subtotalAmount.value);
 });
-const creditAvailable = computed(() => Math.max(0, Number(activeMemberEntitlement.value?.creditRemaining ?? 0)));
+const creditAvailable = computed(() => Math.max(0, Number(selectedMemberEntitlement.value?.creditRemaining ?? 0)));
 const creditUsedPreview = computed(() => {
   if (!form.memberEntitlementId) return 0;
   return Math.min(totalQuantity.value, creditAvailable.value);
@@ -324,7 +359,10 @@ watch(
       form.memberEntitlementId = null;
       return;
     }
-    if (form.memberEntitlementId && form.memberEntitlementId !== activeMemberEntitlement.value?.id) {
+    // Keep the order's existing package while it still covers the receive
+    // date; fall back to the offered active one only when it does not.
+    const validOptions = selectedCustomer.value?.memberEntitlementOptions ?? [];
+    if (form.memberEntitlementId && validOptions.length > 0 && !validOptions.some((option) => option.id === form.memberEntitlementId)) {
       form.memberEntitlementId = activeMemberEntitlement.value?.id ?? null;
     }
   },
@@ -363,8 +401,11 @@ const setDueDateTime = (value: string | null) => {
     dueTime.value = "00:00";
     return;
   }
-  dueDate.value = new CalendarDate(parsed.getFullYear(), parsed.getMonth() + 1, parsed.getDate());
-  dueTime.value = `${String(parsed.getHours()).padStart(2, "0")}:${String(parsed.getMinutes()).padStart(2, "0")}`;
+  // Decompose in Asia/Bangkok wall time: the server re-parses the submitted
+  // "YYYY-MM-DDTHH:mm" string as Bangkok local time.
+  const bkk = new Date(parsed.getTime() + BANGKOK_OFFSET_MS);
+  dueDate.value = new CalendarDate(bkk.getUTCFullYear(), bkk.getUTCMonth() + 1, bkk.getUTCDate());
+  dueTime.value = `${String(bkk.getUTCHours()).padStart(2, "0")}:${String(bkk.getUTCMinutes()).padStart(2, "0")}`;
 };
 
 const applyOrderToForm = () => {
@@ -724,16 +765,16 @@ const buildBody = async (): Promise<CreateAdminServiceOrderBody | null> => {
 const handleSubmit = async () => {
   if (!props.order) return;
   isSubmitting.value = true;
-  const body = await buildBody();
-  if (!body) {
+  try {
+    const body = await buildBody();
+    if (!body) return;
+    const ok = await updateServiceOrder(props.order.id, body);
+    if (!ok) return;
+    open.value = false;
+    emit("updated");
+  } finally {
     isSubmitting.value = false;
-    return;
   }
-  const ok = await updateServiceOrder(props.order.id, body);
-  isSubmitting.value = false;
-  if (!ok) return;
-  open.value = false;
-  emit("updated");
 };
 </script>
 
@@ -805,13 +846,16 @@ const handleSubmit = async () => {
                 class="rounded-md border border-default/35 bg-elevated/70 p-3 dark:border-default/25 dark:bg-elevated/45 md:col-span-2"
               >
                 <div class="flex items-start justify-between gap-3">
-                  <div>
-                    <p class="font-medium text-success">{{ activeMemberEntitlement?.productName }}</p>
+                  <div class="min-w-0">
+                    <p class="font-medium text-success">{{ selectedMemberEntitlement?.productName ?? activeMemberEntitlement?.productName }}</p>
                     <p class="text-xs text-muted">
-                      เครดิตคงเหลือ {{ activeMemberEntitlement?.creditRemaining ?? 0 }} | ใช้งานครั้งนี้ {{ creditUsedPreview }} เครดิต
+                      เครดิตคงเหลือ {{ selectedMemberEntitlement?.creditRemaining ?? 0 }} | ใช้งานครั้งนี้ {{ creditUsedPreview }} เครดิต
                       <span v-if="form.memberEntitlementId && cashQuantity > 0">
                         | คิดเพิ่ม {{ cashQuantity }} ชิ้น ({{ formatCurrency(cashSubtotal) }})
                       </span>
+                    </p>
+                    <p v-if="selectedMemberEntitlement?.startAt && selectedMemberEntitlement?.endAt" class="text-xs text-muted">
+                      ช่วงสิทธิ์ {{ formatEntitlementDate(selectedMemberEntitlement.startAt) }}–{{ formatEntitlementDate(selectedMemberEntitlement.endAt) }}
                     </p>
                   </div>
                   <USwitch
