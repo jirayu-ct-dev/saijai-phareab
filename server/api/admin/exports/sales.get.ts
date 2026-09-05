@@ -1,7 +1,7 @@
 import { prisma } from "~~/server/utils/prisma";
 import { requireRole } from "~~/server/utils/auth";
 import { buildCsv, formatBangkokDateTag, formatBangkokDateTime, parseDateRange, sendCsv } from "~~/server/utils/csv";
-import { paymentMethodLabels } from "~~/shared/config/paymentConfig";
+import { paymentMethodLabels, paymentStatusLabels } from "~~/shared/config/paymentConfig";
 import { isInternalCustomerEmail } from "~~/server/utils/customerAccount";
 
 export default defineEventHandler(async (event) => {
@@ -16,8 +16,10 @@ export default defineEventHandler(async (event) => {
     select: {
       id: true,
       paymentNo: true,
+      receiptNo: true,
       createdAt: true,
       paidAt: true,
+      status: true,
       method: true,
       amount: true,
       note: true,
@@ -69,8 +71,10 @@ export default defineEventHandler(async (event) => {
         : "";
     return {
       "เลขที่บิล": p.paymentNo ?? p.id,
+      "เลขที่ใบเสร็จ": p.receiptNo ?? "",
       "วันที่สร้าง": formatBangkokDateTime(p.createdAt),
       "วันที่ชำระ": formatBangkokDateTime(p.paidAt),
+      "สถานะชำระเงิน": p.status ? paymentStatusLabels[p.status] : "",
       "วิธีชำระเงิน": p.method ? paymentMethodLabels[p.method] : "",
       "ประเภท": p.packageSaleId ? "ขายแพ็กเกจ" : "บริการซักผ้า",
       "รายการ": itemSummary,
@@ -83,7 +87,8 @@ export default defineEventHandler(async (event) => {
   });
 
   const headers = [
-    "เลขที่บิล", "วันที่สร้าง", "วันที่ชำระ", "วิธีชำระเงิน", "ประเภท", "รายการ",
+    "เลขที่บิล", "เลขที่ใบเสร็จ", "วันที่สร้าง", "วันที่ชำระ", "สถานะชำระเงิน", "วิธีชำระเงิน",
+    "ประเภท", "รายการ",
     "ลูกค้า", "อีเมล", "เบอร์",
     "ยอด", "หมายเหตุ",
   ];

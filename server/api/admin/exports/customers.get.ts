@@ -1,17 +1,15 @@
 import { prisma } from "~~/server/utils/prisma";
 import { requireRole } from "~~/server/utils/auth";
 import { isInternalCustomerEmail } from "~~/server/utils/customerAccount";
-import { buildCsv, formatBangkokDateTag, formatBangkokDateTime, parseDateRange, sendCsv } from "~~/server/utils/csv";
+import { buildCsv, formatBangkokDateTag, formatBangkokDateTime, sendCsv } from "~~/server/utils/csv";
 
+// Snapshot ลูกค้าทั้งหมด (ไม่จำกัดช่วงเวลา) — จำนวนออเดอร์/สิทธิ์เป็นยอดรวมตลอดอายุบัญชี
 export default defineEventHandler(async (event) => {
   requireRole(event, ["ADMIN"]);
-  const query = getQuery(event);
-  const { from, to } = parseDateRange(query.from, query.to);
   const customers = await prisma.user.findMany({
     where: {
       role: "USER",
       deletedAt: null,
-      createdAt: { gte: from, lte: to },
       AND: [
         { OR: [{ normalizedPhoneNumber: null }, { NOT: { normalizedPhoneNumber: { startsWith: "000000" } } }] },
         { OR: [{ name: null }, { NOT: { name: { startsWith: "ลูกค้าเดิมไม่ระบุ" } } }] },
@@ -28,7 +26,12 @@ export default defineEventHandler(async (event) => {
       isActive: true,
       createdAt: true,
       accounts: { where: { providerId: "line" }, select: { id: true }, take: 1 },
-      _count: { select: { serviceOrders: true, memberEntitlements: true } },
+      _count: {
+        select: {
+          serviceOrders: { where: { deletedAt: null } },
+          memberEntitlements: { where: { deletedAt: null } },
+        },
+      },
     },
   });
   const rows = customers.map((customer) => ({
@@ -45,5 +48,5 @@ export default defineEventHandler(async (event) => {
     "วันที่สร้าง": formatBangkokDateTime(customer.createdAt),
   }));
   const headers = ["รหัสลูกค้า", "ชื่อ", "อีเมล", "เบอร์โทร", "สถานะบัญชี", "ผูก LINE", "ใช้งานบัญชี", "จำนวนออเดอร์", "จำนวนสิทธิ์แพ็กเกจ", "วันที่เปิดใช้งาน", "วันที่สร้าง"];
-  return sendCsv(`customers-${formatBangkokDateTag(from)}-to-${formatBangkokDateTag(to)}`, buildCsv(headers, rows));
+  return sendCsv(`customers-snapshot-${formatBangkokDateTag(new Date())}`, buildCsv(headers, rows));
 });

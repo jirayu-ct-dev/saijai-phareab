@@ -26,7 +26,6 @@ export default defineEventHandler(async (event) => {
       status: true,
       receivedAt: true,
       dueAt: true,
-      updatedAt: true,
       subtotalAmount: true,
       discountAmount: true,
       totalAmount: true,
@@ -35,6 +34,9 @@ export default defineEventHandler(async (event) => {
       customer: { select: { name: true, email: true, phoneNumber: true } },
       employee: { select: { name: true } },
       memberEntitlement: { select: { product: { select: { name: true } } } },
+      completedAt: true,
+      note: true,
+      payments: { where: { deletedAt: null }, select: { paidAt: true }, take: 1 },
       weightKg: true,
       addonUsageRecords: {
         select: {
@@ -75,11 +77,14 @@ export default defineEventHandler(async (event) => {
         return `${name} × ${item.quantity}`;
       })
       .join(", ");
+    // วันที่ส่งจริง: completedAt ที่บันทึกตอนเข้าสถานะเสร็จสิ้น ถ้าไม่มี (งานเก่า) ใช้วันที่ชำระเงินแทน
+    const paidAt = o.payments[0]?.paidAt ?? null;
+    const deliveredAt = o.status === "COMPLETED" ? (o.completedAt ?? paidAt) : null;
     return {
       "เลขรับผ้า": o.orderNo ?? o.id,
       "วันที่รับผ้า": formatBangkokDateTime(o.receivedAt),
       "นัดรับ": formatBangkokDateTime(o.dueAt),
-      "วันที่ส่ง": o.status === "COMPLETED" ? formatBangkokDateTime(o.updatedAt) : "",
+      "วันที่ส่ง": deliveredAt ? formatBangkokDateTime(deliveredAt) : "",
       "สถานะ": statusLabel[o.status] ?? o.status,
       "ลูกค้า": o.customer.name ?? "",
       "อีเมล": isInternalCustomerEmail(o.customer.email) ? "" : o.customer.email,
@@ -98,6 +103,7 @@ export default defineEventHandler(async (event) => {
       "จำนวนไม้แขวน": Number(hanger?.count ?? 0),
       "ยอดสุทธิ": o.totalAmount != null ? Number(o.totalAmount) : 0,
       "พนักงาน": o.employee?.name ?? "",
+      "หมายเหตุ": o.note ?? "",
     };
   });
 
@@ -107,7 +113,7 @@ export default defineEventHandler(async (event) => {
     "รูปแบบ", "แพ็กเกจ", "แพ็กเกจเสริม", "เครดิตแพ็กเกจเสริม",
     "จำนวนชิ้น", "รายการผ้า", "น้ำหนัก (กก.)", "ใช้เครดิต",
     "ราคารวม", "ส่วนลด", "ค่าไม้แขวน", "จำนวนไม้แขวน", "ยอดสุทธิ",
-    "พนักงาน",
+    "พนักงาน", "หมายเหตุ",
   ];
   const csv = buildCsv(headers, rows);
   const fromTag = formatBangkokDateTag(from);
