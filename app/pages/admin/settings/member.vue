@@ -71,11 +71,6 @@ const packageOptions = computed(() =>
   })),
 );
 
-const expandedId = ref<string | null>(null);
-const toggleExpand = (id: string) => {
-  expandedId.value = expandedId.value === id ? null : id;
-};
-
 const STATUS_LABELS: Record<EntitlementStatus, string> = {
   PENDING: "รอเริ่มใช้งาน",
   ACTIVE: "กำลังใช้งาน",
@@ -95,9 +90,76 @@ const STATUS_OPTIONS = (Object.keys(STATUS_LABELS) as EntitlementStatus[]).map((
   value: v,
 }));
 
-const isEntOpen = ref(false);
-const isEntSaving = ref(false);
-const editingEnt = ref<{ memberId: string; entitlement: MemberEntitlement } | null>(null);
+/* ------------------------------------------------------------------ */
+/* Member drawer — single place to manage one member's packages.      */
+/* ------------------------------------------------------------------ */
+const selectedMember = ref<MemberRow | null>(null);
+const isDrawerOpen = ref(false);
+
+const openMember = (m: MemberRow) => {
+  selectedMember.value = m;
+  isDrawerOpen.value = true;
+};
+
+const syncSelectedAfterRefresh = async () => {
+  await refresh();
+  if (!selectedMember.value) return;
+  selectedMember.value = members.value.find((m) => m.id === selectedMember.value!.id) ?? null;
+  if (!selectedMember.value) isDrawerOpen.value = false;
+};
+
+/* ------------------------------------------------------------------ */
+/* Presentation helpers                                               */
+/* ------------------------------------------------------------------ */
+const getAvatarProps = (image: string | null, name: string | null, email: string) => ({
+  as: { img: "img" as const },
+  src: image || "",
+  alt: name || email,
+  loading: "lazy" as const,
+});
+const formatCurrency = (n: number) =>
+  new Intl.NumberFormat("th-TH", { minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(n);
+
+const formatDate = (s: string | null) =>
+  s ? new Date(s).toLocaleDateString("th-TH", { dateStyle: "medium" }) : "-";
+
+const daysLeft = (s: string | null) => {
+  if (!s) return null;
+  return Math.ceil((new Date(s).getTime() - Date.now()) / 86400000);
+};
+
+const expiryHint = (s: string | null) => {
+  const d = daysLeft(s);
+  if (d === null) return "ไม่ระบุวันหมดอายุ";
+  if (d < 0) return `หมดอายุมาแล้ว ${Math.abs(d)} วัน`;
+  if (d === 0) return "หมดอายุวันนี้";
+  return `อีก ${d} วัน`;
+};
+
+const isExpiringSoon = (s: string | null) => {
+  const d = daysLeft(s);
+  return d !== null && d >= 0 && d <= 7;
+};
+
+const creditPercent = (remaining: number | null, initial: number | null) => {
+  if (!initial || initial <= 0) return 0;
+  return Math.min(100, Math.max(0, ((remaining ?? 0) / initial) * 100));
+};
+
+const creditBarColor = (remaining: number | null, initial: number | null) => {
+  if (!initial || initial <= 0) return "bg-neutral-300 dark:bg-neutral-700";
+  if ((remaining ?? 0) <= 0) return "bg-error";
+  if (creditPercent(remaining, initial) <= 20) return "bg-warning";
+  return "bg-primary";
+};
+
+const visibleAddonPackageNames = (names: string[]) => names.slice(0, 2);
+const hiddenAddonPackageCount = (names: string[]) => Math.max(0, names.length - 2);
+
+/* ------------------------------------------------------------------ */
+/* Entitlement edit / expire / delete (drawer context)                */
+/* ------------------------------------------------------------------ */
+const editingEnt = ref<MemberEntitlement | null>(null);
 const entForm = reactive({
   productId: "",
   status: "ACTIVE" as EntitlementStatus,
@@ -133,8 +195,8 @@ const formatCalendarLabel = (v: CalendarDate | null) => {
   return `${dd}/${mm}/${v.year}`;
 };
 
-const openEntEdit = (memberId: string, ent: MemberEntitlement) => {
-  editingEnt.value = { memberId, entitlement: ent };
+const openEntEdit = (ent: MemberEntitlement) => {
+  editingEnt.value = ent;
   entForm.productId = ent.product.id;
   entForm.status = ent.status;
   entForm.creditInitial = ent.creditInitial ?? 0;
@@ -144,15 +206,17 @@ const openEntEdit = (memberId: string, ent: MemberEntitlement) => {
   isEntOpen.value = true;
 };
 
+const isEntOpen = ref(false);
+const isEntSaving = ref(false);
+
 const onSaveEnt = async () => {
-  if (!editingEnt.value) return;
+  if (!editingEnt.value || !selectedMember.value) return;
   if (entForm.creditRemaining > entForm.creditInitial) {
     return notify.validationError("เครดิตคงเหลือต้องไม่เกินเครดิตเริ่มต้น");
   }
   isEntSaving.value = true;
   try {
-    const { memberId, entitlement } = editingEnt.value;
-    await $fetch(`/api/admin/members/${memberId}/entitlements/${entitlement.id}`, {
+    await $fetch(`/api/admin/members/${selectedMember.value.id}/entitlements/${editingEnt.value.id}`, {
       method: "PUT",
       body: {
         productId: entForm.productId,
@@ -165,7 +229,7 @@ const onSaveEnt = async () => {
     });
     notify.updated();
     isEntOpen.value = false;
-    await refresh();
+    await syncSelectedAfterRefresh();
   } catch (error: unknown) {
     const message = error && typeof error === "object" && "statusMessage" in error
       ? String((error as { statusMessage?: string }).statusMessage)
@@ -178,20 +242,23 @@ const onSaveEnt = async () => {
 
 const isEntDeleteOpen = ref(false);
 const isEntDeleting = ref(false);
-const deletingEnt = ref<{ memberId: string; entitlement: MemberEntitlement } | null>(null);
-const openEntDelete = (memberId: string, ent: MemberEntitlement) => {
-  deletingEnt.value = { memberId, entitlement: ent };
+const deletingEnt = ref<MemberEntitlement | null>(null);
+
+const openEntDelete = (ent: MemberEntitlement) => {
+  deletingEnt.value = ent;
   isEntDeleteOpen.value = true;
 };
+
 const onConfirmEntDelete = async () => {
-  if (!deletingEnt.value) return;
+  if (!deletingEnt.value || !selectedMember.value) return;
   isEntDeleting.value = true;
   try {
-    const { memberId, entitlement } = deletingEnt.value;
-    await $fetch(`/api/admin/members/${memberId}/entitlements/${entitlement.id}`, { method: "DELETE" });
+    await $fetch(`/api/admin/members/${selectedMember.value.id}/entitlements/${deletingEnt.value.id}`, {
+      method: "DELETE",
+    });
     notify.deleted();
     isEntDeleteOpen.value = false;
-    await refresh();
+    await syncSelectedAfterRefresh();
   } catch (error: unknown) {
     const message = error && typeof error === "object" && "statusMessage" in error
       ? String((error as { statusMessage?: string }).statusMessage)
@@ -203,34 +270,32 @@ const onConfirmEntDelete = async () => {
 };
 
 const isEntExpiring = ref(false);
-const expiringEnt = ref<{ memberId: string; entitlement: MemberEntitlement } | null>(null);
+const expiringEnt = ref<MemberEntitlement | null>(null);
 const isEntExpireOpen = ref(false);
 
-const openEntExpire = (memberId: string, ent: MemberEntitlement) => {
-  expiringEnt.value = { memberId, entitlement: ent };
+const openEntExpire = (ent: MemberEntitlement) => {
+  expiringEnt.value = ent;
   isEntExpireOpen.value = true;
 };
 
 const onConfirmEntExpire = async () => {
-  if (!expiringEnt.value || isEntExpiring.value) return;
+  if (!expiringEnt.value || !selectedMember.value || isEntExpiring.value) return;
   isEntExpiring.value = true;
   try {
-    const { memberId, entitlement } = expiringEnt.value;
-    await $fetch(`/api/admin/members/${memberId}/entitlements/${entitlement.id}`, {
+    await $fetch(`/api/admin/members/${selectedMember.value.id}/entitlements/${expiringEnt.value.id}`, {
       method: "PUT",
       body: {
-        productId: entitlement.product.id,
+        productId: expiringEnt.value.product.id,
         status: "EXPIRED",
-        creditInitial: entitlement.creditInitial ?? 0,
-        creditRemaining: entitlement.creditRemaining ?? 0,
-        startAt: entitlement.startAt,
-        endAt: entitlement.endAt,
+        creditInitial: expiringEnt.value.creditInitial ?? 0,
+        creditRemaining: expiringEnt.value.creditRemaining ?? 0,
+        startAt: expiringEnt.value.startAt,
+        endAt: expiringEnt.value.endAt,
       },
     });
     notify.updated();
-    expiringEnt.value = null;
     isEntExpireOpen.value = false;
-    await refresh();
+    await syncSelectedAfterRefresh();
   } catch (error: unknown) {
     const message = error && typeof error === "object" && "statusMessage" in error
       ? String((error as { statusMessage?: string }).statusMessage)
@@ -241,22 +306,21 @@ const onConfirmEntExpire = async () => {
   }
 };
 
+/* ------------------------------------------------------------------ */
+/* Member delete (drawer context)                                     */
+/* ------------------------------------------------------------------ */
 const isDeleteOpen = ref(false);
-const deletingMember = ref<MemberRow | null>(null);
 const isDeleting = ref(false);
 
-const openDelete = (m: MemberRow) => {
-  deletingMember.value = m;
-  isDeleteOpen.value = true;
-};
-
 const onConfirmDelete = async () => {
-  if (!deletingMember.value) return;
+  if (!selectedMember.value) return;
   isDeleting.value = true;
   try {
-    await $fetch(`/api/admin/members/${deletingMember.value.id}`, { method: "DELETE" });
+    await $fetch(`/api/admin/members/${selectedMember.value.id}`, { method: "DELETE" });
     notify.deleted();
     isDeleteOpen.value = false;
+    selectedMember.value = null;
+    isDrawerOpen.value = false;
     await refresh();
   } catch (error: unknown) {
     const message = error && typeof error === "object" && "statusMessage" in error
@@ -267,39 +331,23 @@ const onConfirmDelete = async () => {
     isDeleting.value = false;
   }
 };
-
-const getAvatarProps = (image: string | null, name: string | null, email: string) => ({
-  as: { img: "img" as const },
-  src: image || "",
-  alt: name || email,
-  loading: "lazy" as const,
-});
-const formatCurrency = (n: number) =>
-  new Intl.NumberFormat("th-TH", { minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(n);
-
-const formatDate = (s: string | null) =>
-  s ? new Date(s).toLocaleDateString("th-TH", { dateStyle: "medium" }) : "-";
-
-const visibleAddonPackageNames = (names: string[]) => names.slice(0, 1);
-const hiddenAddonPackageCount = (names: string[]) => Math.max(0, names.length - 1);
-
-const isExpiringSoon = (s: string | null) => {
-  if (!s) return false;
-  const days = (new Date(s).getTime() - Date.now()) / 86400000;
-  return days >= 0 && days <= 7;
-};
 </script>
 
 <template>
   <div class="mx-auto flex w-full max-w-3xl flex-col gap-3 p-2 sm:p-6">
     <section class="-mx-2 border border-default/30 bg-default px-4 py-3 dark:border-default/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg">
-      <h1 class="text-xl font-semibold text-highlighted">จัดการสมาชิก</h1>
-      <p class="mt-1 text-sm text-muted">ลูกค้าที่มีบัญชีและแพ็กเกจรายเดือน</p>
+      <div class="flex items-center justify-between gap-2">
+        <div>
+          <h1 class="text-xl font-semibold text-highlighted">จัดการสมาชิก</h1>
+          <p class="mt-1 text-sm text-muted">ลูกค้าที่มีบัญชีและแพ็กเกจรายเดือน</p>
+        </div>
+        <UBadge color="neutral" variant="subtle" size="lg">{{ members?.length ?? 0 }} คน</UBadge>
+      </div>
     </section>
 
     <section class="flex flex-col gap-1">
       <div class="-mx-2 flex flex-col gap-1.5 border border-default/30 bg-default px-3! py-3! dark:border-default/40 dark:bg-default/80 sm:mx-0 sm:rounded-lg">
-        <div class="flex items-center justify-between gap-1.5">
+        <div class="flex items-center gap-1.5">
           <UInput
             v-model="search"
             icon="i-lucide-search"
@@ -320,8 +368,8 @@ const isExpiringSoon = (s: string | null) => {
           <UButton
             v-for="f in [
               { label: 'ทั้งหมด', value: 'all' },
-              { label: 'มีแพ็กเกจ', value: 'active' },
-              { label: 'ไม่มีแพ็กเกจ', value: 'none' },
+              { label: 'ใช้งานอยู่', value: 'active' },
+              { label: 'ไม่มีสิทธิ์', value: 'none' },
               { label: 'ใกล้หมดอายุ', value: 'expiring' },
             ]"
             :key="f.value"
@@ -339,16 +387,20 @@ const isExpiringSoon = (s: string | null) => {
         <div
           v-for="i in 5"
           :key="`mem-sk-${i}`"
-          class="border border-default/30 bg-default p-2 dark:border-default/20 dark:bg-elevated/55 sm:rounded-lg"
+          class="border border-default/30 bg-default p-3 dark:border-default/20 dark:bg-elevated/55 sm:rounded-lg"
         >
           <div class="flex items-center gap-3">
-            <USkeleton class="size-8 rounded-full shrink-0" />
+            <USkeleton class="size-9 rounded-full shrink-0" />
             <div class="min-w-0 flex-1 space-y-1.5">
               <USkeleton class="h-3.5 w-40 rounded" />
               <USkeleton class="h-2.5 w-56 rounded" />
             </div>
-            <USkeleton class="h-5 w-16 rounded-full shrink-0" />
-            <USkeleton class="size-7 rounded-lg shrink-0" />
+            <USkeleton class="size-5 rounded-full shrink-0" />
+          </div>
+          <div class="mt-2 grid grid-cols-3 gap-1.5">
+            <USkeleton class="h-9 rounded-lg" />
+            <USkeleton class="h-9 rounded-lg" />
+            <USkeleton class="h-9 rounded-lg" />
           </div>
         </div>
       </div>
@@ -360,197 +412,245 @@ const isExpiringSoon = (s: string | null) => {
         ไม่พบสมาชิกตามเงื่อนไข
       </div>
 
+      <!-- รายชื่อ: แตะการ์ดใดก็ได้เพื่อเปิดศูนย์จัดการของลูกค้าคนนั้น -->
       <div v-else class="-mx-2 space-y-1 sm:mx-0">
-        <div
+        <button
           v-for="m in members"
           :key="m.id"
-          class="space-y-1.5 border border-default/30 bg-default p-2 transition-[background-color,border-color] duration-200 hover:border-default/45 hover:bg-default dark:border-default/20 dark:bg-elevated/55 dark:hover:bg-elevated/70 sm:rounded-lg"
+          type="button"
+          class="w-full rounded-lg border border-default/30 bg-default p-3 text-left transition-[background-color,border-color] duration-200 hover:border-default/45 hover:bg-default dark:border-default/20 dark:bg-elevated/55 dark:hover:bg-elevated/70 sm:rounded-md"
+          :aria-label="`จัดการแพ็กเกจของ ${m.name || m.email}`"
+          @click="openMember(m)"
         >
-          <div class="grid gap-2 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
-            <NuxtLink :to="`/admin/users/${m.id}`" class="flex min-w-0 items-center gap-2 transition hover:opacity-80">
-              <UAvatar v-bind="getAvatarProps(m.image, m.name, m.email)" size="sm" class="shrink-0" />
-              <div class="min-w-0">
-                <div class="flex min-w-0 items-center gap-1.5">
-                  <p class="truncate text-sm font-medium">{{ m.name || m.email }}</p>
-                  <UBadge v-if="m.mainPackageName" color="primary" variant="subtle" size="xs" class="shrink-0">
-                    หลัก
-                  </UBadge>
-                  <UBadge v-if="m.addonPackageNames.length" color="info" variant="subtle" size="xs" class="shrink-0">
-                    เสริม
-                  </UBadge>
-                  <UBadge v-if="isExpiringSoon(m.earliestEndAt)" color="warning" variant="subtle" size="xs" class="shrink-0">
-                    ใกล้หมดอายุ
-                  </UBadge>
-                </div>
-                <p class="truncate text-xs text-muted">
-                  {{ m.email }}<span v-if="m.phoneNumber"> · {{ m.phoneNumber }}</span>
-                </p>
+          <div class="flex items-center gap-2.5">
+            <UAvatar v-bind="getAvatarProps(m.image, m.name, m.email)" size="md" class="shrink-0" />
+            <div class="min-w-0 flex-1">
+              <div class="flex min-w-0 items-center gap-1.5">
+                <p class="truncate text-sm font-semibold text-highlighted">{{ m.name || m.email }}</p>
+                <UBadge v-if="isExpiringSoon(m.earliestEndAt)" color="warning" variant="subtle" size="xs" class="shrink-0">
+                  ใกล้หมดอายุ
+                </UBadge>
               </div>
-            </NuxtLink>
-            <div class="grid min-w-0 grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-1 lg:w-auto lg:flex lg:shrink-0">
+              <p class="truncate text-xs text-muted">
+                {{ m.email || "ไม่มีอีเมล" }}<span v-if="m.phoneNumber"> · {{ m.phoneNumber }}</span>
+              </p>
+            </div>
+            <UIcon name="i-lucide-chevron-right" class="size-4 shrink-0 text-muted" />
+          </div>
+
+          <div class="mt-2 flex min-w-0 items-center gap-1 overflow-hidden">
+            <UBadge
+              v-if="m.mainPackageName"
+              color="primary"
+              variant="subtle"
+              size="xs"
+              class="max-w-[45%] shrink-0"
+              :ui="{ label: 'truncate' }"
+            >
+              {{ m.mainPackageName }}
+            </UBadge>
+            <UBadge
+              v-for="name in visibleAddonPackageNames(m.addonPackageNames)"
+              :key="name"
+              color="info"
+              variant="subtle"
+              size="xs"
+              class="max-w-[35%] shrink-0"
+              :ui="{ label: 'truncate' }"
+            >
+              {{ name }}
+            </UBadge>
+            <UBadge v-if="hiddenAddonPackageCount(m.addonPackageNames)" color="neutral" variant="subtle" size="xs" class="shrink-0">
+              +{{ hiddenAddonPackageCount(m.addonPackageNames) }}
+            </UBadge>
+            <span v-if="!m.mainPackageName && !m.addonPackageNames.length" class="truncate text-xs text-muted">
+              ยังไม่มีแพ็กเกจที่ใช้งานอยู่
+            </span>
+          </div>
+
+          <div class="mt-2 grid grid-cols-3 gap-1.5 text-xs">
+            <div class="rounded-lg bg-elevated/40 px-2 py-1.5">
+              <p class="text-muted">เครดิตหลัก</p>
+              <p class="truncate font-semibold">
+                {{ m.mainCreditInitial > 0 ? `${m.mainCreditRemaining}/${m.mainCreditInitial}` : "-" }}
+              </p>
+            </div>
+            <div class="rounded-lg bg-elevated/40 px-2 py-1.5">
+              <p class="text-muted">เครดิตเสริม</p>
+              <p class="truncate font-semibold text-info">
+                {{ m.addonCreditInitial > 0 ? `${m.addonCreditRemaining}/${m.addonCreditInitial}` : "-" }}
+              </p>
+            </div>
+            <div class="rounded-lg px-2 py-1.5" :class="isExpiringSoon(m.earliestEndAt) ? 'bg-warning/10' : 'bg-elevated/40'">
+              <p class="text-muted">หมดอายุ</p>
+              <p class="truncate font-semibold" :class="isExpiringSoon(m.earliestEndAt) ? 'text-warning' : ''">
+                {{ m.earliestEndAt ? formatDate(m.earliestEndAt) : "-" }}
+              </p>
+              <p v-if="m.earliestEndAt" class="truncate text-[11px]" :class="isExpiringSoon(m.earliestEndAt) ? 'text-warning' : 'text-muted'">
+                {{ expiryHint(m.earliestEndAt) }}
+              </p>
+            </div>
+          </div>
+        </button>
+      </div>
+    </section>
+
+    <!-- ศูนย์จัดการรายลูกค้า: โปรไฟล์ + สถิติ + แพ็กเกจทุกใบ พร้อมปุ่มจัดการชัดเจน -->
+    <UDrawer
+      v-model:open="isDrawerOpen"
+      direction="bottom"
+      :ui="{ content: 'max-h-[88vh] mx-auto w-full max-w-2xl rounded-t-lg' }"
+    >
+      <template #body>
+        <div v-if="selectedMember" class="space-y-4">
+          <!-- โปรไฟล์ -->
+          <div class="flex items-start justify-between gap-3">
+            <div class="flex min-w-0 items-center gap-3">
+              <UAvatar v-bind="getAvatarProps(selectedMember.image, selectedMember.name, selectedMember.email)" size="lg" class="shrink-0" />
+              <div class="min-w-0">
+                <p class="truncate text-base font-semibold text-highlighted">{{ selectedMember.name || selectedMember.email }}</p>
+                <p class="truncate text-xs text-muted">
+                  {{ selectedMember.email || "ไม่มีอีเมล" }}<span v-if="selectedMember.phoneNumber"> · {{ selectedMember.phoneNumber }}</span>
+                </p>
+                <p class="mt-0.5 text-xs text-muted">สมัครเมื่อ {{ formatDate(selectedMember.createdAt) }}</p>
+              </div>
+            </div>
+            <div class="flex shrink-0 flex-col items-end gap-1">
               <UButton
-                label="จัดการแพ็กเกจ"
-                trailing-icon="i-lucide-chevron-right"
-                color="primary"
-                :variant="expandedId === m.id ? 'solid' : 'subtle'"
-                size="xs"
-                aria-label="จัดการแพ็กเกจ"
-                class="min-w-0 justify-center"
-                :ui="{
-                  label: 'truncate',
-                  trailingIcon: [
-                    'shrink-0 transition-transform duration-200 ease-out',
-                    expandedId === m.id ? 'rotate-90' : 'rotate-0'
-                  ]
-                }"
-                @click="toggleExpand(m.id)"
-              />
-              <UButton
-                label="ดูรายละเอียด"
-                icon="i-lucide-eye"
+                label="หน้ารายละเอียด"
+                icon="i-lucide-external-link"
                 color="neutral"
-                variant="ghost"
+                variant="outline"
                 size="xs"
-                title="ดูข้อมูลลูกค้า"
-                aria-label="ดูรายละเอียด"
-                :ui="{ label: 'hidden md:inline' }"
-                :to="`/admin/users/${m.id}`"
+                :to="`/admin/users/${selectedMember.id}`"
               />
               <UButton
-                label="ลบ"
+                label="ลบลูกค้า"
                 icon="i-lucide-trash-2"
                 color="error"
                 variant="ghost"
                 size="xs"
-                title="ลบสมาชิก"
-                aria-label="ลบสมาชิก"
-                :ui="{ label: 'hidden md:inline' }"
-                @click="openDelete(m)"
+                @click="isDeleteOpen = true"
               />
             </div>
           </div>
 
-          <div class="grid gap-1.5 lg:grid-cols-[minmax(0,1fr)_minmax(380px,0.9fr)] lg:items-center">
-            <div class="flex min-h-5 min-w-0 items-center gap-1 overflow-hidden">
-              <UBadge
-                v-if="m.mainPackageName"
-                color="primary"
-                variant="subtle"
-                size="xs"
-                class="max-w-[45%] shrink-0"
-                :ui="{ label: 'truncate' }"
-              >
-                {{ m.mainPackageName }}
-              </UBadge>
-              <UBadge
-                v-for="name in visibleAddonPackageNames(m.addonPackageNames)"
-                :key="name"
-                color="info"
-                variant="subtle"
-                size="xs"
-                class="max-w-[45%] shrink-0"
-                :ui="{ label: 'truncate' }"
-              >
-                {{ name }}
-              </UBadge>
-              <UBadge v-if="hiddenAddonPackageCount(m.addonPackageNames)" color="neutral" variant="subtle" size="xs" class="shrink-0">
-                +{{ hiddenAddonPackageCount(m.addonPackageNames) }}
-              </UBadge>
-              <span v-if="!m.mainPackageName && !m.addonPackageNames.length" class="truncate text-xs text-muted">
-                ยังไม่มีแพ็กเกจ
-              </span>
+          <!-- สถิติ -->
+          <div class="grid grid-cols-2 gap-1.5 sm:grid-cols-4">
+            <div class="rounded-lg border border-default/30 px-3 py-2">
+              <p class="text-xs text-muted">เครดิตหลัก</p>
+              <p class="text-sm font-semibold">
+                {{ selectedMember.mainCreditInitial > 0 ? `${selectedMember.mainCreditRemaining}/${selectedMember.mainCreditInitial}` : "-" }}
+              </p>
             </div>
-
-            <div class="grid grid-cols-4 gap-1 text-xs">
-              <div class="rounded-lg bg-elevated/40 px-2 py-1.5 text-right">
-                <p class="text-muted">หลัก</p>
-                <p class="truncate font-semibold">
-                  {{ m.mainCreditInitial > 0 ? `${m.mainCreditRemaining}/${m.mainCreditInitial}` : "-" }}
-                </p>
-              </div>
-              <div class="rounded-lg bg-elevated/40 px-2 py-1.5 text-right">
-                <p class="text-muted">เสริม</p>
-                <p class="truncate font-semibold text-info">
-                  {{ m.addonCreditInitial > 0 ? `${m.addonCreditRemaining}/${m.addonCreditInitial}` : "-" }}
-                </p>
-              </div>
-              <div class="rounded-lg bg-elevated/40 px-2 py-1.5 text-right">
-                <p class="text-muted">หมดอายุ</p>
-                <p class="truncate font-medium">{{ formatDate(m.earliestEndAt) }}</p>
-              </div>
-              <div class="rounded-lg bg-elevated/40 px-2 py-1.5 text-right">
-                <p class="text-muted">ยอดรวม</p>
-                <p class="truncate font-medium">฿{{ formatCurrency(m.totalSpent) }}</p>
-              </div>
+            <div class="rounded-lg border border-default/30 px-3 py-2">
+              <p class="text-xs text-muted">เครดิตเสริม</p>
+              <p class="text-sm font-semibold text-info">
+                {{ selectedMember.addonCreditInitial > 0 ? `${selectedMember.addonCreditRemaining}/${selectedMember.addonCreditInitial}` : "-" }}
+              </p>
+            </div>
+            <div class="rounded-lg border border-default/30 px-3 py-2">
+              <p class="text-xs text-muted">ยอดใช้จ่ายรวม</p>
+              <p class="text-sm font-semibold">฿{{ formatCurrency(selectedMember.totalSpent) }}</p>
+            </div>
+            <div class="rounded-lg border border-default/30 px-3 py-2">
+              <p class="text-xs text-muted">สิทธิ์ใช้งานอยู่</p>
+              <p class="text-sm font-semibold">{{ selectedMember.activeCount }}/{{ selectedMember.totalEntitlements }}</p>
             </div>
           </div>
 
-          <div v-if="expandedId === m.id" class="space-y-1.5 border-t border-default pt-1.5">
-            <div class="flex items-center justify-between gap-2">
-              <p class="text-xs font-semibold text-muted">แพ็กเกจของสมาชิก</p>
-              <span class="text-xs text-muted">{{ m.entitlements.length }} รายการ</span>
+          <!-- แพ็กเกจทั้งหมด -->
+          <div class="space-y-2">
+            <div class="flex items-center justify-between">
+              <p class="text-sm font-semibold text-highlighted">แพ็กเกจและสิทธิ์</p>
+              <UBadge color="neutral" variant="subtle" size="sm">{{ selectedMember.entitlements.length }} รายการ</UBadge>
             </div>
-            <p v-if="!m.entitlements.length" class="rounded-lg border border-dashed border-default py-2 text-center text-xs text-muted">
+
+            <p
+              v-if="!selectedMember.entitlements.length"
+              class="rounded-lg border border-dashed border-default py-4 text-center text-sm text-muted"
+            >
               ลูกค้าคนนี้ยังไม่มีแพ็กเกจ
             </p>
+
             <div
-              v-for="ent in m.entitlements"
+              v-for="ent in selectedMember.entitlements"
               :key="ent.id"
-              class="grid gap-1.5 rounded-lg bg-elevated/40 px-2 py-1.5 sm:grid-cols-[minmax(0,1fr)_auto_auto] sm:items-center"
+              class="space-y-2 rounded-lg border border-default/30 bg-elevated/30 p-3"
             >
               <div class="flex min-w-0 items-center gap-1.5">
-                <UBadge :color="ent.product.packageType === 'MAIN' ? 'primary' : 'info'" variant="subtle" size="xs">
+                <UBadge :color="ent.product.packageType === 'MAIN' ? 'primary' : 'info'" variant="subtle" size="xs" class="shrink-0">
                   {{ ent.product.packageType === 'MAIN' ? 'หลัก' : 'เสริม' }}
                 </UBadge>
-                <span class="min-w-0 flex-1 truncate text-sm font-medium">{{ ent.product.name }}</span>
-                <UBadge :color="STATUS_COLORS[ent.status]" variant="subtle" size="xs">{{ STATUS_LABELS[ent.status] }}</UBadge>
+                <span class="min-w-0 flex-1 truncate text-sm font-medium text-highlighted">{{ ent.product.name }}</span>
+                <UBadge :color="STATUS_COLORS[ent.status]" variant="subtle" size="xs" class="shrink-0">
+                  {{ STATUS_LABELS[ent.status] }}
+                </UBadge>
               </div>
-              <div class="grid grid-cols-2 gap-2 text-xs text-muted sm:flex sm:items-center sm:gap-2">
-                <span class="inline-flex items-center gap-1">
-                  <UIcon name="i-lucide-coins" class="size-3" />
-                  {{ ent.creditRemaining ?? 0 }}/{{ ent.creditInitial ?? 0 }}
-                </span>
-                <span class="inline-flex items-center gap-1">
-                  <UIcon name="i-lucide-calendar" class="size-3" />
-                  {{ formatDate(ent.endAt) }}
-                </span>
+
+              <div class="space-y-1">
+                <div class="flex items-center justify-between text-xs">
+                  <span class="text-muted">
+                    เหลือ {{ ent.creditRemaining ?? 0 }} / {{ ent.creditInitial ?? 0 }} เครดิต
+                  </span>
+                  <span class="text-muted">{{ formatDate(ent.startAt) }} - {{ formatDate(ent.endAt) }}</span>
+                </div>
+                <div class="h-1.5 w-full overflow-hidden rounded-full bg-elevated/70">
+                  <div
+                    class="h-full rounded-full transition-all"
+                    :class="creditBarColor(ent.creditRemaining, ent.creditInitial)"
+                    :style="{ width: `${creditPercent(ent.creditRemaining, ent.creditInitial)}%` }"
+                  />
+                </div>
+                <p
+                  v-if="ent.status === 'ACTIVE' && ent.endAt"
+                  class="text-xs"
+                  :class="isExpiringSoon(ent.endAt) ? 'font-medium text-warning' : 'text-muted'"
+                >
+                  {{ expiryHint(ent.endAt) }}
+                </p>
               </div>
-              <div class="flex items-center justify-end gap-1">
+
+              <div class="flex flex-wrap items-center gap-1.5">
                 <UButton
+                  label="แก้ไข"
                   icon="i-lucide-pencil"
-                  color="neutral"
-                  variant="ghost"
+                  color="primary"
+                  variant="subtle"
                   size="xs"
-                  title="แก้ไขแพ็กเกจ"
-                  aria-label="แก้ไขแพ็กเกจ"
-                  class="justify-center"
-                  @click="openEntEdit(m.id, ent)"
+                  @click="openEntEdit(ent)"
                 />
                 <UButton
                   v-if="ent.status === 'ACTIVE'"
+                  label="ปิดใช้งาน"
                   icon="i-lucide-calendar-x"
                   color="warning"
-                  variant="ghost"
+                  variant="subtle"
                   size="xs"
-                  title="ปิดใช้งาน (ตั้งเป็นหมดอายุ)"
-                  aria-label="ปิดใช้งานแพ็กเกจนี้"
-                  :loading="expiringEnt?.entitlement.id === ent.id && isEntExpiring"
-                  @click="openEntExpire(m.id, ent)"
+                  :loading="expiringEnt?.id === ent.id && isEntExpiring"
+                  @click="openEntExpire(ent)"
                 />
                 <UButton
+                  label="ลบ"
                   icon="i-lucide-trash-2"
                   color="error"
                   variant="ghost"
                   size="xs"
-                  title="ลบแพ็กเกจ"
-                  @click="openEntDelete(m.id, ent)"
+                  class="ml-auto"
+                  @click="openEntDelete(ent)"
                 />
               </div>
             </div>
           </div>
         </div>
-      </div>
-    </section>
+
+        <div v-else class="space-y-3 py-2">
+          <USkeleton class="h-12 w-full rounded-lg" />
+          <USkeleton class="h-24 w-full rounded-lg" />
+          <USkeleton class="h-40 w-full rounded-lg" />
+        </div>
+      </template>
+    </UDrawer>
 
     <UModal
       v-model:open="isEntOpen"
@@ -624,7 +724,7 @@ const isExpiringSoon = (s: string | null) => {
         <div class="space-y-3 text-sm">
           <p>
             ลบแพ็กเกจ
-            <span class="font-semibold">{{ deletingEnt?.entitlement.product.name }}</span>
+            <span class="font-semibold">{{ deletingEnt?.product.name }}</span>
             ของลูกค้านี้ใช่หรือไม่?
           </p>
           <div class="flex items-start gap-2 rounded-lg border border-warning/30 bg-warning/5 p-3 text-xs text-warning">
@@ -650,7 +750,7 @@ const isExpiringSoon = (s: string | null) => {
         <div class="space-y-3 text-sm">
           <p>
             ปิดใช้งานแพ็กเกจ
-            <span class="font-semibold">{{ expiringEnt?.entitlement.product.name }}</span>
+            <span class="font-semibold">{{ expiringEnt?.product.name }}</span>
             ของลูกค้านี้ใช่หรือไม่?
           </p>
           <div class="flex items-start gap-2 rounded-lg border border-warning/30 bg-warning/5 p-3 text-xs text-warning">
@@ -674,7 +774,7 @@ const isExpiringSoon = (s: string | null) => {
     >
       <template #body>
         <div class="space-y-3 text-sm">
-          <p>คุณต้องการลบลูกค้า <span class="font-semibold">{{ deletingMember?.name || deletingMember?.email }}</span> ใช่หรือไม่?</p>
+          <p>คุณต้องการลบลูกค้า <span class="font-semibold">{{ selectedMember?.name || selectedMember?.email }}</span> ใช่หรือไม่?</p>
           <div class="flex items-start gap-2 rounded-lg border border-warning/30 bg-warning/5 p-3 text-xs text-warning">
             <UIcon name="i-lucide-triangle-alert" class="mt-0.5 size-3.5 shrink-0" />
             <span>ลูกค้าที่มีการใช้สิทธิ์แพ็กเกจไปแล้วจะลบไม่ได้ แพ็กเกจที่ยังไม่ถูกใช้จะถูกยกเลิกอัตโนมัติ</span>
