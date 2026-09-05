@@ -1,3 +1,5 @@
+import * as fontkit from "fontkit";
+import type { Font } from "fontkit";
 import QRCode from "qrcode";
 import sharp from "sharp";
 import type {
@@ -10,13 +12,6 @@ import { composePrintOperations } from "~~/shared/utils/printComposer";
 import { encodeEscpos, splitRasterBands, wrapText } from "~~/shared/utils/escpos";
 
 const containsThai = (value: string) => /[\u0E00-\u0E7F]/u.test(value);
-const escapeXml = (value: string) => value
-  .replaceAll("&", "&amp;")
-  .replaceAll("<", "&lt;")
-  .replaceAll(">", "&gt;")
-  .replaceAll('"', "&quot;")
-  .replaceAll("'", "&apos;");
-
 export const createDirectPrinterProfile = (widthDots: 384 | 576): PrinterProfile => ({
   id: "direct-local",
   name: "XP-C260M",
@@ -61,7 +56,7 @@ async function pngToBitmap(png: Buffer, widthDots: number) {
   return { bytes: packed, widthDots: info.width };
 }
 
-const promptFontCache = new Map<400 | 700, Promise<string>>();
+const promptFontCache = new Map<400 | 700, Promise<Font>>();
 
 const loadPrintAsset = async (key: string, missingMessage: string) => {
   const value = await useStorage("assets:printing").getItemRaw(key);
@@ -79,8 +74,42 @@ const loadPromptFont = async (weight: 400 | 700) => {
 
 const loadBundledPromptFont = async (weight: 400 | 700) => {
   const filename = `Prompt-normal-${weight}-thai.woff2`;
-  return (await loadPrintAsset(`fonts/${filename}`, "Thai print font is unavailable"))
-    .toString("base64");
+  const font = fontkit.create(
+    await loadPrintAsset(`fonts/${filename}`, "Thai print font is unavailable"),
+  );
+  if (!("layout" in font)) throw new Error("Thai print font is unavailable");
+  return font;
+};
+
+const shapedText = (
+  value: string,
+  font: Font,
+  fontSize: number,
+  x: number,
+  baseline: number,
+) => {
+  if (!value) return { path: "", width: 0 };
+  const scale = fontSize / font.unitsPerEm;
+  const run = font.layout(value);
+  let cursorX = x;
+  let cursorY = baseline;
+  const paths: string[] = [];
+  for (let index = 0; index < run.glyphs.length; index += 1) {
+    const glyph = run.glyphs[index];
+    const position = run.positions[index];
+    if (!glyph || !position) continue;
+    const data = glyph.path
+      .scale(scale, -scale)
+      .translate(
+        cursorX + position.xOffset * scale,
+        cursorY - position.yOffset * scale,
+      )
+      .toSVG();
+    if (data) paths.push(`<path d="${data}"/>`);
+    cursorX += position.xAdvance * scale;
+    cursorY -= position.yAdvance * scale;
+  }
+  return { path: paths.join(""), width: run.advanceWidth * scale };
 };
 
 async function thaiTextBitmap(operation: Extract<PrintOperation, { type: "text" }>, profile: PrinterProfile) {
@@ -97,25 +126,35 @@ async function thaiTextBitmap(operation: Extract<PrintOperation, { type: "text" 
   const x = operation.align === "center" ? profile.printableDots / 2 : operation.align === "right" ? profile.printableDots - 4 : 4;
   const weight: 400 | 700 = operation.style === "bold" || operation.style === "large" ? 700 : 400;
   const font = await loadPromptFont(weight);
+  const baseline = 4 + font.ascent * fontSize / font.unitsPerEm;
   const text = operation.tableColumns
     ? [
         ...lines.map((line, index) =>
-          `<text x="4" y="${(index + 1) * lineHeight}" text-anchor="start">${escapeXml(line)}</text>`),
-        `<text x="${Math.round(profile.printableDots * 0.64)}" y="${lineHeight}" text-anchor="end">${escapeXml(operation.tableColumns.unitPrice)}</text>`,
-        `<text x="${Math.round(profile.printableDots * 0.77)}" y="${lineHeight}" text-anchor="end">${escapeXml(operation.tableColumns.quantity)}</text>`,
-        `<text x="${profile.printableDots - 4}" y="${lineHeight}" text-anchor="end">${escapeXml(operation.tableColumns.total)}</text>`,
+          shapedText(line, font, fontSize, 4, baseline + index * lineHeight).path),
+        ...[
+          [operation.tableColumns.unitPrice, Math.round(profile.printableDots * 0.64)],
+          [operation.tableColumns.quantity, Math.round(profile.printableDots * 0.77)],
+          [operation.tableColumns.total, profile.printableDots - 4],
+        ].map(([value, right]) => {
+          const measured = shapedText(String(value), font, fontSize, 0, baseline);
+          return shapedText(String(value), font, fontSize, Number(right) - measured.width, baseline).path;
+        }),
       ].join("")
     : operation.columns
-    ? [
-        `<text x="4" y="${lineHeight}" text-anchor="start">${escapeXml(operation.columns.left)}</text>`,
-        `<text x="${profile.printableDots - 4}" y="${lineHeight}" text-anchor="end">${escapeXml(operation.columns.right)}</text>`,
-      ].join("")
-    : lines.map((line, index) =>
-        `<text x="${x}" y="${(index + 1) * lineHeight}" text-anchor="${anchor}">${escapeXml(line)}</text>`,
-      ).join("");
+    ? (() => {
+        const right = shapedText(operation.columns.right, font, fontSize, 0, baseline);
+        return [
+          shapedText(operation.columns.left, font, fontSize, 4, baseline).path,
+          shapedText(operation.columns.right, font, fontSize, profile.printableDots - 4 - right.width, baseline).path,
+        ].join("");
+      })()
+    : lines.map((line, index) => {
+        const measured = shapedText(line, font, fontSize, 0, baseline);
+        const lineX = anchor === "middle" ? x - measured.width / 2 : anchor === "end" ? x - measured.width : x;
+        return shapedText(line, font, fontSize, lineX, baseline + index * lineHeight).path;
+      }).join("");
   const svg = Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="${profile.printableDots}" height="${height}">
-    <style>@font-face{font-family:PromptEmbedded;src:url(data:font/woff2;base64,${font});font-weight:${weight}}text{font-family:PromptEmbedded,sans-serif;font-size:${fontSize}px;font-weight:${weight};fill:#000;white-space:pre}</style>
-    <rect width="100%" height="100%" fill="#fff"/>${text}</svg>`);
+    <rect width="100%" height="100%" fill="#fff"/><g fill="#000">${text}</g></svg>`);
   return pngToBitmap(await sharp(svg).png().toBuffer(), profile.printableDots);
 }
 

@@ -164,6 +164,17 @@ describe("direct Hybrid renderer", () => {
     }
   });
 
+  it("renders distinct Thai characters as distinct glyph outlines", async () => {
+    const profile = createDirectPrinterProfile(576);
+    const render = async (value: string) => Buffer.concat(
+      (await rasterizeThaiOperations([{ type: "text", value }], profile))
+        .filter((operation) => operation.type === "raster")
+        .map((operation) => Buffer.from(operation.bytes)),
+    );
+
+    expect(await render("กกกก")).not.toEqual(await render("ขขขข"));
+  });
+
   it("keeps ASCII-only text native for speed", async () => {
     const profile = createDirectPrinterProfile(576);
     const operations = await rasterizeThaiOperations([
