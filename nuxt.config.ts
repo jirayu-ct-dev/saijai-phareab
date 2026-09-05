@@ -71,6 +71,11 @@ export default defineNuxtConfig({
     experimental: {
       tasks: true,
     },
+    serverAssets: [{
+      baseName: 'printing',
+      dir: '../public',
+      pattern: '{logo-saijai-phareab.png,fonts/Prompt-normal-400-thai.woff2,fonts/Prompt-normal-700-thai.woff2}',
+    }],
     routeRules: {
       '/**': {
         headers: {
