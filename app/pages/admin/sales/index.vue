@@ -225,17 +225,6 @@ const copyActivationLink = async () => {
               />
 
               <UButton
-                label="ชำระเงิน"
-                icon="i-lucide-receipt"
-                color="neutral"
-                variant="outline"
-                class="shrink-0"
-                aria-label="ดูประวัติการชำระเงิน"
-                :ui="{ label: 'hidden md:inline' }"
-                @click="navigateTo('/admin/payment')"
-              />
-
-              <UButton
                 label="รายการรับผ้า"
                 icon="i-lucide-shopping-basket"
                 color="neutral"
@@ -244,6 +233,17 @@ const copyActivationLink = async () => {
                 aria-label="ดูรายงานการขาย"
                 :ui="{ label: 'hidden md:inline' }"
                 @click="navigateTo('/admin/service-orders')"
+              />
+
+              <UButton
+                label="ชำระเงิน"
+                icon="i-lucide-receipt"
+                color="neutral"
+                variant="outline"
+                class="shrink-0"
+                aria-label="ดูประวัติการชำระเงิน"
+                :ui="{ label: 'hidden md:inline' }"
+                @click="navigateTo('/admin/payment')"
               />
             </div>
           </template>
