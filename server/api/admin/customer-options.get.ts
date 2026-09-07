@@ -74,6 +74,8 @@ export default defineEventHandler(async (event) => {
                 packageType: true,
                 deductOn: true,
                 isDelivery: true,
+                serviceId: true,
+                service: { select: { name: true } },
               },
             },
           },
@@ -108,6 +110,8 @@ export default defineEventHandler(async (event) => {
             creditRemaining: entitlement.creditRemaining,
             startAt: entitlement.startAt?.toISOString() ?? null,
             endAt: entitlement.endAt?.toISOString() ?? null,
+            serviceId: entitlement.product.serviceId,
+            serviceName: entitlement.product.service?.name ?? null,
           })),
         activeMemberEntitlement: activeMemberEntitlement
           ? {
@@ -118,6 +122,8 @@ export default defineEventHandler(async (event) => {
               creditRemaining: activeMemberEntitlement.creditRemaining,
               startAt: activeMemberEntitlement.startAt?.toISOString() ?? null,
               endAt: activeMemberEntitlement.endAt?.toISOString() ?? null,
+              serviceId: activeMemberEntitlement.product.serviceId,
+              serviceName: activeMemberEntitlement.product.service?.name ?? null,
             }
           : null,
         addonEntitlements: activeAddonEntitlements.map((entitlement) => ({

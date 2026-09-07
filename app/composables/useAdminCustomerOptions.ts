@@ -6,6 +6,8 @@ export type PosMemberEntitlementOption = {
   creditRemaining: number | null;
   startAt: string | null;
   endAt: string | null;
+  serviceId: string | null;
+  serviceName: string | null;
 };
 
 export type PosCustomerOption = {

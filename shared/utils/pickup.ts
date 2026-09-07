@@ -101,6 +101,21 @@ export function computeNextPickup(from: Date = new Date()): Date {
   return fromBangkok(fallback);
 }
 
+export function computePickupForDay(from: Date, targetDay: 3 | 6): Date {
+  const bkk = toBangkok(from);
+  const candidate = new Date(bkk.getTime());
+  const daysUntil = (targetDay - bkk.getUTCDay() + 7) % 7;
+
+  candidate.setUTCDate(candidate.getUTCDate() + daysUntil);
+  candidate.setUTCHours(PICKUP_HOUR, 0, 0, 0);
+
+  if (candidate.getTime() <= bkk.getTime()) {
+    candidate.setUTCDate(candidate.getUTCDate() + 7);
+  }
+
+  return fromBangkok(candidate);
+}
+
 export function isPickupDay(date: Date): boolean {
   const bkk = toBangkok(date);
   return PICKUP_DAYS.includes(bkk.getUTCDay());

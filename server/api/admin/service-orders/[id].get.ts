@@ -46,6 +46,8 @@ export default defineEventHandler(async (event) => {
               validityDays: true,
               deductOn: true,
               isDelivery: true,
+              serviceId: true,
+              service: { select: { id: true, name: true } },
             },
           },
         },
@@ -144,7 +146,10 @@ export default defineEventHandler(async (event) => {
           status: "ACTIVE",
           startAt: { lte: now },
           endAt: { gte: now },
-          creditRemaining: { gt: 0 },
+          OR: [
+            { creditRemaining: { gt: 0 } },
+            { product: { isDelivery: true } },
+          ],
         },
         include: {
           product: {
@@ -156,6 +161,8 @@ export default defineEventHandler(async (event) => {
               validityDays: true,
               deductOn: true,
               isDelivery: true,
+              serviceId: true,
+              service: { select: { id: true, name: true } },
             },
           },
         },
@@ -163,7 +170,7 @@ export default defineEventHandler(async (event) => {
       });
 
   const hangerCharge = (serviceOrder.hangerCharge ?? null) as
-    | { count?: number; pricePerUnit?: number; total?: number }
+    | { count?: number; providedCount?: number; pricePerUnit?: number; total?: number }
     | null;
 
   return {
@@ -200,6 +207,7 @@ export default defineEventHandler(async (event) => {
     hangerCharge: hangerCharge
       ? {
           count: Number(hangerCharge.count ?? 0),
+          providedCount: Number(hangerCharge.providedCount ?? 0),
           pricePerUnit: Number(hangerCharge.pricePerUnit ?? 0),
           total: Number(hangerCharge.total ?? 0),
         }
@@ -248,6 +256,7 @@ export default defineEventHandler(async (event) => {
     items: serviceOrder.serviceOrderItems.map((item) => ({
       id: item.id,
       storefrontPriceId: item.storefrontPriceId,
+      serviceId: item.storefrontPrice?.storefrontService.id ?? null,
       quantity: item.quantity,
       unitPrice: toNumber(item.unitPrice),
       totalPrice: toNumber(item.totalPrice),

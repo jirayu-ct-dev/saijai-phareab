@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { sub } from 'date-fns'
 import { packageTypeColors, packageTypeLabels } from '~~/shared/config/packageConfig'
 import { orderStatusLabels } from '~~/shared/config/orderConfig'
 import { formatCurrency, formatDateTime } from '~~/shared/utils/format'
@@ -8,6 +9,7 @@ import type {
   Role,
   ServiceOrderStatus
 } from '~~/shared/types/enums'
+import type { Range } from '~~/shared/types/dashboard'
 
 definePageMeta({
   layout: 'admin',
@@ -136,11 +138,19 @@ type UserDetailResponse = {
 const route = useRoute()
 const userId = computed(() => String(route.params.id))
 const notify = useNotify()
+const range = shallowRef<Range>({
+  start: sub(new Date(), { days: 14 }),
+  end: new Date(),
+})
 
 const { data, pending, status, refresh, error } = useFetch<UserDetailResponse>(
   () => `/api/admin/users/${userId.value}`,
   {
     key: () => `admin-user-detail-${userId.value}`,
+    query: {
+      from: computed(() => range.value.start.toISOString()),
+      to: computed(() => range.value.end.toISOString()),
+    },
     server: false,
     lazy: true,
   }
@@ -269,14 +279,14 @@ const statCards = computed(() => {
       hint: s.totalCreditsUsed ? `ใช้ไป ${s.totalCreditsUsed} เครดิต` : 'ยังไม่มีการใช้เครดิต'
     },
     {
-      title: 'ยอดชำระสะสม',
+      title: 'ยอดชำระในช่วงที่เลือก',
       icon: 'i-lucide-banknote',
       value: formatCurrency(s.totalSpent),
       hint: `${s.totalPayments} รายการชำระเงิน`,
       to: '/admin/payment'
     },
     {
-      title: 'รายการผ้าทั้งหมด',
+      title: 'รายการผ้าในช่วงที่เลือก',
       icon: 'i-lucide-clipboard-list',
       value: String(s.totalServiceOrders),
       hint: s.totalPackageSales ? `${s.totalPackageSales} รายการขายแพ็กเกจ` : 'ยังไม่มีรายการขายแพ็กเกจ',
@@ -362,6 +372,13 @@ const orderItemCount = (order: UserDetailResponse['recentServiceOrders'][number]
           </div>
         </template>
       </UDashboardNavbar>
+      <UDashboardToolbar>
+        <template #left>
+          <ClientOnly>
+            <AdminDashboardDateRangePicker v-model="range" :show-presets="false" />
+          </ClientOnly>
+        </template>
+      </UDashboardToolbar>
     </template>
 
     <template #body>

@@ -6,6 +6,7 @@ import { packageTypeLabels } from "~~/shared/config/packageConfig";
 const props = defineProps<{
   open: boolean;
   editPackage: Package | null;
+  saving?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -23,6 +24,8 @@ interface FormState {
   credits: number | null;
   validityDays: number | null;
   isActive: boolean;
+  isPublic: boolean;
+  serviceId: string | undefined;
 }
 
 const defaultState = (): FormState => ({
@@ -35,6 +38,8 @@ const defaultState = (): FormState => ({
   credits: null,
   validityDays: null,
   isActive: true,
+  isPublic: true,
+  serviceId: undefined,
 });
 
 const deductOnOptions = [
@@ -43,8 +48,14 @@ const deductOnOptions = [
 ];
 
 const state = reactive<FormState>(defaultState());
-const errors = ref<{ name?: string; price?: string }>({});
-const submitting = ref(false);
+const errors = ref<{ name?: string; price?: string; serviceId?: string }>({});
+const { items: storefrontItems } = useStorefrontCatalog();
+const serviceOptions = computed(() => {
+  const services = new Map<string, string>();
+  for (const item of storefrontItems.value ?? []) services.set(item.serviceId, item.serviceName);
+  if (props.editPackage?.service) services.set(props.editPackage.service.id, props.editPackage.service.name);
+  return Array.from(services, ([value, label]) => ({ value, label }));
+});
 
 const isEditMode = computed(() => props.editPackage !== null);
 const modalTitle = computed(() =>
@@ -73,6 +84,8 @@ watch(
       state.credits = pkg.credits ?? null;
       state.validityDays = pkg.validityDays ?? null;
       state.isActive = pkg.isActive;
+      state.isPublic = pkg.isPublic;
+      state.serviceId = pkg.serviceId ?? undefined;
       return;
     }
 
@@ -82,11 +95,14 @@ watch(
 );
 
 const validate = () => {
-  const nextErrors: { name?: string; price?: string } = {};
+  const nextErrors: { name?: string; price?: string; serviceId?: string } = {};
 
   if (!state.name.trim()) nextErrors.name = "กรุณากรอกชื่อแพ็กเกจ";
   if (state.price === null || state.price < 0) {
     nextErrors.price = "กรุณากรอกราคาที่ถูกต้อง";
+  }
+  if (state.packageType === "MAIN" && !state.serviceId) {
+    nextErrors.serviceId = "กรุณาเลือกบริการของแพ็กเกจ";
   }
 
   errors.value = nextErrors;
@@ -94,24 +110,30 @@ const validate = () => {
 };
 
 const handleSubmit = async () => {
+  if (props.saving) return;
   if (!validate()) return;
 
-  submitting.value = true;
   emit("save", {
     name: state.name.trim(),
     description: state.description.trim() || null,
     packageType: state.packageType,
     isDelivery: state.packageType === "ADDON" ? state.isDelivery : false,
-    deductOn: state.packageType === "ADDON" ? state.deductOn : "CREATED",
+    deductOn: state.packageType === "ADDON" && !state.isDelivery ? state.deductOn : "CREATED",
     price: state.price ?? 0,
-    credits: state.credits,
+    credits: state.isDelivery ? null : state.credits,
     validityDays: state.validityDays,
     isActive: state.isActive,
+    isPublic: state.isPublic,
+    serviceId: state.packageType === "MAIN" ? state.serviceId : null,
   });
-  submitting.value = false;
 };
 
-const handleClose = () => emit("update:open", false);
+const handleClose = () => {
+  if (!props.saving) emit("update:open", false);
+};
+const handleOpenChange = (value: boolean) => {
+  if (!props.saving) emit("update:open", value);
+};
 </script>
 
 <template>
@@ -119,7 +141,7 @@ const handleClose = () => emit("update:open", false);
     :open="open"
     :title="modalTitle"
     :ui="{ content: 'max-w-lg' }"
-    @update:open="emit('update:open', $event)"
+    @update:open="handleOpenChange"
   >
     <template #body>
       <form class="flex flex-col gap-5" @submit.prevent="handleSubmit">
@@ -164,6 +186,35 @@ const handleClose = () => emit("update:open", false);
         </div>
 
         <UFormField
+          v-if="state.packageType === 'MAIN'"
+          label="บริการที่ใช้แพ็กเกจ"
+          required
+          :error="errors.serviceId"
+          description="เครดิตของแพ็กเกจจะใช้ได้เฉพาะรายการในบริการนี้"
+        >
+          <USelect
+            v-model="state.serviceId"
+            :items="serviceOptions"
+            value-key="value"
+            placeholder="เลือกบริการ"
+            class="w-full"
+            :color="errors.serviceId ? 'error' : undefined"
+          />
+        </UFormField>
+
+        <UFormField
+          label="การแสดงผลหน้าลูกค้า"
+          description="ปิดได้สำหรับแพ็กเกจเฉพาะบุคคล โดยพนักงานยังขายแพ็กเกจที่เปิดใช้งานได้"
+        >
+          <div class="flex h-9 items-center gap-2">
+            <USwitch v-model="state.isPublic" color="primary" />
+            <span class="text-sm" :class="state.isPublic ? 'text-primary' : 'text-muted'">
+              {{ state.isPublic ? "แสดงให้ผู้ใช้เห็น" : "ซ่อนจากผู้ใช้" }}
+            </span>
+          </div>
+        </UFormField>
+
+        <UFormField
           v-if="state.packageType === 'ADDON'"
           label="นี่คือบริการรับ-ส่งถึงบ้าน"
           description="เมื่อลูกค้าซื้อแพ็กเกจนี้และ active อยู่ ระบบจะถือว่าออเดอร์ของลูกค้ามีบริการจัดส่งถึงบ้าน"
@@ -171,7 +222,7 @@ const handleClose = () => emit("update:open", false);
           <USwitch v-model="state.isDelivery" color="primary" />
         </UFormField>
 
-        <UFormField v-if="state.packageType === 'ADDON'" label="หักเครดิตเมื่อ">
+        <UFormField v-if="state.packageType === 'ADDON' && !state.isDelivery" label="หักเครดิตเมื่อ">
           <USelect
             v-model="state.deductOn"
             :items="deductOnOptions"
@@ -208,7 +259,7 @@ const handleClose = () => emit("update:open", false);
           </UFormField>
         </div>
 
-        <UFormField label="เครดิต">
+        <UFormField v-if="!state.isDelivery" label="เครดิต">
           <UInput
             v-model.number="state.credits"
             type="number"
@@ -223,6 +274,7 @@ const handleClose = () => emit("update:open", false);
             label="ยกเลิก"
             color="neutral"
             variant="ghost"
+            :disabled="saving"
             @click="handleClose"
           />
           <UButton
@@ -230,7 +282,8 @@ const handleClose = () => emit("update:open", false);
             :label="isEditMode ? 'บันทึกการแก้ไข' : 'สร้างแพ็กเกจ'"
             :icon="isEditMode ? 'i-lucide-save' : 'i-lucide-plus'"
             color="primary"
-            :loading="submitting"
+            :loading="saving"
+            :disabled="saving"
           />
         </div>
       </form>

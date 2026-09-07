@@ -67,6 +67,7 @@ export type ReceiptPayload = {
     } | null;
     hangerCharge: {
       count: number;
+      providedCount?: number;
       pricePerUnit: number;
       total: number;
     } | null;
@@ -85,6 +86,7 @@ export type ReceiptPayload = {
       id: string;
       productName: string;
       credits: number;
+      isDelivery?: boolean;
       deductOn: "CREATED" | "COMPLETED";
       deductedAt: string | null;
       refundedAt: string | null;

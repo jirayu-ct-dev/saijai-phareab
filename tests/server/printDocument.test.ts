@@ -340,7 +340,7 @@ describe("document content", () => {
     ]));
     expect(built.summaryRows).toEqual(expect.arrayContaining([
       { label: "รวมจำนวนรายการ", value: "3 ชิ้น" },
-      { label: "รวมไม้แขวน", value: "3 ชิ้น" },
+      { label: "ซื้อไม้แขวนเพิ่ม", value: "3 ชิ้น" },
       { label: "ค่าไม้แขวน", value: "15.00" },
       { label: "ราคารวม VAT 7% แล้ว", value: "1,153.81" },
       { label: "VAT 7%", value: "80.75" },

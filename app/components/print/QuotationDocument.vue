@@ -159,8 +159,12 @@ const infoRows = computed(() => {
         <span>ซัก-พับ ชั่งกิโล</span>
         <span>{{ washFoldInfo.weightKg.toFixed(1) }} กก. × {{ formatCurrency(washFoldInfo.pricePerKg) }}</span>
       </div>
-      <div v-if="hangerCharge && !washFoldInfo" class="summary-row">
-        <span>รวมไม้แขวน</span>
+      <div v-if="(hangerCharge?.providedCount ?? 0) > 0 && !washFoldInfo" class="summary-row">
+        <span>ไม้แขวนที่ลูกค้าให้มา</span>
+        <span>{{ hangerCharge?.providedCount ?? 0 }} ชิ้น</span>
+      </div>
+      <div v-if="hangerCharge && hangerCharge.count > 0 && !washFoldInfo" class="summary-row">
+        <span>ซื้อไม้แขวนเพิ่ม</span>
         <span>{{ hangerCharge?.count ?? 0 }} ชิ้น</span>
       </div>
       <div class="summary-row">
@@ -197,7 +201,7 @@ const infoRows = computed(() => {
         <p class="text-center text-[24px] font-bold">แพ็กเกจเสริม</p>
         <div v-for="usage in addonUsages" :key="usage.id" class="summary-row">
           <span class="wrap-break-word">{{ usage.productName }}</span>
-          <span>{{ usage.credits }} เครดิต</span>
+          <span>{{ usage.isDelivery ? 'ใช้บริการ' : `${usage.credits} เครดิต` }}</span>
         </div>
       </section>
     </template>

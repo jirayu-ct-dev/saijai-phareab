@@ -2,6 +2,7 @@ import { requireRole } from "~~/server/utils/auth";
 import { prisma } from "~~/server/utils/prisma";
 import { isInternalCustomerEmail } from "~~/server/utils/customerAccount";
 import { packageSaleStatusByPaymentStatus } from "~~/server/utils/paymentStateTransition";
+import { parseDateRange } from "~~/server/utils/csv";
 
 export default defineEventHandler(async (event) => {
   requireRole(event, ["ADMIN"]);
@@ -10,6 +11,8 @@ export default defineEventHandler(async (event) => {
   if (!id) {
     throw createError({ statusCode: 400, statusMessage: "Missing user id" });
   }
+  const query = getQuery(event);
+  const { from, to } = parseDateRange(query.from, query.to);
 
   try {
     const user = await prisma.user.findFirst({
@@ -68,9 +71,14 @@ export default defineEventHandler(async (event) => {
           },
         },
         paymentRecords: {
-          where: { deletedAt: null },
+          where: {
+            deletedAt: null,
+            OR: [
+              { paidAt: { gte: from, lte: to } },
+              { paidAt: null, createdAt: { gte: from, lte: to } },
+            ],
+          },
           orderBy: { createdAt: "desc" },
-          take: 10,
           select: {
             id: true,
             amount: true,
@@ -106,9 +114,8 @@ export default defineEventHandler(async (event) => {
           },
         },
         packageSales: {
-          where: { deletedAt: null },
+          where: { deletedAt: null, createdAt: { gte: from, lte: to } },
           orderBy: { createdAt: "desc" },
-          take: 10,
           select: {
             id: true,
             totalAmount: true,
@@ -144,9 +151,8 @@ export default defineEventHandler(async (event) => {
           },
         },
         serviceOrders: {
-          where: { deletedAt: null },
-          orderBy: { createdAt: "desc" },
-          take: 10,
+          where: { deletedAt: null, receivedAt: { gte: from, lte: to } },
+          orderBy: { receivedAt: "desc" },
           select: {
             id: true,
             status: true,
@@ -154,6 +160,7 @@ export default defineEventHandler(async (event) => {
             totalAmount: true,
             note: true,
             createdAt: true,
+            receivedAt: true,
             memberEntitlement: {
               select: {
                 id: true,
@@ -267,7 +274,7 @@ export default defineEventHandler(async (event) => {
             }
           : null,
       })),
-      recentPayments: user.paymentRecords.map((payment) => ({
+      recentPayments: user.paymentRecords.slice(0, 10).map((payment) => ({
         id: payment.id,
         amount: Number(payment.amount),
         note: payment.note,
@@ -290,7 +297,7 @@ export default defineEventHandler(async (event) => {
           : null,
         serviceOrder: payment.serviceOrder,
       })),
-      recentSales: user.packageSales.map((sale) => ({
+      recentSales: user.packageSales.slice(0, 10).map((sale) => ({
         id: sale.id,
         status: sale.payments[0]
           ? packageSaleStatusByPaymentStatus[sale.payments[0].status]
@@ -316,13 +323,13 @@ export default defineEventHandler(async (event) => {
             }
           : null,
       })),
-      recentServiceOrders: user.serviceOrders.map((order) => ({
+      recentServiceOrders: user.serviceOrders.slice(0, 10).map((order) => ({
         id: order.id,
         status: order.status,
         creditUsed: order.creditUsed,
         totalAmount: order.totalAmount != null ? Number(order.totalAmount) : null,
         note: order.note,
-        createdAt: order.createdAt,
+        createdAt: order.receivedAt,
         memberEntitlement: order.memberEntitlement
           ? {
               id: order.memberEntitlement.id,

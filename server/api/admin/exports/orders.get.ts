@@ -66,7 +66,7 @@ export default defineEventHandler(async (event) => {
   const rows = orders.map((o) => {
     const isWashFold = o.weightKg != null;
     const totalQty = o.serviceOrderItems.reduce((s, it) => s + it.quantity, 0);
-    const hanger = (o.hangerCharge ?? null) as { count?: number; total?: number } | null;
+    const hanger = (o.hangerCharge ?? null) as { count?: number; providedCount?: number; total?: number } | null;
     const addonNames = o.addonUsageRecords.map((usage) => usage.productName || "แพ็กเกจเสริม").filter(Boolean);
     const addonCredits = o.addonUsageRecords.reduce((sum, usage) => sum + Number(usage.credits ?? 0), 0);
     const itemSummary = o.serviceOrderItems
@@ -100,7 +100,8 @@ export default defineEventHandler(async (event) => {
       "ราคารวม": Number(o.subtotalAmount),
       "ส่วนลด": Number(o.discountAmount),
       "ค่าไม้แขวน": Number(hanger?.total ?? 0),
-      "จำนวนไม้แขวน": Number(hanger?.count ?? 0),
+      "ไม้แขวนที่ลูกค้าให้มา": Number(hanger?.providedCount ?? 0),
+      "จำนวนไม้แขวนที่ซื้อเพิ่ม": Number(hanger?.count ?? 0),
       "ยอดสุทธิ": o.totalAmount != null ? Number(o.totalAmount) : 0,
       "พนักงาน": o.employee?.name ?? "",
       "หมายเหตุ": o.note ?? "",
@@ -112,7 +113,7 @@ export default defineEventHandler(async (event) => {
     "ลูกค้า", "อีเมล", "เบอร์",
     "รูปแบบ", "แพ็กเกจ", "แพ็กเกจเสริม", "เครดิตแพ็กเกจเสริม",
     "จำนวนชิ้น", "รายการผ้า", "น้ำหนัก (กก.)", "ใช้เครดิต",
-    "ราคารวม", "ส่วนลด", "ค่าไม้แขวน", "จำนวนไม้แขวน", "ยอดสุทธิ",
+    "ราคารวม", "ส่วนลด", "ค่าไม้แขวน", "ไม้แขวนที่ลูกค้าให้มา", "จำนวนไม้แขวนที่ซื้อเพิ่ม", "ยอดสุทธิ",
     "พนักงาน", "หมายเหตุ",
   ];
   const csv = buildCsv(headers, rows);

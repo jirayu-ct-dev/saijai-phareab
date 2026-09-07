@@ -44,6 +44,7 @@ const filteredPackages = computed(() => getPackagesByTab(activeTab.value));
 
 const isFormOpen = ref(false);
 const editingPackage = ref<Package | null>(null);
+const isSavingPackage = ref(false);
 
 const openCreateModal = () => {
   editingPackage.value = null;
@@ -56,11 +57,17 @@ const openEditModal = (pkg: Package) => {
 };
 
 const handleSave = async (data: CreatePackageBody) => {
-  const success = editingPackage.value
-    ? await updatePackage(editingPackage.value.id, data)
-    : await createPackage(data);
+  if (isSavingPackage.value) return;
+  isSavingPackage.value = true;
+  try {
+    const success = editingPackage.value
+      ? await updatePackage(editingPackage.value.id, data)
+      : await createPackage(data);
 
-  if (success) isFormOpen.value = false;
+    if (success) isFormOpen.value = false;
+  } finally {
+    isSavingPackage.value = false;
+  }
 };
 
 const isDeleteOpen = ref(false);
@@ -176,9 +183,10 @@ const handleRemoveFromBulkDelete = (pkgId: string) => {
   </UDashboardPanel>
 
   <AdminPackagesPackageFormModal
-    v-model:open="isFormOpen"
-    :edit-package="editingPackage"
-    @save="handleSave"
+      v-model:open="isFormOpen"
+      :edit-package="editingPackage"
+      :saving="isSavingPackage"
+      @save="handleSave"
   />
 
   <UIConfirmModal

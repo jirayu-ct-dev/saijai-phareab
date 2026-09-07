@@ -104,7 +104,7 @@ onActivated(async () => {
 const searchQuery = ref("");
 const statusFilter = ref<ServiceOrderStatus | "all">("all");
 const customerTypeFilter = ref<CustomerTypeFilter>("all");
-const backdatedFilter = ref<"normal" | "backdated" | "all">("normal");
+const backdatedFilter = ref<"normal" | "backdated" | "all">("all");
 const paymentFilter = ref<PaymentStatus | "all">("all");
 
 watch(

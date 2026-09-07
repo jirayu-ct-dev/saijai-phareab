@@ -14,6 +14,8 @@ export interface CreatePackageBody {
     credits?: number | null
     validityDays?: number | null
     isActive?: boolean
+    isPublic?: boolean
+    serviceId?: string | null
 }
 
 export interface UpdatePackageBody extends Partial<CreatePackageBody> {}

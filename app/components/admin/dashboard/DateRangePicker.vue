@@ -4,6 +4,9 @@ import type { Range } from '~~/shared/types/dashboard'
 import { THAI_MONTHS, formatDate } from '~~/shared/utils/format'
 
 const selected = defineModel<Range>({ required: true })
+const props = withDefaults(defineProps<{ showPresets?: boolean }>(), {
+  showPresets: true
+})
 
 // Preset ranges
 const ranges = [
@@ -183,8 +186,8 @@ name="i-lucide-chevron-down"
         class="flex flex-col sm:flex-row sm:items-stretch sm:divide-x divide-default max-h-[80vh] sm:max-h-none overflow-y-auto sm:overflow-visible">
         <!-- Mobile: Quick Presets (Horizontal Scroll) -->
         <div class="sm:hidden border-b border-default p-2">
-          <p class="text-xs text-muted px-2 py-1 font-medium">ช่วงเวลา</p>
-          <div class="flex gap-1 overflow-x-auto pb-2">
+          <p v-if="props.showPresets" class="text-xs text-muted px-2 py-1 font-medium">ช่วงเวลา</p>
+          <div v-if="props.showPresets" class="flex gap-1 overflow-x-auto pb-2">
             <UButton
 v-for="(range, index) in ranges" :key="index" :label="range.label" color="neutral" variant="ghost"
               size="xs" :class="[isRangeSelected(range) ? 'bg-elevated' : '']" @click="selectRange(range)" />
@@ -205,7 +208,7 @@ v-model="selectedYear" :items="availableYears" value-key="value" class="flex-1" 
         <!-- Desktop: Preset Ranges & Month Selection (Sidebar) -->
         <div class="hidden sm:flex flex-col w-48 max-h-100 overflow-y-auto">
           <!-- Quick Presets -->
-          <div class="border-b border-default pb-2 mb-2">
+          <div v-if="props.showPresets" class="border-b border-default pb-2 mb-2">
             <p class="text-xs text-muted px-4 py-1 font-medium">ช่วงเวลา</p>
             <UButton
 v-for="(range, index) in ranges" :key="index" :label="range.label" color="neutral" variant="ghost"

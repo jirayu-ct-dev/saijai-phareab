@@ -231,6 +231,9 @@ model PackageProduct {
   credits      Int?
   validityDays Int?
   isActive     Boolean     @default(true)
+  isPublic     Boolean     @default(true)
+  serviceId    String?
+  service      StorefrontService? @relation(fields: [serviceId], references: [id], onDelete: SetNull)
   createdAt    DateTime    @default(now())
   updatedAt    DateTime    @updatedAt
   deletedAt    DateTime?
@@ -240,6 +243,7 @@ model PackageProduct {
   saleItems          PackageSaleItem[]
   memberEntitlements MemberEntitlement[]
 
+  @@index([serviceId])
   @@map("package_product")
 }
 
@@ -347,6 +351,7 @@ model StorefrontService {
   deletedBy   User?     @relation("StorefrontServiceDeletedBy", fields: [deletedById], references: [id])
 
   storefrontPrices StorefrontPrice[]
+  packageProducts  PackageProduct[]
 
   @@map("storefront_service")
 }

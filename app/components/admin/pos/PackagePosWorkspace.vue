@@ -67,6 +67,13 @@ const historicalDateTime = (date: CalendarDate | null, time: string) => date
   : "";
 const historicalSoldAt = computed(() => historicalDateTime(historicalSoldDate.value, historicalSoldTime.value));
 const historicalPaidAt = computed(() => historicalDateTime(historicalPaidDate.value, historicalPaidTime.value));
+
+watch([historicalSoldDate, historicalSoldTime], ([date, time]) => {
+  if (!backdatedEnabled.value || !date) return;
+  historicalPaidDate.value = date;
+  historicalPaidTime.value = time;
+  historicalPaidTimeSearch.value = time;
+});
 const historicalPaymentStatusOptions = [
   { label: paymentStatusLabels.UNPAID, value: "UNPAID" },
   { label: paymentStatusLabels.PAID, value: "PAID" },
@@ -299,6 +306,7 @@ const uploadSlipIfNeeded = async () => {
 };
 
 const handleSubmit = async () => {
+  if (isSubmitting.value) return;
   if (form.customerMode === "existing" && !form.customerId) return notify.validationError("กรุณาเลือกลูกค้า");
   if (form.customerMode === "new" && !form.newCustomerName.trim()) return notify.validationError("กรุณากรอกชื่อลูกค้า");
   if (form.customerMode === "new" && !form.newCustomerPhone.trim()) return notify.validationError("กรุณากรอกเบอร์โทรลูกค้า");

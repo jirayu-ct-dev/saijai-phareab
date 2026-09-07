@@ -96,7 +96,7 @@ export default defineEventHandler(async (event) => {
 
     const payment = row.payments[0] ?? null;
     const hangerCharge = (row.hangerCharge ?? null) as
-      | { count?: number; pricePerUnit?: number; total?: number }
+      | { count?: number; providedCount?: number; pricePerUnit?: number; total?: number }
       | null;
 
     return {
@@ -127,6 +127,7 @@ export default defineEventHandler(async (event) => {
       hangerCharge: hangerCharge
         ? {
             count: Number(hangerCharge.count ?? 0),
+            providedCount: Number(hangerCharge.providedCount ?? 0),
             pricePerUnit: Number(hangerCharge.pricePerUnit ?? 0),
             total: Number(hangerCharge.total ?? 0),
           }
