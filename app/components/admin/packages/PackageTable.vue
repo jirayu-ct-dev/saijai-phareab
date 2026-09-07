@@ -21,12 +21,14 @@ import { columnSortIcon, cycleColumnSorting } from "~~/shared/utils/table";
 const props = defineProps<{
   packages: Package[];
   loading?: boolean;
+  togglingPublicPackageId?: string | null;
 }>();
 
 const emit = defineEmits<{
   edit: [pkg: Package];
   delete: [pkg: Package];
   "bulk-delete": [packages: Package[]];
+  "toggle-public": [pkg: Package, isPublic: boolean];
   refresh: [];
 }>();
 
@@ -38,6 +40,7 @@ const UBadge = resolveComponent("UBadge");
 const UButton = resolveComponent("UButton");
 const UCheckbox = resolveComponent("UCheckbox");
 const UIcon = resolveComponent("UIcon");
+const USwitch = resolveComponent("USwitch");
 
 const sortableHeader = (
   label: string,
@@ -84,6 +87,7 @@ const filteredPackages = computed<Package[]>(() => {
       (pkg) =>
         pkg.name.toLowerCase().includes(q) ||
         (pkg.description?.toLowerCase().includes(q) ?? false) ||
+        (pkg.service?.name.toLowerCase().includes(q) ?? false) ||
         pkg.id.toLowerCase().includes(q),
     );
   }
@@ -131,11 +135,6 @@ const setMobileRowSelected = (index: number, value: boolean | "indeterminate") =
 const getPackagePriceLabel = (pkg: Package) => {
   const price = Number(pkg.price);
   return price === 0 ? "ฟรี" : formatCurrency(price);
-};
-
-const getDeductOnLabel = (pkg: Package) => {
-  if (pkg.packageType !== "ADDON") return "—";
-  return pkg.deductOn === "CREATED" ? "รับผ้า" : "จัดส่ง";
 };
 
 const handleBulkDelete = () => emit("bulk-delete", selectedPackages.value);
@@ -229,7 +228,13 @@ const columns: TableColumn<Package>[] = [
     accessorKey: "credits",
     header: ({ column }) => sortableHeader("เครดิต", column),
     cell: ({ row }) =>
-      h("span", { class: "font-medium text-primary" }, formatCredits(row.original.credits)),
+      h("span", { class: "font-medium text-primary" }, row.original.isDelivery ? "ไม่ใช้เครดิต" : formatCredits(row.original.credits)),
+  },
+  {
+    id: "service",
+    accessorFn: (pkg) => pkg.service?.name ?? "",
+    header: ({ column }) => sortableHeader("บริการ", column),
+    cell: ({ row }) => h("span", { class: "text-sm text-muted" }, row.original.service?.name ?? "—"),
   },
   {
     accessorKey: "validityDays",
@@ -238,15 +243,24 @@ const columns: TableColumn<Package>[] = [
       h("span", { class: "text-muted" }, formatDays(row.getValue("validityDays") as number | null)),
   },
   {
-    accessorKey: "deductOn",
-    header: ({ column }) => sortableHeader("หักเครดิตเมื่อ", column),
+    accessorKey: "isPublic",
+    header: ({ column }) => sortableHeader("หน้าลูกค้า", column),
     cell: ({ row }) => {
       const pkg = row.original;
-      if (pkg.packageType !== "ADDON") return h("span", { class: "text-muted text-xs" }, "—");
-      const isCreated = pkg.deductOn === "CREATED";
-      return h(UBadge, { variant: "subtle", color: isCreated ? "info" : "warning" }, () =>
-        isCreated ? "รับผ้า" : "จัดส่ง"
-      );
+      const isToggling = props.togglingPublicPackageId === pkg.id;
+      return h("div", { class: "flex items-center gap-2" }, [
+        h(USwitch, {
+          modelValue: pkg.isPublic,
+          size: "sm",
+          color: "primary",
+          disabled: Boolean(props.togglingPublicPackageId),
+          ariaLabel: `${pkg.isPublic ? "ซ่อน" : "แสดง"}แพ็กเกจ ${pkg.name} ที่หน้าลูกค้า`,
+          "onUpdate:modelValue": (value: boolean) => emit("toggle-public", pkg, value),
+        }),
+        isToggling
+          ? h(UIcon, { name: "i-lucide-loader-2", class: "size-3.5 animate-spin text-muted" })
+          : h("span", { class: "text-xs text-muted" }, pkg.isPublic ? "แสดง" : "ซ่อน"),
+      ]);
     },
   },
   {
@@ -448,9 +462,25 @@ const columns: TableColumn<Package>[] = [
 
               <div class="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-muted">
                 <span>{{ packageTypeLabels[pkg.packageType] }}</span>
-                <span>{{ formatCredits(pkg.credits) }}</span>
+                <span>{{ pkg.isDelivery ? "ไม่ใช้เครดิต" : formatCredits(pkg.credits) }}</span>
                 <span>{{ formatDays(pkg.validityDays) }}</span>
-                <span v-if="pkg.packageType === 'ADDON'">หัก: {{ getDeductOnLabel(pkg) }}</span>
+                <span v-if="pkg.service">บริการ: {{ pkg.service.name }}</span>
+                <span class="inline-flex items-center gap-1.5">
+                  <USwitch
+                    :model-value="pkg.isPublic"
+                    size="xs"
+                    color="primary"
+                    :disabled="Boolean(togglingPublicPackageId)"
+                    :aria-label="`${pkg.isPublic ? 'ซ่อน' : 'แสดง'}แพ็กเกจ ${pkg.name} ที่หน้าลูกค้า`"
+                    @update:model-value="emit('toggle-public', pkg, $event)"
+                  />
+                  <UIcon
+                    v-if="togglingPublicPackageId === pkg.id"
+                    name="i-lucide-loader-2"
+                    class="size-3 animate-spin"
+                  />
+                  <span v-else>{{ pkg.isPublic ? "แสดงหน้าลูกค้า" : "ซ่อนหน้าลูกค้า" }}</span>
+                </span>
               </div>
 
               <div class="mt-1 flex items-center justify-between gap-2">
@@ -540,9 +570,17 @@ const columns: TableColumn<Package>[] = [
                   <span class="text-sm">
                     <span class="text-muted">เครดิต:</span>
                     <span class="ml-1 font-medium text-primary">
-                      {{ formatCredits(row.original.credits) }}
+                      {{ row.original.isDelivery ? "ไม่ใช้เครดิต" : formatCredits(row.original.credits) }}
                     </span>
                   </span>
+                </div>
+                <div v-if="row.original.service" class="flex items-center gap-2">
+                  <UIcon name="i-lucide-shirt" class="size-4 shrink-0 text-muted" />
+                  <span class="text-sm"><span class="text-muted">บริการ:</span> <span class="ml-1 font-medium text-highlighted">{{ row.original.service.name }}</span></span>
+                </div>
+                <div class="flex items-center gap-2">
+                  <UIcon name="i-lucide-eye" class="size-4 shrink-0 text-muted" />
+                  <span class="text-sm"><span class="text-muted">หน้าลูกค้า:</span> <span class="ml-1 font-medium text-highlighted">{{ row.original.isPublic ? "แสดง" : "ซ่อน" }}</span></span>
                 </div>
                 <div class="flex items-center gap-2">
                   <UIcon name="i-lucide-calendar" class="size-4 text-muted shrink-0" />

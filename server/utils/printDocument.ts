@@ -247,7 +247,7 @@ export type PrintPaymentSource = {
       creditRemaining: number | null;
       endAt: Date | null;
     } | null;
-    addonUsageRecords?: Array<{ productName: string | null; credits: number }>;
+    addonUsageRecords?: Array<{ productName: string | null; credits: number; isDelivery?: boolean }>;
     usageHistory?: Array<{
       orderNo: string | null;
       receivedAt: Date;
@@ -452,11 +452,15 @@ export function buildPrintDocument(input: {
       value: `${weightText} กก. × ${formatMinor(pricePerKg)}`,
     });
   }
-  const hanger = (order?.hangerCharge ?? null) as { count?: unknown; total?: unknown } | null;
+  const hanger = (order?.hangerCharge ?? null) as { count?: unknown; providedCount?: unknown; total?: unknown } | null;
   const hangerCount = Number(hanger?.count ?? 0);
+  const providedHangerCount = Number(hanger?.providedCount ?? 0);
   const hangerTotalMinor = hanger?.total == null ? 0 : decimalToMinorExact(String(hanger.total));
-  if (hanger && order?.weightKg == null) {
-    summaryRows.push({ label: "รวมไม้แขวน", value: `${hangerCount} ชิ้น` });
+  if (providedHangerCount > 0 && order?.weightKg == null) {
+    summaryRows.push({ label: "ไม้แขวนที่ลูกค้าให้มา", value: `${providedHangerCount} ชิ้น` });
+  }
+  if (hangerCount > 0 && order?.weightKg == null) {
+    summaryRows.push({ label: "ซื้อไม้แขวนเพิ่ม", value: `${hangerCount} ชิ้น` });
   }
   summaryRows.push({ label: "ราคา", value: formatMinor(subtotalMinor) });
   if (hangerTotalMinor > 0) {
@@ -482,7 +486,9 @@ export function buildPrintDocument(input: {
     supplementalSections.push({
       title: "แพ็กเกจเสริม",
       lines: order.addonUsageRecords.map((usage) =>
-        `${usage.productName || "แพ็กเกจเสริม"} ${usage.credits} เครดิต`),
+        usage.isDelivery
+          ? `${usage.productName || "บริการรับ-ส่ง"} ใช้บริการ`
+          : `${usage.productName || "แพ็กเกจเสริม"} ${usage.credits} เครดิต`),
     });
   }
   if (entitlement) {

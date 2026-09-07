@@ -21,7 +21,7 @@ type MyServiceOrderDetail = {
   totalAmount: number | null;
   image: { id: string; secureUrl: string | null; url: string | null } | null;
   deliveryImage: { id: string; secureUrl: string | null; url: string | null } | null;
-  hangerCharge: { count: number; pricePerUnit: number; total: number } | null;
+  hangerCharge: { count: number; providedCount?: number; pricePerUnit: number; total: number } | null;
   employee: { id: string; name: string | null } | null;
   items: Array<{
     id: string;
@@ -150,6 +150,9 @@ const totalRows = computed<InfoRow[]>(() => {
       label: `ค่าไม้แขวน (${order.value.hangerCharge.count} ชิ้น)`,
       value: formatCurrency(order.value.hangerCharge.total),
     });
+  }
+  if ((order.value.hangerCharge?.providedCount ?? 0) > 0) {
+    rows.push({ label: "ไม้แขวนที่ให้ร้าน", value: `${order.value.hangerCharge!.providedCount} ชิ้น` });
   }
 
   if (Number(order.value.discountAmount) > 0) {

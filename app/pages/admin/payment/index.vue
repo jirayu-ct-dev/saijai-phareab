@@ -234,8 +234,9 @@ const getPaymentMethodLabel = (payment: AdminPaymentRecord) => (
 );
 
 const getMobilePaymentMeta = (payment: AdminPaymentRecord) => {
-  const date = formatOptionalShortDate(payment.createdAt);
-  return payment.method ? `${getPaymentMethodLabel(payment)} · ${date}` : date;
+  const date = formatOptionalShortDate(payment.activityAt);
+  const parts = [payment.method ? getPaymentMethodLabel(payment) : null, date, payment.backdated ? "ย้อนหลัง" : null];
+  return parts.filter(Boolean).join(" · ");
 };
 
 const isDeleteOpen = ref(false);
@@ -444,10 +445,13 @@ const columns: TableColumn<AdminPaymentRecord>[] = [
     cell: ({ row }) => h("span", { class: "text-sm text-muted" }, getPaymentMethodLabel(row.original)),
   },
   {
-    id: "createdAt",
-    accessorFn: (payment) => new Date(payment.createdAt).getTime(),
-    header: ({ column }) => sortableHeader("วันที่สร้าง", column),
-    cell: ({ row }) => h("p", { class: "text-sm" }, formatDateTime(row.original.createdAt)),
+    id: "activityAt",
+    accessorFn: (payment) => new Date(payment.activityAt).getTime(),
+    header: ({ column }) => sortableHeader("วันที่รายการ", column),
+    cell: ({ row }) => h("div", { class: "space-y-1" }, [
+      h("p", { class: "text-sm" }, formatDateTime(row.original.activityAt)),
+      row.original.backdated ? h(UBadge, { color: "warning", variant: "subtle", size: "xs" }, () => "ย้อนหลัง") : null,
+    ]),
   },
   {
     id: "actions",

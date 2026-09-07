@@ -7,6 +7,7 @@ import { useBusinessSetting } from "~~/app/composables/useBusinessSetting";
 import { formatCurrency } from "~~/shared/utils/format";
 import type { ServiceOrderStatus } from "~~/shared/types/enums";
 import { isUnidentifiableLegacyCustomer } from "~~/shared/utils/customer";
+import { allocatePackageCredits } from "~~/shared/utils/packageService";
 
 const adminDashboardCardClass = "rounded-md border border-default/30 bg-default p-4 shadow-[0_1px_2px_rgb(15_23_42/0.04),0_6px_18px_-10px_rgb(15_23_42/0.08)] dark:border-default/20 dark:bg-elevated/55 dark:shadow-[0_1px_2px_rgb(0_0_0/0.16),0_8px_22px_-12px_rgb(0_0_0/0.26)]";
 
@@ -19,6 +20,7 @@ type FormItemState = {
   photos: OrderItemPhoto[];
   fallbackLabel?: string;
   fallbackUnitPrice?: number;
+  fallbackServiceId?: string | null;
 };
 type CatalogMenuItem = { label: string; icon: string; onSelect: () => void; description?: string };
 type CustomerOption = {
@@ -36,6 +38,8 @@ type CustomerOption = {
     creditRemaining: number | null;
     startAt: string | null;
     endAt: string | null;
+    serviceId: string | null;
+    serviceName: string | null;
   } | null;
   memberEntitlementOptions?: Array<{
     id: string;
@@ -44,6 +48,8 @@ type CustomerOption = {
     creditRemaining: number | null;
     startAt: string | null;
     endAt: string | null;
+    serviceId: string | null;
+    serviceName: string | null;
   }>;
   addonEntitlements?: Array<{
     id: string;
@@ -155,6 +161,8 @@ const currentOrderCustomer = computed<CustomerOption | null>(() => {
           creditRemaining: props.order.memberEntitlement.creditRemaining,
           startAt: null,
           endAt: props.order.memberEntitlement.endAt,
+          serviceId: props.order.memberEntitlement.product.serviceId,
+          serviceName: props.order.memberEntitlement.product.service?.name ?? null,
         }
       : null,
     memberEntitlementOptions: props.order?.memberEntitlement
@@ -165,6 +173,8 @@ const currentOrderCustomer = computed<CustomerOption | null>(() => {
           creditRemaining: props.order.memberEntitlement.creditRemaining,
           startAt: null,
           endAt: props.order.memberEntitlement.endAt,
+          serviceId: props.order.memberEntitlement.product.serviceId,
+          serviceName: props.order.memberEntitlement.product.service?.name ?? null,
         }]
       : [],
     addonEntitlements: [],
@@ -195,7 +205,7 @@ const selectedAddonCreditMap = computed(() => new Map(
   form.addonEntitlements.map((item) => [item.entitlementId, item.credits]),
 ));
 const hasDeliveryUsage = computed(() => activeAddonEntitlements.value.some(
-  (addon) => addon.isDelivery && (selectedAddonCreditMap.value.get(addon.id) ?? 0) > 0,
+  (addon) => addon.isDelivery && selectedAddonCreditMap.value.has(addon.id),
 ));
 const canUseMemberPackage = computed(() => Boolean(activeMemberEntitlement.value));
 const selectedMemberEntitlement = computed(() => {
@@ -230,6 +240,10 @@ const setAddonCredits = (entitlementId: string, value: number | string | null | 
   form.addonEntitlements = form.addonEntitlements.filter((item) => item.entitlementId !== entitlementId);
   if (credits > 0) form.addonEntitlements.push({ entitlementId, credits });
 };
+const setDeliveryAddonSelected = (entitlementId: string, selected: boolean) => {
+  form.addonEntitlements = form.addonEntitlements.filter((item) => item.entitlementId !== entitlementId);
+  if (selected) form.addonEntitlements.push({ entitlementId, credits: 0 });
+};
 
 const catalogMap = computed(() => new Map((catalogItems.value ?? []).map((item) => [item.id, item])));
 const formLineItems = computed(() =>
@@ -242,6 +256,7 @@ const formLineItems = computed(() =>
       return {
         key: item.key,
         storefrontPriceId: item.storefrontPriceId,
+        serviceId: catalog?.serviceId ?? item.fallbackServiceId ?? null,
         label,
         quantity: item.quantity,
         unitPrice,
@@ -277,22 +292,14 @@ const sanitizedDiscountAmount = computed(() => {
   return Math.min(raw, subtotalAmount.value);
 });
 const creditAvailable = computed(() => Math.max(0, Number(selectedMemberEntitlement.value?.creditRemaining ?? 0)));
-const creditUsedPreview = computed(() => {
-  if (!form.memberEntitlementId) return 0;
-  return Math.min(totalQuantity.value, creditAvailable.value);
-});
-const cashSubtotal = computed(() => {
-  if (!form.memberEntitlementId) return subtotalAmount.value;
-  let remaining = creditAvailable.value;
-  let total = 0;
-  for (const item of formLineItems.value) {
-    const creditQty = Math.min(item.quantity, remaining);
-    remaining -= creditQty;
-    total += (item.quantity - creditQty) * item.unitPrice;
-  }
-  return total;
-});
-const cashQuantity = computed(() => totalQuantity.value - creditUsedPreview.value);
+const packageAllocation = computed(() => allocatePackageCredits(
+  formLineItems.value,
+  form.memberEntitlementId ? creditAvailable.value : 0,
+  selectedMemberEntitlement.value?.serviceId ?? null,
+));
+const creditUsedPreview = computed(() => packageAllocation.value.creditUsed);
+const cashSubtotal = computed(() => form.memberEntitlementId ? packageAllocation.value.cashSubtotal : subtotalAmount.value);
+const cashQuantity = computed(() => form.memberEntitlementId ? packageAllocation.value.cashQuantity : totalQuantity.value);
 const sanitizedCashDiscount = computed(() => {
   if (!form.memberEntitlementId) return sanitizedDiscountAmount.value;
   const raw = Number(form.discountAmount || 0);
@@ -368,13 +375,6 @@ watch(
   },
   { immediate: true },
 );
-watch(() => form.hangerCount, (value) => {
-  if (value !== form.missingHangerCount) form.missingHangerCount = value;
-});
-watch(() => form.missingHangerCount, (value) => {
-  if (value !== form.hangerCount) form.hangerCount = value;
-});
-
 const resetForm = () => {
   Object.assign(form, createEmptyForm());
   formItems.value = [];
@@ -415,11 +415,11 @@ const applyOrderToForm = () => {
   form.customerId = order.customer.id;
   form.memberEntitlementId = order.memberEntitlement?.id ?? null;
   form.addonEntitlements = (order.addonUsages ?? [])
-    .filter((usage) => Boolean(usage.entitlementId) && !usage.refundedAt && usage.credits > 0)
+    .filter((usage) => Boolean(usage.entitlementId) && !usage.refundedAt && (usage.credits > 0 || usage.isDelivery))
     .map((usage) => ({ entitlementId: usage.entitlementId as string, credits: usage.credits }));
   form.serviceOrderStatus = order.status;
   setDueDateTime(order.dueAt);
-  form.hangerCount = order.hangerCharge?.count ?? order.items.reduce((sum, item) => sum + item.quantity, 0);
+  form.hangerCount = order.hangerCharge?.providedCount ?? 0;
   form.missingHangerCount = order.hangerCharge?.count ?? 0;
   form.orderImageId = order.image?.id ?? null;
   form.deliveryImageId = order.deliveryImage?.id ?? null;
@@ -457,6 +457,7 @@ const applyOrderToForm = () => {
       photos: existingPhotos,
       fallbackLabel: item.label,
       fallbackUnitPrice: item.unitPrice,
+      fallbackServiceId: item.serviceId ?? null,
     };
   });
   uploadedOrderImage.value = order.image;
@@ -744,7 +745,10 @@ const buildBody = async (): Promise<CreateAdminServiceOrderBody | null> => {
   return {
     customerId: form.customerId,
     memberEntitlementId: form.washFoldMode ? null : form.memberEntitlementId,
-    addonEntitlements: form.addonEntitlements.filter((item) => item.credits > 0),
+    addonEntitlements: form.addonEntitlements.filter((item) => {
+      const addon = activeAddonEntitlements.value.find((entry) => entry.id === item.entitlementId);
+      return Boolean(addon?.isDelivery) || item.credits > 0;
+    }),
     orderImageId: form.orderImageId,
     deliveryImageId: form.deliveryImageId,
     items: items,
@@ -752,6 +756,7 @@ const buildBody = async (): Promise<CreateAdminServiceOrderBody | null> => {
       ? { weightKg: Number(form.washFoldWeightKg), notes: form.washFoldNotes.trim() || null }
       : null,
     missingHangerCount: form.washFoldMode ? 0 : form.missingHangerCount,
+    hangerCount: form.washFoldMode ? 0 : form.hangerCount,
     dueAt: dueAtValue.value,
     discountAmount: form.washFoldMode
       ? sanitizedDiscountAmount.value
@@ -851,9 +856,10 @@ const handleSubmit = async () => {
                     <p class="text-xs text-muted">
                       เครดิตคงเหลือ {{ selectedMemberEntitlement?.creditRemaining ?? 0 }} | ใช้งานครั้งนี้ {{ creditUsedPreview }} เครดิต
                       <span v-if="form.memberEntitlementId && cashQuantity > 0">
-                        | คิดเพิ่ม {{ cashQuantity }} ชิ้น ({{ formatCurrency(cashSubtotal) }})
+                        | นอกบริการหรือเครดิตไม่พอ {{ cashQuantity }} ชิ้น ({{ formatCurrency(cashSubtotal) }})
                       </span>
                     </p>
+                    <p v-if="selectedMemberEntitlement?.serviceName" class="text-xs text-muted">ใช้กับบริการ {{ selectedMemberEntitlement.serviceName }}</p>
                     <p v-if="selectedMemberEntitlement?.startAt && selectedMemberEntitlement?.endAt" class="text-xs text-muted">
                       ช่วงสิทธิ์ {{ formatEntitlementDate(selectedMemberEntitlement.startAt) }}–{{ formatEntitlementDate(selectedMemberEntitlement.endAt) }}
                     </p>
@@ -872,17 +878,25 @@ const handleSubmit = async () => {
               >
                 <div>
                   <p class="font-medium text-highlighted">แพ็กเกจเสริมที่ใช้กับออเดอร์นี้</p>
-                  <p class="text-xs text-muted">ต้องเลือกเครดิตบริการรับส่งอย่างน้อย 1 ครั้ง จึงจะส่งข้อความยืนยันรอบรับผ้า</p>
+                  <p class="text-xs text-muted">บริการรับส่งเป็นสิทธิ์แสดงสถานะ ไม่หักเครดิต ส่วนแพ็กเกจเสริมอื่นเลือกจำนวนเครดิตตามปกติ</p>
                 </div>
                 <div v-for="addon in activeAddonEntitlements" :key="addon.id" class="flex items-center justify-between gap-3">
                   <div class="min-w-0">
                     <p class="truncate text-sm text-highlighted">{{ addon.productName }}</p>
                     <p class="text-xs text-muted">
-                      ใช้ได้ {{ addonCreditLimit(addon.id, addon.creditRemaining) }} ครั้ง
-                      <span v-if="addon.isDelivery"> · บริการรับส่ง</span>
+                      <template v-if="addon.isDelivery">บริการรับส่ง · ไม่มีการหักเครดิต</template>
+                      <template v-else>ใช้ได้ {{ addonCreditLimit(addon.id, addon.creditRemaining) }} ครั้ง · หักตอนรับผ้า</template>
                     </p>
                   </div>
+                  <USwitch
+                    v-if="addon.isDelivery"
+                    :model-value="selectedAddonCreditMap.has(addon.id)"
+                    color="success"
+                    aria-label="ใช้บริการรับส่ง"
+                    @update:model-value="setDeliveryAddonSelected(addon.id, $event)"
+                  />
                   <UInputNumber
+                    v-else
                     :model-value="selectedAddonCreditMap.get(addon.id) ?? 0"
                     :min="0"
                     :max="addonCreditLimit(addon.id, addon.creditRemaining)"
@@ -1038,7 +1052,14 @@ const handleSubmit = async () => {
                 <span class="font-medium text-highlighted">{{ formatCurrency(cashSubtotal) }}</span>
               </div>
               <div class="flex items-center justify-between gap-3">
-                <span class="text-muted">จำนวนไม้แขวน</span>
+                <span class="text-muted">ไม้แขวนที่ลูกค้าให้มา</span>
+                <UInputNumber v-model="form.hangerCount" :min="0" :step="1" orientation="vertical" class="w-28" />
+              </div>
+              <div class="flex items-center justify-between gap-3">
+                <div>
+                  <p class="text-muted">ซื้อไม้แขวนเพิ่ม</p>
+                  <p class="text-xs text-muted">ชิ้นละ {{ formatCurrency(hangerPricePerUnit) }}</p>
+                </div>
                 <UInputNumber v-model="form.missingHangerCount" :min="0" :step="1" orientation="vertical" class="w-28" />
               </div>
               <div class="flex items-center justify-between gap-3">

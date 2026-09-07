@@ -31,6 +31,7 @@ export default defineEventHandler(async (event) => {
       ? (await prisma.serviceOrderAddonUsage.findMany({
           where: {
             memberEntitlementId: entitlementId,
+            credits: { gt: 0 },
             refundedAt: null,
             serviceOrder: { deletedAt: null },
           },

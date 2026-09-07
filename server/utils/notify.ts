@@ -507,13 +507,16 @@ const buildOrderBody = async (params: {
 
     const subtotal = Number(order.subtotalAmount);
     const discount = Number(order.discountAmount);
-    const hanger = (order.hangerCharge ?? null) as { count?: number; total?: number } | null;
+    const hanger = (order.hangerCharge ?? null) as { count?: number; providedCount?: number; total?: number } | null;
     const hangerTotal = Number(hanger?.total ?? 0);
     const hangerCount = Number(hanger?.count ?? 0);
     const totalAmount = order.totalAmount != null ? Number(order.totalAmount) : subtotal - discount + hangerTotal;
 
     rows.push(divider());
     rows.push(kvRow("ราคารวม", `฿${formatCurrency(subtotal)}`));
+    if (Number(hanger?.providedCount ?? 0) > 0) {
+      rows.push(kvRow("ไม้แขวนที่ลูกค้าให้มา", `${Number(hanger?.providedCount)} ชิ้น`));
+    }
     if (hangerTotal > 0) {
       rows.push(kvRow("ค่าไม้แขวน", `${hangerCount} ชิ้น  ฿${formatCurrency(hangerTotal)}`));
     }
@@ -627,6 +630,10 @@ const buildOrderBody = async (params: {
     rows.push(sectionHeading("แพ็กเกจเสริม"));
     for (const usage of order.addonUsageRecords) {
       const packageName = usage.productName || usage.memberEntitlement?.product.name || "แพ็กเกจเสริม";
+      if (usage.isDelivery) {
+        rows.push(kvRow(packageName, "ใช้บริการรับ-ส่ง"));
+        continue;
+      }
       const statusText = usage.deductedAt
         ? "หักเครดิตแล้ว"
         : usage.deductOn === "COMPLETED" ? "รอหักเมื่อเสร็จสิ้น" : "รอหักเครดิต";
@@ -954,7 +961,10 @@ export const notifyReceipt = async (params: { paymentId: string }): Promise<void
           body.push(kvRow(item.name, `×${item.qty} — ฿${formatCurrency(item.unitPrice)}`));
         }
         body.push(kvRow("ราคารวม", `฿${formatCurrency(subtotal)}`));
-        const hanger = (serviceOrder?.hangerCharge ?? null) as { count?: number; total?: number } | null;
+        const hanger = (serviceOrder?.hangerCharge ?? null) as { count?: number; providedCount?: number; total?: number } | null;
+        if (Number(hanger?.providedCount ?? 0) > 0) {
+          body.push(kvRow("ไม้แขวนที่ลูกค้าให้มา", `${Number(hanger?.providedCount)} ชิ้น`));
+        }
         if (hanger && Number(hanger.total) > 0) {
           body.push(kvRow("ค่าไม้แขวน", `฿${formatCurrency(Number(hanger.total))}`));
         }

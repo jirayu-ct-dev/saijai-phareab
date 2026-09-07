@@ -22,6 +22,12 @@ export interface PackageProduct extends Timestamps, SoftDeletable {
   credits: number | null;
   validityDays: number | null;
   isActive: boolean;
+  isPublic: boolean;
+  serviceId: string | null;
+  service?: {
+    id: string;
+    name: string;
+  } | null;
 
   memberEntitlements?: MemberEntitlement[];
 }

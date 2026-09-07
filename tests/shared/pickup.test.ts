@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { formatDateTime } from "../../shared/utils/format";
-import { parseBangkokDateBoundary, parseBangkokDateTime } from "../../shared/utils/pickup";
+import { computePickupForDay, parseBangkokDateBoundary, parseBangkokDateTime } from "../../shared/utils/pickup";
 
 describe("Bangkok pickup date parsing", () => {
   it("treats timezone-less datetime input as Bangkok local time", () => {
@@ -38,5 +38,19 @@ describe("Bangkok pickup date parsing", () => {
 
     expect(start?.toISOString()).toBe("2026-06-09T17:00:00.000Z");
     expect(end?.toISOString()).toBe("2026-06-10T16:59:59.999Z");
+  });
+
+  it("selects Wednesday from the historical Bangkok payment time", () => {
+    const paidAt = parseBangkokDateTime("2026-09-01T10:00");
+    const pickup = computePickupForDay(paidAt as Date, 3);
+
+    expect(pickup.toISOString()).toBe("2026-09-02T10:00:00.000Z");
+  });
+
+  it("moves a passed same-day pickup to the following week", () => {
+    const paidAt = parseBangkokDateTime("2026-09-02T18:00");
+    const pickup = computePickupForDay(paidAt as Date, 3);
+
+    expect(pickup.toISOString()).toBe("2026-09-09T10:00:00.000Z");
   });
 });

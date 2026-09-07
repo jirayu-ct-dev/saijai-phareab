@@ -76,8 +76,8 @@ type PaymentDetailResponse = {
     note: string | null;
     employee: { name: string | null; email: string } | null;
     memberEntitlement: { product: { name: string } } | null;
-    hangerCharge: { count: number; total: number } | null;
-    addonUsages: Array<{ id: string; productName: string; credits: number; deductOn: "CREATED" | "COMPLETED"; deductedAt: string | null; refundedAt: string | null }>;
+    hangerCharge: { count: number; providedCount?: number; total: number } | null;
+    addonUsages: Array<{ id: string; productName: string; credits: number; isDelivery?: boolean; deductOn: "CREATED" | "COMPLETED"; deductedAt: string | null; refundedAt: string | null }>;
     items: Array<{ id: string; label: string; quantity: number; unitPrice: number; totalPrice: number; notes: string | null; isPackageIncluded: boolean; service: { name: string }; image: { id: string; url: string | null; secureUrl: string | null } | null; photos: Array<{ id: string; imageId: string; isDamaged: boolean; sortOrder: number; url: string | null; secureUrl: string | null }> }>;
   } | null;
 };
@@ -327,6 +327,9 @@ const totalRows = computed<InfoRow[]>(() => {
   ];
   if (payment.value.serviceOrder?.hangerCharge) {
     rows.push({ label: `ค่าไม้แขวน (${payment.value.serviceOrder.hangerCharge.count} ชิ้น)`, value: formatCurrency(payment.value.serviceOrder.hangerCharge.total) });
+  }
+  if ((payment.value.serviceOrder?.hangerCharge?.providedCount ?? 0) > 0) {
+    rows.push({ label: "ไม้แขวนที่ลูกค้าให้มา", value: `${payment.value.serviceOrder!.hangerCharge!.providedCount} ชิ้น` });
   }
   rows.push({ label: "ส่วนลด", value: formatCurrency(payment.value.serviceOrder?.discountAmount || 0) });
     rows.push({ label: "ยอดรวมสุทธิ", value: formatCurrency(payment.value.serviceOrder?.totalAmount || 0), valueClass: "font-semibold text-highlighted", dividerBefore: true });

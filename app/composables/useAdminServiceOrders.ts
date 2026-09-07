@@ -94,6 +94,8 @@ export type AdminServiceOrder = {
       packageType: string;
       credits: number | null;
       validityDays: number | null;
+      serviceId: string | null;
+      service: { id: string; name: string } | null;
     };
   } | null;
   activeEntitlements?: Array<{
@@ -110,10 +112,13 @@ export type AdminServiceOrder = {
       validityDays: number | null;
       deductOn?: "CREATED" | "COMPLETED";
       isDelivery?: boolean;
+      serviceId?: string | null;
+      service?: { id: string; name: string } | null;
     };
   }>;
   hangerCharge: {
     count: number;
+    providedCount: number;
     pricePerUnit: number;
     total: number;
   } | null;
@@ -133,6 +138,7 @@ export type AdminServiceOrder = {
   items: Array<{
     id: string;
     storefrontPriceId: string | null;
+    serviceId?: string | null;
     label: string;
     quantity: number;
     unitPrice: number;

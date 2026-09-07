@@ -24,7 +24,7 @@ const buildEntitlementState = (
   active: boolean,
   startAt: Date = new Date(),
 ) => {
-  const creditTotal = credits ?? 0;
+  const creditTotal = credits ?? null;
   if (!active) {
     return {
       status: "PENDING" as const,

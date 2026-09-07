@@ -12,9 +12,10 @@ export default defineEventHandler(async (event) => {
         const packages = await prisma.packageProduct.findMany({
             where: { deletedAt: null },
             orderBy: { createdAt: 'desc' },
+            include: { service: { select: { id: true, name: true } } },
         })
 
-        return packages
+        return packages.map((pkg) => ({ ...pkg, price: Number(pkg.price) }))
     } catch (error) {
         console.error('[GET /api/admin/packages]', error)
         throw createError({

@@ -53,7 +53,7 @@ export const parseAddonUsages = (value: unknown): StoredAddonUsage[] => {
         refundedAt: typeof item.refundedAt === "string" ? item.refundedAt : undefined,
       };
     })
-    .filter((item) => item.entitlementId && item.credits > 0);
+    .filter((item) => item.entitlementId && (item.credits > 0 || item.isDelivery));
 };
 
 /**

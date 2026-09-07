@@ -37,7 +37,7 @@ const directPaymentInclude = {
       addonUsageRecords: {
         where: { refundedAt: null },
         orderBy: { createdAt: "asc" as const },
-        select: { productName: true, credits: true },
+        select: { productName: true, credits: true, isDelivery: true },
       },
       serviceOrderItems: {
         where: { deletedAt: null },

@@ -114,6 +114,12 @@ describe("parseAddonUsages (legacy JSON shape)", () => {
     ]);
   });
 
+  it("keeps delivery usage without treating it as a credit deduction", () => {
+    expect(parseAddonUsages([{ entitlementId: "delivery-1", credits: 0, isDelivery: true }])).toEqual([
+      expect.objectContaining({ entitlementId: "delivery-1", credits: 0, isDelivery: true }),
+    ]);
+  });
+
   it("returns an empty list for null, non-array, or garbage JSON", () => {
     expect(parseAddonUsages(null)).toEqual([]);
     expect(parseAddonUsages(undefined)).toEqual([]);

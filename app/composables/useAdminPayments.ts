@@ -17,6 +17,8 @@ export type AdminPaymentRecord = {
   isVerified: boolean;
   note: string | null;
   createdAt: string;
+  activityAt: string;
+  backdated: boolean;
   updatedAt: string;
   paidAt: string | null;
   confirmedAt: string | null;
@@ -48,6 +50,7 @@ export type AdminPaymentRecord = {
   serviceOrder: {
     id: string | null;
     orderNo: string | null;
+    receivedAt?: string | null;
     itemCount: number;
     creditUsed?: number;
     memberEntitlementId?: string | null;

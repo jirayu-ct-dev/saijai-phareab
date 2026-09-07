@@ -32,7 +32,7 @@ type ServiceOrderDetailResponse = {
   washFoldPricePerKgSnapshot: number | null;
   image: { id: string; secureUrl: string | null; url: string | null } | null;
   deliveryImage: { id: string; secureUrl: string | null; url: string | null } | null;
-  hangerCharge: { count: number; pricePerUnit: number; total: number } | null;
+  hangerCharge: { count: number; providedCount?: number; pricePerUnit: number; total: number } | null;
   customer: { id: string; name: string | null; email: string | null; phoneNumber: string | null; image: string | null; customerAccountStatus?: "OFFLINE" | "ACTIVE" };
   employee: { id: string; name: string | null; email: string } | null;
   memberEntitlement: {
@@ -259,6 +259,9 @@ const totalRows = computed<InfoRow[]>(() => {
       label: `ค่าไม้แขวน (${order.value.hangerCharge.count} ชิ้น)`,
       value: formatCurrency(order.value.hangerCharge.total),
     });
+  }
+  if ((order.value.hangerCharge?.providedCount ?? 0) > 0) {
+    rows.push({ label: "ไม้แขวนที่ลูกค้าให้มา", value: `${order.value.hangerCharge!.providedCount} ชิ้น` });
   }
 
   if (Number(order.value.discountAmount) > 0) {

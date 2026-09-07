@@ -97,13 +97,14 @@ export const buildPaymentDocumentPayload = async (paymentId: string) => {
     id: usage.id,
     productName: usage.productName || "แพ็กเกจเสริม",
     credits: usage.credits,
+    isDelivery: usage.isDelivery,
     deductOn: usage.deductOn,
     deductedAt: usage.deductedAt?.toISOString() ?? null,
     refundedAt: usage.refundedAt?.toISOString() ?? null,
   })) ?? [];
 
   const hangerChargeSource = (payment.serviceOrder?.hangerCharge ?? null) as
-    | { count?: number; pricePerUnit?: number; total?: number }
+    | { count?: number; providedCount?: number; pricePerUnit?: number; total?: number }
     | null;
 
   return {
@@ -182,6 +183,7 @@ export const buildPaymentDocumentPayload = async (paymentId: string) => {
           hangerCharge: hangerChargeSource
             ? {
                 count: Number(hangerChargeSource.count ?? 0),
+                providedCount: Number(hangerChargeSource.providedCount ?? 0),
                 pricePerUnit: Number(hangerChargeSource.pricePerUnit ?? 0),
                 total: Number(hangerChargeSource.total ?? 0),
               }

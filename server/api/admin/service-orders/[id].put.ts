@@ -9,6 +9,7 @@ import { createAddonUsageRecords, refundAddonUsages, voidPendingAddonUsageRecord
 import { canTransitionServiceOrderStatus, isServiceOrderStatus, resolveServiceOrderCompletedAt } from "~~/server/utils/serviceOrderStatusTransition";
 import { parseBangkokDateTime } from "~~/shared/utils/pickup";
 import { backdatedEntitlementWhere } from "~~/server/utils/backdatedEntitlement";
+import { allocatePackageCredits } from "~~/shared/utils/packageService";
 
 type UpdateServiceOrderBody = {
   customerId?: string | null;
@@ -103,9 +104,13 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, statusMessage: "จำนวนรายการต้องมากกว่า 0" });
   }
 
-  const missingHangerCount = body.missingHangerCount ?? body.hangerCount ?? 0;
+  const hangerCount = body.hangerCount ?? 0;
+  const missingHangerCount = body.missingHangerCount ?? 0;
+  if (!Number.isInteger(hangerCount) || hangerCount < 0) {
+    throw createError({ statusCode: 400, statusMessage: "จำนวนไม้แขวนที่ลูกค้าให้มาต้องเป็น 0 หรือมากกว่า" });
+  }
   if (!Number.isInteger(missingHangerCount) || missingHangerCount < 0) {
-    throw createError({ statusCode: 400, statusMessage: "จำนวนไม้แขวนที่ขาดต้องเป็น 0 หรือมากกว่า" });
+    throw createError({ statusCode: 400, statusMessage: "จำนวนไม้แขวนที่ซื้อเพิ่มต้องเป็น 0 หรือมากกว่า" });
   }
 
   if (body.discountAmount !== undefined && (!Number.isFinite(Number(body.discountAmount)) || Number(body.discountAmount) < 0)) {
@@ -222,9 +227,10 @@ export default defineEventHandler(async (event) => {
     }
 
     const hangerCharge = washFoldInput
-      ? { count: 0, pricePerUnit: 0, total: 0 }
+      ? { count: 0, providedCount: 0, pricePerUnit: 0, total: 0 }
       : {
           count: missingHangerCount,
+          providedCount: hangerCount,
           pricePerUnit: business.hangerPricePerUnit,
           total: missingHangerCount * business.hangerPricePerUnit,
         };
@@ -308,6 +314,7 @@ export default defineEventHandler(async (event) => {
           select: {
             id: true,
             creditRemaining: true,
+            product: { select: { serviceId: true } },
           },
         });
 
@@ -316,13 +323,13 @@ export default defineEventHandler(async (event) => {
         }
 
         const creditAvailable = Math.max(0, Number(entitlement.creditRemaining ?? 0));
-        let remainingCredit = creditAvailable;
-        allocatedItems = orderItems.map((item) => {
-          const creditQty = Math.min(item.quantity, remainingCredit);
-          remainingCredit -= creditQty;
-          return { ...item, creditQuantity: creditQty, cashQuantity: item.quantity - creditQty };
-        });
-        creditUsed = creditAvailable - remainingCredit;
+        const allocation = allocatePackageCredits(
+          orderItems.map((item) => ({ ...item, serviceId: item.price.storefrontService?.id ?? null })),
+          creditAvailable,
+          entitlement.product?.serviceId ?? null,
+        );
+        allocatedItems = allocation.items;
+        creditUsed = allocation.creditUsed;
         subtotalAmount = allocatedItems.reduce((sum, item) => sum + item.cashQuantity * item.unitPrice, 0);
         discountAmount = Math.min(Number(body.discountAmount ?? 0), subtotalAmount);
         beforeVat = subtotalAmount - discountAmount + hangerCharge.total;
@@ -369,7 +376,7 @@ export default defineEventHandler(async (event) => {
         : [];
       for (const entry of rawAddonEntitlements) {
         const credits = Math.floor(Number(entry.credits ?? 0));
-        if (!entry.entitlementId || credits <= 0) continue;
+        if (!entry.entitlementId) continue;
         const addonEnt = await tx.memberEntitlement.findFirst({
           where: {
             id: entry.entitlementId,
@@ -382,12 +389,14 @@ export default defineEventHandler(async (event) => {
         if (!addonEnt) {
           throw createError({ statusCode: 400, statusMessage: `ไม่พบสิทธิ์แพ็กเกจเสริม (${entry.entitlementId})` });
         }
-        const shouldDeductNow = addonEnt.product.deductOn === "CREATED" || serviceOrderStatus === "COMPLETED";
+        if (!addonEnt.product.isDelivery && credits <= 0) continue;
+        const shouldDeductNow = !addonEnt.product.isDelivery
+          && (addonEnt.product.deductOn === "CREATED" || serviceOrderStatus === "COMPLETED");
         const usage: PendingAddonUsage = {
           entitlementId: addonEnt.id,
           productId: addonEnt.product.id,
           productName: addonEnt.product.name,
-          credits,
+          credits: addonEnt.product.isDelivery ? 0 : credits,
           deductOn: addonEnt.product.deductOn,
           isDelivery: addonEnt.product.isDelivery,
           deductedAt: undefined,

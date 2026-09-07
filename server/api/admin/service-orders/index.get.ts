@@ -44,6 +44,8 @@ export default defineEventHandler(async (event) => {
                 packageType: true,
                 credits: true,
                 validityDays: true,
+                serviceId: true,
+                service: { select: { id: true, name: true } },
               },
             },
           },
@@ -138,7 +140,7 @@ export default defineEventHandler(async (event) => {
     return rows.map((row) => {
       const payment = row.payments[0] ?? null;
       const hangerCharge = (row.hangerCharge ?? null) as
-        | { count?: number; pricePerUnit?: number; total?: number }
+        | { count?: number; providedCount?: number; pricePerUnit?: number; total?: number }
         | null;
 
       return {
@@ -176,6 +178,7 @@ export default defineEventHandler(async (event) => {
           productName: usage.productName,
           credits: usage.credits,
           deductOn: usage.deductOn,
+          isDelivery: usage.isDelivery,
           deductedAt: usage.deductedAt?.toISOString() ?? null,
           refundedAt: usage.refundedAt?.toISOString() ?? null,
         })),
@@ -192,6 +195,7 @@ export default defineEventHandler(async (event) => {
         hangerCharge: hangerCharge
           ? {
               count: Number(hangerCharge.count ?? 0),
+              providedCount: Number(hangerCharge.providedCount ?? 0),
               pricePerUnit: Number(hangerCharge.pricePerUnit ?? 0),
               total: Number(hangerCharge.total ?? 0),
             }
@@ -208,6 +212,7 @@ export default defineEventHandler(async (event) => {
         items: row.serviceOrderItems.map((item) => ({
           id: item.id,
           storefrontPriceId: item.storefrontPriceId,
+          serviceId: item.storefrontPrice?.storefrontService.id ?? null,
           label: item.weightKg != null
             ? (item.weightLabel || "ซัก-พับ ชั่งกิโล")
             : `${item.storefrontPrice?.storefrontService.name ?? ""} ${item.storefrontPrice?.storefrontItem.name ?? ""}`.trim(),

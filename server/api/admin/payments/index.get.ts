@@ -21,6 +21,7 @@ export default defineEventHandler(async (event) => {
         packageSale: {
           select: {
             id: true,
+            createdAt: true,
             note: true,
             items: {
               orderBy: [{ createdAt: "asc" }],
@@ -46,6 +47,7 @@ export default defineEventHandler(async (event) => {
           select: {
             id: true,
             orderNo: true,
+            receivedAt: true,
             quotationNo: true,
             creditUsed: true,
             memberEntitlementId: true,
@@ -88,6 +90,12 @@ export default defineEventHandler(async (event) => {
         quantity: item.qty,
         totalPrice: Number(item.totalPrice),
       }));
+      const metadata = row.metadata as { backdated?: unknown } | null;
+      const backdated = Boolean(metadata?.backdated);
+      const activityAt = row.serviceOrder?.receivedAt
+        ?? row.packageSale?.createdAt
+        ?? row.paidAt
+        ?? row.createdAt;
 
       return {
         id: row.id,
@@ -99,6 +107,8 @@ export default defineEventHandler(async (event) => {
         isVerified: row.status === "PAID",
         note: row.note ?? row.packageSale?.note ?? null,
         createdAt: row.createdAt,
+        activityAt,
+        backdated,
         updatedAt: row.updatedAt,
         paidAt: row.paidAt,
         confirmedAt: row.confirmedAt,
@@ -125,6 +135,7 @@ export default defineEventHandler(async (event) => {
           ? {
               id: row.serviceOrder.id,
               orderNo: row.serviceOrder.orderNo,
+              receivedAt: row.serviceOrder.receivedAt,
               itemCount: row.serviceOrder.serviceOrderItems.length,
               creditUsed: row.serviceOrder.creditUsed ?? 0,
               memberEntitlementId: row.serviceOrder.memberEntitlementId ?? null,

@@ -162,8 +162,8 @@ async function main() {
     pkgIds[p.name] = p.id;
     await prisma.packageProduct.upsert({
       where: { id: p.id },
-      update: { name: p.name, description: p.description, packageType: p.packageType as any, deductOn: p.deductOn as any, price: p.price, credits: p.credits, validityDays: p.validityDays },
-      create: { id: p.id, name: p.name, description: p.description, packageType: p.packageType as any, deductOn: p.deductOn as any, price: p.price, credits: p.credits, validityDays: p.validityDays },
+      update: { name: p.name, description: p.description, packageType: p.packageType as any, isDelivery: p.isDelivery, deductOn: p.deductOn as any, price: p.price, credits: p.credits, validityDays: p.validityDays },
+      create: { id: p.id, name: p.name, description: p.description, packageType: p.packageType as any, isDelivery: p.isDelivery, deductOn: p.deductOn as any, price: p.price, credits: p.credits, validityDays: p.validityDays },
     });
   }
 

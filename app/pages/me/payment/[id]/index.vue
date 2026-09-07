@@ -69,7 +69,7 @@ type PaymentDetailResponse = {
     discountAmount: number;
     totalAmount: number;
     employee: { id: string; name: string | null } | null;
-    hangerCharge: { count: number; pricePerUnit: number; total: number } | null;
+    hangerCharge: { count: number; providedCount?: number; pricePerUnit: number; total: number } | null;
     creditUsed: number;
     usageHistory: Array<{ sessionIndex: number; orderId: string; orderNo: string | null; receivedAt: string; quantity: number; isCurrent: boolean }>;
     memberEntitlement: {
@@ -79,7 +79,7 @@ type PaymentDetailResponse = {
       creditRemaining: number;
       endAt: string | null;
     } | null;
-    addonUsages: Array<{ id: string; productName: string; credits: number; deductOn: "CREATED" | "COMPLETED"; deductedAt: string | null; refundedAt: string | null }>;
+    addonUsages: Array<{ id: string; productName: string; credits: number; isDelivery?: boolean; deductOn: "CREATED" | "COMPLETED"; deductedAt: string | null; refundedAt: string | null }>;
     items: Array<{
       id: string;
       name: string;
@@ -234,6 +234,9 @@ const totalRows = computed<InfoRow[]>(() => {
   ];
   if (payment.value.serviceOrder?.hangerCharge) {
     rows.push({ label: `ค่าไม้แขวน (${payment.value.serviceOrder.hangerCharge.count} ชิ้น)`, value: formatCurrency(payment.value.serviceOrder.hangerCharge.total) });
+  }
+  if ((payment.value.serviceOrder?.hangerCharge?.providedCount ?? 0) > 0) {
+    rows.push({ label: "ไม้แขวนที่ให้ร้าน", value: `${payment.value.serviceOrder!.hangerCharge!.providedCount} ชิ้น` });
   }
   rows.push({ label: "ส่วนลด", value: formatCurrency(payment.value.serviceOrder?.discountAmount || 0) });
   rows.push({ label: "ยอดรวมสุทธิ", value: formatCurrency(payment.value.serviceOrder?.totalAmount || 0), valueClass: "font-semibold text-highlighted", dividerBefore: true });

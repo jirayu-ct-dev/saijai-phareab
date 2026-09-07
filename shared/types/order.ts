@@ -10,6 +10,7 @@ import type { StorefrontPrice } from "./storefront";
 
 export interface HangerCharge {
   count: number;
+  providedCount?: number;
   pricePerUnit: number;
   total: number;
 }

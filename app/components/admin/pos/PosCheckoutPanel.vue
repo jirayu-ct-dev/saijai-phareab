@@ -11,7 +11,7 @@ type CustomerOption = {
 
 const props = defineProps<{
   title: string;
-  description: string;
+  description?: string;
   customerId: string;
   customerOptions: CustomerOption[];
   customerLoading?: boolean;
@@ -96,10 +96,10 @@ const panelClass = computed(() =>
     :
     "-mx-2 border border-default/30 bg-default p-4 dark:border-default/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg sm:p-5",
 );
-const panelContentClass = computed(() => props.flat ? "space-y-2" : "mt-5 space-y-4");
+const panelContentClass = computed(() => props.flat ? "space-y-4" : "mt-5 space-y-4");
 const panelSectionClass = computed(() =>
   props.sectionClass
-  ?? "-mx-2 border border-default/30 bg-default p-2 dark:border-default/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg",
+  ?? "border-b border-default/40 pb-4",
 );
 </script>
 
@@ -107,11 +107,11 @@ const panelSectionClass = computed(() =>
   <section :class="panelClass">
     <div v-if="!props.flat">
       <p class="text-lg font-semibold text-highlighted">{{ props.title }}</p>
-      <p class="text-sm text-muted">{{ props.description }}</p>
+      <p v-if="props.description" class="text-sm text-muted">{{ props.description }}</p>
     </div>
 
     <div :class="panelContentClass">
-      <div :class="props.flat ? panelSectionClass : 'space-y-3'">
+      <div :class="[panelSectionClass, 'space-y-3']">
         <div v-if="props.allowNewCustomer" class="space-y-3">
           <UFormField label="ประเภทลูกค้า">
             <URadioGroup v-model="selectedMode" orientation="horizontal" :items="customerModeOptions" value-key="value" />
@@ -254,15 +254,11 @@ const panelSectionClass = computed(() =>
         @confirm="performRemoveSlip"
       />
 
-      <div
-        v-if="props.hidePaymentFields"
-        :class="props.flat ? [panelSectionClass, 'text-sm'] : 'rounded-lg border border-default/35 bg-elevated/70 p-3 text-sm dark:border-default/25 dark:bg-elevated/45'"
-      >
-        <p class="font-medium text-success">ใช้สิทธิ์แพ็กเกจรายเดือน</p>
-        <p class="text-muted">ไม่ต้องชำระเงินเพิ่ม ระบบจะตัดเครดิตให้อัตโนมัติ</p>
+      <div :class="[panelSectionClass, 'space-y-3']">
+        <slot name="discount" />
       </div>
 
-      <div :class="props.flat ? panelSectionClass : ''">
+      <div :class="panelSectionClass">
         <UFormField label="หมายเหตุ">
           <UTextarea
             :model-value="props.note"
@@ -274,9 +270,15 @@ const panelSectionClass = computed(() =>
         </UFormField>
       </div>
 
-      <slot name="discount" />
+      <div
+        v-if="props.hidePaymentFields"
+        :class="[panelSectionClass, 'text-sm']"
+      >
+        <p class="font-medium text-success">ใช้สิทธิ์แพ็กเกจรายเดือน</p>
+        <p class="text-muted">ไม่ต้องชำระเงินเพิ่ม ระบบจะตัดเครดิตให้อัตโนมัติ</p>
+      </div>
 
-      <div :class="props.flat ? [panelSectionClass, 'text-default'] : 'rounded-lg bg-elevated/35 p-4 text-default dark:bg-elevated/25'">
+      <div :class="[panelSectionClass, 'text-default']">
         <div class="flex items-center justify-between gap-3">
           <div>
             <p class="text-sm/5 text-muted">{{ props.totalLabel }}</p>
@@ -288,7 +290,7 @@ const panelSectionClass = computed(() =>
         </div>
       </div>
 
-      <div :class="props.flat ? [panelSectionClass, 'grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2'] : 'grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2'">
+      <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
         <UButton label="ล้างข้อมูล" icon="i-lucide-rotate-ccw" color="neutral" variant="outline" block @click="emit('reset')" />
         <UButton :label="props.submitLabel" icon="i-lucide-check" color="neutral" block :loading="props.isSubmitting" @click="emit('submit')" />
       </div>

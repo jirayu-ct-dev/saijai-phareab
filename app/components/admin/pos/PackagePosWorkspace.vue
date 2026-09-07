@@ -15,7 +15,7 @@ const filterBarClass =
   "-mx-2 rounded-lg border border-default/30 bg-default p-2 dark:border-default/40 dark:bg-default/80 sm:mx-0";
 const emptyStateClass =
   "flex flex-col items-center justify-center rounded-lg border border-dashed border-default/30 bg-default/55 px-3 py-5 text-center text-muted dark:border-default/20 dark:bg-elevated/30";
-const checkoutSectionClass = dashboardCardClass;
+const checkoutSectionClass = "border-b border-default/40 pb-4";
 
 type FormItemState = {
   key: string;
@@ -67,7 +67,14 @@ const historicalDateTime = (date: CalendarDate | null, time: string) => date
   : "";
 const historicalSoldAt = computed(() => historicalDateTime(historicalSoldDate.value, historicalSoldTime.value));
 const historicalPaidAt = computed(() => historicalDateTime(historicalPaidDate.value, historicalPaidTime.value));
-const historicalPaymentStatusOptions = [
+
+watch([historicalSoldDate, historicalSoldTime], ([date, time]) => {
+  if (!backdatedEnabled.value || !date) return;
+  historicalPaidDate.value = date;
+  historicalPaidTime.value = time;
+  historicalPaidTimeSearch.value = time;
+});
+const historicalPaymentStatusOptions: Array<{ label: string; value: "UNPAID" | "PAID" }> = [
   { label: paymentStatusLabels.UNPAID, value: "UNPAID" },
   { label: paymentStatusLabels.PAID, value: "PAID" },
 ];
@@ -130,6 +137,15 @@ const filteredProducts = computed(() => {
 
     return [pkg.name, pkg.description ?? "", pkg.packageType].join(" ").toLowerCase().includes(keyword);
   });
+});
+const filteredProductGroups = computed(() => {
+  const groupOrder: PackageType[] = ["MAIN", "ADDON"];
+  return groupOrder
+    .map((packageType) => ({
+      packageType,
+      products: filteredProducts.value.filter((pkg) => pkg.packageType === packageType),
+    }))
+    .filter((group) => group.products.length > 0);
 });
 
 let itemKeySeed = 0;
@@ -299,6 +315,7 @@ const uploadSlipIfNeeded = async () => {
 };
 
 const handleSubmit = async () => {
+  if (isSubmitting.value) return;
   if (form.customerMode === "existing" && !form.customerId) return notify.validationError("กรุณาเลือกลูกค้า");
   if (form.customerMode === "new" && !form.newCustomerName.trim()) return notify.validationError("กรุณากรอกชื่อลูกค้า");
   if (form.customerMode === "new" && !form.newCustomerPhone.trim()) return notify.validationError("กรุณากรอกเบอร์โทรลูกค้า");
@@ -394,28 +411,40 @@ const handleSubmit = async () => {
           <PosCatalogCard v-for="i in 8" :key="`pkg-sk-${i}`" loading />
         </div>
 
-        <div v-else class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-3 2xl:grid-cols-4">
-          <PosCatalogCard
-            v-for="pkg in filteredProducts"
-            :key="pkg.id"
-            :title="pkg.name"
-            :description="pkg.description"
-            :badge-label="packageTypeBadges[pkg.packageType].label"
-            :badge-color="packageTypeBadges[pkg.packageType].color"
-            :price-label="formatCurrency(pkg.price)"
-            :meta-label="`${pkg.credits ? `${pkg.credits} เครดิต` : 'ไม่จำกัดเครดิต'} | ${pkg.validityDays ? `${pkg.validityDays} วัน` : 'ไม่กำหนดอายุ'}`"
-            :quantity="selectedItemMap.get(pkg.id)?.quantity ?? 0"
-            :selected="selectedItemMap.has(pkg.id)"
-            :decrement-disabled="!selectedItemMap.has(pkg.id)"
-            @select="incrementProduct(pkg.id)"
-            @decrement="decrementProduct(pkg.id)"
-            @increment="incrementProduct(pkg.id)"
-            @change="setProductQuantity(pkg.id, $event)"
-          />
+        <div v-else-if="filteredProductGroups.length" class="space-y-6">
+          <section v-for="group in filteredProductGroups" :key="group.packageType" class="space-y-3">
+            <div class="flex items-center justify-between gap-3 border-b border-default/40 pb-2">
+              <div class="flex min-w-0 items-center gap-2">
+                <h3 class="text-sm font-semibold text-highlighted">{{ packageTypeBadges[group.packageType].label }}</h3>
+                <UBadge :label="String(group.products.length)" color="neutral" variant="subtle" size="xs" />
+              </div>
+              <span class="text-xs text-muted">เลือกเพื่อเพิ่มลงตะกร้า</span>
+            </div>
 
-          <div v-if="filteredProducts.length === 0" :class="[emptyStateClass, 'col-span-full']">
-            ไม่พบแพ็กเกจที่ตรงกับตัวกรอง
-          </div>
+            <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-3 2xl:grid-cols-4">
+              <PosCatalogCard
+                v-for="pkg in group.products"
+                :key="pkg.id"
+                :title="pkg.name"
+                :description="pkg.description"
+                :badge-label="packageTypeBadges[pkg.packageType].label"
+                :badge-color="packageTypeBadges[pkg.packageType].color"
+                :price-label="formatCurrency(pkg.price)"
+                :meta-label="`${pkg.credits ? `${pkg.credits} เครดิต` : 'ไม่จำกัดเครดิต'} | ${pkg.validityDays ? `${pkg.validityDays} วัน` : 'ไม่กำหนดอายุ'}`"
+                :quantity="selectedItemMap.get(pkg.id)?.quantity ?? 0"
+                :selected="selectedItemMap.has(pkg.id)"
+                :decrement-disabled="!selectedItemMap.has(pkg.id)"
+                @select="incrementProduct(pkg.id)"
+                @decrement="decrementProduct(pkg.id)"
+                @increment="incrementProduct(pkg.id)"
+                @change="setProductQuantity(pkg.id, $event)"
+              />
+            </div>
+          </section>
+        </div>
+
+        <div v-else :class="[emptyStateClass, 'col-span-full']">
+          ไม่พบแพ็กเกจที่ตรงกับตัวกรอง
         </div>
       </section>
     </div>
@@ -429,13 +458,12 @@ const handleSubmit = async () => {
           ]"
     >
       <div v-if="!isXl" class="sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-default bg-default px-4 py-3 dark:bg-elevated/55">
-        <p class="text-base font-semibold text-highlighted">ตะกร้าแพ็กเกจ</p>
+        <p class="text-base font-semibold text-highlighted">สรุปรายการขายแพ็กเกจ</p>
         <UButton icon="i-lucide-x" color="neutral" variant="ghost" size="sm" aria-label="ปิด" @click="isCartOpen = false" />
       </div>
       <div :class="!isXl ? 'flex-1 p-2' : ''">
         <PosCheckoutPanel
-          title="ตะกร้าแพ็กเกจ"
-          description="เลือกลูกค้า รับชำระ และบันทึกรายการในหน้าเดียว"
+          title="สรุปรายการขายแพ็กเกจ"
           :flat="!isXl"
           :section-class="checkoutSectionClass"
           :customer-id="form.customerId"
@@ -469,6 +497,7 @@ const handleSubmit = async () => {
         >
           <template #cart>
             <div v-if="backdatedEnabled" :class="[checkoutSectionClass, 'space-y-3']">
+              <p class="text-sm font-semibold text-highlighted">ข้อมูลการขายย้อนหลัง</p>
               <UFormField label="วันและเวลาขายจริง" required>
                 <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
                   <UPopover>
@@ -499,14 +528,17 @@ const handleSubmit = async () => {
                 </div>
               </UFormField>
               <UFormField label="สถานะการชำระเงิน" required>
-                <URadioGroup
-                  v-model="historicalPaymentStatus"
-                  :items="historicalPaymentStatusOptions"
-                  value-key="value"
-                  variant="card"
-                  orientation="horizontal"
-                  :ui="{ fieldset: 'grid grid-cols-2 gap-2' }"
-                />
+                <div class="grid grid-cols-2 gap-2">
+                  <UButton
+                    v-for="option in historicalPaymentStatusOptions"
+                    :key="option.value"
+                    :label="option.label"
+                    :color="historicalPaymentStatus === option.value ? 'primary' : 'neutral'"
+                    :variant="historicalPaymentStatus === option.value ? 'solid' : 'outline'"
+                    block
+                    @click="historicalPaymentStatus = option.value"
+                  />
+                </div>
               </UFormField>
               <UFormField v-if="historicalPaid" label="วันและเวลาชำระเงินจริง" required>
                 <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
@@ -537,79 +569,117 @@ const handleSubmit = async () => {
                   />
                 </div>
               </UFormField>
+              <UFormField v-if="historicalPaid" label="ช่องทางการชำระเงิน">
+                <div class="grid grid-cols-2 gap-2">
+                  <UButton
+                    v-for="option in paymentMethodOptions"
+                    :key="option.value"
+                    :label="option.label"
+                    :icon="option.icon"
+                    :color="form.method === option.value ? 'primary' : 'neutral'"
+                    :variant="form.method === option.value ? 'solid' : 'outline'"
+                    block
+                    @click="form.method = option.value"
+                  />
+                </div>
+              </UFormField>
               <p v-if="historicalError" role="alert" class="text-sm text-error">{{ historicalError }}</p>
             </div>
-            <div class="rounded-lg border border-default/30 bg-default p-2 dark:border-default/20 dark:bg-elevated/55">
+            <div :class="[checkoutSectionClass, 'space-y-2']">
               <div class="flex items-center justify-between gap-3">
                 <p class="font-medium text-highlighted">รายการที่เลือก</p>
                 <span class="text-sm text-muted">{{ totalQuantity }} ชิ้น</span>
               </div>
 
-              <div v-if="cartItems.length" class="mt-2 space-y-1">
-                <div v-for="item in cartItems" :key="item.key">
-                  <div class="flex items-center gap-1.5 rounded-lg px-1.5 py-1 hover:bg-elevated/30">
-                    <p class="min-w-0 flex-1 truncate text-sm text-highlighted">{{ item.name }}</p>
-                    <UInputNumber
-                      :model-value="item.quantity"
-                      :min="0"
-                      :step="1"
-                      size="xs"
-                      class="w-20"
-                      @update:model-value="setItemQuantity(item.key, Number.isFinite($event) ? $event : 0)"
-                    />
-                    <span class="w-16 shrink-0 text-right text-xs font-medium text-muted">
-                      {{ formatCurrency(item.totalPrice) }}
-                    </span>
-                    <UButton icon="i-lucide-x" color="neutral" variant="ghost" size="xs" @click="removeItem(item.key)" />
+              <div v-if="cartItems.length" class="space-y-3">
+                <div v-for="item in cartItems" :key="item.key" class="border-l-2 border-success pl-3">
+                  <div class="flex items-start justify-between gap-3">
+                    <div class="min-w-0">
+                      <p class="truncate text-sm font-medium text-success">{{ item.name }}</p>
+                      <p class="text-xs text-muted">
+                        {{ item.credits ? `${item.credits} เครดิต` : "ไม่จำกัดเครดิต" }} ·
+                        {{ item.validityDays ? `${item.validityDays} วัน` : "ไม่กำหนดอายุ" }}
+                      </p>
+                    </div>
+                    <div class="flex shrink-0 items-center gap-1.5">
+                      <UInputNumber
+                        :model-value="item.quantity"
+                        :min="0"
+                        :step="1"
+                        size="xs"
+                        class="w-20"
+                        @update:model-value="setItemQuantity(item.key, Number.isFinite($event) ? $event : 0)"
+                      />
+                      <span class="w-16 text-right text-xs font-medium text-muted">
+                        {{ formatCurrency(item.totalPrice) }}
+                      </span>
+                      <UButton icon="i-lucide-x" color="neutral" variant="ghost" size="xs" aria-label="ลบแพ็กเกจ"
+                        @click="removeItem(item.key)" />
+                    </div>
                   </div>
                 </div>
               </div>
 
-              <div v-else class="mt-3 rounded-lg border border-dashed border-default/30 p-5 text-center text-sm text-muted dark:border-default/20">
+              <div v-else class="border-y border-dashed border-default py-8 text-center text-sm text-muted">
                 ยังไม่ได้เลือกแพ็กเกจ
               </div>
             </div>
           </template>
 
           <template #discount>
-            <UFormField v-if="!backdatedEnabled || historicalPaid" label="ช่องทางการชำระเงิน">
-              <div class="grid grid-cols-2 gap-2">
-                <UButton
-                  v-for="option in paymentMethodOptions"
-                  :key="option.value"
-                  :label="option.label"
-                  :icon="option.icon"
-                  :color="form.method === option.value ? 'primary' : 'neutral'"
-                  :variant="form.method === option.value ? 'solid' : 'outline'"
-                  block
-                  @click="form.method = option.value"
-                />
+            <div class="space-y-4">
+              <div v-if="!backdatedEnabled" class="space-y-3">
+                <p class="text-sm font-semibold text-highlighted">การชำระเงิน</p>
+                <UFormField label="สถานะการชำระเงิน">
+                  <div class="grid grid-cols-3 gap-2">
+                    <UButton
+                      v-for="option in paymentStatusOptions"
+                      :key="option.value"
+                      :label="option.label"
+                      :color="form.status === option.value ? 'primary' : 'neutral'"
+                      :variant="form.status === option.value ? 'solid' : 'outline'"
+                      block
+                      @click="form.status = option.value"
+                    />
+                  </div>
+                </UFormField>
+                <UFormField label="ช่องทางการชำระเงิน">
+                  <div class="grid grid-cols-2 gap-2">
+                    <UButton
+                      v-for="option in paymentMethodOptions"
+                      :key="option.value"
+                      :label="option.label"
+                      :icon="option.icon"
+                      :color="form.method === option.value ? 'primary' : 'neutral'"
+                      :variant="form.method === option.value ? 'solid' : 'outline'"
+                      block
+                      @click="form.method = option.value"
+                    />
+                  </div>
+                </UFormField>
               </div>
-            </UFormField>
 
-            <UFormField v-if="!backdatedEnabled" label="สถานะการชำระเงิน">
-              <USelect
-                v-model="form.status"
-                :items="paymentStatusOptions"
-                value-key="value"
-                class="w-full"
-              />
-            </UFormField>
-
-            <UFormField label="ส่วนลด">
-              <UInputNumber
-                v-model="form.discountAmount"
-                :min="0"
-                :max="subtotalAmount"
-                :step="1"
-                :format-options="{ minimumFractionDigits: 0, maximumFractionDigits: 2 }"
-                class="w-full"
-              />
-            </UFormField>
-
-            <div v-if="vatRate > 0" class="mt-2 flex items-center justify-between text-sm">
-              <span class="text-muted">{{ vatIncluded ? `รวม VAT ${vatRate}%` : `VAT ${vatRate}%` }}</span>
-              <span class="font-medium text-highlighted">{{ formatCurrency(vatPreview.vatAmount) }}</span>
+              <div :class="['space-y-3', !backdatedEnabled ? 'border-t border-default/40 pt-3' : '']">
+                <p class="text-sm font-semibold text-highlighted">สรุปค่าใช้จ่าย</p>
+                <div class="flex items-center justify-between text-sm">
+                  <span class="text-muted">รวมราคาแพ็กเกจ</span>
+                  <span class="font-medium text-highlighted">{{ formatCurrency(subtotalAmount) }}</span>
+                </div>
+                <UFormField label="ส่วนลด">
+                  <UInputNumber
+                    v-model="form.discountAmount"
+                    :min="0"
+                    :max="subtotalAmount"
+                    :step="1"
+                    :format-options="{ minimumFractionDigits: 0, maximumFractionDigits: 2 }"
+                    class="w-full"
+                  />
+                </UFormField>
+                <div v-if="vatRate > 0" class="flex items-center justify-between text-sm">
+                  <span class="text-muted">{{ vatIncluded ? `รวม VAT ${vatRate}%` : `VAT ${vatRate}%` }}</span>
+                  <span class="font-medium text-highlighted">{{ formatCurrency(vatPreview.vatAmount) }}</span>
+                </div>
+              </div>
             </div>
           </template>
         </PosCheckoutPanel>

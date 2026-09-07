@@ -6,6 +6,8 @@ export type PosMemberEntitlementOption = {
   creditRemaining: number | null;
   startAt: string | null;
   endAt: string | null;
+  serviceId: string | null;
+  serviceName: string | null;
 };
 
 export type PosCustomerOption = {
@@ -24,6 +26,7 @@ export type PosCustomerOption = {
     productName: string;
     creditInitial: number | null;
     creditRemaining: number | null;
+    startAt: string | null;
     endAt: string | null;
     deductOn: "CREATED" | "COMPLETED";
     isDelivery: boolean;

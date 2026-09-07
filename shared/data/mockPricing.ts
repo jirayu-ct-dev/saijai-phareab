@@ -178,6 +178,7 @@ export const mockPackagesData: Array<{
     name: string
     description: string | null
     packageType: 'MAIN' | 'ADDON'
+    isDelivery: boolean
     deductOn: 'CREATED' | 'COMPLETED'
     price: number
     credits: number | null
@@ -186,11 +187,12 @@ export const mockPackagesData: Array<{
     {
         id: 'cmopg27370008pkmt4296tnki',
         name: 'บริการรับส่งผ้ารายเดือน',
-        description: 'รับส่ง 2 ครั้งต่อสัปดาห์ | 8 ครั้งต่อเดือน พุธ / เสาร์',
+        description: 'บริการรับส่งตามรอบวันพุธและวันเสาร์',
         packageType: 'ADDON',
-        deductOn: 'COMPLETED',
+        isDelivery: true,
+        deductOn: 'CREATED',
         price: 300,
-        credits: 8,
+        credits: null,
         validityDays: 30,
     },
     {
@@ -198,6 +200,7 @@ export const mockPackagesData: Array<{
         name: 'S',
         description: null,
         packageType: 'MAIN',
+        isDelivery: false,
         deductOn: 'CREATED',
         price: 850,
         credits: 50,
@@ -208,6 +211,7 @@ export const mockPackagesData: Array<{
         name: 'M',
         description: null,
         packageType: 'MAIN',
+        isDelivery: false,
         deductOn: 'CREATED',
         price: 1290,
         credits: 90,
@@ -218,6 +222,7 @@ export const mockPackagesData: Array<{
         name: 'L',
         description: null,
         packageType: 'MAIN',
+        isDelivery: false,
         deductOn: 'CREATED',
         price: 1690,
         credits: 150,

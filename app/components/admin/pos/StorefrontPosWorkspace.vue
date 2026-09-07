@@ -9,7 +9,8 @@ import type { AdminServiceOrderImage } from "~~/app/composables/useAdminServiceO
 import { useBusinessSetting } from "~~/app/composables/useBusinessSetting";
 import { formatCurrency } from "~~/shared/utils/format";
 import { backdatedOrderSchema, type BackdatedOrderInput } from "~~/shared/utils/backdatedOrder";
-import { parseBangkokDateTime } from "~~/shared/utils/pickup";
+import { computePickupForDay, parseBangkokDateTime } from "~~/shared/utils/pickup";
+import { allocatePackageCredits } from "~~/shared/utils/packageService";
 
 const dashboardCardClass =
   "-mx-2 border border-default/30 bg-default p-4 dark:border-default/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg";
@@ -19,7 +20,7 @@ const mobileListCardClass =
   "border border-default/30 bg-default transition-[background-color,border-color] duration-200 hover:border-default/45 hover:bg-default dark:border-default/20 dark:bg-elevated/55 dark:hover:bg-elevated/70";
 const emptyStateClass =
   "flex flex-col items-center justify-center rounded-lg border border-dashed border-default/30 bg-default/55 px-3 py-5 text-center text-muted dark:border-default/20 dark:bg-elevated/30";
-const checkoutSectionClass = dashboardCardClass;
+const checkoutSectionClass = "border-b border-default/40 pb-4";
 
 type FormItemState = {
   key: string;
@@ -47,14 +48,11 @@ const backdatedEnabled = computed(() => props.backdated);
 const historicalMaxDate = today("Asia/Bangkok");
 const historicalReceivedDate = shallowRef<CalendarDate | null>(null);
 const historicalReceivedTime = ref("00:00");
-const historicalCompletedDate = shallowRef<CalendarDate | null>(null);
-const historicalCompletedTime = ref("00:00");
-const historicalStatus = ref<BackdatedOrderInput["status"]>("RECEIVED");
+const historicalStatus = ref<BackdatedOrderInput["status"]>("COMPLETED");
 const historicalPaymentStatus = ref<"UNPAID" | "PAID">("PAID");
 const historicalPaidDate = shallowRef<CalendarDate | null>(null);
 const historicalPaidTime = ref("00:00");
 const historicalReceivedTimeSearch = ref("");
-const historicalCompletedTimeSearch = ref("");
 const historicalPaidTimeSearch = ref("");
 const historicalMethod = ref<"CASH" | "TRANSFER">("CASH");
 const historicalError = ref("");
@@ -65,7 +63,6 @@ const historicalDateTime = (date: CalendarDate | null, time: string) => date
 const historicalReceivedAt = computed(() => historicalReceivedDate.value
   ? historicalDateTime(historicalReceivedDate.value, historicalReceivedTime.value)
   : "");
-const historicalCompletedAt = computed(() => historicalDateTime(historicalCompletedDate.value, historicalCompletedTime.value));
 const historicalPaidAt = computed(() => historicalDateTime(historicalPaidDate.value, historicalPaidTime.value));
 const historicalCustomerDate = computed(() => {
   const date = parseBangkokDateTime(historicalReceivedAt.value);
@@ -79,11 +76,14 @@ const historicalStatusOptions = [
   { label: "กำลังจัดส่ง", value: "DELIVERING" },
   { label: "เสร็จแล้ว", value: "COMPLETED" },
 ];
-const historicalPaymentStatusOptions = [
+const historicalPaymentStatusOptions: Array<{ label: string; value: "UNPAID" | "PAID" }> = [
   { label: "ยังไม่ชำระ", value: "UNPAID" },
   { label: "ชำระแล้ว", value: "PAID" },
 ];
-const historicalPaymentOptions = [{ label: "เงินสด", value: "CASH" }, { label: "โอนเงิน", value: "TRANSFER" }];
+const historicalPaymentOptions: Array<{ label: string; value: "CASH" | "TRANSFER"; icon: string }> = [
+  { label: "เงินสด", value: "CASH", icon: "i-lucide-banknote" },
+  { label: "โอนเงิน", value: "TRANSFER", icon: "i-lucide-credit-card" },
+];
 const normalizeHistoricalTime = (value: string) => {
   const input = value.trim().replace(".", ":");
   const match = input.match(/^(\d{1,2}):?(\d{2})$/);
@@ -93,13 +93,18 @@ const normalizeHistoricalTime = (value: string) => {
   if (hour > 23 || minute > 59) return input;
   return `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
 };
-const setHistoricalTime = (field: "received" | "completed" | "paid", value: string) => {
+const setHistoricalTime = (field: "received" | "paid", value: string) => {
   if (!value.trim()) return;
   const normalized = normalizeHistoricalTime(value);
   if (field === "received") historicalReceivedTime.value = normalized;
-  if (field === "completed") historicalCompletedTime.value = normalized;
   if (field === "paid") historicalPaidTime.value = normalized;
 };
+watch([historicalReceivedDate, historicalReceivedTime], ([date, time]) => {
+  if (!backdatedEnabled.value) return;
+  historicalPaidDate.value = date;
+  historicalPaidTime.value = time;
+  historicalPaidTimeSearch.value = time;
+});
 const { hangerPricePerUnit, washFoldPricePerKg, washFoldMinKg, vatRate, vatIncluded, computeVatPreview } = useBusinessSetting();
 const { items, isLoading: isCatalogLoading, refresh } = useStorefrontCatalog();
 const { createServiceOrderOrThrow, uploadOrderImage } = useAdminServiceOrders({
@@ -286,6 +291,7 @@ const createEmptyForm = () => ({
 });
 
 const form = reactive(createEmptyForm());
+const hangerCountEdited = ref(false);
 const dueDate = shallowRef<CalendarDate | null>(null);
 const dueTime = ref("00:00");
 const isSubmitting = ref(false);
@@ -308,7 +314,7 @@ const uploadedPhotoIds = ref(new Map<string, string>()); // photoKey → imageId
 const selectedItemMap = computed(() => new Map(form.items.map((item) => [item.storefrontPriceId, item])));
 const selectedAddonCreditMap = computed(() => new Map(form.addonEntitlements.map((item) => [item.entitlementId, item.credits])));
 const hasSelectedDeliveryAddon = computed(() => activeAddonEntitlements.value.some(
-  (addon) => addon.isDelivery && (selectedAddonCreditMap.value.get(addon.id) ?? 0) > 0,
+  (addon) => addon.isDelivery && selectedAddonCreditMap.value.has(addon.id),
 ));
 
 const cartItems = computed(() =>
@@ -320,6 +326,7 @@ const cartItems = computed(() =>
       return {
         key: item.key,
         storefrontPriceId: item.storefrontPriceId,
+        serviceId: catalog.serviceId,
         label: catalog.label,
         quantity: item.quantity,
         unitPrice,
@@ -340,13 +347,28 @@ const subtotalAmount = computed(() =>
 );
 const totalQuantity = computed(() => cartItems.value.reduce((sum, item) => sum + item.quantity, 0));
 
+watch(totalQuantity, (quantity) => {
+  if (!form.washFoldMode && !hangerCountEdited.value) form.hangerCount = quantity;
+}, { immediate: true });
+
+const setHangerCount = (value: number | string | null | undefined) => {
+  form.hangerCount = Math.max(0, Math.floor(Number(value) || 0));
+  hangerCountEdited.value = true;
+};
+
+const resetHangerCountToQuantity = () => {
+  hangerCountEdited.value = false;
+  form.hangerCount = totalQuantity.value;
+};
+
 const hangerCharge = computed(() =>
   form.washFoldMode
     ? { count: 0, total: 0 }
     : {
-        count: form.missingHangerCount,
-        total: form.missingHangerCount * hangerPricePerUnit.value,
-      },
+      count: form.missingHangerCount,
+      providedCount: form.hangerCount,
+      total: form.missingHangerCount * hangerPricePerUnit.value,
+    },
 );
 
 watch(() => form.washFoldMode, (enabled) => {
@@ -357,6 +379,7 @@ watch(() => form.washFoldMode, (enabled) => {
   } else {
     form.washFoldWeightKg = 0;
     form.washFoldNotes = "";
+    if (!hangerCountEdited.value) form.hangerCount = totalQuantity.value;
   }
 });
 
@@ -390,21 +413,20 @@ const formatDueDateLabel = (value: CalendarDate | null) => {
 };
 const dueDateLabel = computed(() => formatDueDateLabel(dueDate.value));
 const historicalReceivedDateLabel = computed(() => formatDueDateLabel(historicalReceivedDate.value));
-const historicalCompletedDateLabel = computed(() => formatDueDateLabel(historicalCompletedDate.value));
 const historicalPaidDateLabel = computed(() => formatDueDateLabel(historicalPaidDate.value));
 
-const setPickupDow = (targetDow: number) => {
-  const now = new Date();
-  const bkk = new Date(now.getTime() + BANGKOK_OFFSET_MS);
-  const currentDow = bkk.getUTCDay();
-  let daysUntil = (targetDow - currentDow + 7) % 7;
-  const hour = bkk.getUTCHours();
-  const minute = bkk.getUTCMinutes();
-  if (daysUntil === 0 && (hour > 17 || (hour === 17 && minute > 0))) daysUntil = 7;
-  const target = new Date(bkk.getTime() + daysUntil * 86400000);
-  const y = target.getUTCFullYear();
-  const m = String(target.getUTCMonth() + 1).padStart(2, "0");
-  const d = String(target.getUTCDate()).padStart(2, "0");
+const setPickupDow = (targetDow: 3 | 6) => {
+  const historicalBase = backdatedEnabled.value
+    ? parseBangkokDateTime(historicalPaidAt.value) ?? parseBangkokDateTime(historicalReceivedAt.value)
+    : null;
+  const target = computePickupForDay(
+    historicalBase && !Number.isNaN(historicalBase.getTime()) ? historicalBase : new Date(),
+    targetDow,
+  );
+  const bkk = new Date(target.getTime() + BANGKOK_OFFSET_MS);
+  const y = bkk.getUTCFullYear();
+  const m = String(bkk.getUTCMonth() + 1).padStart(2, "0");
+  const d = String(bkk.getUTCDate()).padStart(2, "0");
   dueDate.value = parseDate(`${y}-${m}-${d}`);
   dueTime.value = "17:00";
 };
@@ -415,22 +437,14 @@ const clearDueDate = () => {
 };
 
 const creditAvailable = computed(() => Math.max(0, Number(selectedMemberEntitlement.value?.creditRemaining ?? 0)));
-const creditUsedPreview = computed(() => {
-  if (!form.memberEntitlementId) return 0;
-  return Math.min(totalQuantity.value, creditAvailable.value);
-});
-const cashSubtotal = computed(() => {
-  if (!form.memberEntitlementId) return subtotalAmount.value;
-  let remaining = creditAvailable.value;
-  let total = 0;
-  for (const item of cartItems.value) {
-    const creditQty = Math.min(item.quantity, remaining);
-    remaining -= creditQty;
-    total += (item.quantity - creditQty) * item.unitPrice;
-  }
-  return total;
-});
-const cashQuantity = computed(() => totalQuantity.value - creditUsedPreview.value);
+const packageAllocation = computed(() => allocatePackageCredits(
+  cartItems.value,
+  form.memberEntitlementId ? creditAvailable.value : 0,
+  selectedMemberEntitlement.value?.serviceId ?? null,
+));
+const creditUsedPreview = computed(() => packageAllocation.value.creditUsed);
+const cashSubtotal = computed(() => form.memberEntitlementId ? packageAllocation.value.cashSubtotal : subtotalAmount.value);
+const cashQuantity = computed(() => form.memberEntitlementId ? packageAllocation.value.cashQuantity : totalQuantity.value);
 
 const sanitizedCashDiscount = computed(() => {
   if (!form.memberEntitlementId) return sanitizedDiscountAmount.value;
@@ -448,7 +462,10 @@ const vatPreview = computed(() => computeVatPreview(beforeVatAmount.value));
 const totalAmount = computed(() => vatPreview.value.totalAmount);
 
 const isMemberWithZeroTotal = computed(() => Boolean(form.memberEntitlementId) && totalAmount.value === 0);
-const selectedAddonEntitlements = computed(() => form.addonEntitlements.filter((item) => item.credits > 0));
+const selectedAddonEntitlements = computed(() => form.addonEntitlements.filter((item) => {
+  const addon = activeAddonEntitlements.value.find((entry) => entry.id === item.entitlementId);
+  return Boolean(addon?.isDelivery) || item.credits > 0;
+}));
 
 const normalizedItems = computed(() =>
   cartItems.value.map((item) => {
@@ -627,18 +644,20 @@ const setAddonCredits = (entitlementId: string, value: number | string | null | 
   form.addonEntitlements = form.addonEntitlements.filter((item) => item.entitlementId !== entitlementId);
   if (credits > 0) form.addonEntitlements.push({ entitlementId, credits });
 };
+const setDeliveryAddonSelected = (entitlementId: string, selected: boolean) => {
+  form.addonEntitlements = form.addonEntitlements.filter((item) => item.entitlementId !== entitlementId);
+  if (selected) form.addonEntitlements.push({ entitlementId, credits: 0 });
+};
 
 const resetForm = () => {
+  hangerCountEdited.value = false;
   historicalReceivedDate.value = null;
   historicalReceivedTime.value = "00:00";
   historicalReceivedTimeSearch.value = "";
-  historicalCompletedDate.value = null;
-  historicalCompletedTime.value = "00:00";
-  historicalCompletedTimeSearch.value = "";
   historicalPaidDate.value = null;
   historicalPaidTime.value = "00:00";
   historicalPaidTimeSearch.value = "";
-  historicalStatus.value = "RECEIVED";
+  historicalStatus.value = "COMPLETED";
   historicalPaymentStatus.value = "PAID";
   historicalMethod.value = "CASH";
   historicalError.value = "";
@@ -713,20 +732,13 @@ watch([() => form.customerMode, activeAddonEntitlements], ([customerMode, addons
   const availableIds = new Set(addons.map((item) => item.id));
   form.addonEntitlements = form.addonEntitlements.filter((item) => availableIds.has(item.entitlementId));
   const hasSelectedDelivery = addons.some(
-    (addon) => addon.isDelivery && form.addonEntitlements.some(
-      (selection) => selection.entitlementId === addon.id && selection.credits > 0,
-    ),
+    (addon) => addon.isDelivery && form.addonEntitlements.some((selection) => selection.entitlementId === addon.id),
   );
   if (!hasSelectedDelivery) {
-    const deliveryAddon = addons.find(
-      (addon) => addon.isDelivery && Number(addon.creditRemaining ?? 0) > 0,
-    );
-    if (deliveryAddon) form.addonEntitlements.push({ entitlementId: deliveryAddon.id, credits: 1 });
+    const deliveryAddon = addons.find((addon) => addon.isDelivery);
+    if (deliveryAddon) form.addonEntitlements.push({ entitlementId: deliveryAddon.id, credits: 0 });
   }
 });
-
-watch(() => form.hangerCount, (raw) => { const v = Number.isFinite(raw) ? raw : 0; form.hangerCount = v; if (v !== form.missingHangerCount) form.missingHangerCount = v; });
-watch(() => form.missingHangerCount, (raw) => { const v = Number.isFinite(raw) ? raw : 0; form.missingHangerCount = v; if (v !== form.hangerCount) form.hangerCount = v; });
 
 const handleSubmit = async () => {
   if (isSubmitting.value) return;
@@ -734,7 +746,7 @@ const handleSubmit = async () => {
   const backdated: BackdatedOrderInput | undefined = backdatedEnabled.value ? {
     receivedAt: historicalReceivedAt.value,
     status: historicalStatus.value,
-    ...(historicalStatus.value === "COMPLETED" ? { completedAt: historicalCompletedAt.value } : {}),
+    ...(historicalStatus.value === "COMPLETED" ? { completedAt: historicalReceivedAt.value } : {}),
     ...(historicalPaid.value && !isMemberWithZeroTotal.value ? { payment: { paidAt: historicalPaidAt.value, method: historicalMethod.value } } : {}),
   } : undefined;
   if (backdated) {
@@ -786,6 +798,7 @@ const handleSubmit = async () => {
         ? { weightKg: Number(form.washFoldWeightKg), notes: form.washFoldNotes.trim() || null }
         : null,
       missingHangerCount: form.washFoldMode ? 0 : form.missingHangerCount,
+      hangerCount: form.washFoldMode ? 0 : form.hangerCount,
       dueAt: dueAtValue.value,
       discountAmount: form.washFoldMode
         ? sanitizedDiscountAmount.value
@@ -862,7 +875,8 @@ const useDuplicateCustomer = async () => {
                 <div class="flex min-w-0 flex-1 items-center gap-2">
                   <p class="text-sm font-medium text-highlighted">ซัก-พับ ชั่งกิโล</p>
                   <p class="min-w-0 truncate text-xs text-muted">
-                    {{ formatCurrency(washFoldPricePerKg) }} / กก.<span v-if="washFoldMinKg > 0"> · ขั้นต่ำ {{ washFoldMinKg }} กก.</span>
+                    {{ formatCurrency(washFoldPricePerKg) }} / กก.<span v-if="washFoldMinKg > 0"> · ขั้นต่ำ {{
+                      washFoldMinKg }} กก.</span>
                   </p>
                 </div>
                 <USwitch v-model="form.washFoldMode" color="warning" class="shrink-0" />
@@ -881,26 +895,20 @@ const useDuplicateCustomer = async () => {
         </div>
 
         <div :class="[filterBarClass, 'flex flex-col gap-1.5 sm:flex-row sm:items-center']">
-          <UInput
-            v-model="searchQuery"
-            icon="i-lucide-search"
-            placeholder="ค้นหาบริการหรือชนิดผ้า"
-            class="min-w-0 sm:flex-[1_1_32rem]"
-          />
+          <UInput v-model="searchQuery" icon="i-lucide-search" placeholder="ค้นหาบริการหรือชนิดผ้า"
+            class="min-w-0 sm:flex-[1_1_32rem]" />
           <div class="grid grid-cols-2 gap-1.5 sm:flex sm:shrink-0 sm:items-center">
-            <USelect v-model="categoryFilter" :items="categoryOptions" value-key="value" class="min-w-0 md:w-40 lg:w-44" />
-            <USelect v-model="serviceFilter" :items="serviceOptions" value-key="value" class="min-w-0 md:w-40 lg:w-44" />
+            <USelect v-model="categoryFilter" :items="categoryOptions" value-key="value"
+              class="min-w-0 md:w-40 lg:w-44" />
+            <USelect v-model="serviceFilter" :items="serviceOptions" value-key="value"
+              class="min-w-0 md:w-40 lg:w-44" />
           </div>
         </div>
 
         <div v-if="isCatalogLoading" class="space-y-3">
           <div class="-mx-2 space-y-1 sm:mx-0 md:hidden">
-            <div
-              v-for="i in 5"
-              :key="`mlist-${i}`"
-              :class="[mobileListCardClass, 'px-4 py-3 sm:rounded-lg']"
-              aria-hidden="true"
-            >
+            <div v-for="i in 5" :key="`mlist-${i}`" :class="[mobileListCardClass, 'px-4 py-3 sm:rounded-lg']"
+              aria-hidden="true">
               <div class="flex min-w-0 items-start justify-between gap-3">
                 <div class="min-w-0 flex-1 space-y-2">
                   <USkeleton class="h-4 w-3/4 rounded-lg" />
@@ -925,16 +933,10 @@ const useDuplicateCustomer = async () => {
 
         <div v-else-if="filteredCatalog.length">
           <div class="-mx-2 space-y-1 sm:mx-0 md:hidden">
-            <div
-              v-for="item in filteredCatalog"
-              :key="item.id"
-              role="button"
-              tabindex="0"
-              :class="[mobileListCardClass, 'px-4 py-3 sm:rounded-lg']"
-              @click="incrementCatalogItem(item.id)"
+            <div v-for="item in filteredCatalog" :key="item.id" role="button" tabindex="0"
+              :class="[mobileListCardClass, 'px-4 py-3 sm:rounded-lg']" @click="incrementCatalogItem(item.id)"
               @keydown.enter.prevent="incrementCatalogItem(item.id)"
-              @keydown.space.prevent="incrementCatalogItem(item.id)"
-            >
+              @keydown.space.prevent="incrementCatalogItem(item.id)">
               <div class="flex min-w-0 items-start justify-between gap-3">
                 <div class="min-w-0">
                   <div class="flex min-w-0 flex-wrap items-center gap-2">
@@ -959,46 +961,23 @@ const useDuplicateCustomer = async () => {
                   {{ getCatalogQuantity(item.id) > 0 ? "เลือกแล้ว" : "แตะเพื่อเพิ่ม" }}
                 </span>
                 <div class="flex items-center gap-1" @click.stop>
-                  <UButton
-                    v-if="getCatalogQuantity(item.id) > 0 && !isRangeItem(item.id)"
-                    icon="i-lucide-minus"
-                    color="neutral"
-                    variant="outline"
-                    size="xs"
-                    aria-label="ลดจำนวน"
-                    @click="decrementCatalogItem(item.id)"
-                  />
-                  <UButton
-                    icon="i-lucide-plus"
-                    color="neutral"
-                    variant="outline"
-                    size="xs"
-                    aria-label="เพิ่มรายการ"
-                    @click="incrementCatalogItem(item.id)"
-                  />
+                  <UButton v-if="getCatalogQuantity(item.id) > 0 && !isRangeItem(item.id)" icon="i-lucide-minus"
+                    color="neutral" variant="outline" size="xs" aria-label="ลดจำนวน"
+                    @click="decrementCatalogItem(item.id)" />
+                  <UButton icon="i-lucide-plus" color="neutral" variant="outline" size="xs" aria-label="เพิ่มรายการ"
+                    @click="incrementCatalogItem(item.id)" />
                 </div>
               </div>
             </div>
           </div>
 
           <div class="hidden grid-cols-2 gap-3 md:grid lg:grid-cols-3 xl:grid-cols-3 2xl:grid-cols-4">
-            <PosCatalogCard
-              v-for="item in filteredCatalog"
-              :key="item.id"
-              :title="item.label"
-              :description="getCatalogDescription(item)"
-              badge-label="ราคาหน้าร้าน"
-              badge-color="primary"
-              :price-label="item.priceMin != null && item.priceMax != null && item.priceMin !== item.priceMax
+            <PosCatalogCard v-for="item in filteredCatalog" :key="item.id" :title="item.label"
+              :description="getCatalogDescription(item)" badge-label="ราคาหน้าร้าน" badge-color="primary" :price-label="item.priceMin != null && item.priceMax != null && item.priceMin !== item.priceMax
                 ? `฿${item.priceMin.toLocaleString()}–${item.priceMax.toLocaleString()}`
-                : formatCurrency(item.price)"
-              :is-range="isRangeItem(item.id)"
-              :quantity="getCatalogQuantity(item.id)"
-              :selected="getCatalogQuantity(item.id) > 0"
-              @increment="incrementCatalogItem(item.id)"
-              @decrement="decrementCatalogItem(item.id)"
-              @change="setCatalogItemQuantity(item.id, $event)"
-            />
+                : formatCurrency(item.price)" :is-range="isRangeItem(item.id)" :quantity="getCatalogQuantity(item.id)"
+              :selected="getCatalogQuantity(item.id) > 0" @increment="incrementCatalogItem(item.id)"
+              @decrement="decrementCatalogItem(item.id)" @change="setCatalogItemQuantity(item.id, $event)" />
           </div>
         </div>
 
@@ -1008,432 +987,309 @@ const useDuplicateCustomer = async () => {
       </section>
     </div>
 
-    <aside
-      v-show="mounted"
-      :class="!isCompact
-        ? 'space-y-3 rounded-lg xl:sticky xl:top-4 xl:self-start'
-        : [
-            'admin-workspace fixed inset-y-0 right-0 z-50 flex w-full max-w-lg flex-col overflow-y-auto border-l border-default',
-            mounted ? 'transition-transform duration-200' : '',
-            isCartOpen ? 'translate-x-0' : 'translate-x-full',
-          ]"
-    >
-      <div v-if="isCompact" class="sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-default bg-default px-4 py-3 dark:bg-elevated/55">
-        <p class="text-base font-semibold text-highlighted">ตะกร้ารับผ้า</p>
-        <UButton icon="i-lucide-x" color="neutral" variant="ghost" size="sm" aria-label="ปิด" @click="isCartOpen = false" />
+    <aside v-show="mounted" :class="!isCompact
+      ? 'space-y-3 rounded-lg xl:sticky xl:top-4 xl:self-start'
+      : [
+        'admin-workspace fixed inset-y-0 right-0 z-50 flex w-full max-w-lg flex-col overflow-y-auto border-l border-default',
+        mounted ? 'transition-transform duration-200' : '',
+        isCartOpen ? 'translate-x-0' : 'translate-x-full',
+      ]">
+      <div v-if="isCompact"
+        class="sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-default bg-default px-4 py-3 dark:bg-elevated/55">
+        <p class="text-base font-semibold text-highlighted">สรุปรายการรับผ้า</p>
+        <UButton icon="i-lucide-x" color="neutral" variant="ghost" size="sm" aria-label="ปิด"
+          @click="() => { isCartOpen = false; }" />
       </div>
       <div :class="isCompact ? 'flex-1 p-2' : ''">
-      <PosCheckoutPanel
-        title="ตะกร้ารับผ้า"
-        :description="`สรุปรายการผ้า ${hasSelectedDeliveryAddon ? 'วันนัดส่งถึงลูกค้า' : 'วันนัดรับที่ร้าน'} และการชำระเงินในหน้าเดียว`"
-        :flat="isCompact"
-        :section-class="checkoutSectionClass"
-        :customer-id="form.customerId"
-        :customer-options="customerOptions"
-        :customer-loading="isCustomersLoading"
-        allow-new-customer
-        :customer-mode="form.customerMode"
-        :new-customer-name="form.newCustomerName"
-        :new-customer-phone="form.newCustomerPhone"
-        :new-customer-email="form.newCustomerEmail"
-        :note="form.note"
-        total-label="ยอดรวมสุทธิ"
-        :total-value="formatCurrency(totalAmount)"
-        :total-meta="`${cartItems.length} รายการ | ${totalQuantity} ชิ้น`"
-        :submit-label="backdatedEnabled ? 'บันทึกรับผ้าย้อนหลัง' : 'บันทึกรับผ้า'"
-        :is-submitting="isSubmitting"
-        :slip-file="slipFile"
-        :uploaded-slip-url="uploadedSlip?.secureUrl || uploadedSlip?.url"
-        :uploaded-slip-label="uploadedSlip?.secureUrl || uploadedSlip?.url || null"
-        :hide-payment-fields="isMemberWithZeroTotal"
-        @update:customer-id="form.customerId = $event"
-        @update:customer-mode="form.customerMode = $event"
-        @update:new-customer-name="form.newCustomerName = $event"
-        @update:new-customer-phone="form.newCustomerPhone = $event"
-        @update:new-customer-email="form.newCustomerEmail = $event"
-        @search-customer="setCustomerSearch"
-        @update:note="form.note = $event"
-        @update:slip-file="slipFile = $event"
-        @remove-slip="resetSlip"
-        @submit="handleSubmit"
-        @reset="resetForm"
-      >
-        <template #cart>
-          <div v-if="backdatedEnabled" :class="[checkoutSectionClass, 'space-y-3']">
-            <UFormField label="วันและเวลารับผ้าจริง" required>
-              <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                <UPopover>
-                  <UButton
-                    :label="historicalReceivedDateLabel"
-                    icon="i-lucide-calendar"
-                    color="neutral"
-                    variant="outline"
-                    block
-                    class="justify-start font-normal"
-                  />
-                  <template #content>
-                    <UCalendar v-model="historicalReceivedDate" v-bind="historicalReceivedDateBounds" locale="th-TH" class="p-2" />
-                  </template>
-                </UPopover>
-                <UInputMenu
-                  v-model="historicalReceivedTime"
-                  v-model:search-term="historicalReceivedTimeSearch"
-                  :items="timeOptions"
-                  value-key="value"
-                  create-item="always"
-                  icon="i-lucide-clock"
-                  placeholder="เช่น 09:15"
-                  class="w-full"
-                  @create="setHistoricalTime('received', $event)"
-                  @blur="setHistoricalTime('received', historicalReceivedTimeSearch)"
-                />
-              </div>
-            </UFormField>
-            <UFormField label="สถานะปัจจุบัน" required>
-              <USelect v-model="historicalStatus" :items="historicalStatusOptions" value-key="value" class="w-full" />
-            </UFormField>
-            <UFormField v-if="historicalStatus === 'COMPLETED'" label="วันและเวลาเสร็จจริง" required>
-              <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                <UPopover>
-                  <UButton
-                    :label="historicalCompletedDateLabel"
-                    icon="i-lucide-calendar"
-                    color="neutral"
-                    variant="outline"
-                    block
-                    class="justify-start font-normal"
-                  />
-                  <template #content>
-                    <UCalendar v-model="historicalCompletedDate" :max-value="historicalMaxDate" locale="th-TH" class="p-2" />
-                  </template>
-                </UPopover>
-                <UInputMenu
-                  v-model="historicalCompletedTime"
-                  v-model:search-term="historicalCompletedTimeSearch"
-                  :items="timeOptions"
-                  value-key="value"
-                  create-item="always"
-                  icon="i-lucide-clock"
-                  placeholder="เช่น 16:45"
-                  class="w-full"
-                  @create="setHistoricalTime('completed', $event)"
-                  @blur="setHistoricalTime('completed', historicalCompletedTimeSearch)"
-                />
-              </div>
-            </UFormField>
-            <template v-if="!isMemberWithZeroTotal">
-              <UFormField label="สถานะการชำระเงิน" required>
-                <URadioGroup
-                  v-model="historicalPaymentStatus"
-                  :items="historicalPaymentStatusOptions"
-                  value-key="value"
-                  variant="card"
-                  orientation="horizontal"
-                  :ui="{ fieldset: 'grid grid-cols-2 gap-2' }"
-                />
+        <PosCheckoutPanel title="สรุปรายการรับผ้า"
+          :flat="isCompact" :section-class="checkoutSectionClass" :customer-id="form.customerId"
+          :customer-options="customerOptions" :customer-loading="isCustomersLoading" allow-new-customer
+          :customer-mode="form.customerMode" :new-customer-name="form.newCustomerName"
+          :new-customer-phone="form.newCustomerPhone" :new-customer-email="form.newCustomerEmail" :note="form.note"
+          total-label="ยอดรวมสุทธิ" :total-value="formatCurrency(totalAmount)"
+          :total-meta="`${cartItems.length} รายการ | ${totalQuantity} ชิ้น`"
+          :submit-label="backdatedEnabled ? 'บันทึกรับผ้าย้อนหลัง' : 'บันทึกรับผ้า'" :is-submitting="isSubmitting"
+          :slip-file="slipFile" :uploaded-slip-url="uploadedSlip?.secureUrl || uploadedSlip?.url"
+          :uploaded-slip-label="uploadedSlip?.secureUrl || uploadedSlip?.url || null"
+          :hide-payment-fields="isMemberWithZeroTotal" @update:customer-id="form.customerId = $event"
+          @update:customer-mode="form.customerMode = $event" @update:new-customer-name="form.newCustomerName = $event"
+          @update:new-customer-phone="form.newCustomerPhone = $event"
+          @update:new-customer-email="form.newCustomerEmail = $event" @search-customer="setCustomerSearch"
+          @update:note="form.note = $event" @update:slip-file="slipFile = $event" @remove-slip="resetSlip"
+          @submit="handleSubmit" @reset="resetForm">
+          <template #cart>
+            <div v-if="backdatedEnabled" :class="[checkoutSectionClass, 'space-y-3']">
+              <UFormField label="วันและเวลารับผ้าจริง" required>
+                <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  <UPopover>
+                    <UButton :label="historicalReceivedDateLabel" icon="i-lucide-calendar" color="neutral"
+                      variant="outline" block class="justify-start font-normal" />
+                    <template #content>
+                      <UCalendar v-model="historicalReceivedDate" v-bind="historicalReceivedDateBounds" locale="th-TH"
+                        class="p-2" />
+                    </template>
+                  </UPopover>
+                  <UInputMenu v-model="historicalReceivedTime" v-model:search-term="historicalReceivedTimeSearch"
+                    :items="timeOptions" value-key="value" create-item="always" icon="i-lucide-clock"
+                    placeholder="เช่น 09:15" class="w-full" @create="setHistoricalTime('received', $event)"
+                    @blur="setHistoricalTime('received', historicalReceivedTimeSearch)" />
+                </div>
               </UFormField>
-              <template v-if="historicalPaid">
-                <UFormField label="วันและเวลาชำระเงินจริง" required>
-                  <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                    <UPopover>
-                      <UButton
-                        :label="historicalPaidDateLabel"
-                        icon="i-lucide-calendar"
-                        color="neutral"
-                        variant="outline"
-                        block
-                        class="justify-start font-normal"
-                      />
-                      <template #content>
-                        <UCalendar v-model="historicalPaidDate" :max-value="historicalMaxDate" locale="th-TH" class="p-2" />
-                      </template>
-                    </UPopover>
-                    <UInputMenu
-                      v-model="historicalPaidTime"
-                      v-model:search-term="historicalPaidTimeSearch"
-                      :items="timeOptions"
-                      value-key="value"
-                      create-item="always"
-                      icon="i-lucide-clock"
-                      placeholder="เช่น 10:20"
-                      class="w-full"
-                      @create="setHistoricalTime('paid', $event)"
-                      @blur="setHistoricalTime('paid', historicalPaidTimeSearch)"
-                    />
+              <UFormField label="สถานะปัจจุบัน" required>
+                <USelect v-model="historicalStatus" :items="historicalStatusOptions" value-key="value" class="w-full" />
+              </UFormField>
+              <template v-if="!isMemberWithZeroTotal">
+                <UFormField label="สถานะการชำระเงิน" required>
+                  <div class="grid grid-cols-2 gap-2">
+                    <UButton v-for="option in historicalPaymentStatusOptions" :key="option.value"
+                      :label="option.label" :color="historicalPaymentStatus === option.value ? 'primary' : 'neutral'"
+                      :variant="historicalPaymentStatus === option.value ? 'solid' : 'outline'" block
+                      @click="historicalPaymentStatus = option.value" />
                   </div>
                 </UFormField>
-                <UFormField label="วิธีชำระเงิน" required>
-                  <USelect v-model="historicalMethod" :items="historicalPaymentOptions" value-key="value" class="w-full" />
-                </UFormField>
+                <template v-if="historicalPaid">
+                  <UFormField label="วันและเวลาชำระเงินจริง" required>
+                    <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                      <UPopover>
+                        <UButton :label="historicalPaidDateLabel" icon="i-lucide-calendar" color="neutral"
+                          variant="outline" block class="justify-start font-normal" />
+                        <template #content>
+                          <UCalendar v-model="historicalPaidDate" :max-value="historicalMaxDate" locale="th-TH"
+                            class="p-2" />
+                        </template>
+                      </UPopover>
+                      <UInputMenu v-model="historicalPaidTime" v-model:search-term="historicalPaidTimeSearch"
+                        :items="timeOptions" value-key="value" create-item="always" icon="i-lucide-clock"
+                        placeholder="เช่น 10:20" class="w-full" @create="setHistoricalTime('paid', $event)"
+                        @blur="setHistoricalTime('paid', historicalPaidTimeSearch)" />
+                    </div>
+                  </UFormField>
+                  <UFormField label="ช่องทางการชำระเงิน" required>
+                    <div class="grid grid-cols-2 gap-2">
+                      <UButton v-for="option in historicalPaymentOptions" :key="option.value" :label="option.label"
+                        :icon="option.icon" :color="historicalMethod === option.value ? 'primary' : 'neutral'"
+                        :variant="historicalMethod === option.value ? 'solid' : 'outline'" block
+                        @click="historicalMethod = option.value" />
+                    </div>
+                  </UFormField>
+                </template>
               </template>
-            </template>
-            <p v-if="historicalError" role="alert" class="text-sm text-error">{{ historicalError }}</p>
-          </div>
-          <div :class="[checkoutSectionClass, 'space-y-3']">
-            <div v-if="form.washFoldMode" class="border-l-2 border-warning pl-3">
-              <div class="flex items-center justify-between gap-3">
-                <p class="text-sm font-medium text-highlighted">ซัก-พับ ชั่งกิโล</p>
-                <span class="text-sm text-muted">{{ formatCurrency(washFoldPricePerKg) }} / กก.</span>
-              </div>
-              <div class="mt-1 flex justify-between text-sm font-medium">
-                <span>รวม</span>
-                <span>{{ formatCurrency(washFoldSubtotal) }}</span>
-              </div>
+              <p v-if="historicalError" role="alert" class="text-sm text-error">{{ historicalError }}</p>
             </div>
-
-            <div class="flex items-center justify-between gap-3">
-              <p class="text-sm font-medium text-highlighted">รายการที่เลือก</p>
-              <span class="text-xs text-muted">{{ totalQuantity }} ชิ้น</span>
-            </div>
-
-            <div v-if="cartItems.length" class="space-y-2">
-              <div v-if="canUseMemberPackage" class="border-l-2 border-success pl-3">
-                <div class="flex items-start justify-between gap-3">
-                  <div class="min-w-0">
-                    <p class="truncate text-sm font-medium text-success">{{ selectedMemberEntitlement?.productName }}</p>
-                    <p class="text-xs text-muted">
-                      เครดิตคงเหลือ {{ selectedMemberEntitlement?.creditRemaining ?? 0 }} | ใช้ {{ creditUsedPreview }} เครดิต
-                      <span v-if="form.memberEntitlementId && cashQuantity > 0">| คิดเพิ่ม {{ cashQuantity }} ชิ้น ({{ formatCurrency(cashSubtotal) }})</span>
-                    </p>
-                    <p v-if="backdatedEnabled && selectedMemberEntitlement" class="text-xs text-muted">
-                      ช่วงสิทธิ์ {{ formatEntitlementDate(selectedMemberEntitlement.startAt) }}–{{ formatEntitlementDate(selectedMemberEntitlement.endAt) }}
-                    </p>
-                    <p v-if="entitlementWindowError" class="text-xs font-medium text-error">{{ entitlementWindowError }}</p>
-                  </div>
-                  <USwitch
-                    :model-value="Boolean(form.memberEntitlementId)"
-                    color="success"
-                    size="sm"
-                    @update:model-value="form.memberEntitlementId = $event ? selectedMemberEntitlement?.id ?? null : null"
-                  />
+            <div :class="[checkoutSectionClass, 'space-y-3']">
+              <div v-if="form.washFoldMode" class="border-l-2 border-warning pl-3">
+                <div class="flex items-center justify-between gap-3">
+                  <p class="text-sm font-medium text-highlighted">ซัก-พับ ชั่งกิโล</p>
+                  <span class="text-sm text-muted">{{ formatCurrency(washFoldPricePerKg) }} / กก.</span>
                 </div>
-                <USelect
-                  v-if="backdatedEnabled && memberEntitlementOptions.length > 1"
-                  v-model="memberEntitlementPickerValue"
-                  :items="memberEntitlementPickerItems"
-                  value-key="value"
-                  size="xs"
-                  class="mt-2 w-full"
-                  aria-label="เลือกแพ็กเกจที่ใช้"
-                />
+                <div class="mt-1 flex justify-between text-sm font-medium">
+                  <span>รวม</span>
+                  <span>{{ formatCurrency(washFoldSubtotal) }}</span>
+                </div>
               </div>
 
-              <div class="divide-y divide-default">
-                <div v-for="item in cartItems" :key="item.key" class="py-2 first:pt-0 last:pb-0">
-                  <div class="flex cursor-pointer items-start gap-2 rounded-lg py-1 hover:bg-elevated/30" @click="toggleItemExpand(item.key)">
-                    <div class="min-w-0 flex-1">
-                      <div class="flex min-w-0 items-start gap-2">
-                        <p class="min-w-0 flex-1 truncate text-sm text-highlighted">{{ item.label }}</p>
-                        <span class="shrink-0 text-right text-xs font-medium text-muted">
-                          {{ form.washFoldMode ? "ชั่งกิโล" : (form.memberEntitlementId ? `${item.quantity} เครดิต` : formatCurrency(item.totalPrice)) }}
-                        </span>
+              <div class="flex items-center justify-between gap-3">
+                <p class="text-sm font-medium text-highlighted">รายการที่เลือก</p>
+                <span class="text-xs text-muted">{{ totalQuantity }} ชิ้น</span>
+              </div>
+
+              <div class="space-y-2">
+                <div v-if="canUseMemberPackage" class="border-l-2 border-success pl-3">
+                  <div class="flex items-start justify-between gap-3">
+                    <div class="min-w-0">
+                      <p class="truncate text-sm font-medium text-success">{{ selectedMemberEntitlement?.productName }}
+                      </p>
+                      <p class="text-xs text-muted">
+                        เครดิตคงเหลือ {{ selectedMemberEntitlement?.creditRemaining ?? 0 }} | ใช้ {{ creditUsedPreview
+                        }} เครดิต
+                        <span v-if="form.memberEntitlementId && cashQuantity > 0">| นอกบริการหรือเครดิตไม่พอ {{
+                          cashQuantity }} ชิ้น
+                          ({{ formatCurrency(cashSubtotal) }})</span>
+                      </p>
+                      <p v-if="selectedMemberEntitlement?.serviceName" class="text-xs text-muted">ใช้กับบริการ {{
+                        selectedMemberEntitlement.serviceName }}</p>
+                      <p v-if="selectedMemberEntitlement" class="text-xs text-muted">
+                        ช่วงสิทธิ์ {{ formatEntitlementDate(selectedMemberEntitlement.startAt) }}–{{
+                          formatEntitlementDate(selectedMemberEntitlement.endAt) }}
+                      </p>
+                      <p v-if="entitlementWindowError" class="text-xs font-medium text-error">{{ entitlementWindowError
+                        }}</p>
+                    </div>
+                    <USwitch :model-value="Boolean(form.memberEntitlementId)" color="success" size="sm"
+                      @update:model-value="form.memberEntitlementId = $event ? selectedMemberEntitlement?.id ?? null : null" />
+                  </div>
+                  <USelect v-if="backdatedEnabled && memberEntitlementOptions.length > 1"
+                    v-model="memberEntitlementPickerValue" :items="memberEntitlementPickerItems" value-key="value"
+                    size="xs" class="mt-2 w-full" aria-label="เลือกแพ็กเกจที่ใช้" />
+                </div>
+
+                <div v-if="canUseAddonPackages" class="space-y-3">
+                  <div v-for="addon in activeAddonEntitlements" :key="addon.id"
+                    class="border-l-2 border-success pl-3">
+                    <div class="flex items-start justify-between gap-3">
+                      <div class="min-w-0">
+                        <div class="flex flex-wrap items-center gap-2">
+                          <p class="truncate text-sm font-medium text-success">{{ addon.productName }}</p>
+                          <UBadge v-if="addon.isDelivery" label="รับ–ส่ง" color="success" variant="subtle" size="xs" />
+                        </div>
+                        <p v-if="!addon.isDelivery" class="text-xs text-muted">
+                          เครดิตคงเหลือ {{ addon.creditRemaining ?? 0 }} เครดิต
+                        </p>
+                        <p v-if="addon.startAt || addon.endAt" class="text-xs text-muted">
+                          ช่วงสิทธิ์ {{ formatEntitlementDate(addon.startAt) }}–{{ formatEntitlementDate(addon.endAt) }}
+                        </p>
                       </div>
-                      <div class="mt-1 flex items-center gap-1" @click.stop>
-                        <UInputNumber
-                          :model-value="item.quantity"
-                          :min="0"
-                          :step="1"
-                          size="xs"
-                          class="w-20"
-                          @update:model-value="setItemQuantity(item.key, $event)"
-                        />
+                      <USwitch v-if="addon.isDelivery" :model-value="selectedAddonCreditMap.has(addon.id)" color="success"
+                        size="sm" aria-label="ใช้บริการรับส่ง"
+                        @update:model-value="setDeliveryAddonSelected(addon.id, $event)" />
+                      <UInputNumber v-else :model-value="selectedAddonCreditMap.get(addon.id) ?? 0" :min="0"
+                        :max="Math.max(0, Number(addon.creditRemaining ?? 0))" :step="1" orientation="horizontal" size="xs"
+                        class="w-24 shrink-0" @update:model-value="setAddonCredits(addon.id, $event)" />
+                    </div>
+                  </div>
+                </div>
+
+                <div v-if="cartItems.length" class="divide-y divide-default">
+                  <div v-for="item in cartItems" :key="item.key" class="py-2 first:pt-0 last:pb-0">
+                    <div class="flex cursor-pointer items-start gap-2 rounded-lg py-1 hover:bg-elevated/30"
+                      @click="toggleItemExpand(item.key)">
+                      <div class="min-w-0 flex-1">
+                        <div class="flex min-w-0 items-start gap-2">
+                          <p class="min-w-0 flex-1 truncate text-sm text-highlighted">{{ item.label }}</p>
+                          <span class="shrink-0 text-right text-xs font-medium text-muted">
+                            {{ form.washFoldMode ? "ชั่งกิโล" : (form.memberEntitlementId ? `${item.quantity} เครดิต` :
+                            formatCurrency(item.totalPrice)) }}
+                          </span>
+                        </div>
+                        <div class="mt-1 flex items-center gap-1" @click.stop>
+                          <UInputNumber :model-value="item.quantity" :min="0" :step="1" size="xs" class="w-20"
+                            @update:model-value="setItemQuantity(item.key, $event)" />
+                        </div>
+                      </div>
+
+                      <div class="flex shrink-0 items-center">
+                        <UButton :icon="expandedItems.has(item.key) ? 'i-lucide-chevron-up' : 'i-lucide-chevron-down'"
+                          color="neutral" variant="ghost" size="xs" @click.stop="toggleItemExpand(item.key)" />
+                        <UButton icon="i-lucide-x" color="error" variant="ghost" size="xs"
+                          @click.stop="removeItem(item.key)" />
                       </div>
                     </div>
 
-                    <div class="flex shrink-0 items-center">
-                      <UButton
-                        :icon="expandedItems.has(item.key) ? 'i-lucide-chevron-up' : 'i-lucide-chevron-down'"
-                        color="neutral"
-                        variant="ghost"
-                        size="xs"
-                        @click.stop="toggleItemExpand(item.key)"
-                      />
-                      <UButton icon="i-lucide-x" color="error" variant="ghost" size="xs" @click.stop="removeItem(item.key)" />
+                    <div v-if="expandedItems.has(item.key)" class="mt-2 space-y-2 border-l-2 border-default pl-3">
+                      <UTextarea :model-value="item.notes" :rows="2" class="w-full"
+                        placeholder="บันทึกตำหนิหรือรายละเอียดผ้าชิ้นนี้"
+                        @update:model-value="updateItemNotes(item.key, String($event || ''))" />
+                      <UIPhotoUpload label="รูปผ้าชำรุด" description="แนบรูปเฉพาะผ้าที่มีตำหนิหรือชำรุด"
+                        :photos="item.photos" :disabled="isSubmitting"
+                        @update:photos="updateItemPhotos(item.key, $event)" />
                     </div>
                   </div>
-
-                  <div v-if="expandedItems.has(item.key)" class="mt-2 space-y-2 border-l-2 border-default pl-3">
-                    <UTextarea
-                      :model-value="item.notes"
-                      :rows="2"
-                      class="w-full"
-                      placeholder="บันทึกตำหนิหรือรายละเอียดผ้าชิ้นนี้"
-                      @update:model-value="updateItemNotes(item.key, String($event || ''))"
-                    />
-                    <UIPhotoUpload
-                      label="รูปผ้าชำรุด"
-                      description="แนบรูปเฉพาะผ้าที่มีตำหนิหรือชำรุด"
-                      :photos="item.photos"
-                      :disabled="isSubmitting"
-                      @update:photos="updateItemPhotos(item.key, $event)"
-                    />
-                  </div>
                 </div>
+
+              <div v-else class="border-y border-dashed border-default py-8 text-center text-sm text-muted">
+                ยังไม่ได้เลือกบริการ
+              </div>
               </div>
             </div>
+          </template>
 
-            <div v-else class="border-y border-dashed border-default py-8 text-center text-sm text-muted">
-              ยังไม่ได้เลือกบริการ
-            </div>
-          </div>
-        </template>
+          <template #summary>
+            <div :class="[checkoutSectionClass, 'space-y-3 text-sm']">
+              <p class="text-sm font-semibold text-highlighted">รายละเอียดรับผ้า</p>
 
-        <template #summary>
-          <div :class="[checkoutSectionClass, 'space-y-3 text-sm']">
-            <div class="flex items-center justify-between gap-3">
-              <span class="text-muted">รวมค่าบริการ</span>
-              <span class="font-medium text-highlighted">{{ formatCurrency(subtotalAmount) }}</span>
-            </div>
-
-            <div v-if="form.memberEntitlementId" class="flex items-center justify-between gap-3">
-              <span class="text-muted">ตัดเครดิตรายเดือน</span>
-              <span class="font-medium text-success">{{ creditUsedPreview }} เครดิต</span>
-            </div>
-            <div v-if="form.memberEntitlementId && cashQuantity > 0" class="flex items-center justify-between gap-3">
-              <span class="text-muted">เครดิตไม่พอ ({{ cashQuantity }} ชิ้น)</span>
-              <span class="font-medium text-highlighted">{{ formatCurrency(cashSubtotal) }}</span>
-            </div>
-
-            <div v-if="!form.washFoldMode" class="flex items-center justify-between gap-3">
-              <span class="text-muted">ค่าไม้แขวน</span>
-              <span class="font-medium text-highlighted">{{ formatCurrency(hangerCharge.total) }}</span>
-            </div>
-
-            <div
-              v-if="canUseAddonPackages"
-              class="space-y-3 rounded-lg border-2 border-success/45 bg-success/8 p-3 shadow-sm"
-            >
-              <div class="flex items-center justify-between gap-3">
+              <div v-if="!form.washFoldMode" class="flex items-center justify-between gap-3">
+                <span class="text-muted">จำนวนไม้แขวนที่รับมา</span>
+                <div class="flex items-center gap-2">
+                  <UInputNumber :model-value="form.hangerCount" :min="0" :step="1" orientation="horizontal" size="xs"
+                    class="w-20" @update:model-value="setHangerCount" />
+                  <UButton label="ตามจำนวนผ้า" color="neutral" variant="outline" size="xs"
+                    @click="resetHangerCountToQuantity" />
+                </div>
+              </div>
+              <div v-if="!form.washFoldMode" class="flex items-center justify-between gap-3">
                 <div>
-                  <p class="text-sm font-semibold text-highlighted">แพ็กเกจเสริมและบริการรับ–ส่ง</p>
-                  <p class="text-xs text-muted">บริการรับ–ส่งจะเลือกให้ 1 ครั้งอัตโนมัติ ตรวจสอบก่อนบันทึก</p>
-                </div>
-                <UBadge v-if="hasSelectedDeliveryAddon" label="รับ–ส่ง 1 ครั้ง" color="success" variant="subtle" />
-              </div>
-              <div
-                v-for="addon in activeAddonEntitlements"
-                :key="addon.id"
-                :class="[
-                  'flex items-center justify-between gap-3 rounded-md border p-2.5',
-                  addon.isDelivery ? 'border-success/40 bg-success/10' : 'border-default/40 bg-default',
-                ]"
-              >
-                <div class="min-w-0">
-                  <div class="flex flex-wrap items-center gap-2">
-                    <p class="truncate text-sm font-medium text-highlighted">{{ addon.productName }}</p>
-                    <UBadge v-if="addon.isDelivery" label="บริการรับ–ส่ง" color="success" variant="solid" size="xs" />
-                  </div>
+                  <p class="text-muted">ซื้อไม้แขวนเพิ่ม</p>
                   <p class="text-xs text-muted">
-                    คงเหลือ {{ addon.creditRemaining ?? 0 }} | หักเมื่อ {{ addon.deductOn === 'CREATED' ? 'รับผ้า' : 'เสร็จสิ้น' }}
+                    ชิ้นละ {{ formatCurrency(hangerPricePerUnit) }} · รวม {{ formatCurrency(hangerCharge.total) }}
                   </p>
                 </div>
-                <UInputNumber
-                  :model-value="selectedAddonCreditMap.get(addon.id) ?? 0"
-                  :min="0"
-                  :max="Math.max(0, Number(addon.creditRemaining ?? 0))"
-                  :step="1"
-                  orientation="horizontal"
-                  size="xs"
-                  class="w-24 shrink-0"
-                  @update:model-value="setAddonCredits(addon.id, $event)"
-                />
+                <UInputNumber v-model="form.missingHangerCount" :min="0" :step="1" orientation="horizontal" size="xs"
+                  class="w-20" />
               </div>
-            </div>
 
-            <div v-if="vatRate > 0" class="flex items-center justify-between gap-3">
-              <span class="text-muted">{{ vatIncluded ? `รวม VAT ${vatRate}%` : `VAT ${vatRate}%` }}</span>
-              <span class="font-medium text-highlighted">{{ formatCurrency(vatPreview.vatAmount) }}</span>
-            </div>
-
-            <div v-if="!form.washFoldMode" class="flex items-center justify-between gap-3">
-              <span class="text-muted">จำนวนไม้แขวน</span>
-              <div class="flex items-center gap-2">
-                <UInputNumber v-model="form.missingHangerCount" :min="0" :step="1" orientation="horizontal" size="xs" class="w-20" />
-                <UButton label="ตามจำนวนผ้า" color="neutral" variant="outline" size="xs" @click="form.hangerCount = totalQuantity" />
-              </div>
-            </div>
-
-            <div>
-              <div class="mb-2 flex flex-wrap items-center justify-between gap-2">
-                <p class="text-sm font-medium text-highlighted">{{ hasSelectedDeliveryAddon ? "วันนัดส่งถึงลูกค้า" : "วันนัดรับที่ร้าน" }}</p>
-                <div class="flex gap-1.5">
-                  <UButton size="xs" color="neutral" variant="soft" label="พุธ" @click="setPickupDow(3)" />
-                  <UButton size="xs" color="neutral" variant="soft" label="เสาร์" @click="setPickupDow(6)" />
-                  <UButton size="xs" color="neutral" :variant="dueDate ? 'ghost' : 'solid'" label="ไม่ระบุ" @click="clearDueDate" />
+              <div>
+                <div class="mb-2 flex flex-wrap items-center justify-between gap-2">
+                  <p class="text-sm font-medium text-highlighted">{{ hasSelectedDeliveryAddon ? "วันนัดส่งถึงลูกค้า" :
+                    "วันนัดรับที่ร้าน" }}</p>
+                  <div class="flex gap-1.5">
+                    <UButton size="xs" color="neutral" variant="soft" label="พุธ" @click="setPickupDow(3)" />
+                    <UButton size="xs" color="neutral" variant="soft" label="เสาร์" @click="setPickupDow(6)" />
+                    <UButton size="xs" color="neutral" :variant="dueDate ? 'ghost' : 'solid'" label="ไม่ระบุ"
+                      @click="clearDueDate" />
+                  </div>
                 </div>
+                <div v-if="dueDate" class="grid grid-cols-2 gap-2">
+                  <UPopover>
+                    <UButton :label="dueDateLabel" icon="i-lucide-calendar" color="neutral" variant="outline" block
+                      class="justify-start font-normal" />
+                    <template #content>
+                      <UCalendar v-model="dueDate" locale="th-TH" class="p-2" />
+                    </template>
+                  </UPopover>
+                  <USelect v-model="dueTime" :items="timeOptions" value-key="value" icon="i-lucide-clock"
+                    class="w-full" />
+                </div>
+                <p v-else class="text-xs text-muted">ไม่ระบุวันนัด — กดพุธ / เสาร์ หรือ
+                  <button class="underline" @click="setPickupDow(3)">เลือกวัน</button>
+                </p>
               </div>
-              <div v-if="dueDate" class="grid grid-cols-2 gap-2">
-                <UPopover>
-                  <UButton
-                    :label="dueDateLabel"
-                    icon="i-lucide-calendar"
-                    color="neutral"
-                    variant="outline"
-                    block
-                    class="justify-start font-normal"
-                  />
-                  <template #content>
-                    <UCalendar v-model="dueDate" locale="th-TH" class="p-2" />
-                  </template>
-                </UPopover>
-                <USelect v-model="dueTime" :items="timeOptions" value-key="value" icon="i-lucide-clock" class="w-full" />
-              </div>
-              <p v-else class="text-xs text-muted">ไม่ระบุวันนัด — กดพุธ / เสาร์ หรือ
-                <button class="underline" @click="setPickupDow(3)">เลือกวัน</button>
-              </p>
             </div>
-          </div>
-        </template>
+          </template>
 
-        <template #discount>
-          <div :class="[checkoutSectionClass, 'space-y-3']">
-            <UFormField v-if="!isMemberWithZeroTotal" label="ส่วนลด">
-              <UInputNumber
-                :model-value="form.discountAmount"
-                :min="0"
-                :max="subtotalAmount"
-                :step="1"
-                :format-options="{ minimumFractionDigits: 0, maximumFractionDigits: 2 }"
-                class="w-full"
-                @update:model-value="form.discountAmount = Number.isFinite($event) ? $event : 0"
-              />
-            </UFormField>
+          <template #discount>
+            <div v-if="!isMemberWithZeroTotal" class="space-y-3 text-sm">
+              <p class="text-sm font-semibold text-highlighted">สรุปค่าใช้จ่าย</p>
+              <div class="flex items-center justify-between gap-3">
+                <span class="text-muted">ค่าบริการ</span>
+                <span class="font-medium text-highlighted">{{ formatCurrency(subtotalAmount) }}</span>
+              </div>
+              <div v-if="form.memberEntitlementId" class="flex items-center justify-between gap-3">
+                <span class="text-muted">ใช้เครดิตแพ็กเกจ</span>
+                <span class="font-medium text-success">{{ creditUsedPreview }} เครดิต</span>
+              </div>
+              <div v-if="form.memberEntitlementId && cashQuantity > 0"
+                class="flex items-center justify-between gap-3">
+                <span class="text-muted">ชำระเพิ่ม ({{ cashQuantity }} ชิ้น)</span>
+                <span class="font-medium text-highlighted">{{ formatCurrency(cashSubtotal) }}</span>
+              </div>
+              <UFormField label="ส่วนลด">
+                <UInputNumber :model-value="form.discountAmount" :min="0" :max="subtotalAmount" :step="1"
+                  :format-options="{ minimumFractionDigits: 0, maximumFractionDigits: 2 }" class="w-full"
+                  @update:model-value="form.discountAmount = Number.isFinite($event) ? $event : 0" />
+              </UFormField>
+              <div v-if="vatRate > 0" class="flex items-center justify-between gap-3">
+                <span class="text-muted">{{ vatIncluded ? `รวม VAT ${vatRate}%` : `VAT ${vatRate}%` }}</span>
+                <span class="font-medium text-highlighted">{{ formatCurrency(vatPreview.vatAmount) }}</span>
+              </div>
+            </div>
 
-            <UIPhotoUpload
-              label="รูปหลักฐานการรับผ้า"
-              :photos="intakePhotos"
-              :max="1"
-              :disabled="isSubmitting"
-              confirm-remove
-              @update:photos="onIntakePhotosUpdate"
-            />
-          </div>
-        </template>
-      </PosCheckoutPanel>
+            <UIPhotoUpload label="รูปหลักฐานการรับผ้า" :photos="intakePhotos" :max="1" :disabled="isSubmitting"
+              confirm-remove @update:photos="onIntakePhotosUpdate" />
+          </template>
+        </PosCheckoutPanel>
       </div>
     </aside>
   </div>
 
   <!-- Mobile/Tablet: FAB + backdrop -->
-  <div
-    v-if="isCompact && isCartOpen"
-    class="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm"
-    aria-hidden="true"
-    @click="isCartOpen = false"
-  />
-  <UButton
-    v-if="isCompact"
-    icon="i-lucide-shopping-cart"
-    color="primary"
-    size="xl"
-    class="fixed bottom-6 right-6 z-30 size-14 justify-center rounded-full!"
-    aria-label="เปิดตะกร้ารับผ้า"
-    @click="isCartOpen = true"
-  >
-    <span
-      v-if="totalQuantity > 0"
-      class="absolute -right-1 -top-1 inline-flex min-w-5 items-center justify-center rounded-full bg-error px-1.5 text-xs font-semibold text-white"
-    >{{ totalQuantity }}</span>
+  <div v-if="isCompact && isCartOpen" class="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm" aria-hidden="true"
+    @click="isCartOpen = false" />
+  <UButton v-if="isCompact" icon="i-lucide-shopping-cart" color="primary" size="xl"
+    class="fixed bottom-6 right-6 z-30 size-14 justify-center rounded-full!" aria-label="เปิดตะกร้ารับผ้า"
+    @click="() => { isCartOpen = true; }">
+    <span v-if="totalQuantity > 0"
+      class="absolute -right-1 -top-1 inline-flex min-w-5 items-center justify-center rounded-full bg-error px-1.5 text-xs font-semibold text-white">{{
+        totalQuantity }}</span>
   </UButton>
 
   <!-- New Catalog Item Modal -->
@@ -1448,21 +1304,14 @@ const useDuplicateCustomer = async () => {
           </span>
         </p>
         <UFormField label="ราคา (บาท)" required>
-          <UInput
-            v-model.number="priceInputValue"
-            type="number"
-            :min="priceInputMin ?? 0"
-            :max="priceInputMax ?? undefined"
-            class="w-full"
-            autofocus
-            @keydown.enter.prevent="confirmPriceInput"
-          />
+          <UInput v-model.number="priceInputValue" type="number" :min="priceInputMin ?? 0"
+            :max="priceInputMax ?? undefined" class="w-full" autofocus @keydown.enter.prevent="confirmPriceInput" />
         </UFormField>
       </div>
     </template>
     <template #footer>
       <div class="flex w-full justify-end gap-2">
-        <UButton color="neutral" variant="ghost" @click="priceInputModal = false">ยกเลิก</UButton>
+        <UButton color="neutral" variant="ghost" @click="() => { priceInputModal = false; }">ยกเลิก</UButton>
         <UButton icon="i-lucide-plus" @click="confirmPriceInput">เพิ่มในตะกร้า</UButton>
       </div>
     </template>
@@ -1476,13 +1325,8 @@ const useDuplicateCustomer = async () => {
         </UFormField>
 
         <UFormField label="ประเภท / หมวดหมู่">
-          <USelect
-            v-model="newItemData.categoryId"
-            :items="pricingData?.categories || []"
-            label-key="name"
-            value-key="id"
-            class="w-full"
-          />
+          <USelect v-model="newItemData.categoryId" :items="pricingData?.categories || []" label-key="name"
+            value-key="id" class="w-full" />
         </UFormField>
 
         <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
@@ -1498,15 +1342,9 @@ const useDuplicateCustomer = async () => {
     </template>
     <template #footer>
       <div class="flex w-full justify-end gap-3">
-        <UButton label="ยกเลิก" color="neutral" variant="outline" @click="newItemModalOpen = false" />
-        <UButton
-          label="บันทึก"
-          color="primary"
-          icon="i-lucide-check"
-          :loading="isSavingNewItem"
-          :disabled="!newItemData.name.trim()"
-          @click="saveNewItem"
-        />
+        <UButton label="ยกเลิก" color="neutral" variant="outline" @click="() => { newItemModalOpen = false; }" />
+        <UButton label="บันทึก" color="primary" icon="i-lucide-check" :loading="isSavingNewItem"
+          :disabled="!newItemData.name.trim()" @click="saveNewItem" />
       </div>
     </template>
   </UModal>
@@ -1523,8 +1361,9 @@ const useDuplicateCustomer = async () => {
     </template>
     <template #footer>
       <div class="flex w-full justify-end gap-2">
-        <UButton color="neutral" variant="ghost" @click="duplicateCustomerOpen = false">กลับไปแก้ไข</UButton>
-        <UButton icon="i-lucide-user-check" :loading="isSubmitting" @click="useDuplicateCustomer">ใช้ลูกค้าเดิม</UButton>
+        <UButton color="neutral" variant="ghost" @click="() => { duplicateCustomerOpen = false; }">กลับไปแก้ไข</UButton>
+        <UButton icon="i-lucide-user-check" :loading="isSubmitting" @click="useDuplicateCustomer">ใช้ลูกค้าเดิม
+        </UButton>
       </div>
     </template>
   </UModal>
