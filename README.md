@@ -325,7 +325,11 @@ docker volume ls --filter label=com.docker.compose.project=saijai-print-gateway
 
 ตั้ง production environment variables ใน Vercel แล้วใช้ build command `pnpm build`
 อย่างน้อยต้องมี `DATABASE_URL`, `DIRECT_URL`, `BETTER_AUTH_URL`,
-`BETTER_AUTH_SECRET` และ `PRISMA_POOL_MAX=1` รวมถึง integration ที่เปิดใช้จริง
+`BETTER_AUTH_SECRET`, `CRON_SECRET` และ `PRISMA_POOL_MAX=1` รวมถึง integration ที่เปิดใช้จริง
+
+`vercel.json` เรียก `/api/admin/cron/package-expiry` ทุกวันเวลา 02:00 UTC
+(09:00 Asia/Bangkok) โดย Vercel จะส่ง `CRON_SECRET` ผ่าน Authorization header
+อัตโนมัติ ควรกำหนดค่าแบบสุ่มอย่างน้อย 16 ตัวอักษรใน Production Environment
 
 Migration ต้องรันแยกจาก application build:
 

@@ -24,6 +24,7 @@ export default defineEventHandler(async () => {
             serviceName: pkg.service?.name ?? null,
             features: [
                 pkg.service ? `ใช้กับบริการ${pkg.service.name}` : null,
+                pkg.isDelivery ? 'บริการรับ-ส่งแบบไม่ใช้เครดิต' : null,
                 pkg.credits ? `${pkg.credits} เครดิต` : null,
                 pkg.validityDays ? `อายุการใช้งาน ${pkg.validityDays} วัน` : null,
                 pkg.packageType === 'MAIN' ? 'แพ็กเกจหลัก' : 'แพ็กเกจเสริม',

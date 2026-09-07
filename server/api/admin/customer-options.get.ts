@@ -51,7 +51,7 @@ export default defineEventHandler(async (event) => {
         memberEntitlements: {
           where: {
             deletedAt: null,
-            status: "ACTIVE",
+            status: historicalDate ? { in: ["ACTIVE", "EXPIRED"] } : "ACTIVE",
             ...(historicalDate
               ? backdatedEntitlementWhere(historicalDate)
               : { OR: [{ endAt: null }, { endAt: { gte: new Date() } }] }),
@@ -132,6 +132,7 @@ export default defineEventHandler(async (event) => {
           productName: entitlement.product.name,
           creditInitial: entitlement.creditInitial,
           creditRemaining: entitlement.creditRemaining,
+          startAt: entitlement.startAt?.toISOString() ?? null,
           endAt: entitlement.endAt?.toISOString() ?? null,
           deductOn: entitlement.product.deductOn,
           isDelivery: entitlement.product.isDelivery,

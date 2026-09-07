@@ -2,11 +2,17 @@
 import type { Package } from "~~/shared/types/package";
 import type { CreatePackageBody } from "~~/app/composables/usePackages";
 import { packageTypeLabels } from "~~/shared/config/packageConfig";
+import { hasUsablePackageCredits, normalizePackageUsageSettings } from "~~/shared/utils/packageUsage";
 
 const props = defineProps<{
   open: boolean;
   editPackage: Package | null;
   saving?: boolean;
+  services?: Array<{
+    id: string;
+    name: string;
+  }>;
+  servicesLoading?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -16,43 +22,34 @@ const emit = defineEmits<{
 
 interface FormState {
   name: string;
-  description: string;
   packageType: "MAIN" | "ADDON";
-  isDelivery: boolean;
-  deductOn: "CREATED" | "COMPLETED";
+  addonMode: "CREDIT" | "DELIVERY";
   price: number | null;
   credits: number | null;
   validityDays: number | null;
-  isActive: boolean;
-  isPublic: boolean;
   serviceId: string | undefined;
 }
 
 const defaultState = (): FormState => ({
   name: "",
-  description: "",
   packageType: "MAIN",
-  isDelivery: false,
-  deductOn: "CREATED",
+  addonMode: "CREDIT",
   price: null,
   credits: null,
-  validityDays: null,
-  isActive: true,
-  isPublic: true,
+  validityDays: 30,
   serviceId: undefined,
 });
 
-const deductOnOptions = [
-  { label: "ตอนรับผ้า (ทันที)", value: "CREATED" },
-  { label: "ตอนจัดส่งสำเร็จ", value: "COMPLETED" },
+const addonModeOptions = [
+  { label: "บริการเสริมแบบใช้เครดิต", value: "CREDIT" },
+  { label: "บริการรับ-ส่งแบบไม่ใช้เครดิต", value: "DELIVERY" },
 ];
 
 const state = reactive<FormState>(defaultState());
-const errors = ref<{ name?: string; price?: string; serviceId?: string }>({});
-const { items: storefrontItems } = useStorefrontCatalog();
+const errors = ref<{ name?: string; price?: string; credits?: string; validityDays?: string; serviceId?: string }>({});
 const serviceOptions = computed(() => {
   const services = new Map<string, string>();
-  for (const item of storefrontItems.value ?? []) services.set(item.serviceId, item.serviceName);
+  for (const service of props.services ?? []) services.set(service.id, service.name);
   if (props.editPackage?.service) services.set(props.editPackage.service.id, props.editPackage.service.name);
   return Array.from(services, ([value, label]) => ({ value, label }));
 });
@@ -76,15 +73,11 @@ watch(
     if (props.editPackage) {
       const pkg = props.editPackage;
       state.name = pkg.name;
-      state.description = pkg.description ?? "";
       state.packageType = pkg.packageType as "MAIN" | "ADDON";
-      state.isDelivery = Boolean(pkg.isDelivery);
-      state.deductOn = pkg.deductOn as "CREATED" | "COMPLETED";
+      state.addonMode = pkg.isDelivery ? "DELIVERY" : "CREDIT";
       state.price = Number(pkg.price);
       state.credits = pkg.credits ?? null;
       state.validityDays = pkg.validityDays ?? null;
-      state.isActive = pkg.isActive;
-      state.isPublic = pkg.isPublic;
       state.serviceId = pkg.serviceId ?? undefined;
       return;
     }
@@ -95,14 +88,25 @@ watch(
 );
 
 const validate = () => {
-  const nextErrors: { name?: string; price?: string; serviceId?: string } = {};
+  const nextErrors: { name?: string; price?: string; credits?: string; validityDays?: string; serviceId?: string } = {};
+  const usageSettings = normalizePackageUsageSettings({
+    packageType: state.packageType,
+    isDelivery: state.addonMode === "DELIVERY",
+    credits: state.credits,
+  });
 
   if (!state.name.trim()) nextErrors.name = "กรุณากรอกชื่อแพ็กเกจ";
   if (state.price === null || state.price < 0) {
     nextErrors.price = "กรุณากรอกราคาที่ถูกต้อง";
   }
+  if (state.validityDays !== null && (!Number.isInteger(state.validityDays) || state.validityDays < 1)) {
+    nextErrors.validityDays = "กรุณากรอกจำนวนวันเป็นจำนวนเต็มอย่างน้อย 1 วัน";
+  }
   if (state.packageType === "MAIN" && !state.serviceId) {
     nextErrors.serviceId = "กรุณาเลือกบริการของแพ็กเกจ";
+  }
+  if (!hasUsablePackageCredits(usageSettings)) {
+    nextErrors.credits = "กรุณากรอกเครดิตเป็นจำนวนเต็มอย่างน้อย 1 เครดิต";
   }
 
   errors.value = nextErrors;
@@ -113,17 +117,20 @@ const handleSubmit = async () => {
   if (props.saving) return;
   if (!validate()) return;
 
+  const usageSettings = normalizePackageUsageSettings({
+    packageType: state.packageType,
+    isDelivery: state.addonMode === "DELIVERY",
+    credits: state.credits,
+  });
+
   emit("save", {
     name: state.name.trim(),
-    description: state.description.trim() || null,
     packageType: state.packageType,
-    isDelivery: state.packageType === "ADDON" ? state.isDelivery : false,
-    deductOn: state.packageType === "ADDON" && !state.isDelivery ? state.deductOn : "CREATED",
+    isDelivery: usageSettings.isDelivery,
+    deductOn: usageSettings.deductOn,
     price: state.price ?? 0,
-    credits: state.isDelivery ? null : state.credits,
+    credits: usageSettings.credits,
     validityDays: state.validityDays,
-    isActive: state.isActive,
-    isPublic: state.isPublic,
     serviceId: state.packageType === "MAIN" ? state.serviceId : null,
   });
 };
@@ -154,15 +161,7 @@ const handleOpenChange = (value: boolean) => {
           />
         </UFormField>
 
-        <UFormField label="คำอธิบาย">
-          <UInput
-            v-model="state.description"
-            placeholder="รายละเอียดแพ็กเกจโดยย่อ"
-            class="w-full"
-          />
-        </UFormField>
-
-        <div class="grid grid-cols-2 gap-4">
+        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <UFormField label="ประเภทแพ็กเกจ" required>
             <USelect
               v-model="state.packageType"
@@ -172,69 +171,41 @@ const handleOpenChange = (value: boolean) => {
             />
           </UFormField>
 
-          <UFormField label="สถานะ">
-            <div class="flex items-center gap-2 h-9">
-              <USwitch v-model="state.isActive" color="success" />
-              <span
-                class="text-sm"
-                :class="state.isActive ? 'text-success' : 'text-muted'"
-              >
-                {{ state.isActive ? "เปิดใช้งาน" : "ปิดใช้งาน" }}
-              </span>
-            </div>
+          <UFormField
+            v-if="state.packageType === 'MAIN'"
+            label="บริการที่ใช้แพ็กเกจ"
+            required
+            :error="errors.serviceId"
+          >
+            <USelect
+              v-model="state.serviceId"
+              :items="serviceOptions"
+              value-key="value"
+              placeholder="เลือกบริการ"
+              class="w-full"
+              :loading="servicesLoading"
+              :color="errors.serviceId ? 'error' : undefined"
+            />
+          </UFormField>
+
+          <UFormField v-else label="รูปแบบบริการเสริม" required>
+            <USelect
+              v-model="state.addonMode"
+              :items="addonModeOptions"
+              value-key="value"
+              class="w-full"
+            />
           </UFormField>
         </div>
 
-        <UFormField
-          v-if="state.packageType === 'MAIN'"
-          label="บริการที่ใช้แพ็กเกจ"
-          required
-          :error="errors.serviceId"
-          description="เครดิตของแพ็กเกจจะใช้ได้เฉพาะรายการในบริการนี้"
-        >
-          <USelect
-            v-model="state.serviceId"
-            :items="serviceOptions"
-            value-key="value"
-            placeholder="เลือกบริการ"
-            class="w-full"
-            :color="errors.serviceId ? 'error' : undefined"
-          />
-        </UFormField>
-
-        <UFormField
-          label="การแสดงผลหน้าลูกค้า"
-          description="ปิดได้สำหรับแพ็กเกจเฉพาะบุคคล โดยพนักงานยังขายแพ็กเกจที่เปิดใช้งานได้"
-        >
-          <div class="flex h-9 items-center gap-2">
-            <USwitch v-model="state.isPublic" color="primary" />
-            <span class="text-sm" :class="state.isPublic ? 'text-primary' : 'text-muted'">
-              {{ state.isPublic ? "แสดงให้ผู้ใช้เห็น" : "ซ่อนจากผู้ใช้" }}
-            </span>
-          </div>
-        </UFormField>
-
-        <UFormField
-          v-if="state.packageType === 'ADDON'"
-          label="นี่คือบริการรับ-ส่งถึงบ้าน"
-          description="เมื่อลูกค้าซื้อแพ็กเกจนี้และ active อยู่ ระบบจะถือว่าออเดอร์ของลูกค้ามีบริการจัดส่งถึงบ้าน"
-        >
-          <USwitch v-model="state.isDelivery" color="primary" />
-        </UFormField>
-
-        <UFormField v-if="state.packageType === 'ADDON' && !state.isDelivery" label="หักเครดิตเมื่อ">
-          <USelect
-            v-model="state.deductOn"
-            :items="deductOnOptions"
-            value-key="value"
-            class="w-full"
-          />
-          <template #hint>
-            <span class="text-xs text-muted">
-              {{ state.deductOn === 'CREATED' ? 'เครดิตถูกหักทันทีที่รับผ้า' : 'เครดิตถูกหักเมื่อจัดส่งสำเร็จ' }}
-            </span>
-          </template>
-        </UFormField>
+        <UAlert
+          v-if="state.packageType === 'ADDON' && state.addonMode === 'DELIVERY'"
+          color="info"
+          variant="subtle"
+          icon="i-lucide-truck"
+          title="บริการรับ-ส่งไม่ใช้เครดิต"
+          description="พนักงานจะเลือกบันทึกการใช้บริการรับ-ส่งในออเดอร์แต่ละครั้ง"
+        />
 
         <div class="grid grid-cols-2 gap-4">
           <UFormField label="ราคา (บาท)" required :error="errors.price">
@@ -248,7 +219,7 @@ const handleOpenChange = (value: boolean) => {
             />
           </UFormField>
 
-          <UFormField label="อายุการใช้งาน (วัน)">
+          <UFormField label="อายุการใช้งาน (วัน)" :error="errors.validityDays">
             <UInput
               v-model.number="state.validityDays"
               type="number"
@@ -259,13 +230,20 @@ const handleOpenChange = (value: boolean) => {
           </UFormField>
         </div>
 
-        <UFormField v-if="!state.isDelivery" label="เครดิต">
+        <UFormField
+          v-if="state.packageType === 'MAIN' || state.addonMode === 'CREDIT'"
+          label="เครดิต"
+          required
+          :error="errors.credits"
+        >
           <UInput
             v-model.number="state.credits"
             type="number"
-            min="0"
-            placeholder="ไม่มีเครดิต"
+            min="1"
+            step="1"
+            placeholder="1"
             class="w-full"
+            :color="errors.credits ? 'error' : undefined"
           />
         </UFormField>
 

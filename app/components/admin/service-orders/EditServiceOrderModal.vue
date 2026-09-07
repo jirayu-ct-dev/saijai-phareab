@@ -885,7 +885,7 @@ const handleSubmit = async () => {
                     <p class="truncate text-sm text-highlighted">{{ addon.productName }}</p>
                     <p class="text-xs text-muted">
                       <template v-if="addon.isDelivery">บริการรับส่ง · ไม่มีการหักเครดิต</template>
-                      <template v-else>ใช้ได้ {{ addonCreditLimit(addon.id, addon.creditRemaining) }} ครั้ง</template>
+                      <template v-else>ใช้ได้ {{ addonCreditLimit(addon.id, addon.creditRemaining) }} ครั้ง · หักตอนรับผ้า</template>
                     </p>
                   </div>
                   <USwitch

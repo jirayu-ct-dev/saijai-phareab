@@ -1,19 +1,7 @@
 import { prisma } from '~~/server/utils/prisma'
 import { requireRole } from '~~/server/utils/auth'
-
-interface CreatePackageBody {
-    name: string
-    description?: string | null
-    packageType: 'MAIN' | 'ADDON'
-    isDelivery?: boolean
-    deductOn?: 'CREATED' | 'COMPLETED'
-    price: number
-    credits?: number | null
-    validityDays?: number | null
-    isActive?: boolean
-    isPublic?: boolean
-    serviceId?: string | null
-}
+import { hasUsablePackageCredits, normalizePackageUsageSettings } from '~~/shared/utils/packageUsage'
+import { createPackageProductSchema } from '~~/shared/utils/packageProductInput'
 
 /**
  * POST /api/admin/packages
@@ -22,7 +10,7 @@ interface CreatePackageBody {
 export default defineEventHandler(async (event) => {
     await requireRole(event, ['ADMIN'])
 
-    const body = await readBody<CreatePackageBody>(event)
+    const body = await readValidatedBody(event, createPackageProductSchema.parse)
 
     // --- Validation ---
     if (!body.name?.trim()) {
@@ -33,10 +21,17 @@ export default defineEventHandler(async (event) => {
     }
     const packageType = body.packageType ?? 'MAIN'
     const serviceId = packageType === 'MAIN' ? body.serviceId?.trim() || null : null
-    const isDelivery = packageType === 'ADDON' && Boolean(body.isDelivery)
+    const usageSettings = normalizePackageUsageSettings({
+        packageType,
+        isDelivery: body.isDelivery,
+        credits: body.credits,
+    })
 
     if (packageType === 'MAIN' && !serviceId) {
         throw createError({ statusCode: 400, statusMessage: 'กรุณาเลือกบริการของแพ็กเกจหลัก' })
+    }
+    if (!hasUsablePackageCredits(usageSettings)) {
+        throw createError({ statusCode: 400, statusMessage: 'กรุณากำหนดเครดิตอย่างน้อย 1 เครดิต' })
     }
 
     if (serviceId) {
@@ -53,11 +48,11 @@ export default defineEventHandler(async (event) => {
                 name: body.name.trim(),
                 description: body.description?.trim() ?? null,
                 packageType,
-                isDelivery,
-                deductOn: isDelivery ? 'CREATED' : body.deductOn ?? 'CREATED',
+                isDelivery: usageSettings.isDelivery,
+                deductOn: usageSettings.deductOn,
                 price: body.price,
-                credits: isDelivery ? null : body.credits ?? null,
-                validityDays: body.validityDays ?? null,
+                credits: usageSettings.credits,
+                validityDays: body.validityDays ?? 30,
                 isActive: body.isActive ?? true,
                 isPublic: body.isPublic ?? true,
                 serviceId,
