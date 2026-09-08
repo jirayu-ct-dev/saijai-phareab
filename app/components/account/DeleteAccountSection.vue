@@ -12,6 +12,10 @@ const open = () => {
   isOpen.value = true
 }
 
+const close = (): void => {
+  isOpen.value = false
+}
+
 const handleDelete = async () => {
   if (!password.value.trim()) {
     notify.validationError('กรุณากรอกรหัสผ่าน')
@@ -39,7 +43,8 @@ const handleDelete = async () => {
 </script>
 
 <template>
-  <section class="-mx-2 border border-error/30 bg-default px-4 py-3 dark:border-error/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg">
+  <section
+    class="-mx-2 border border-error/30 bg-default px-4 py-3 dark:border-error/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg">
     <div class="flex items-start justify-between gap-4">
       <div>
         <h2 class="text-base font-semibold text-error">ลบบัญชี</h2>
@@ -47,14 +52,7 @@ const handleDelete = async () => {
           ลบบัญชีของคุณออกจากระบบถาวร ข้อมูลทั้งหมดจะไม่สามารถกู้คืนได้
         </p>
       </div>
-      <UButton
-        color="error"
-        variant="subtle"
-        label="ลบบัญชี"
-        icon="i-lucide-trash-2"
-        class="shrink-0"
-        @click="open"
-      />
+      <UButton color="error" variant="subtle" label="ลบบัญชี" icon="i-lucide-trash-2" class="shrink-0" @click="open" />
     </div>
   </section>
 
@@ -65,26 +63,14 @@ const handleDelete = async () => {
           การดำเนินการนี้ไม่สามารถย้อนกลับได้ บัญชีและข้อมูลส่วนตัวของคุณจะถูกลบออกจากระบบ
         </div>
         <UFormField label="ยืนยันรหัสผ่าน" required>
-          <UInput
-            v-model="password"
-            type="password"
-            placeholder="กรอกรหัสผ่านเพื่อยืนยัน"
-            class="w-full"
-            autofocus
-            @keyup.enter="handleDelete"
-          />
+          <UInput v-model="password" type="password" placeholder="กรอกรหัสผ่านเพื่อยืนยัน" class="w-full" autofocus
+            @keyup.enter="handleDelete" />
         </UFormField>
       </div>
     </template>
     <template #footer>
-      <UButton color="neutral" variant="outline" label="ยกเลิก" @click="isOpen = false" />
-      <UButton
-        color="error"
-        label="ลบบัญชีถาวร"
-        icon="i-lucide-trash-2"
-        :loading="isDeleting"
-        @click="handleDelete"
-      />
+      <UButton color="neutral" variant="outline" label="ยกเลิก" @click="close" />
+      <UButton color="error" label="ลบบัญชีถาวร" icon="i-lucide-trash-2" :loading="isDeleting" @click="handleDelete" />
     </template>
   </UModal>
 </template>

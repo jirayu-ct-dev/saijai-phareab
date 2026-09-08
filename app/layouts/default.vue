@@ -20,6 +20,14 @@ const colorModeIcon = computed(() => {
     return isDark.value ? 'i-lucide-moon' : 'i-lucide-sun'
 })
 
+const toggleMobileMenu = (): void => {
+    open.value = !open.value
+}
+
+const toggleColorMode = (): void => {
+    isDark.value = !isDark.value
+}
+
 onMounted(() => {
     isColorModeReady.value = true
 })
@@ -47,7 +55,7 @@ const menu = computed<NavigationMenuItem[]>(() => [
     }
 ])
 
-    const itemsDropdown = computed<DropdownMenuItem[][]>(() => {
+const itemsDropdown = computed<DropdownMenuItem[][]>(() => {
     const roleLinks: DropdownMenuItem[] = []
 
     // Suspended staff (isActive === false) are treated as regular customers:
@@ -125,14 +133,9 @@ const menu = computed<NavigationMenuItem[]>(() => [
     <UHeader v-model:open="open" mode="slideover">
 
         <template #toggle>
-            <UButton
-                color="neutral"
-                variant="ghost"
-                :icon="open ? 'i-lucide-x' : 'i-lucide-menu'"
-                :aria-label="open ? 'ปิดเมนู' : 'เปิดเมนู'"
-                class="lg:hidden -me-1.5 touch-manipulation cursor-pointer"
-                @pointerup.prevent="open = !open"
-            />
+            <UButton color="neutral" variant="ghost" :icon="open ? 'i-lucide-x' : 'i-lucide-menu'"
+                :aria-label="open ? 'ปิดเมนู' : 'เปิดเมนู'" class="lg:hidden -me-1.5 touch-manipulation cursor-pointer"
+                @pointerup.prevent="toggleMobileMenu" />
         </template>
 
         <UNavigationMenu :items="menu" />
@@ -148,14 +151,8 @@ const menu = computed<NavigationMenuItem[]>(() => [
 
 
                 <UIButtonAddFriendLine :addLineFriend="addLineFriend" />
-                <UButton
-                    :icon="colorModeIcon"
-                    color="neutral"
-                    variant="ghost"
-                    aria-label="เปลี่ยนธีม"
-                    class="cursor-pointer"
-                    @click="isDark = !isDark"
-                />
+                <UButton :icon="colorModeIcon" color="neutral" variant="ghost" aria-label="เปลี่ยนธีม"
+                    class="cursor-pointer" @click="toggleColorMode" />
                 <div v-if="!session" class="hidden md:inline-flex">
                     <UButton color="neutral" variant="ghost" class="p-2" to="/auth/login" label="ลงชื่อเข้าใช้" />
                     <UButton color="primary" variant="solid" class="p-2" to="/auth/register" label="สมัครสมาชิก" />
@@ -179,14 +176,8 @@ const menu = computed<NavigationMenuItem[]>(() => [
             <UIButtonAddFriendLine :addLineFriend="addLineFriend" class="w-full" />
             <div class="flex items-center justify-between mt-4">
                 <span class="text-sm font-medium text-gray-700 dark:text-gray-300">เปลี่ยนธีม</span>
-                <UButton
-                    :icon="colorModeIcon"
-                    color="neutral"
-                    variant="ghost"
-                    aria-label="เปลี่ยนธีม"
-                    class="cursor-pointer"
-                    @click="isDark = !isDark"
-                />
+                <UButton :icon="colorModeIcon" color="neutral" variant="ghost" aria-label="เปลี่ยนธีม"
+                    class="cursor-pointer" @click="toggleColorMode" />
             </div>
             <div v-if="!session" class="mt-4 flex flex-col gap-2">
                 <UButton block color="neutral" variant="outline" to="/auth/login" label="ลงชื่อเข้าใช้" />
@@ -219,7 +210,8 @@ const menu = computed<NavigationMenuItem[]>(() => [
 
     <UFooter>
         <template #top>
-            <div class="container mx-auto grid max-w-7xl grid-cols-1 gap-12 px-4 sm:px-6 lg:grid-cols-2 lg:gap-24 lg:px-12">
+            <div
+                class="container mx-auto grid max-w-7xl grid-cols-1 gap-12 px-4 sm:px-6 lg:grid-cols-2 lg:gap-24 lg:px-12">
                 <div class="flex flex-col gap-6">
                     <div>
                         <div class="flex items-center gap-2">
@@ -240,16 +232,17 @@ const menu = computed<NavigationMenuItem[]>(() => [
                     <div>
                         <h3 class="font-semibold text-sm mb-4">ติดตามเรา</h3>
                         <div class="flex gap-2">
-                            <UButton color="neutral" variant="ghost" size="sm" to="https://www.facebook.com/saijaiburiram/?rdid=amPWW1eNJg7Yb6OB" target="_blank" rel="noopener noreferrer" aria-label="Facebook"
-                                class="text-[#4267B2]">
+                            <UButton color="neutral" variant="ghost" size="sm"
+                                to="https://www.facebook.com/saijaiburiram/?rdid=amPWW1eNJg7Yb6OB" target="_blank"
+                                rel="noopener noreferrer" aria-label="Facebook" class="text-[#4267B2]">
                                 <UIcon name="i-simple-icons-facebook" class="size-5" />
                             </UButton>
                             <!-- <UButton color="neutral" variant="ghost" size="sm" to="#" aria-label="Instagram"
                                 class="text-[#E1306C]">
                                 <UIcon name="i-simple-icons-instagram" class="size-5" />
                             </UButton> -->
-                            <UButton color="neutral" variant="ghost" size="sm" to="https://line.me/R/ti/p/@883vmdct" target="_blank" rel="noopener noreferrer" aria-label="LINE"
-                                class="text-[#06C755]">
+                            <UButton color="neutral" variant="ghost" size="sm" to="https://line.me/R/ti/p/@883vmdct"
+                                target="_blank" rel="noopener noreferrer" aria-label="LINE" class="text-[#06C755]">
                                 <UIcon name="i-simple-icons-line" class="size-5" />
                             </UButton>
                         </div>
@@ -261,11 +254,9 @@ const menu = computed<NavigationMenuItem[]>(() => [
                     <div>
                         <h3 class="font-semibold text-sm mb-4">บริการของเรา</h3>
                         <ul class="space-y-4 text-sm">
-                            <li><a href="/pricing"
-                                    class="hover:text-primary transition-colors">ซักอบรีดรายชิ้น</a>
+                            <li><a href="/pricing" class="hover:text-primary transition-colors">ซักอบรีดรายชิ้น</a>
                             </li>
-                            <li><a href="/packages"
-                                    class="hover:text-primary transition-colors">สมัครสมาชิกรายเดือน</a>
+                            <li><a href="/packages" class="hover:text-primary transition-colors">สมัครสมาชิกรายเดือน</a>
                             </li>
                             <li><a href="/#faq" class="hover:text-primary transition-colors">คำถามที่พบบ่อย</a></li>
                             <li><a href="/#contact" class="hover:text-primary transition-colors">ติดต่อเรา</a></li>
@@ -286,7 +277,8 @@ const menu = computed<NavigationMenuItem[]>(() => [
         </template>
 
         <template #bottom>
-            <div class="container mx-auto flex max-w-7xl flex-col items-center justify-between gap-4 px-4 sm:px-6 md:flex-row lg:px-12">
+            <div
+                class="container mx-auto flex max-w-7xl flex-col items-center justify-between gap-4 px-4 sm:px-6 md:flex-row lg:px-12">
                 <p class="text-sm text-muted">
                     &copy; {{ new Date().getFullYear() }} SaiJai-Phareab. All rights reserved.
                 </p>

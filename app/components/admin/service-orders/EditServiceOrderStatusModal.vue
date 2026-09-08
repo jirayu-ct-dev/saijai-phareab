@@ -12,6 +12,9 @@ const props = defineProps<{
 }>();
 
 const open = defineModel<boolean>("open", { default: false });
+const closeModal = (): void => {
+  open.value = false;
+};
 const emit = defineEmits<{
   updated: [];
 }>();
@@ -52,12 +55,8 @@ const handleSubmit = async () => {
 </script>
 
 <template>
-  <UModal
-    v-model:open="open"
-    title="อัปเดตสถานะผ้า"
-    :description="order?.orderNo || order?.customer.name || 'รายการรับผ้า'"
-    :ui="{ content: 'max-w-md' }"
-  >
+  <UModal v-model:open="open" title="อัปเดตสถานะผ้า"
+    :description="order?.orderNo || order?.customer.name || 'รายการรับผ้า'" :ui="{ content: 'max-w-md' }">
     <template #body>
       <div v-if="order" class="space-y-4">
         <div class="rounded-md border border-default/40 bg-elevated/50 p-3">
@@ -86,15 +85,9 @@ const handleSubmit = async () => {
 
     <template #footer>
       <div class="flex w-full justify-end gap-2">
-        <UButton label="ยกเลิก" color="neutral" variant="outline" @click="open = false" />
-        <UButton
-          label="บันทึกสถานะ"
-          color="primary"
-          icon="i-lucide-check"
-          :loading="isSubmitting"
-          :disabled="!order || selectedStatus === order.status"
-          @click="handleSubmit"
-        />
+        <UButton label="ยกเลิก" color="neutral" variant="outline" @click="closeModal" />
+        <UButton label="บันทึกสถานะ" color="primary" icon="i-lucide-check" :loading="isSubmitting"
+          :disabled="!order || selectedStatus === order.status" @click="handleSubmit" />
       </div>
     </template>
   </UModal>

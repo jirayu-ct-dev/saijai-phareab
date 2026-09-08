@@ -73,6 +73,10 @@ const signOutBeforeClaim = async () => {
   }
 };
 
+const togglePasswordVisibility = (): void => {
+  showPassword.value = !showPassword.value;
+};
+
 onMounted(() => {
   if (token.value && !user.value) void validateToken();
 });
@@ -95,8 +99,10 @@ onMounted(() => {
         </div>
         <div>
           <p class="font-semibold text-highlighted">เปิดใช้งานบัญชีแล้ว</p>
-          <p v-if="verificationEmailSent" class="mt-1 text-sm text-muted">ส่งอีเมลยืนยันไปที่ {{ completedEmail }} กรุณายืนยันก่อนเข้าสู่ระบบ</p>
-          <p v-else class="mt-1 text-sm text-warning">ยังส่งอีเมลยืนยันไม่ได้ กรุณาใช้เมนูลืมรหัสผ่านหรือติดต่อร้านเพื่อขอความช่วยเหลือ</p>
+          <p v-if="verificationEmailSent" class="mt-1 text-sm text-muted">ส่งอีเมลยืนยันไปที่ {{ completedEmail }}
+            กรุณายืนยันก่อนเข้าสู่ระบบ</p>
+          <p v-else class="mt-1 text-sm text-warning">ยังส่งอีเมลยืนยันไม่ได้
+            กรุณาใช้เมนูลืมรหัสผ่านหรือติดต่อร้านเพื่อขอความช่วยเหลือ</p>
         </div>
         <UButton to="/auth/login" block size="lg">ไปหน้าเข้าสู่ระบบ</UButton>
       </div>
@@ -108,7 +114,8 @@ onMounted(() => {
         <div>
           <p class="font-semibold text-highlighted">กรุณาออกจากระบบก่อน</p>
           <p class="mt-1 text-sm text-muted">
-            ขณะนี้คุณเข้าสู่ระบบด้วย {{ user.email }} การเปิดใช้งานรหัสนี้เป็นอีกบัญชีหนึ่งและระบบจะไม่รวมบัญชีให้อัตโนมัติ
+            ขณะนี้คุณเข้าสู่ระบบด้วย {{ user.email }}
+            การเปิดใช้งานรหัสนี้เป็นอีกบัญชีหนึ่งและระบบจะไม่รวมบัญชีให้อัตโนมัติ
           </p>
         </div>
         <UButton block size="lg" icon="i-lucide-log-out" :loading="isSigningOut" @click="signOutBeforeClaim">
@@ -119,8 +126,10 @@ onMounted(() => {
       <div v-else class="space-y-5">
         <UFormField label="รหัสเปิดใช้งาน" required>
           <div class="flex gap-2">
-            <UInput v-model="token" class="min-w-0 flex-1" autocomplete="one-time-code" :disabled="Boolean(validation?.valid)" />
-            <UButton color="neutral" variant="outline" :loading="isValidating" :disabled="Boolean(validation?.valid)" @click="validateToken">ตรวจสอบ</UButton>
+            <UInput v-model="token" class="min-w-0 flex-1" autocomplete="one-time-code"
+              :disabled="Boolean(validation?.valid)" />
+            <UButton color="neutral" variant="outline" :loading="isValidating" :disabled="Boolean(validation?.valid)"
+              @click="validateToken">ตรวจสอบ</UButton>
           </div>
         </UFormField>
 
@@ -136,12 +145,17 @@ onMounted(() => {
               <UInput v-model="form.email" type="email" autocomplete="email" class="w-full" />
             </UFormField>
             <UFormField label="ตั้งรหัสผ่าน" required>
-              <UInput v-model="form.password" :type="showPassword ? 'text' : 'password'" autocomplete="new-password" class="w-full">
-                <template #trailing><UButton color="neutral" variant="link" :icon="showPassword ? 'i-lucide-eye-off' : 'i-lucide-eye'" @click="showPassword = !showPassword" /></template>
+              <UInput v-model="form.password" :type="showPassword ? 'text' : 'password'" autocomplete="new-password"
+                class="w-full">
+                <template #trailing>
+                  <UButton color="neutral" variant="link" :icon="showPassword ? 'i-lucide-eye-off' : 'i-lucide-eye'"
+                    @click="togglePasswordVisibility" />
+                </template>
               </UInput>
             </UFormField>
             <UFormField label="ยืนยันรหัสผ่าน" required>
-              <UInput v-model="form.confirmPassword" :type="showPassword ? 'text' : 'password'" autocomplete="new-password" class="w-full" />
+              <UInput v-model="form.confirmPassword" :type="showPassword ? 'text' : 'password'"
+                autocomplete="new-password" class="w-full" />
             </UFormField>
             <UButton type="submit" block size="lg" :loading="isSubmitting">เปิดใช้งานบัญชี</UButton>
           </UForm>
@@ -149,7 +163,9 @@ onMounted(() => {
       </div>
 
       <template #footer>
-        <p class="text-center text-sm text-muted">มีบัญชีแล้ว? <NuxtLink to="/auth/login" class="font-semibold text-primary hover:underline">เข้าสู่ระบบ</NuxtLink></p>
+        <p class="text-center text-sm text-muted">มีบัญชีแล้ว? <NuxtLink to="/auth/login"
+            class="font-semibold text-primary hover:underline">เข้าสู่ระบบ</NuxtLink>
+        </p>
       </template>
     </UCard>
   </div>

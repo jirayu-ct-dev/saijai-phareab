@@ -69,6 +69,9 @@ const emit = defineEmits<{
 }>();
 
 const open = defineModel<boolean>("open", { default: false });
+const closeModal = (): void => {
+  open.value = false;
+};
 
 const serviceOrderStatusOptions: Array<{ label: string; value: ServiceOrderStatus }> = [
   { label: "รับผ้าแล้ว", value: "RECEIVED" },
@@ -155,27 +158,27 @@ const currentOrderCustomer = computed<CustomerOption | null>(() => {
     customerAccountStatus: customer.customerAccountStatus,
     activeMemberEntitlement: props.order?.memberEntitlement
       ? {
-          id: props.order.memberEntitlement.id,
-          productName: props.order.memberEntitlement.product.name,
-          creditInitial: props.order.memberEntitlement.creditInitial,
-          creditRemaining: props.order.memberEntitlement.creditRemaining,
-          startAt: null,
-          endAt: props.order.memberEntitlement.endAt,
-          serviceId: props.order.memberEntitlement.product.serviceId,
-          serviceName: props.order.memberEntitlement.product.service?.name ?? null,
-        }
+        id: props.order.memberEntitlement.id,
+        productName: props.order.memberEntitlement.product.name,
+        creditInitial: props.order.memberEntitlement.creditInitial,
+        creditRemaining: props.order.memberEntitlement.creditRemaining,
+        startAt: null,
+        endAt: props.order.memberEntitlement.endAt,
+        serviceId: props.order.memberEntitlement.product.serviceId,
+        serviceName: props.order.memberEntitlement.product.service?.name ?? null,
+      }
       : null,
     memberEntitlementOptions: props.order?.memberEntitlement
       ? [{
-          id: props.order.memberEntitlement.id,
-          productName: props.order.memberEntitlement.product.name,
-          creditInitial: props.order.memberEntitlement.creditInitial,
-          creditRemaining: props.order.memberEntitlement.creditRemaining,
-          startAt: null,
-          endAt: props.order.memberEntitlement.endAt,
-          serviceId: props.order.memberEntitlement.product.serviceId,
-          serviceName: props.order.memberEntitlement.product.service?.name ?? null,
-        }]
+        id: props.order.memberEntitlement.id,
+        productName: props.order.memberEntitlement.product.name,
+        creditInitial: props.order.memberEntitlement.creditInitial,
+        creditRemaining: props.order.memberEntitlement.creditRemaining,
+        startAt: null,
+        endAt: props.order.memberEntitlement.endAt,
+        serviceId: props.order.memberEntitlement.product.serviceId,
+        serviceName: props.order.memberEntitlement.product.service?.name ?? null,
+      }]
       : [],
     addonEntitlements: [],
   };
@@ -281,10 +284,10 @@ const hangerCharge = computed(() =>
   form.washFoldMode
     ? { count: 0, pricePerUnit: 0, total: 0 }
     : {
-        count: form.missingHangerCount,
-        pricePerUnit: hangerPricePerUnit.value,
-        total: form.missingHangerCount * hangerPricePerUnit.value,
-      },
+      count: form.missingHangerCount,
+      pricePerUnit: hangerPricePerUnit.value,
+      total: form.missingHangerCount * hangerPricePerUnit.value,
+    },
 );
 const sanitizedDiscountAmount = computed(() => {
   const raw = Number(form.discountAmount || 0);
@@ -466,10 +469,10 @@ const applyOrderToForm = () => {
   editDeliveryImageFile.value = null;
   uploadedSlip.value = order.payment?.slipImage
     ? {
-        id: order.payment.slipImage.id,
-        secureUrl: order.payment.slipImage.secureUrl,
-        url: order.payment.slipImage.url,
-      }
+      id: order.payment.slipImage.id,
+      secureUrl: order.payment.slipImage.secureUrl,
+      url: order.payment.slipImage.url,
+    }
     : null;
   slipFile.value = null;
 };
@@ -557,6 +560,9 @@ const editPriceInputPriceId = ref("");
 const editPriceInputValue = ref<number | null>(null);
 const editPriceInputMin = ref<number | null>(null);
 const editPriceInputMax = ref<number | null>(null);
+const closeEditPriceInput = (): void => {
+  editPriceInputOpen.value = false;
+};
 const isEditRangeItem = (storefrontPriceId: string) => {
   const c = catalogMap.value.get(storefrontPriceId);
   return c?.priceMin != null && c?.priceMax != null && c.priceMin !== c.priceMax;
@@ -605,7 +611,7 @@ const catalogDropdownItems = computed<CatalogMenuItem[][]>(() => {
     icon: "i-lucide-plus",
     onSelect: () => addCatalogItemToTop(item.id),
   }));
-  if (!items.length) return [[{ label: "ไม่พบบริการ", icon: "i-lucide-ban", onSelect: () => {} }]];
+  if (!items.length) return [[{ label: "ไม่พบบริการ", icon: "i-lucide-ban", onSelect: () => { } }]];
   return [items];
 });
 
@@ -784,17 +790,13 @@ const handleSubmit = async () => {
 </script>
 
 <template>
-  <UModal
-    v-model:open="open"
-    title="แก้ไขรายการรับผ้า"
-    description="อัปเดตรายการ บริการ และข้อมูลชำระเงินของงานนี้"
+  <UModal v-model:open="open" title="แก้ไขรายการรับผ้า" description="อัปเดตรายการ บริการ และข้อมูลชำระเงินของงานนี้"
     :ui="{
       content: 'sm:!max-w-none sm:!w-screen sm:!h-screen sm:!max-h-screen sm:!rounded-none bg-default dark:bg-default',
       body: '!p-2 sm:p-4! bg-default dark:bg-default',
       header: 'bg-default dark:bg-default',
       footer: 'bg-default dark:bg-default',
-    }"
-  >
+    }">
     <template #body>
       <div class="grid gap-3 lg:grid-cols-[minmax(0,1.35fr)_minmax(320px,0.9fr)] sm:gap-4">
         <div class="space-y-3 sm:space-y-4">
@@ -807,35 +809,28 @@ const handleSubmit = async () => {
             </div>
 
             <div class="mt-4 grid gap-4 md:grid-cols-2">
-              <div
-                v-if="props.order?.customer && isUnidentifiableLegacyCustomer(props.order.customer)"
-                class="rounded-md border border-warning/30 bg-warning/5 p-3 text-xs text-warning md:col-span-2"
-              >
-                ลูกค้าปัจจุบันเป็นข้อมูลเก่าที่ระบุตัวตนไม่ได้ จึงไม่แสดงเป็นตัวเลือกสำหรับออเดอร์ใหม่ กรุณาเลือกลูกค้าที่มีชื่อและเบอร์จริงหากต้องการเปลี่ยนเจ้าของออเดอร์
+              <div v-if="props.order?.customer && isUnidentifiableLegacyCustomer(props.order.customer)"
+                class="rounded-md border border-warning/30 bg-warning/5 p-3 text-xs text-warning md:col-span-2">
+                ลูกค้าปัจจุบันเป็นข้อมูลเก่าที่ระบุตัวตนไม่ได้ จึงไม่แสดงเป็นตัวเลือกสำหรับออเดอร์ใหม่
+                กรุณาเลือกลูกค้าที่มีชื่อและเบอร์จริงหากต้องการเปลี่ยนเจ้าของออเดอร์
               </div>
               <UFormField label="ลูกค้า" required>
-                <USelectMenu
-                  v-model="form.customerId"
-                  :items="customerOptions"
-                  value-key="value"
-                  label-key="label"
-                  searchable
-                  :loading="isCustomersLoading"
-                  :avatar="getAvatarProps(selectedCustomer)"
-                  class="w-full"
-                  placeholder="เลือกลูกค้า"
-                  @update:search-term="setCustomerSearch"
-                >
+                <USelectMenu v-model="form.customerId" :items="customerOptions" value-key="value" label-key="label"
+                  searchable :loading="isCustomersLoading" :avatar="getAvatarProps(selectedCustomer)" class="w-full"
+                  placeholder="เลือกลูกค้า" @update:search-term="setCustomerSearch">
                   <template #item="{ item }">
                     <div class="flex items-center gap-3">
                       <UAvatar v-bind="getAvatarProps(item)" size="sm" />
                       <div class="min-w-0">
                         <div class="flex min-w-0 items-center gap-2">
-                          <p class="truncate font-medium text-highlighted">{{ item.name || item.email || 'ไม่ระบุชื่อ' }}</p>
-                          <UBadge v-if="item.customerAccountStatus === 'OFFLINE'" label="ยังไม่เปิดใช้งาน" color="warning" variant="subtle" size="xs" />
+                          <p class="truncate font-medium text-highlighted">{{ item.name || item.email || 'ไม่ระบุชื่อ'
+                            }}</p>
+                          <UBadge v-if="item.customerAccountStatus === 'OFFLINE'" label="ยังไม่เปิดใช้งาน"
+                            color="warning" variant="subtle" size="xs" />
                         </div>
                         <p class="truncate text-xs text-muted">
-                          {{ item.phoneNumber || "ไม่ระบุเบอร์" }}<template v-if="item.email"> | {{ item.email }}</template>
+                          {{ item.phoneNumber || "ไม่ระบุเบอร์" }}<template v-if="item.email"> | {{ item.email
+                            }}</template>
                         </p>
                       </div>
                     </div>
@@ -846,66 +841,55 @@ const handleSubmit = async () => {
                 </USelectMenu>
               </UFormField>
 
-              <div
-                v-if="canUseMemberPackage"
-                class="rounded-md border border-default/35 bg-elevated/70 p-3 dark:border-default/25 dark:bg-elevated/45 md:col-span-2"
-              >
+              <div v-if="canUseMemberPackage"
+                class="rounded-md border border-default/35 bg-elevated/70 p-3 dark:border-default/25 dark:bg-elevated/45 md:col-span-2">
                 <div class="flex items-start justify-between gap-3">
                   <div class="min-w-0">
-                    <p class="font-medium text-success">{{ selectedMemberEntitlement?.productName ?? activeMemberEntitlement?.productName }}</p>
+                    <p class="font-medium text-success">{{ selectedMemberEntitlement?.productName ??
+                      activeMemberEntitlement?.productName }}</p>
                     <p class="text-xs text-muted">
-                      เครดิตคงเหลือ {{ selectedMemberEntitlement?.creditRemaining ?? 0 }} | ใช้งานครั้งนี้ {{ creditUsedPreview }} เครดิต
+                      เครดิตคงเหลือ {{ selectedMemberEntitlement?.creditRemaining ?? 0 }} | ใช้งานครั้งนี้ {{
+                      creditUsedPreview }}
+                      เครดิต
                       <span v-if="form.memberEntitlementId && cashQuantity > 0">
                         | นอกบริการหรือเครดิตไม่พอ {{ cashQuantity }} ชิ้น ({{ formatCurrency(cashSubtotal) }})
                       </span>
                     </p>
-                    <p v-if="selectedMemberEntitlement?.serviceName" class="text-xs text-muted">ใช้กับบริการ {{ selectedMemberEntitlement.serviceName }}</p>
-                    <p v-if="selectedMemberEntitlement?.startAt && selectedMemberEntitlement?.endAt" class="text-xs text-muted">
-                      ช่วงสิทธิ์ {{ formatEntitlementDate(selectedMemberEntitlement.startAt) }}–{{ formatEntitlementDate(selectedMemberEntitlement.endAt) }}
+                    <p v-if="selectedMemberEntitlement?.serviceName" class="text-xs text-muted">ใช้กับบริการ {{
+                      selectedMemberEntitlement.serviceName }}</p>
+                    <p v-if="selectedMemberEntitlement?.startAt && selectedMemberEntitlement?.endAt"
+                      class="text-xs text-muted">
+                      ช่วงสิทธิ์ {{ formatEntitlementDate(selectedMemberEntitlement.startAt) }}–{{
+                        formatEntitlementDate(selectedMemberEntitlement.endAt) }}
                     </p>
                   </div>
-                  <USwitch
-                    :model-value="Boolean(form.memberEntitlementId)"
-                    color="success"
-                    @update:model-value="form.memberEntitlementId = $event ? activeMemberEntitlement?.id ?? null : null"
-                  />
+                  <USwitch :model-value="Boolean(form.memberEntitlementId)" color="success"
+                    @update:model-value="form.memberEntitlementId = $event ? activeMemberEntitlement?.id ?? null : null" />
                 </div>
               </div>
 
-              <div
-                v-if="activeAddonEntitlements.length"
-                class="space-y-3 rounded-md border border-default/35 bg-elevated/70 p-3 dark:border-default/25 dark:bg-elevated/45 md:col-span-2"
-              >
+              <div v-if="activeAddonEntitlements.length"
+                class="space-y-3 rounded-md border border-default/35 bg-elevated/70 p-3 dark:border-default/25 dark:bg-elevated/45 md:col-span-2">
                 <div>
                   <p class="font-medium text-highlighted">แพ็กเกจเสริมที่ใช้กับออเดอร์นี้</p>
-                  <p class="text-xs text-muted">บริการรับส่งเป็นสิทธิ์แสดงสถานะ ไม่หักเครดิต ส่วนแพ็กเกจเสริมอื่นเลือกจำนวนเครดิตตามปกติ</p>
+                  <p class="text-xs text-muted">บริการรับส่งเป็นสิทธิ์แสดงสถานะ ไม่หักเครดิต
+                    ส่วนแพ็กเกจเสริมอื่นเลือกจำนวนเครดิตตามปกติ</p>
                 </div>
-                <div v-for="addon in activeAddonEntitlements" :key="addon.id" class="flex items-center justify-between gap-3">
+                <div v-for="addon in activeAddonEntitlements" :key="addon.id"
+                  class="flex items-center justify-between gap-3">
                   <div class="min-w-0">
                     <p class="truncate text-sm text-highlighted">{{ addon.productName }}</p>
                     <p class="text-xs text-muted">
                       <template v-if="addon.isDelivery">บริการรับส่ง · ไม่มีการหักเครดิต</template>
-                      <template v-else>ใช้ได้ {{ addonCreditLimit(addon.id, addon.creditRemaining) }} ครั้ง · หักตอนรับผ้า</template>
+                      <template v-else>ใช้ได้ {{ addonCreditLimit(addon.id, addon.creditRemaining) }} ครั้ง ·
+                        หักตอนรับผ้า</template>
                     </p>
                   </div>
-                  <USwitch
-                    v-if="addon.isDelivery"
-                    :model-value="selectedAddonCreditMap.has(addon.id)"
-                    color="success"
-                    aria-label="ใช้บริการรับส่ง"
-                    @update:model-value="setDeliveryAddonSelected(addon.id, $event)"
-                  />
-                  <UInputNumber
-                    v-else
-                    :model-value="selectedAddonCreditMap.get(addon.id) ?? 0"
-                    :min="0"
-                    :max="addonCreditLimit(addon.id, addon.creditRemaining)"
-                    :step="1"
-                    orientation="horizontal"
-                    size="xs"
-                    class="w-24 shrink-0"
-                    @update:model-value="setAddonCredits(addon.id, $event)"
-                  />
+                  <USwitch v-if="addon.isDelivery" :model-value="selectedAddonCreditMap.has(addon.id)" color="success"
+                    aria-label="ใช้บริการรับส่ง" @update:model-value="setDeliveryAddonSelected(addon.id, $event)" />
+                  <UInputNumber v-else :model-value="selectedAddonCreditMap.get(addon.id) ?? 0" :min="0"
+                    :max="addonCreditLimit(addon.id, addon.creditRemaining)" :step="1" orientation="horizontal"
+                    size="xs" class="w-24 shrink-0" @update:model-value="setAddonCredits(addon.id, $event)" />
                 </div>
               </div>
 
@@ -914,23 +898,19 @@ const handleSubmit = async () => {
                   <div class="flex flex-wrap gap-1.5">
                     <UButton size="xs" color="neutral" variant="soft" label="พุธ" @click="setPickupDow(3)" />
                     <UButton size="xs" color="neutral" variant="soft" label="เสาร์" @click="setPickupDow(6)" />
-                    <UButton size="xs" color="neutral" :variant="dueDate ? 'ghost' : 'solid'" label="ไม่ระบุ" @click="clearDueDate" />
+                    <UButton size="xs" color="neutral" :variant="dueDate ? 'ghost' : 'solid'" label="ไม่ระบุ"
+                      @click="clearDueDate" />
                   </div>
                   <div v-if="dueDate" class="grid grid-cols-2 gap-2">
                     <UPopover>
-                      <UButton
-                        :label="dueDateLabel"
-                        icon="i-lucide-calendar"
-                        color="neutral"
-                        variant="outline"
-                        block
-                        class="justify-start font-normal"
-                      />
+                      <UButton :label="dueDateLabel" icon="i-lucide-calendar" color="neutral" variant="outline" block
+                        class="justify-start font-normal" />
                       <template #content>
                         <UCalendar v-model="dueDate" locale="th-TH" class="p-2" />
                       </template>
                     </UPopover>
-                    <USelect v-model="dueTime" :items="dueTimeOptions" value-key="value" icon="i-lucide-clock" class="w-full" />
+                    <USelect v-model="dueTime" :items="dueTimeOptions" value-key="value" icon="i-lucide-clock"
+                      class="w-full" />
                   </div>
                   <p v-else class="text-xs text-muted">ไม่ระบุวันนัด — กดพุธ / เสาร์ หรือ
                     <button class="underline" type="button" @click="setPickupDow(3)">เลือกวัน</button>
@@ -939,7 +919,8 @@ const handleSubmit = async () => {
               </UFormField>
 
               <UFormField label="สถานะงาน">
-                <USelect v-model="form.serviceOrderStatus" :items="serviceOrderStatusOptions" value-key="value" class="w-full" />
+                <USelect v-model="form.serviceOrderStatus" :items="serviceOrderStatusOptions" value-key="value"
+                  class="w-full" />
               </UFormField>
             </div>
           </div>
@@ -949,7 +930,9 @@ const handleSubmit = async () => {
               <div>
                 <p class="font-medium text-highlighted">โหมดซัก-พับ ชั่งกิโล</p>
                 <p class="text-xs text-muted">
-                  {{ formatCurrency(washFoldPricePerKg) }} / กก.<span v-if="washFoldMinKg > 0"> · ขั้นต่ำ {{ washFoldMinKg }} กก.</span>
+                  {{ formatCurrency(washFoldPricePerKg) }} / กก.<span v-if="washFoldMinKg > 0"> · ขั้นต่ำ {{
+                    washFoldMinKg }}
+                    กก.</span>
                 </p>
               </div>
               <USwitch v-model="form.washFoldMode" color="warning" />
@@ -970,8 +953,10 @@ const handleSubmit = async () => {
                 <p class="font-medium text-highlighted">รายการบริการ</p>
                 <p class="text-sm text-muted">เพิ่มบริการที่ลูกค้านำมาส่งซักและกำหนดจำนวน</p>
               </div>
-              <UDropdownMenu :items="catalogDropdownItems" :content="{ align: 'end' }" :ui="{ content: 'max-h-80 overflow-y-auto' }">
-                <UButton label="เพิ่มรายการ" icon="i-lucide-plus" color="neutral" variant="outline" :loading="isCatalogLoading" />
+              <UDropdownMenu :items="catalogDropdownItems" :content="{ align: 'end' }"
+                :ui="{ content: 'max-h-80 overflow-y-auto' }">
+                <UButton label="เพิ่มรายการ" icon="i-lucide-plus" color="neutral" variant="outline"
+                  :loading="isCatalogLoading" />
               </UDropdownMenu>
             </div>
 
@@ -983,48 +968,40 @@ const handleSubmit = async () => {
                       <p class="min-w-0 flex-1 truncate text-sm text-highlighted">{{ item.label }}</p>
                       <div class="flex items-center justify-end">
                         <span class="w-16 shrink-0 text-right text-xs font-medium text-muted">
-                          {{ form.washFoldMode ? "ชั่งกิโล" : (form.memberEntitlementId ? `${item.quantity} เครดิต` : formatCurrency(item.totalPrice)) }}
+                          {{ form.washFoldMode ? "ชั่งกิโล" : (form.memberEntitlementId ? `${item.quantity} เครดิต` :
+                          formatCurrency(item.totalPrice)) }}
                         </span>
-                        <UButton
-                          :icon="expandedItems.has(item.key) ? 'i-lucide-chevron-up' : 'i-lucide-chevron-down'"
-                          color="neutral"
-                          variant="ghost"
-                          size="xs"
-                          @click="toggleItemExpand(item.key)"
-                        />
-                        <UButton icon="i-lucide-x" color="error" variant="ghost" size="xs" @click="removeItemRow(item.key)" />
+                        <UButton :icon="expandedItems.has(item.key) ? 'i-lucide-chevron-up' : 'i-lucide-chevron-down'"
+                          color="neutral" variant="ghost" size="xs" @click="toggleItemExpand(item.key)" />
+                        <UButton icon="i-lucide-x" color="error" variant="ghost" size="xs"
+                          @click="removeItemRow(item.key)" />
                       </div>
                     </div>
                     <div class="flex shrink-0 items-center gap-0.5">
-                      <UInputNumber :model-value="item.quantity" :step="1" size="xs" class="w-20" @update:model-value="setItemQuantity(item.key, $event)" />
+                      <UInputNumber :model-value="item.quantity" :step="1" size="xs" class="w-20"
+                        @update:model-value="setItemQuantity(item.key, $event)" />
                       <template v-if="isEditRangeItem(item.storefrontPriceId)">
-                        <UInput
-                          :model-value="item.unitPrice ?? item.unitPrice"
-                          type="number"
-                          size="xs"
-                          class="w-20"
+                        <UInput :model-value="item.unitPrice ?? item.unitPrice" type="number" size="xs" class="w-20"
                           :placeholder="`฿${catalogMap.get(item.storefrontPriceId)?.priceMin ?? ''}–${catalogMap.get(item.storefrontPriceId)?.priceMax ?? ''}`"
-                          @update:model-value="updateItemUnitPrice(item.key, Number($event))"
-                        />
+                          @update:model-value="updateItemUnitPrice(item.key, Number($event))" />
                       </template>
                     </div>
                   </div>
                 </div>
 
-                <div v-if="expandedItems.has(item.key)" class="mb-1 ml-1.5 space-y-2 border-l-2 border-default pl-3 pt-1">
+                <div v-if="expandedItems.has(item.key)"
+                  class="mb-1 ml-1.5 space-y-2 border-l-2 border-default pl-3 pt-1">
                   <p class="text-sm font-medium text-highlighted">{{ item.label }}</p>
-                  <UTextarea
-                    :model-value="item.notes"
-                    :rows="2"
-                    class="w-full"
+                  <UTextarea :model-value="item.notes" :rows="2" class="w-full"
                     placeholder="บันทึกตำหนิหรือรายละเอียดของผ้าชิ้นนี้"
-                    @update:model-value="updateItemNotes(item.key, String($event || ''))"
-                  />
-                  <OrderItemPhotosField :photos="item.photos" :disabled="isSubmitting" @update:photos="updateItemPhotos(item.key, $event)" />
+                    @update:model-value="updateItemNotes(item.key, String($event || ''))" />
+                  <OrderItemPhotosField :photos="item.photos" :disabled="isSubmitting"
+                    @update:photos="updateItemPhotos(item.key, $event)" />
                 </div>
               </div>
 
-              <p v-if="formLineItems.length === 0" class="rounded-md border border-dashed border-default p-4 text-center text-sm text-muted">
+              <p v-if="formLineItems.length === 0"
+                class="rounded-md border border-dashed border-default p-4 text-center text-sm text-muted">
                 ยังไม่ได้เลือกบริการ
               </p>
             </div>
@@ -1060,7 +1037,8 @@ const handleSubmit = async () => {
                   <p class="text-muted">ซื้อไม้แขวนเพิ่ม</p>
                   <p class="text-xs text-muted">ชิ้นละ {{ formatCurrency(hangerPricePerUnit) }}</p>
                 </div>
-                <UInputNumber v-model="form.missingHangerCount" :min="0" :step="1" orientation="vertical" class="w-28" />
+                <UInputNumber v-model="form.missingHangerCount" :min="0" :step="1" orientation="vertical"
+                  class="w-28" />
               </div>
               <div class="flex items-center justify-between gap-3">
                 <span class="text-muted">ค่าไม้แขวน</span>
@@ -1074,16 +1052,23 @@ const handleSubmit = async () => {
                     <p v-if="!intakeDisplayUrl" class="text-sm text-muted">ยังไม่ได้แนบรูป</p>
                   </div>
                   <div v-if="!intakeDisplayUrl" class="flex flex-wrap justify-end gap-2">
-                    <UButton label="เลือกจากเครื่อง" icon="i-lucide-image" color="neutral" variant="outline" @click="openIntakeGallery" />
-                    <UButton label="ถ่ายรูป" icon="i-lucide-camera" color="neutral" variant="outline" @click="openIntakeCamera" />
+                    <UButton label="เลือกจากเครื่อง" icon="i-lucide-image" color="neutral" variant="outline"
+                      @click="openIntakeGallery" />
+                    <UButton label="ถ่ายรูป" icon="i-lucide-camera" color="neutral" variant="outline"
+                      @click="openIntakeCamera" />
                   </div>
                 </div>
-                <input ref="intakeGalleryInputRef" type="file" accept="image/*" class="hidden" @change="onIntakeFileSelected">
-                <input ref="intakeCameraInputRef" type="file" accept="image/*" capture="environment" class="hidden" @change="onIntakeFileSelected">
+                <input ref="intakeGalleryInputRef" type="file" accept="image/*" class="hidden"
+                  @change="onIntakeFileSelected">
+                <input ref="intakeCameraInputRef" type="file" accept="image/*" capture="environment" class="hidden"
+                  @change="onIntakeFileSelected">
                 <div v-if="intakeDisplayUrl" class="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
                   <div class="group relative overflow-hidden rounded-md border border-default bg-muted/30">
-                    <img :src="intakeDisplayUrl" alt="รูปหลักฐานการรับผ้า" class="h-28 w-full cursor-pointer object-cover" @click="openEditPhotoPreview(intakeDisplayUrl, 'รูปหลักฐานการรับผ้า')">
-                    <UButton icon="i-lucide-x" color="error" variant="solid" size="xs" class="absolute right-1 top-1" @click.stop="requestRemoveEditPhoto('intake')" />
+                    <img :src="intakeDisplayUrl" alt="รูปหลักฐานการรับผ้า"
+                      class="h-28 w-full cursor-pointer object-cover"
+                      @click="openEditPhotoPreview(intakeDisplayUrl, 'รูปหลักฐานการรับผ้า')">
+                    <UButton icon="i-lucide-x" color="error" variant="solid" size="xs" class="absolute right-1 top-1"
+                      @click.stop="requestRemoveEditPhoto('intake')" />
                   </div>
                 </div>
               </div>
@@ -1095,16 +1080,23 @@ const handleSubmit = async () => {
                     <p v-if="!deliveryDisplayUrl" class="text-sm text-muted">ยังไม่ได้แนบรูป</p>
                   </div>
                   <div v-if="!deliveryDisplayUrl" class="flex flex-wrap justify-end gap-2">
-                    <UButton label="เลือกจากเครื่อง" icon="i-lucide-image" color="neutral" variant="outline" @click="openDeliveryGallery" />
-                    <UButton label="ถ่ายรูป" icon="i-lucide-camera" color="neutral" variant="outline" @click="openDeliveryCamera" />
+                    <UButton label="เลือกจากเครื่อง" icon="i-lucide-image" color="neutral" variant="outline"
+                      @click="openDeliveryGallery" />
+                    <UButton label="ถ่ายรูป" icon="i-lucide-camera" color="neutral" variant="outline"
+                      @click="openDeliveryCamera" />
                   </div>
                 </div>
-                <input ref="deliveryGalleryInputRef" type="file" accept="image/*" class="hidden" @change="onDeliveryFileSelected">
-                <input ref="deliveryCameraInputRef" type="file" accept="image/*" capture="environment" class="hidden" @change="onDeliveryFileSelected">
+                <input ref="deliveryGalleryInputRef" type="file" accept="image/*" class="hidden"
+                  @change="onDeliveryFileSelected">
+                <input ref="deliveryCameraInputRef" type="file" accept="image/*" capture="environment" class="hidden"
+                  @change="onDeliveryFileSelected">
                 <div v-if="deliveryDisplayUrl" class="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
                   <div class="group relative overflow-hidden rounded-md border border-default bg-muted/30">
-                    <img :src="deliveryDisplayUrl" alt="รูปหลักฐานการส่งผ้า" class="h-28 w-full cursor-pointer object-cover" @click="openEditPhotoPreview(deliveryDisplayUrl, 'รูปหลักฐานการส่งผ้า')">
-                    <UButton icon="i-lucide-x" color="error" variant="solid" size="xs" class="absolute right-1 top-1" @click.stop="requestRemoveEditPhoto('delivery')" />
+                    <img :src="deliveryDisplayUrl" alt="รูปหลักฐานการส่งผ้า"
+                      class="h-28 w-full cursor-pointer object-cover"
+                      @click="openEditPhotoPreview(deliveryDisplayUrl, 'รูปหลักฐานการส่งผ้า')">
+                    <UButton icon="i-lucide-x" color="error" variant="solid" size="xs" class="absolute right-1 top-1"
+                      @click.stop="requestRemoveEditPhoto('delivery')" />
                   </div>
                 </div>
               </div>
@@ -1114,7 +1106,8 @@ const handleSubmit = async () => {
               </UFormField>
 
               <UFormField label="หมายเหตุ">
-                <UTextarea v-model="form.note" class="w-full" :rows="3" placeholder="รายละเอียดเพิ่มเติมสำหรับทีมงานหรือใบรับผ้า" />
+                <UTextarea v-model="form.note" class="w-full" :rows="3"
+                  placeholder="รายละเอียดเพิ่มเติมสำหรับทีมงานหรือใบรับผ้า" />
               </UFormField>
 
               <div class="flex items-center justify-between gap-3 border-t border-default pt-3 text-base">
@@ -1129,30 +1122,19 @@ const handleSubmit = async () => {
 
     <template #footer>
       <div class="flex w-full justify-end gap-3">
-        <UButton label="ยกเลิก" color="neutral" variant="outline" @click="open = false" />
-        <UButton label="บันทึกการแก้ไข" icon="i-lucide-save" color="primary" :loading="isSubmitting" @click="handleSubmit" />
+        <UButton label="ยกเลิก" color="neutral" variant="outline" @click="closeModal" />
+        <UButton label="บันทึกการแก้ไข" icon="i-lucide-save" color="primary" :loading="isSubmitting"
+          @click="handleSubmit" />
       </div>
     </template>
   </UModal>
 
-  <UIImagePreviewModal
-    v-model:open="editPhotoPreviewOpen"
-    :title="editPhotoPreviewTitle"
-    :image-url="editPhotoPreviewUrl"
-    :image-alt="editPhotoPreviewTitle"
-  />
+  <UIImagePreviewModal v-model:open="editPhotoPreviewOpen" :title="editPhotoPreviewTitle"
+    :image-url="editPhotoPreviewUrl" :image-alt="editPhotoPreviewTitle" />
 
-  <UIConfirmModal
-    v-model:open="editPhotoRemoveOpen"
-    title="ลบรูปนี้"
-    icon="i-lucide-trash-2"
-    icon-color="error"
-    confirm-label="ลบรูป"
-    confirm-color="error"
-    message="ต้องการลบรูปนี้หรือไม่"
-    sub-message="หากยืนยันแล้ว รูปจะถูกถอดออกจากรายการ"
-    @confirm="performRemoveEditPhoto"
-  />
+  <UIConfirmModal v-model:open="editPhotoRemoveOpen" title="ลบรูปนี้" icon="i-lucide-trash-2" icon-color="error"
+    confirm-label="ลบรูป" confirm-color="error" message="ต้องการลบรูปนี้หรือไม่"
+    sub-message="หากยืนยันแล้ว รูปจะถูกถอดออกจากรายการ" @confirm="performRemoveEditPhoto" />
 
   <UModal v-model:open="editPriceInputOpen" title="กรอกราคา" :ui="{ content: 'max-w-sm' }">
     <template #body>
@@ -1164,21 +1146,15 @@ const handleSubmit = async () => {
           </span>
         </p>
         <UFormField label="ราคา (บาท)" required>
-          <UInput
-            v-model.number="editPriceInputValue"
-            type="number"
-            :min="editPriceInputMin ?? 0"
-            :max="editPriceInputMax ?? undefined"
-            class="w-full"
-            autofocus
-            @keydown.enter.prevent="confirmEditPriceInput"
-          />
+          <UInput v-model.number="editPriceInputValue" type="number" :min="editPriceInputMin ?? 0"
+            :max="editPriceInputMax ?? undefined" class="w-full" autofocus
+            @keydown.enter.prevent="confirmEditPriceInput" />
         </UFormField>
       </div>
     </template>
     <template #footer>
       <div class="flex w-full justify-end gap-2">
-        <UButton color="neutral" variant="ghost" @click="editPriceInputOpen = false">ยกเลิก</UButton>
+        <UButton color="neutral" variant="ghost" @click="closeEditPriceInput">ยกเลิก</UButton>
         <UButton icon="i-lucide-plus" @click="confirmEditPriceInput">เพิ่มในรายการ</UButton>
       </div>
     </template>

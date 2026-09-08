@@ -2,6 +2,13 @@
 
 Use this reference for first installation, `.env`, Docker, LAN addressing, HTTPS, and browser setup.
 
+สำหรับ runbook แบบคัดลอกคำสั่งติดตั้ง Raspberry Pi 2 ตั้งแต่ศูนย์ ให้ใช้
+skill `raspberry-pi-print-gateway` และ reference `pi2-native-poc-runbook.md`
+เป็นแหล่งคำสั่งหลัก ส่วน [`SETUP.md`](../../../../SETUP.md) หัวข้อ
+`Printer Gateway: เปลี่ยนค่า .env เท่านั้น` ใช้สำหรับแก้ค่าหลังติดตั้ง เอกสารนี้
+เก็บหลักการเลือกค่าและ ownership ของ configuration; อย่าสร้างขั้นตอนซ้ำคนละชุด
+จนค่าคลาดเคลื่อนกัน
+
 ## Known and unresolved site values
 
 Keep confirmed facts separate from assumptions:
@@ -133,26 +140,24 @@ Gateway uses no pairing secret or browser bearer token.
 
 For native Node rather than Docker, set `PRINT_GATEWAY_STATE_PATH` to a protected local path and use `PRINT_GATEWAY_TLS_CERT_PATH`/`PRINT_GATEWAY_TLS_KEY_PATH`. Docker sets the in-container state and TLS paths itself.
 
-## Local fake-printer profile
+## Local fake-printer values
 
-The committed local defaults are deliberately harmless: loopback Gateway, fake discovery target `127.0.0.1:19100`, and no LAN scan. Validate configuration and start the stack with:
+The committed local defaults are deliberately harmless: loopback Gateway, fake
+discovery target `127.0.0.1:19100`, and no LAN scan. Use these values only for
+software/configuration checks; they do not prove that the physical printer,
+Thai output, cutter, or LAN works:
 
-```bash
-docker compose -f docker-compose.local.yml config --quiet
-docker compose -f docker-compose.print-gateway.yml config --quiet
-docker compose -f docker-compose.local.yml up --build -d
-docker compose -f docker-compose.print-gateway.yml up --build -d
+```dotenv
+PRINT_GATEWAY_BIND_HOST=127.0.0.1
+PRINT_GATEWAY_PORT=17321
+PRINT_GATEWAY_PUBLIC_URL=http://127.0.0.1:17321
+PRINT_GATEWAY_ALLOWED_ORIGINS=http://localhost:3004
+PRINT_GATEWAY_DISCOVERY_CIDRS=127.0.0.1/32
+PRINT_GATEWAY_DISCOVERY_PORTS=19100
 ```
 
-Check:
-
-```bash
-docker compose -f docker-compose.local.yml ps
-docker compose -f docker-compose.print-gateway.yml ps
-curl -fsS -H 'Origin: http://localhost:3004' http://127.0.0.1:17321/health
-```
-
-The local app is normally `http://localhost:3004`. Do not mistake a passing fake/loopback test for proof that the physical printer, Thai output, cutter, or LAN works.
+Installation and service startup belong to the
+`raspberry-pi-print-gateway` skill, not this configuration reference.
 
 ## Home/hotspot physical-printer profile
 
@@ -169,30 +174,62 @@ Replace the CIDR after any hotspot reconnect or when moving the printer to the
 shop network. Do not expand it to the entire hotspot subnet merely because the
 DHCP address changed.
 
-## Production Gateway startup
+## Changing a printer IP after deployment
+
+When only the printer IP or raw TCP port changes, update the Gateway host env,
+not the app source, database, or Gateway URL:
+
+1. Confirm the new printer IP, MAC/interface, and TCP port from the printer
+   self-test, network page, or the router's DHCP list.
+2. From the Gateway host, verify the route with `ping` and `nc` using the
+   confirmed values. A successful TCP connection does not prove the target is
+   the intended printer.
+3. Edit `/etc/saijai-print-gateway.env` on a native Pi, or the host `.env` used
+   by Compose, and change:
+
+   ```dotenv
+   PRINT_GATEWAY_DISCOVERY_CIDRS=<CONFIRMED_NEW_PRINTER_IP>/32
+   PRINT_GATEWAY_DISCOVERY_PORTS=<CONFIRMED_PORT>
+   ```
+
+4. Restart the native `saijai-gateway.service`, or recreate the Docker Gateway
+   with the same base/production Compose files.
+5. Check `/health`, then use the browser's **ค้นหาเครื่องพิมพ์ในร้าน** flow and
+   trust the new candidate. If it is the same physical unit, replace the old
+   printer mapping rather than adding a duplicate.
+6. Keep `gateway-state.json`; do not edit it manually or delete it merely
+   because the address changed. The old mapping remains until the new candidate
+   is trusted as its replacement.
+
+Do not change `NUXT_PUBLIC_PRINT_GATEWAY_URL`, `PRINT_GATEWAY_PUBLIC_URL`, DNS,
+or TLS when only the printer address changes. Change those only when the
+Gateway host/origin changes.
+
+## Production Gateway values
 
 After DNS, trusted TLS, Gateway host address, and the final shop printer address
-are confirmed:
+are confirmed, pair the app and Gateway values below. Follow the
+`raspberry-pi-print-gateway` skill for installation, restart, and health-check
+commands; keep this file focused on ownership and values:
 
-```bash
-docker compose \
-  -f docker-compose.print-gateway.yml \
-  -f docker-compose.print-gateway.production.yml \
-  config --quiet
+```dotenv
+# App host
+NUXT_PUBLIC_PRINT_GATEWAY_ENABLED=true
+NUXT_PUBLIC_PRINT_GATEWAY_URL=https://<gateway-hostname>:17321
 
-docker compose \
-  -f docker-compose.print-gateway.yml \
-  -f docker-compose.print-gateway.production.yml \
-  up --build -d
+# Gateway host
+PRINT_GATEWAY_BIND_HOST=0.0.0.0
+PRINT_GATEWAY_PORT=17321
+PRINT_GATEWAY_PUBLIC_URL=https://<gateway-hostname>:17321
+PRINT_GATEWAY_ALLOWED_ORIGINS=https://saijaiphareab.shop
+PRINT_GATEWAY_DISCOVERY_CIDRS=<confirmed-printer-ip>/32
+PRINT_GATEWAY_DISCOVERY_PORTS=<confirmed-printer-port>
+PRINT_GATEWAY_TLS_CERT_PATH=/absolute/path/to/fullchain.pem
+PRINT_GATEWAY_TLS_KEY_PATH=/absolute/path/to/privkey.pem
 ```
 
-Then verify service state and HTTPS health from a shop device. Do not print yet:
-
-```bash
-docker compose -f docker-compose.print-gateway.yml ps
-curl -fsS -H 'Origin: https://saijaiphareab.shop' \
-  https://print.saijaiphareab.shop:17321/health
-```
+Do not print until health, discovery, trust, routing, and firewall boundaries
+are verified from the shop network.
 
 ## First browser setup
 

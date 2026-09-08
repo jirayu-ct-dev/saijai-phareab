@@ -1001,10 +1001,9 @@ const useDuplicateCustomer = async () => {
           @click="() => { isCartOpen = false; }" />
       </div>
       <div :class="isCompact ? 'flex-1 p-2' : ''">
-        <PosCheckoutPanel title="สรุปรายการรับผ้า"
-          :flat="isCompact" :section-class="checkoutSectionClass" :customer-id="form.customerId"
-          :customer-options="customerOptions" :customer-loading="isCustomersLoading" allow-new-customer
-          :customer-mode="form.customerMode" :new-customer-name="form.newCustomerName"
+        <PosCheckoutPanel title="สรุปรายการรับผ้า" :flat="isCompact" :section-class="checkoutSectionClass"
+          :customer-id="form.customerId" :customer-options="customerOptions" :customer-loading="isCustomersLoading"
+          allow-new-customer :customer-mode="form.customerMode" :new-customer-name="form.newCustomerName"
           :new-customer-phone="form.newCustomerPhone" :new-customer-email="form.newCustomerEmail" :note="form.note"
           total-label="ยอดรวมสุทธิ" :total-value="formatCurrency(totalAmount)"
           :total-meta="`${cartItems.length} รายการ | ${totalQuantity} ชิ้น`"
@@ -1041,10 +1040,10 @@ const useDuplicateCustomer = async () => {
               <template v-if="!isMemberWithZeroTotal">
                 <UFormField label="สถานะการชำระเงิน" required>
                   <div class="grid grid-cols-2 gap-2">
-                    <UButton v-for="option in historicalPaymentStatusOptions" :key="option.value"
-                      :label="option.label" :color="historicalPaymentStatus === option.value ? 'primary' : 'neutral'"
+                    <UButton v-for="option in historicalPaymentStatusOptions" :key="option.value" :label="option.label"
+                      :color="historicalPaymentStatus === option.value ? 'primary' : 'neutral'"
                       :variant="historicalPaymentStatus === option.value ? 'solid' : 'outline'" block
-                      @click="historicalPaymentStatus = option.value" />
+                      @click="() => { historicalPaymentStatus = option.value; }" />
                   </div>
                 </UFormField>
                 <template v-if="historicalPaid">
@@ -1069,7 +1068,7 @@ const useDuplicateCustomer = async () => {
                       <UButton v-for="option in historicalPaymentOptions" :key="option.value" :label="option.label"
                         :icon="option.icon" :color="historicalMethod === option.value ? 'primary' : 'neutral'"
                         :variant="historicalMethod === option.value ? 'solid' : 'outline'" block
-                        @click="historicalMethod = option.value" />
+                        @click="() => { historicalMethod = option.value; }" />
                     </div>
                   </UFormField>
                 </template>
@@ -1113,7 +1112,7 @@ const useDuplicateCustomer = async () => {
                           formatEntitlementDate(selectedMemberEntitlement.endAt) }}
                       </p>
                       <p v-if="entitlementWindowError" class="text-xs font-medium text-error">{{ entitlementWindowError
-                        }}</p>
+                      }}</p>
                     </div>
                     <USwitch :model-value="Boolean(form.memberEntitlementId)" color="success" size="sm"
                       @update:model-value="form.memberEntitlementId = $event ? selectedMemberEntitlement?.id ?? null : null" />
@@ -1124,8 +1123,7 @@ const useDuplicateCustomer = async () => {
                 </div>
 
                 <div v-if="canUseAddonPackages" class="space-y-3">
-                  <div v-for="addon in activeAddonEntitlements" :key="addon.id"
-                    class="border-l-2 border-success pl-3">
+                  <div v-for="addon in activeAddonEntitlements" :key="addon.id" class="border-l-2 border-success pl-3">
                     <div class="flex items-start justify-between gap-3">
                       <div class="min-w-0">
                         <div class="flex flex-wrap items-center gap-2">
@@ -1139,12 +1137,12 @@ const useDuplicateCustomer = async () => {
                           ช่วงสิทธิ์ {{ formatEntitlementDate(addon.startAt) }}–{{ formatEntitlementDate(addon.endAt) }}
                         </p>
                       </div>
-                      <USwitch v-if="addon.isDelivery" :model-value="selectedAddonCreditMap.has(addon.id)" color="success"
-                        size="sm" aria-label="ใช้บริการรับส่ง"
+                      <USwitch v-if="addon.isDelivery" :model-value="selectedAddonCreditMap.has(addon.id)"
+                        color="success" size="sm" aria-label="ใช้บริการรับส่ง"
                         @update:model-value="setDeliveryAddonSelected(addon.id, $event)" />
                       <UInputNumber v-else :model-value="selectedAddonCreditMap.get(addon.id) ?? 0" :min="0"
-                        :max="Math.max(0, Number(addon.creditRemaining ?? 0))" :step="1" orientation="horizontal" size="xs"
-                        class="w-24 shrink-0" @update:model-value="setAddonCredits(addon.id, $event)" />
+                        :max="Math.max(0, Number(addon.creditRemaining ?? 0))" :step="1" orientation="horizontal"
+                        size="xs" class="w-24 shrink-0" @update:model-value="setAddonCredits(addon.id, $event)" />
                     </div>
                   </div>
                 </div>
@@ -1158,7 +1156,7 @@ const useDuplicateCustomer = async () => {
                           <p class="min-w-0 flex-1 truncate text-sm text-highlighted">{{ item.label }}</p>
                           <span class="shrink-0 text-right text-xs font-medium text-muted">
                             {{ form.washFoldMode ? "ชั่งกิโล" : (form.memberEntitlementId ? `${item.quantity} เครดิต` :
-                            formatCurrency(item.totalPrice)) }}
+                              formatCurrency(item.totalPrice)) }}
                           </span>
                         </div>
                         <div class="mt-1 flex items-center gap-1" @click.stop>
@@ -1186,9 +1184,9 @@ const useDuplicateCustomer = async () => {
                   </div>
                 </div>
 
-              <div v-else class="border-y border-dashed border-default py-8 text-center text-sm text-muted">
-                ยังไม่ได้เลือกบริการ
-              </div>
+                <div v-else class="border-y border-dashed border-default py-8 text-center text-sm text-muted">
+                  ยังไม่ได้เลือกบริการ
+                </div>
               </div>
             </div>
           </template>
@@ -1257,8 +1255,7 @@ const useDuplicateCustomer = async () => {
                 <span class="text-muted">ใช้เครดิตแพ็กเกจ</span>
                 <span class="font-medium text-success">{{ creditUsedPreview }} เครดิต</span>
               </div>
-              <div v-if="form.memberEntitlementId && cashQuantity > 0"
-                class="flex items-center justify-between gap-3">
+              <div v-if="form.memberEntitlementId && cashQuantity > 0" class="flex items-center justify-between gap-3">
                 <span class="text-muted">ชำระเพิ่ม ({{ cashQuantity }} ชิ้น)</span>
                 <span class="font-medium text-highlighted">{{ formatCurrency(cashSubtotal) }}</span>
               </div>

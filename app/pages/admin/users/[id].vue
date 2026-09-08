@@ -208,6 +208,34 @@ const copyActivationLink = async () => {
   }
 }
 
+const goBackToUsers = (): void => {
+  void navigateTo('/admin/users')
+}
+
+const openSalesPage = (): void => {
+  void navigateTo('/admin/sales')
+}
+
+const openServiceOrdersPage = (): void => {
+  void navigateTo('/admin/service-orders')
+}
+
+const openPaymentsPage = (): void => {
+  void navigateTo('/admin/payment')
+}
+
+const openServiceOrderDetail = (orderId: string): void => {
+  void navigateTo(`/admin/service-orders/${orderId}`)
+}
+
+const openPaymentDetail = (paymentId: string): void => {
+  void navigateTo(`/admin/payment/${paymentId}`)
+}
+
+const closeActivationLinkModal = (): void => {
+  activationLinkOpen.value = false
+}
+
 watch(activationLinkOpen, (isOpen) => {
   if (isOpen) return
   activationToken.value = ''
@@ -329,311 +357,310 @@ const orderItemCount = (order: UserDetailResponse['recentServiceOrders'][number]
 
 <template>
   <div class="contents">
-  <UDashboardPanel id="user-detail">
-    <template #header>
-      <UDashboardNavbar :title="user?.name || customerEmailLabel(user?.email)" icon="i-lucide-user-round">
-        <template #leading>
-          <UDashboardSidebarCollapse class="hidden lg:inline-flex" />
-        </template>
+    <UDashboardPanel id="user-detail">
+      <template #header>
+        <UDashboardNavbar :title="user?.name || customerEmailLabel(user?.email)" icon="i-lucide-user-round">
+          <template #leading>
+            <UDashboardSidebarCollapse class="hidden lg:inline-flex" />
+          </template>
 
-        <template #right>
-          <div class="flex items-center gap-2">
-            <UButton
-              v-if="user?.customerAccountStatus === 'OFFLINE'"
-              label="ออกลิงก์เปิดใช้งาน"
-              icon="i-lucide-key-round"
-              color="primary"
-              variant="soft"
-              :loading="isIssuingActivation"
-              class="shrink-0"
-              :ui="{ label: 'hidden md:inline' }"
-              @click="issueActivationLink"
-            />
-            <UButton
-              label="กลับหน้าลูกค้า"
-              icon="i-lucide-arrow-left"
-              color="neutral"
-              variant="outline"
-              class="shrink-0"
-              aria-label="กลับหน้าลูกค้า"
-              :ui="{ label: 'hidden sm:inline' }"
-              @click="navigateTo('/admin/users')"
-            />
-            <UButton
-              icon="i-lucide-refresh-cw"
-              color="neutral"
-              variant="outline"
-              :loading="isLoading"
-              class="shrink-0"
-              aria-label="รีเฟรชข้อมูล"
-              :ui="{ label: 'hidden sm:inline' }"
-              @click="refresh()"
-            />
-          </div>
-        </template>
-      </UDashboardNavbar>
-      <UDashboardToolbar>
-        <template #left>
-          <ClientOnly>
-            <AdminDashboardDateRangePicker v-model="range" :show-presets="false" />
-          </ClientOnly>
-        </template>
-      </UDashboardToolbar>
-    </template>
-
-    <template #body>
-      <!-- Loading Skeleton -->
-      <div v-if="showSkeleton" class="flex flex-col gap-3 p-2 sm:p-6">
-        <div class="-mx-2 border border-default/30 bg-default p-5! dark:border-default/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg">
-        <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <div class="flex items-center gap-3">
-            <USkeleton class="size-16 rounded-full" />
-            <div class="space-y-2">
-              <USkeleton class="h-5 w-48 rounded-lg" />
-              <USkeleton class="h-3 w-40 rounded-lg" />
+          <template #right>
+            <div class="flex items-center gap-2">
+              <UButton v-if="user?.customerAccountStatus === 'OFFLINE'" label="ออกลิงก์เปิดใช้งาน"
+                icon="i-lucide-key-round" color="primary" variant="soft" :loading="isIssuingActivation" class="shrink-0"
+                :ui="{ label: 'hidden md:inline' }" @click="issueActivationLink" />
+              <UButton label="กลับหน้าลูกค้า" icon="i-lucide-arrow-left" color="neutral" variant="outline"
+                class="shrink-0" aria-label="กลับหน้าลูกค้า" :ui="{ label: 'hidden sm:inline' }"
+                @click="goBackToUsers" />
+              <UButton icon="i-lucide-refresh-cw" color="neutral" variant="outline" :loading="isLoading"
+                class="shrink-0" aria-label="รีเฟรชข้อมูล" :ui="{ label: 'hidden sm:inline' }" @click="refresh()" />
             </div>
-          </div>
-          <div class="flex gap-2">
-            <USkeleton class="h-9 w-24 rounded-lg" />
-            <USkeleton class="h-9 w-24 rounded-lg" />
-          </div>
-        </div>
-        </div>
+          </template>
+        </UDashboardNavbar>
+        <UDashboardToolbar>
+          <template #left>
+            <ClientOnly>
+              <AdminDashboardDateRangePicker v-model="range" :show-presets="false" />
+            </ClientOnly>
+          </template>
+        </UDashboardToolbar>
+      </template>
 
-        <div class="-mx-2 grid grid-cols-2 gap-2 sm:mx-0 sm:gap-3 xl:grid-cols-4">
-          <USkeleton v-for="i in 4" :key="`u-stat-${i}`" class="h-20 w-full rounded-lg" />
-        </div>
-
-        <div class="grid gap-3 lg:grid-cols-2">
-          <div v-for="i in 4" :key="`u-card-${i}`" class="-mx-2 space-y-3 border border-default/30 bg-default p-5! dark:border-default/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg">
-            <USkeleton class="h-5 w-40 rounded-lg" />
-            <div class="space-y-2">
-              <USkeleton v-for="j in 3" :key="`u-card-${i}-${j}`" class="h-10 w-full rounded-lg" />
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Error State -->
-      <div v-else-if="error" class="flex flex-col gap-3 p-2 sm:p-6">
-        <div class="-mx-2 border border-error/40 bg-error/5 p-6! text-error sm:mx-0 sm:rounded-lg">
-          {{ error.statusMessage || 'ไม่สามารถโหลดรายละเอียดลูกค้าได้' }}
-        </div>
-      </div>
-
-      <!-- Not Found -->
-      <div v-else-if="!user || !stats" class="flex flex-col gap-3 p-2 sm:p-6">
-        <div class="-mx-2 border border-default/30 bg-default p-6! dark:border-default/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg">
-          <p class="text-base font-semibold text-highlighted">ไม่พบข้อมูลลูกค้า</p>
-          <p class="mt-2 text-sm text-muted">ลูกค้านี้อาจถูกลบหรือคุณไม่มีสิทธิ์เข้าถึง</p>
-        </div>
-      </div>
-
-      <!-- Main Content -->
-      <div v-else class="flex flex-col gap-3 p-2 sm:p-6">
-
-        <!-- SECTION 1: Profile Header -->
-        <section class="-mx-2 space-y-3 border border-default/30 bg-default p-4 dark:border-default/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg">
-          <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-            <div class="flex items-start gap-4">
-              <UAvatar v-bind="getAvatarProps(user)" size="xl" class="shrink-0 ring-2 ring-primary/15" />
-              <div class="min-w-0 space-y-1.5">
-                <div class="flex flex-wrap items-center gap-2">
-                  <h1 class="truncate text-xl font-bold text-highlighted sm:text-2xl">
-                    {{ user.name || customerEmailLabel(user.email) }}
-                  </h1>
-                  <UBadge v-if="hasMembership" color="primary" variant="subtle" size="sm">
-                    <UIcon name="i-lucide-crown" class="size-3 mr-1" />ลูกค้ารายเดือน
-                  </UBadge>
-                </div>
-                <p class="text-xs text-muted break-all sm:text-sm flex items-center gap-1.5">
-                  <UIcon name="i-lucide-mail" class="size-3.5 shrink-0" />
-                  {{ customerEmailLabel(user.email) }}
-                </p>
-                <p v-if="user.phoneNumber" class="text-xs text-muted sm:text-sm flex items-center gap-1.5">
-                  <UIcon name="i-lucide-phone" class="size-3.5 shrink-0" />
-                  {{ user.phoneNumber }}
-                </p>
-                <div class="flex flex-wrap items-center gap-1.5 pt-1">
-                  <UBadge color="neutral" variant="subtle" size="sm">{{ roleLabelMap[user.role] }}</UBadge>
-                  <UBadge :color="user.customerAccountStatus === 'OFFLINE' ? 'warning' : user.emailVerified ? 'success' : 'warning'" variant="subtle" size="sm">
-                    <UIcon :name="user.customerAccountStatus === 'OFFLINE' ? 'i-lucide-key-round' : user.emailVerified ? 'i-lucide-check-circle' : 'i-lucide-clock'" class="size-3 mr-1" />
-                    {{ user.customerAccountStatus === 'OFFLINE' ? 'ยังไม่เปิดใช้งานบัญชี' : user.emailVerified ? 'ยืนยันอีเมลแล้ว' : 'รอยืนยันอีเมล' }}
-                  </UBadge>
-                  <UBadge v-if="user.lineUserId" color="success" variant="subtle" size="sm" icon="i-simple-icons-line">LINE</UBadge>
+      <template #body>
+        <!-- Loading Skeleton -->
+        <div v-if="showSkeleton" class="flex flex-col gap-3 p-2 sm:p-6">
+          <div
+            class="-mx-2 border border-default/30 bg-default p-5! dark:border-default/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg">
+            <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div class="flex items-center gap-3">
+                <USkeleton class="size-16 rounded-full" />
+                <div class="space-y-2">
+                  <USkeleton class="h-5 w-48 rounded-lg" />
+                  <USkeleton class="h-3 w-40 rounded-lg" />
                 </div>
               </div>
+              <div class="flex gap-2">
+                <USkeleton class="h-9 w-24 rounded-lg" />
+                <USkeleton class="h-9 w-24 rounded-lg" />
+              </div>
             </div>
-            <UIButtonChatLine :line-user-id="user.lineUserId" label="แชท LINE" size="sm" class="self-start shrink-0" />
           </div>
-        </section>
 
-        <!-- SECTION 2: Stats Grid -->
-        <section v-if="statCards.length" class="-mx-2 grid grid-cols-2 gap-2 sm:mx-0 sm:gap-3 lg:grid-cols-5">
-          <NuxtLink
-            v-for="card in statCards"
-            :key="card.title"
-            :to="card.to"
-            :class="['min-h-28 bg-default p-3! dark:bg-elevated/55 sm:rounded-lg sm:border sm:border-default/30 sm:dark:border-default/20', card.to ? 'cursor-pointer transition-colors hover:bg-default/70 dark:hover:bg-elevated/70' : 'pointer-events-none']"
-          >
-            <div class="flex items-start gap-2.5">
-              <div class="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                <UIcon :name="card.icon" class="size-4.5" />
-              </div>
-              <div class="min-w-0 flex-1">
-                <p class="text-xs text-muted truncate">{{ card.title }}</p>
-                <p class="mt-0.5 text-lg font-bold text-highlighted truncate leading-tight">{{ card.value }}</p>
-                <p class="text-[10px] text-muted truncate">{{ card.hint }}</p>
+          <div class="-mx-2 grid grid-cols-2 gap-2 sm:mx-0 sm:gap-3 xl:grid-cols-4">
+            <USkeleton v-for="i in 4" :key="`u-stat-${i}`" class="h-20 w-full rounded-lg" />
+          </div>
+
+          <div class="grid gap-3 lg:grid-cols-2">
+            <div v-for="i in 4" :key="`u-card-${i}`"
+              class="-mx-2 space-y-3 border border-default/30 bg-default p-5! dark:border-default/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg">
+              <USkeleton class="h-5 w-40 rounded-lg" />
+              <div class="space-y-2">
+                <USkeleton v-for="j in 3" :key="`u-card-${i}-${j}`" class="h-10 w-full rounded-lg" />
               </div>
             </div>
-          </NuxtLink>
-        </section>
+          </div>
+        </div>
 
-        <!-- SECTION 3: ข้อมูลทั่วไป + แพ็กเกจ -->
-        <div class="grid gap-3 lg:grid-cols-2">
-          <!-- ข้อมูลทั่วไป -->
-          <section class="-mx-2 space-y-3 border border-default/30 bg-default p-4 dark:border-default/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg">
-            <p class="text-sm font-semibold text-highlighted mb-3">ข้อมูลทั่วไป</p>
-            <dl class="space-y-2.5">
-              <div v-for="row in customerRows" :key="row.label" class="flex items-baseline justify-between gap-3">
-                <dt class="text-xs text-muted whitespace-nowrap shrink-0">{{ row.label }}</dt>
-                <dd class="text-right text-xs text-highlighted" :class="row.valueClass">{{ row.value }}</dd>
-              </div>
-            </dl>
-          </section>
+        <!-- Error State -->
+        <div v-else-if="error" class="flex flex-col gap-3 p-2 sm:p-6">
+          <div class="-mx-2 border border-error/40 bg-error/5 p-6! text-error sm:mx-0 sm:rounded-lg">
+            {{ error.statusMessage || 'ไม่สามารถโหลดรายละเอียดลูกค้าได้' }}
+          </div>
+        </div>
 
-          <!-- แพ็กเกจ -->
-          <section id="packages" class="-mx-2 space-y-3 border border-default/30 bg-default p-4 dark:border-default/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg">
-            <div class="flex items-center justify-between gap-2 mb-3">
-              <p class="text-sm font-semibold text-highlighted">แพ็กเกจ</p>
-              <UBadge color="neutral" variant="subtle" size="sm">{{ entitlements.length }} รายการ</UBadge>
-            </div>
+        <!-- Not Found -->
+        <div v-else-if="!user || !stats" class="flex flex-col gap-3 p-2 sm:p-6">
+          <div
+            class="-mx-2 border border-default/30 bg-default p-6! dark:border-default/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg">
+            <p class="text-base font-semibold text-highlighted">ไม่พบข้อมูลลูกค้า</p>
+            <p class="mt-2 text-sm text-muted">ลูกค้านี้อาจถูกลบหรือคุณไม่มีสิทธิ์เข้าถึง</p>
+          </div>
+        </div>
 
-            <div v-if="entitlements.length" class="divide-y divide-default">
-              <div
-                v-for="entitlement in entitlements"
-                :key="entitlement.id"
-                class="flex items-start gap-2 py-2.5 first:pt-0 last:pb-0"
-              >
-                <div class="min-w-0 flex-1">
-                  <div class="flex flex-wrap items-center gap-1">
-                    <p class="text-sm text-highlighted truncate">{{ entitlement.product.name }}</p>
-                    <UBadge :color="packageTypeColors[entitlement.product.packageType]" variant="subtle" size="xs">
-                      {{ packageTypeLabels[entitlement.product.packageType] }}
+        <!-- Main Content -->
+        <div v-else class="flex flex-col gap-3 p-2 sm:p-6">
+
+          <!-- SECTION 1: Profile Header -->
+          <section
+            class="-mx-2 space-y-3 border border-default/30 bg-default p-4 dark:border-default/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg">
+            <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div class="flex items-start gap-4">
+                <UAvatar v-bind="getAvatarProps(user)" size="xl" class="shrink-0 ring-2 ring-primary/15" />
+                <div class="min-w-0 space-y-1.5">
+                  <div class="flex flex-wrap items-center gap-2">
+                    <h1 class="truncate text-xl font-bold text-highlighted sm:text-2xl">
+                      {{ user.name || customerEmailLabel(user.email) }}
+                    </h1>
+                    <UBadge v-if="hasMembership" color="primary" variant="subtle" size="sm">
+                      <UIcon name="i-lucide-crown" class="size-3 mr-1" />ลูกค้ารายเดือน
                     </UBadge>
                   </div>
-                  <p class="mt-0.5 text-xs text-muted">
-                    เครดิต {{ entitlement.creditRemaining ?? 0 }}/{{ entitlement.creditInitial ?? 0 }}
-                    · ฿{{ formatCurrency(entitlement.product.price) }}
-                    <template v-if="entitlement.endAt"> · หมด {{ formatDateTime(entitlement.endAt) }}</template>
+                  <p class="text-xs text-muted break-all sm:text-sm flex items-center gap-1.5">
+                    <UIcon name="i-lucide-mail" class="size-3.5 shrink-0" />
+                    {{ customerEmailLabel(user.email) }}
                   </p>
+                  <p v-if="user.phoneNumber" class="text-xs text-muted sm:text-sm flex items-center gap-1.5">
+                    <UIcon name="i-lucide-phone" class="size-3.5 shrink-0" />
+                    {{ user.phoneNumber }}
+                  </p>
+                  <div class="flex flex-wrap items-center gap-1.5 pt-1">
+                    <UBadge color="neutral" variant="subtle" size="sm">{{ roleLabelMap[user.role] }}</UBadge>
+                    <UBadge
+                      :color="user.customerAccountStatus === 'OFFLINE' ? 'warning' : user.emailVerified ? 'success' : 'warning'"
+                      variant="subtle" size="sm">
+                      <UIcon
+                        :name="user.customerAccountStatus === 'OFFLINE' ? 'i-lucide-key-round' : user.emailVerified ? 'i-lucide-check-circle' : 'i-lucide-clock'"
+                        class="size-3 mr-1" />
+                      {{ user.customerAccountStatus === 'OFFLINE' ? 'ยังไม่เปิดใช้งานบัญชี' : user.emailVerified ?
+                        'ยืนยันอีเมลแล้ว' : 'รอยืนยันอีเมล' }}
+                    </UBadge>
+                    <UBadge v-if="user.lineUserId" color="success" variant="subtle" size="sm"
+                      icon="i-simple-icons-line">LINE</UBadge>
+                  </div>
                 </div>
-                <UBadge :color="entitlementStatusMap[entitlement.status].color" variant="subtle" size="xs" class="shrink-0">
-                  {{ entitlementStatusMap[entitlement.status].label }}
-                </UBadge>
               </div>
+              <UIButtonChatLine :line-user-id="user.lineUserId" label="แชท LINE" size="sm"
+                class="self-start shrink-0" />
             </div>
-            <p v-else class="text-sm text-muted py-4 text-center">ยังไม่มีแพ็กเกจ</p>
           </section>
+
+          <!-- SECTION 2: Stats Grid -->
+          <section v-if="statCards.length" class="-mx-2 grid grid-cols-2 gap-2 sm:mx-0 sm:gap-3 lg:grid-cols-5">
+            <NuxtLink v-for="card in statCards" :key="card.title" :to="card.to"
+              :class="['min-h-28 bg-default p-3! dark:bg-elevated/55 sm:rounded-lg sm:border sm:border-default/30 sm:dark:border-default/20', card.to ? 'cursor-pointer transition-colors hover:bg-default/70 dark:hover:bg-elevated/70' : 'pointer-events-none']">
+              <div class="flex items-start gap-2.5">
+                <div class="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                  <UIcon :name="card.icon" class="size-4.5" />
+                </div>
+                <div class="min-w-0 flex-1">
+                  <p class="text-xs text-muted truncate">{{ card.title }}</p>
+                  <p class="mt-0.5 text-lg font-bold text-highlighted truncate leading-tight">{{ card.value }}</p>
+                  <p class="text-[10px] text-muted truncate">{{ card.hint }}</p>
+                </div>
+              </div>
+            </NuxtLink>
+          </section>
+
+          <!-- SECTION 3: ข้อมูลทั่วไป + แพ็กเกจ -->
+          <div class="grid gap-3 lg:grid-cols-2">
+            <!-- ข้อมูลทั่วไป -->
+            <section
+              class="-mx-2 space-y-3 border border-default/30 bg-default p-4 dark:border-default/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg">
+              <p class="text-sm font-semibold text-highlighted mb-3">ข้อมูลทั่วไป</p>
+              <dl class="space-y-2.5">
+                <div v-for="row in customerRows" :key="row.label" class="flex items-baseline justify-between gap-3">
+                  <dt class="text-xs text-muted whitespace-nowrap shrink-0">{{ row.label }}</dt>
+                  <dd class="text-right text-xs text-highlighted" :class="row.valueClass">{{ row.value }}</dd>
+                </div>
+              </dl>
+            </section>
+
+            <!-- แพ็กเกจ -->
+            <section id="packages"
+              class="-mx-2 space-y-3 border border-default/30 bg-default p-4 dark:border-default/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg">
+              <div class="flex items-center justify-between gap-2 mb-3">
+                <p class="text-sm font-semibold text-highlighted">แพ็กเกจ</p>
+                <UBadge color="neutral" variant="subtle" size="sm">{{ entitlements.length }} รายการ</UBadge>
+              </div>
+
+              <div v-if="entitlements.length" class="divide-y divide-default">
+                <div v-for="entitlement in entitlements" :key="entitlement.id"
+                  class="flex items-start gap-2 py-2.5 first:pt-0 last:pb-0">
+                  <div class="min-w-0 flex-1">
+                    <div class="flex flex-wrap items-center gap-1">
+                      <p class="text-sm text-highlighted truncate">{{ entitlement.product.name }}</p>
+                      <UBadge :color="packageTypeColors[entitlement.product.packageType]" variant="subtle" size="xs">
+                        {{ packageTypeLabels[entitlement.product.packageType] }}
+                      </UBadge>
+                    </div>
+                    <p class="mt-0.5 text-xs text-muted">
+                      เครดิต {{ entitlement.creditRemaining ?? 0 }}/{{ entitlement.creditInitial ?? 0 }}
+                      · ฿{{ formatCurrency(entitlement.product.price) }}
+                      <template v-if="entitlement.endAt"> · หมด {{ formatDateTime(entitlement.endAt) }}</template>
+                    </p>
+                  </div>
+                  <UBadge :color="entitlementStatusMap[entitlement.status].color" variant="subtle" size="xs"
+                    class="shrink-0">
+                    {{ entitlementStatusMap[entitlement.status].label }}
+                  </UBadge>
+                </div>
+              </div>
+              <p v-else class="text-sm text-muted py-4 text-center">ยังไม่มีแพ็กเกจ</p>
+            </section>
+          </div>
+
+          <!-- SECTION 4: กิจกรรมล่าสุด -->
+          <div class="grid gap-3 lg:grid-cols-3">
+
+            <!-- การซื้อแพ็กเกจ -->
+            <section
+              class="-mx-2 space-y-3 border border-default/30 bg-default p-4 dark:border-default/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg">
+              <div class="flex items-center justify-between gap-2 mb-3">
+                <div class="flex items-center gap-1.5">
+                  <p class="text-sm font-semibold text-highlighted">การซื้อแพ็กเกจ</p>
+                  <UBadge color="neutral" variant="subtle" size="xs">{{ recentSales.length }}</UBadge>
+                </div>
+                <UButton icon="i-lucide-arrow-up-right" color="neutral" variant="ghost" size="xs"
+                  @click="openSalesPage" />
+              </div>
+              <div v-if="recentSales.length" class="divide-y divide-default">
+                <div v-for="sale in recentSales" :key="sale.id"
+                  class="py-2.5 first:pt-0 last:pb-0 cursor-pointer hover:bg-elevated/50 -mx-2 px-2 transition-colors sm:rounded-lg"
+                  @click="openSalesPage">
+                  <div class="flex items-center justify-between gap-2">
+                    <p class="text-xs text-highlighted truncate">{{ saleSummary(sale) }}</p>
+                    <span class="text-xs font-semibold text-highlighted shrink-0">{{ formatCurrency(sale.totalAmount)
+                      }}</span>
+                  </div>
+                  <div class="flex items-center justify-between gap-2 mt-0.5">
+                    <span class="text-xs text-muted">{{ saleStatusMap[sale.status].label }}</span>
+                    <span class="text-xs text-muted">{{ formatDateTime(sale.createdAt) }}</span>
+                  </div>
+                </div>
+              </div>
+              <p v-else class="text-xs text-muted py-4 text-center">ยังไม่มีประวัติ</p>
+            </section>
+
+            <!-- รายการผ้า -->
+            <section
+              class="-mx-2 space-y-3 border border-default/30 bg-default p-4 dark:border-default/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg">
+              <div class="flex items-center justify-between gap-2 mb-3">
+                <div class="flex items-center gap-1.5">
+                  <p class="text-sm font-semibold text-highlighted">รายการผ้า</p>
+                  <UBadge color="neutral" variant="subtle" size="xs">{{ stats.totalServiceOrders }}</UBadge>
+                </div>
+                <UButton icon="i-lucide-arrow-up-right" color="neutral" variant="ghost" size="xs"
+                  @click="openServiceOrdersPage" />
+              </div>
+              <div v-if="recentServiceOrders.length" class="divide-y divide-default">
+                <div v-for="order in recentServiceOrders" :key="order.id"
+                  class="py-2.5 first:pt-0 last:pb-0 cursor-pointer hover:bg-elevated/50 -mx-2 px-2 transition-colors sm:rounded-lg"
+                  @click="() => openServiceOrderDetail(order.id)">
+                  <div class="flex items-center justify-between gap-2">
+                    <p class="text-xs text-highlighted truncate">{{ orderItemCount(order) }} ชิ้น</p>
+                    <span class="text-xs font-semibold text-highlighted shrink-0">{{ formatOrderTotal(order.totalAmount)
+                      }}</span>
+                  </div>
+                  <div class="flex items-center justify-between gap-2 mt-0.5">
+                    <span class="text-xs text-muted">{{ orderStatusLabels[order.status] }}</span>
+                    <span class="text-xs text-muted">{{ formatDateTime(order.createdAt) }}</span>
+                  </div>
+                </div>
+              </div>
+              <p v-else class="text-xs text-muted py-4 text-center">ยังไม่มีประวัติ</p>
+            </section>
+
+            <!-- การชำระเงิน -->
+            <section
+              class="-mx-2 space-y-3 border border-default/30 bg-default p-4 dark:border-default/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg">
+              <div class="flex items-center justify-between gap-2 mb-3">
+                <div class="flex items-center gap-1.5">
+                  <p class="text-sm font-semibold text-highlighted">การชำระเงิน</p>
+                  <UBadge color="neutral" variant="subtle" size="xs">{{ recentPayments.length }}</UBadge>
+                </div>
+                <UButton icon="i-lucide-arrow-up-right" color="neutral" variant="ghost" size="xs"
+                  @click="openPaymentsPage" />
+              </div>
+              <div v-if="recentPayments.length" class="divide-y divide-default">
+                <div v-for="payment in recentPayments" :key="payment.id"
+                  class="py-2.5 first:pt-0 last:pb-0 cursor-pointer hover:bg-elevated/50 -mx-2 px-2 transition-colors sm:rounded-lg"
+                  @click="() => openPaymentDetail(payment.id)">
+                  <div class="flex items-center justify-between gap-2">
+                    <p class="text-xs text-highlighted truncate">{{ paymentSummary(payment) }}</p>
+                    <span class="text-xs font-semibold text-highlighted shrink-0">{{ formatCurrency(payment.amount)
+                      }}</span>
+                  </div>
+                  <div class="flex items-center justify-between gap-2 mt-0.5">
+                    <span class="text-xs text-muted">{{ payment.paidAt ? 'ชำระแล้ว' : 'รอดำเนินการ' }}</span>
+                    <span class="text-xs text-muted">{{ formatDateTime(payment.createdAt) }}</span>
+                  </div>
+                </div>
+              </div>
+              <p v-else class="text-xs text-muted py-4 text-center">ยังไม่มีประวัติ</p>
+            </section>
+          </div>
         </div>
+      </template>
+    </UDashboardPanel>
 
-        <!-- SECTION 4: กิจกรรมล่าสุด -->
-        <div class="grid gap-3 lg:grid-cols-3">
-
-          <!-- การซื้อแพ็กเกจ -->
-          <section class="-mx-2 space-y-3 border border-default/30 bg-default p-4 dark:border-default/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg">
-            <div class="flex items-center justify-between gap-2 mb-3">
-              <div class="flex items-center gap-1.5">
-                <p class="text-sm font-semibold text-highlighted">การซื้อแพ็กเกจ</p>
-                <UBadge color="neutral" variant="subtle" size="xs">{{ recentSales.length }}</UBadge>
-              </div>
-              <UButton icon="i-lucide-arrow-up-right" color="neutral" variant="ghost" size="xs" @click="navigateTo('/admin/sales')" />
-            </div>
-            <div v-if="recentSales.length" class="divide-y divide-default">
-              <div v-for="sale in recentSales" :key="sale.id" class="py-2.5 first:pt-0 last:pb-0 cursor-pointer hover:bg-elevated/50 -mx-2 px-2 transition-colors sm:rounded-lg" @click="navigateTo('/admin/sales')">
-                <div class="flex items-center justify-between gap-2">
-                  <p class="text-xs text-highlighted truncate">{{ saleSummary(sale) }}</p>
-                  <span class="text-xs font-semibold text-highlighted shrink-0">{{ formatCurrency(sale.totalAmount) }}</span>
-                </div>
-                <div class="flex items-center justify-between gap-2 mt-0.5">
-                  <span class="text-xs text-muted">{{ saleStatusMap[sale.status].label }}</span>
-                  <span class="text-xs text-muted">{{ formatDateTime(sale.createdAt) }}</span>
-                </div>
-              </div>
-            </div>
-            <p v-else class="text-xs text-muted py-4 text-center">ยังไม่มีประวัติ</p>
-          </section>
-
-          <!-- รายการผ้า -->
-          <section class="-mx-2 space-y-3 border border-default/30 bg-default p-4 dark:border-default/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg">
-            <div class="flex items-center justify-between gap-2 mb-3">
-              <div class="flex items-center gap-1.5">
-                <p class="text-sm font-semibold text-highlighted">รายการผ้า</p>
-                <UBadge color="neutral" variant="subtle" size="xs">{{ stats.totalServiceOrders }}</UBadge>
-              </div>
-              <UButton icon="i-lucide-arrow-up-right" color="neutral" variant="ghost" size="xs" @click="navigateTo('/admin/service-orders')" />
-            </div>
-            <div v-if="recentServiceOrders.length" class="divide-y divide-default">
-              <div v-for="order in recentServiceOrders" :key="order.id" class="py-2.5 first:pt-0 last:pb-0 cursor-pointer hover:bg-elevated/50 -mx-2 px-2 transition-colors sm:rounded-lg" @click="navigateTo(`/admin/service-orders/${order.id}`)">
-                <div class="flex items-center justify-between gap-2">
-                  <p class="text-xs text-highlighted truncate">{{ orderItemCount(order) }} ชิ้น</p>
-                  <span class="text-xs font-semibold text-highlighted shrink-0">{{ formatOrderTotal(order.totalAmount) }}</span>
-                </div>
-                <div class="flex items-center justify-between gap-2 mt-0.5">
-                  <span class="text-xs text-muted">{{ orderStatusLabels[order.status] }}</span>
-                  <span class="text-xs text-muted">{{ formatDateTime(order.createdAt) }}</span>
-                </div>
-              </div>
-            </div>
-            <p v-else class="text-xs text-muted py-4 text-center">ยังไม่มีประวัติ</p>
-          </section>
-
-          <!-- การชำระเงิน -->
-          <section class="-mx-2 space-y-3 border border-default/30 bg-default p-4 dark:border-default/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg">
-            <div class="flex items-center justify-between gap-2 mb-3">
-              <div class="flex items-center gap-1.5">
-                <p class="text-sm font-semibold text-highlighted">การชำระเงิน</p>
-                <UBadge color="neutral" variant="subtle" size="xs">{{ recentPayments.length }}</UBadge>
-              </div>
-              <UButton icon="i-lucide-arrow-up-right" color="neutral" variant="ghost" size="xs" @click="navigateTo('/admin/payment')" />
-            </div>
-            <div v-if="recentPayments.length" class="divide-y divide-default">
-              <div v-for="payment in recentPayments" :key="payment.id" class="py-2.5 first:pt-0 last:pb-0 cursor-pointer hover:bg-elevated/50 -mx-2 px-2 transition-colors sm:rounded-lg" @click="navigateTo(`/admin/payment/${payment.id}`)">
-                <div class="flex items-center justify-between gap-2">
-                  <p class="text-xs text-highlighted truncate">{{ paymentSummary(payment) }}</p>
-                  <span class="text-xs font-semibold text-highlighted shrink-0">{{ formatCurrency(payment.amount) }}</span>
-                </div>
-                <div class="flex items-center justify-between gap-2 mt-0.5">
-                  <span class="text-xs text-muted">{{ payment.paidAt ? 'ชำระแล้ว' : 'รอดำเนินการ' }}</span>
-                  <span class="text-xs text-muted">{{ formatDateTime(payment.createdAt) }}</span>
-                </div>
-              </div>
-            </div>
-            <p v-else class="text-xs text-muted py-4 text-center">ยังไม่มีประวัติ</p>
-          </section>
+    <UModal v-model:open="activationLinkOpen" title="ลิงก์เปิดใช้งานบัญชี" :ui="{ content: 'max-w-lg' }">
+      <template #body>
+        <div class="space-y-4">
+          <div class="rounded-lg border border-warning/30 bg-warning/5 p-3 text-sm text-toned">
+            การออกลิงก์ใหม่จะยกเลิกลิงก์เดิมที่ยังไม่ได้ใช้ ลิงก์นี้แสดงเพียงครั้งเดียว กรุณาส่งให้ลูกค้าโดยตรง
+          </div>
+          <UFormField label="ลิงก์เปิดใช้งาน">
+            <UTextarea :model-value="activationUrl" readonly autoresize class="w-full font-mono text-xs" />
+          </UFormField>
+          <p v-if="activationExpiresAt" class="text-xs text-muted">หมดอายุ {{ formatDateTime(activationExpiresAt) }}</p>
         </div>
-      </div>
-    </template>
-  </UDashboardPanel>
-
-  <UModal v-model:open="activationLinkOpen" title="ลิงก์เปิดใช้งานบัญชี" :ui="{ content: 'max-w-lg' }">
-    <template #body>
-      <div class="space-y-4">
-        <div class="rounded-lg border border-warning/30 bg-warning/5 p-3 text-sm text-toned">
-          การออกลิงก์ใหม่จะยกเลิกลิงก์เดิมที่ยังไม่ได้ใช้ ลิงก์นี้แสดงเพียงครั้งเดียว กรุณาส่งให้ลูกค้าโดยตรง
+      </template>
+      <template #footer>
+        <div class="flex w-full flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+          <UButton color="neutral" variant="ghost" @click="closeActivationLinkModal">ปิด</UButton>
+          <UButton icon="i-lucide-copy" @click="copyActivationLink">คัดลอกลิงก์</UButton>
         </div>
-        <UFormField label="ลิงก์เปิดใช้งาน">
-          <UTextarea :model-value="activationUrl" readonly autoresize class="w-full font-mono text-xs" />
-        </UFormField>
-        <p v-if="activationExpiresAt" class="text-xs text-muted">หมดอายุ {{ formatDateTime(activationExpiresAt) }}</p>
-      </div>
-    </template>
-    <template #footer>
-      <div class="flex w-full flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-        <UButton color="neutral" variant="ghost" @click="activationLinkOpen = false">ปิด</UButton>
-        <UButton icon="i-lucide-copy" @click="copyActivationLink">คัดลอกลิงก์</UButton>
-      </div>
-    </template>
-  </UModal>
+      </template>
+    </UModal>
   </div>
 </template>

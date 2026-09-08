@@ -10,24 +10,24 @@ withDefaults(defineProps<{
   imageUrl: null,
   imageAlt: null,
 });
+
+const closePreview = (): void => {
+  open.value = false;
+};
 </script>
 
 <template>
   <UModal v-model:open="open" :title="title" :ui="{ body: 'admin-workspace !p-2 sm:p-4!', content: 'max-w-3xl' }">
     <template #body>
       <div class="rounded-md border border-default/30 bg-default p-2 dark:border-default/20 dark:bg-elevated/55">
-        <img
-          v-if="imageUrl"
-          :src="imageUrl"
-          :alt="imageAlt || title"
-          class="max-h-[75vh] w-full rounded-md object-contain"
-        >
+        <img v-if="imageUrl" :src="imageUrl" :alt="imageAlt || title"
+          class="max-h-[75vh] w-full rounded-md object-contain">
       </div>
     </template>
 
     <template #footer>
       <div class="flex w-full justify-end">
-        <UButton label="ปิด" color="neutral" variant="outline" @click="open = false" />
+        <UButton label="ปิด" color="neutral" variant="outline" @click="closePreview" />
       </div>
     </template>
   </UModal>
