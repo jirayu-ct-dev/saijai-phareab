@@ -48,8 +48,34 @@ type PackageProduct = {
 
 const notify = useNotify();
 
+type MemberFilter = "all" | "active" | "none" | "expiring";
+
 const search = ref("");
-const filter = ref<"all" | "active" | "none" | "expiring">("all");
+const filter = ref<MemberFilter>("all");
+
+const setFilterValue = (value: MemberFilter): void => {
+  filter.value = value;
+};
+
+const openDeleteMemberDialog = (): void => {
+  isDeleteOpen.value = true;
+};
+
+const closeEntModal = (): void => {
+  isEntOpen.value = false;
+};
+
+const closeEntDeleteModal = (): void => {
+  isEntDeleteOpen.value = false;
+};
+
+const closeEntExpireModal = (): void => {
+  isEntExpireOpen.value = false;
+};
+
+const closeDeleteMemberModal = (): void => {
+  isDeleteOpen.value = false;
+};
 
 const { data: members, status, refresh } = useFetch<MemberRow[]>("/api/admin/members", {
   query: { search, filter },
@@ -335,7 +361,8 @@ const onConfirmDelete = async () => {
 
 <template>
   <div class="mx-auto flex w-full max-w-3xl flex-col gap-3 p-2 sm:p-6">
-    <section class="-mx-2 border border-default/30 bg-default px-4 py-3 dark:border-default/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg">
+    <section
+      class="-mx-2 border border-default/30 bg-default px-4 py-3 dark:border-default/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg">
       <div class="flex items-center justify-between gap-2">
         <div>
           <h1 class="text-xl font-semibold text-highlighted">จัดการสมาชิก</h1>
@@ -346,49 +373,28 @@ const onConfirmDelete = async () => {
     </section>
 
     <section class="flex flex-col gap-1">
-      <div class="-mx-2 flex flex-col gap-1.5 border border-default/30 bg-default px-3! py-3! dark:border-default/40 dark:bg-default/80 sm:mx-0 sm:rounded-lg">
+      <div
+        class="-mx-2 flex flex-col gap-1.5 border border-default/30 bg-default px-3! py-3! dark:border-default/40 dark:bg-default/80 sm:mx-0 sm:rounded-lg">
         <div class="flex items-center gap-1.5">
-          <UInput
-            v-model="search"
-            icon="i-lucide-search"
-            placeholder="ค้นหาชื่อ/อีเมล/เบอร์"
-            class="min-w-0 flex-1 w-full"
-          />
-          <UButton
-            icon="i-lucide-refresh-cw"
-            color="neutral"
-            variant="outline"
-            size="sm"
-            :loading="isLoading"
-            aria-label="รีเฟรชข้อมูล"
-            @click="refresh()"
-          />
+          <UInput v-model="search" icon="i-lucide-search" placeholder="ค้นหาชื่อ/อีเมล/เบอร์"
+            class="min-w-0 flex-1 w-full" />
+          <UButton icon="i-lucide-refresh-cw" color="neutral" variant="outline" size="sm" :loading="isLoading"
+            aria-label="รีเฟรชข้อมูล" @click="refresh()" />
         </div>
         <div class="grid grid-cols-2 gap-1.5 sm:grid-cols-4">
-          <UButton
-            v-for="f in [
-              { label: 'ทั้งหมด', value: 'all' },
-              { label: 'ใช้งานอยู่', value: 'active' },
-              { label: 'ไม่มีสิทธิ์', value: 'none' },
-              { label: 'ใกล้หมดอายุ', value: 'expiring' },
-            ]"
-            :key="f.value"
-            :label="f.label"
-            color="neutral"
-            :variant="filter === f.value ? 'solid' : 'outline'"
-            size="sm"
-            class="justify-center"
-            @click="filter = f.value as typeof filter"
-          />
+          <UButton v-for="f in [
+            { label: 'ทั้งหมด', value: 'all' },
+            { label: 'ใช้งานอยู่', value: 'active' },
+            { label: 'ไม่มีสิทธิ์', value: 'none' },
+            { label: 'ใกล้หมดอายุ', value: 'expiring' },
+          ]" :key="f.value" :label="f.label" color="neutral" :variant="filter === f.value ? 'solid' : 'outline'"
+            size="sm" class="justify-center" @click="setFilterValue(f.value as MemberFilter)" />
         </div>
       </div>
 
       <div v-if="isLoading" class="-mx-2 space-y-1 sm:mx-0">
-        <div
-          v-for="i in 5"
-          :key="`mem-sk-${i}`"
-          class="border border-default/30 bg-default p-3 dark:border-default/20 dark:bg-elevated/55 sm:rounded-lg"
-        >
+        <div v-for="i in 5" :key="`mem-sk-${i}`"
+          class="border border-default/30 bg-default p-3 dark:border-default/20 dark:bg-elevated/55 sm:rounded-lg">
           <div class="flex items-center gap-3">
             <USkeleton class="size-9 rounded-full shrink-0" />
             <div class="min-w-0 flex-1 space-y-1.5">
@@ -405,29 +411,23 @@ const onConfirmDelete = async () => {
         </div>
       </div>
 
-      <div
-        v-else-if="!members?.length"
-        class="flex flex-col items-center justify-center rounded-lg border border-dashed border-default/30 bg-default/55 px-3 py-5 text-center text-muted dark:border-default/20 dark:bg-elevated/30"
-      >
+      <div v-else-if="!members?.length"
+        class="flex flex-col items-center justify-center rounded-lg border border-dashed border-default/30 bg-default/55 px-3 py-5 text-center text-muted dark:border-default/20 dark:bg-elevated/30">
         ไม่พบสมาชิกตามเงื่อนไข
       </div>
 
       <!-- รายชื่อ: แตะการ์ดใดก็ได้เพื่อเปิดศูนย์จัดการของลูกค้าคนนั้น -->
       <div v-else class="-mx-2 space-y-1 sm:mx-0">
-        <button
-          v-for="m in members"
-          :key="m.id"
-          type="button"
+        <button v-for="m in members" :key="m.id" type="button"
           class="w-full rounded-lg border border-default/30 bg-default p-3 text-left transition-[background-color,border-color] duration-200 hover:border-default/45 hover:bg-default dark:border-default/20 dark:bg-elevated/55 dark:hover:bg-elevated/70 sm:rounded-md"
-          :aria-label="`จัดการแพ็กเกจของ ${m.name || m.email}`"
-          @click="openMember(m)"
-        >
+          :aria-label="`จัดการแพ็กเกจของ ${m.name || m.email}`" @click="openMember(m)">
           <div class="flex items-center gap-2.5">
             <UAvatar v-bind="getAvatarProps(m.image, m.name, m.email)" size="md" class="shrink-0" />
             <div class="min-w-0 flex-1">
               <div class="flex min-w-0 items-center gap-1.5">
                 <p class="truncate text-sm font-semibold text-highlighted">{{ m.name || m.email }}</p>
-                <UBadge v-if="isExpiringSoon(m.earliestEndAt)" color="warning" variant="subtle" size="sm" class="shrink-0">
+                <UBadge v-if="isExpiringSoon(m.earliestEndAt)" color="warning" variant="subtle" size="sm"
+                  class="shrink-0">
                   ใกล้หมดอายุ
                 </UBadge>
               </div>
@@ -439,28 +439,16 @@ const onConfirmDelete = async () => {
           </div>
 
           <div class="mt-2 flex min-w-0 items-center gap-1 overflow-hidden">
-            <UBadge
-              v-if="m.mainPackageName"
-              color="primary"
-              variant="subtle"
-              size="sm"
-              class="max-w-[45%] shrink-0"
-              :ui="{ label: 'truncate' }"
-            >
+            <UBadge v-if="m.mainPackageName" color="primary" variant="subtle" size="sm" class="max-w-[45%] shrink-0"
+              :ui="{ label: 'truncate' }">
               {{ m.mainPackageName }}
             </UBadge>
-            <UBadge
-              v-for="name in visibleAddonPackageNames(m.addonPackageNames)"
-              :key="name"
-              color="info"
-              variant="subtle"
-              size="sm"
-              class="max-w-[35%] shrink-0"
-              :ui="{ label: 'truncate' }"
-            >
+            <UBadge v-for="name in visibleAddonPackageNames(m.addonPackageNames)" :key="name" color="info"
+              variant="subtle" size="sm" class="max-w-[35%] shrink-0" :ui="{ label: 'truncate' }">
               {{ name }}
             </UBadge>
-            <UBadge v-if="hiddenAddonPackageCount(m.addonPackageNames)" color="neutral" variant="subtle" size="sm" class="shrink-0">
+            <UBadge v-if="hiddenAddonPackageCount(m.addonPackageNames)" color="neutral" variant="subtle" size="sm"
+              class="shrink-0">
               +{{ hiddenAddonPackageCount(m.addonPackageNames) }}
             </UBadge>
             <span v-if="!m.mainPackageName && !m.addonPackageNames.length" class="truncate text-xs text-muted">
@@ -481,12 +469,14 @@ const onConfirmDelete = async () => {
                 {{ m.addonCreditInitial > 0 ? `${m.addonCreditRemaining}/${m.addonCreditInitial}` : "-" }}
               </p>
             </div>
-            <div class="rounded-lg px-2 py-1.5" :class="isExpiringSoon(m.earliestEndAt) ? 'bg-warning/10' : 'bg-elevated/40'">
+            <div class="rounded-lg px-2 py-1.5"
+              :class="isExpiringSoon(m.earliestEndAt) ? 'bg-warning/10' : 'bg-elevated/40'">
               <p class="text-muted">หมดอายุ</p>
               <p class="truncate font-semibold" :class="isExpiringSoon(m.earliestEndAt) ? 'text-warning' : ''">
                 {{ m.earliestEndAt ? formatDate(m.earliestEndAt) : "-" }}
               </p>
-              <p v-if="m.earliestEndAt" class="truncate text-[11px]" :class="isExpiringSoon(m.earliestEndAt) ? 'text-warning' : 'text-muted'">
+              <p v-if="m.earliestEndAt" class="truncate text-[11px]"
+                :class="isExpiringSoon(m.earliestEndAt) ? 'text-warning' : 'text-muted'">
                 {{ expiryHint(m.earliestEndAt) }}
               </p>
             </div>
@@ -496,42 +486,30 @@ const onConfirmDelete = async () => {
     </section>
 
     <!-- ศูนย์จัดการรายลูกค้า: โปรไฟล์ + สถิติ + แพ็กเกจทุกใบ พร้อมปุ่มจัดการชัดเจน -->
-    <UModal
-      v-model:open="isMemberOpen"
-      title="จัดการสมาชิก"
-      :ui="{ content: 'max-w-2xl', body: '!bg-default p-4! sm:p-5! dark:!bg-elevated/55' }"
-    >
+    <UModal v-model:open="isMemberOpen" title="จัดการสมาชิก"
+      :ui="{ content: 'max-w-2xl', body: '!bg-default p-4! sm:p-5! dark:!bg-elevated/55' }">
       <template #body>
         <div v-if="selectedMember" class="space-y-4">
           <!-- โปรไฟล์ -->
           <div class="flex items-start justify-between gap-3">
             <div class="flex min-w-0 items-center gap-3">
-              <UAvatar v-bind="getAvatarProps(selectedMember.image, selectedMember.name, selectedMember.email)" size="lg" class="shrink-0" />
+              <UAvatar v-bind="getAvatarProps(selectedMember.image, selectedMember.name, selectedMember.email)"
+                size="lg" class="shrink-0" />
               <div class="min-w-0">
-                <p class="truncate text-base font-semibold text-highlighted">{{ selectedMember.name || selectedMember.email }}</p>
+                <p class="truncate text-base font-semibold text-highlighted">{{ selectedMember.name ||
+                  selectedMember.email }}</p>
                 <p class="truncate text-xs text-muted">
-                  {{ selectedMember.email || "ไม่มีอีเมล" }}<span v-if="selectedMember.phoneNumber"> · {{ selectedMember.phoneNumber }}</span>
+                  {{ selectedMember.email || "ไม่มีอีเมล" }}<span v-if="selectedMember.phoneNumber"> · {{
+                    selectedMember.phoneNumber }}</span>
                 </p>
                 <p class="mt-0.5 text-xs text-muted">สมัครเมื่อ {{ formatDate(selectedMember.createdAt) }}</p>
               </div>
             </div>
             <div class="flex shrink-0 flex-col items-end gap-1">
-              <UButton
-                label="หน้ารายละเอียด"
-                icon="i-lucide-external-link"
-                color="neutral"
-                variant="outline"
-                size="xs"
-                :to="`/admin/users/${selectedMember.id}`"
-              />
-              <UButton
-                label="ลบลูกค้า"
-                icon="i-lucide-trash-2"
-                color="error"
-                variant="ghost"
-                size="xs"
-                @click="isDeleteOpen = true"
-              />
+              <UButton label="หน้ารายละเอียด" icon="i-lucide-external-link" color="neutral" variant="outline" size="xs"
+                :to="`/admin/users/${selectedMember.id}`" />
+              <UButton label="ลบลูกค้า" icon="i-lucide-trash-2" color="error" variant="ghost" size="xs"
+                @click="openDeleteMemberDialog" />
             </div>
           </div>
 
@@ -540,13 +518,15 @@ const onConfirmDelete = async () => {
             <div class="rounded-lg border border-default/30 px-3 py-2">
               <p class="text-xs text-muted">เครดิตหลัก</p>
               <p class="text-sm font-semibold">
-                {{ selectedMember.mainCreditInitial > 0 ? `${selectedMember.mainCreditRemaining}/${selectedMember.mainCreditInitial}` : "-" }}
+                {{ selectedMember.mainCreditInitial > 0 ?
+                  `${selectedMember.mainCreditRemaining}/${selectedMember.mainCreditInitial}` : "-" }}
               </p>
             </div>
             <div class="rounded-lg border border-default/30 px-3 py-2">
               <p class="text-xs text-muted">เครดิตเสริม</p>
               <p class="text-sm font-semibold text-info">
-                {{ selectedMember.addonCreditInitial > 0 ? `${selectedMember.addonCreditRemaining}/${selectedMember.addonCreditInitial}` : "-" }}
+                {{ selectedMember.addonCreditInitial > 0 ?
+                  `${selectedMember.addonCreditRemaining}/${selectedMember.addonCreditInitial}` : "-" }}
               </p>
             </div>
             <div class="rounded-lg border border-default/30 px-3 py-2">
@@ -555,7 +535,8 @@ const onConfirmDelete = async () => {
             </div>
             <div class="rounded-lg border border-default/30 px-3 py-2">
               <p class="text-xs text-muted">สิทธิ์ใช้งานอยู่</p>
-              <p class="text-sm font-semibold">{{ selectedMember.activeCount }}/{{ selectedMember.totalEntitlements }}</p>
+              <p class="text-sm font-semibold">{{ selectedMember.activeCount }}/{{ selectedMember.totalEntitlements }}
+              </p>
             </div>
           </div>
 
@@ -563,23 +544,20 @@ const onConfirmDelete = async () => {
           <div class="space-y-2">
             <div class="flex items-center justify-between">
               <p class="text-sm font-semibold text-highlighted">แพ็กเกจและสิทธิ์</p>
-              <UBadge color="neutral" variant="subtle" size="sm">{{ selectedMember.entitlements.length }} รายการ</UBadge>
+              <UBadge color="neutral" variant="subtle" size="sm">{{ selectedMember.entitlements.length }} รายการ
+              </UBadge>
             </div>
 
-            <p
-              v-if="!selectedMember.entitlements.length"
-              class="rounded-lg border border-dashed border-default py-4 text-center text-sm text-muted"
-            >
+            <p v-if="!selectedMember.entitlements.length"
+              class="rounded-lg border border-dashed border-default py-4 text-center text-sm text-muted">
               ลูกค้าคนนี้ยังไม่มีแพ็กเกจ
             </p>
 
-            <div
-              v-for="ent in selectedMember.entitlements"
-              :key="ent.id"
-              class="space-y-2 rounded-lg border border-default/30 bg-elevated/30 p-3"
-            >
+            <div v-for="ent in selectedMember.entitlements" :key="ent.id"
+              class="space-y-2 rounded-lg border border-default/30 bg-elevated/30 p-3">
               <div class="flex min-w-0 items-center gap-2">
-                <UBadge :color="ent.product.packageType === 'MAIN' ? 'primary' : 'info'" variant="subtle" size="sm" class="shrink-0">
+                <UBadge :color="ent.product.packageType === 'MAIN' ? 'primary' : 'info'" variant="subtle" size="sm"
+                  class="shrink-0">
                   {{ ent.product.packageType === 'MAIN' ? 'หลัก' : 'เสริม' }}
                 </UBadge>
                 <span class="min-w-0 flex-1 truncate text-sm font-medium text-highlighted">{{ ent.product.name }}</span>
@@ -596,49 +574,24 @@ const onConfirmDelete = async () => {
                   <span class="text-muted">{{ formatDate(ent.startAt) }} - {{ formatDate(ent.endAt) }}</span>
                 </div>
                 <div class="h-1.5 w-full overflow-hidden rounded-full bg-elevated/70">
-                  <div
-                    class="h-full rounded-full transition-all"
+                  <div class="h-full rounded-full transition-all"
                     :class="creditBarColor(ent.creditRemaining, ent.creditInitial)"
-                    :style="{ width: `${creditPercent(ent.creditRemaining, ent.creditInitial)}%` }"
-                  />
+                    :style="{ width: `${creditPercent(ent.creditRemaining, ent.creditInitial)}%` }" />
                 </div>
-                <p
-                  v-if="ent.status === 'ACTIVE' && ent.endAt"
-                  class="text-xs"
-                  :class="isExpiringSoon(ent.endAt) ? 'font-medium text-warning' : 'text-muted'"
-                >
+                <p v-if="ent.status === 'ACTIVE' && ent.endAt" class="text-xs"
+                  :class="isExpiringSoon(ent.endAt) ? 'font-medium text-warning' : 'text-muted'">
                   {{ expiryHint(ent.endAt) }}
                 </p>
               </div>
 
               <div class="flex flex-wrap items-center gap-1.5">
-                <UButton
-                  label="แก้ไข"
-                  icon="i-lucide-pencil"
-                  color="primary"
-                  variant="subtle"
-                  size="xs"
-                  @click="openEntEdit(ent)"
-                />
-                <UButton
-                  v-if="ent.status === 'ACTIVE'"
-                  label="ปิดใช้งาน"
-                  icon="i-lucide-calendar-x"
-                  color="warning"
-                  variant="subtle"
-                  size="xs"
-                  :loading="expiringEnt?.id === ent.id && isEntExpiring"
-                  @click="openEntExpire(ent)"
-                />
-                <UButton
-                  label="ลบ"
-                  icon="i-lucide-trash-2"
-                  color="error"
-                  variant="ghost"
-                  size="xs"
-                  class="ml-auto"
-                  @click="openEntDelete(ent)"
-                />
+                <UButton label="แก้ไข" icon="i-lucide-pencil" color="primary" variant="subtle" size="xs"
+                  @click="openEntEdit(ent)" />
+                <UButton v-if="ent.status === 'ACTIVE'" label="ปิดใช้งาน" icon="i-lucide-calendar-x" color="warning"
+                  variant="subtle" size="xs" :loading="expiringEnt?.id === ent.id && isEntExpiring"
+                  @click="openEntExpire(ent)" />
+                <UButton label="ลบ" icon="i-lucide-trash-2" color="error" variant="ghost" size="xs" class="ml-auto"
+                  @click="openEntDelete(ent)" />
               </div>
             </div>
           </div>
@@ -652,11 +605,7 @@ const onConfirmDelete = async () => {
       </template>
     </UModal>
 
-    <UModal
-      v-model:open="isEntOpen"
-      title="แก้ไขแพ็กเกจสมาชิก"
-      :ui="{ body: '!bg-default p-4! dark:!bg-elevated/55' }"
-    >
+    <UModal v-model:open="isEntOpen" title="แก้ไขแพ็กเกจสมาชิก" :ui="{ body: '!bg-default p-4! dark:!bg-elevated/55' }">
       <template #body>
         <div class="space-y-3">
           <UFormField label="แพ็กเกจ" required>
@@ -676,14 +625,8 @@ const onConfirmDelete = async () => {
           <div class="grid grid-cols-2 gap-3">
             <UFormField label="วันที่เริ่ม">
               <UPopover>
-                <UButton
-                  :label="formatCalendarLabel(startDate)"
-                  icon="i-lucide-calendar"
-                  color="neutral"
-                  variant="outline"
-                  block
-                  class="justify-start font-normal"
-                />
+                <UButton :label="formatCalendarLabel(startDate)" icon="i-lucide-calendar" color="neutral"
+                  variant="outline" block class="justify-start font-normal" />
                 <template #content>
                   <UCalendar v-model="startDate" locale="th-TH" class="p-2" />
                 </template>
@@ -691,14 +634,8 @@ const onConfirmDelete = async () => {
             </UFormField>
             <UFormField label="วันหมดอายุ">
               <UPopover>
-                <UButton
-                  :label="formatCalendarLabel(endDate)"
-                  icon="i-lucide-calendar"
-                  color="neutral"
-                  variant="outline"
-                  block
-                  class="justify-start font-normal"
-                />
+                <UButton :label="formatCalendarLabel(endDate)" icon="i-lucide-calendar" color="neutral"
+                  variant="outline" block class="justify-start font-normal" />
                 <template #content>
                   <UCalendar v-model="endDate" locale="th-TH" class="p-2" />
                 </template>
@@ -709,17 +646,14 @@ const onConfirmDelete = async () => {
       </template>
       <template #footer>
         <div class="flex w-full justify-between gap-2">
-          <UButton color="neutral" variant="ghost" @click="isEntOpen = false">ยกเลิก</UButton>
+          <UButton color="neutral" variant="ghost" @click="closeEntModal">ยกเลิก</UButton>
           <UButton :loading="isEntSaving" icon="i-lucide-save" @click="onSaveEnt">บันทึก</UButton>
         </div>
       </template>
     </UModal>
 
-    <UModal
-      v-model:open="isEntDeleteOpen"
-      title="ลบแพ็กเกจสมาชิก"
-      :ui="{ body: '!bg-default p-4! dark:!bg-elevated/55' }"
-    >
+    <UModal v-model:open="isEntDeleteOpen" title="ลบแพ็กเกจสมาชิก"
+      :ui="{ body: '!bg-default p-4! dark:!bg-elevated/55' }">
       <template #body>
         <div class="space-y-3 text-sm">
           <p>
@@ -735,17 +669,15 @@ const onConfirmDelete = async () => {
       </template>
       <template #footer>
         <div class="flex w-full justify-between gap-2">
-          <UButton color="neutral" variant="ghost" @click="isEntDeleteOpen = false">ยกเลิก</UButton>
-          <UButton color="error" :loading="isEntDeleting" icon="i-lucide-trash-2" @click="onConfirmEntDelete">ยืนยันลบ</UButton>
+          <UButton color="neutral" variant="ghost" @click="closeEntDeleteModal">ยกเลิก</UButton>
+          <UButton color="error" :loading="isEntDeleting" icon="i-lucide-trash-2" @click="onConfirmEntDelete">ยืนยันลบ
+          </UButton>
         </div>
       </template>
     </UModal>
 
-    <UModal
-      v-model:open="isEntExpireOpen"
-      title="ปิดใช้งานแพ็กเกจสมาชิก"
-      :ui="{ body: '!bg-default p-4! dark:!bg-elevated/55' }"
-    >
+    <UModal v-model:open="isEntExpireOpen" title="ปิดใช้งานแพ็กเกจสมาชิก"
+      :ui="{ body: '!bg-default p-4! dark:!bg-elevated/55' }">
       <template #body>
         <div class="space-y-3 text-sm">
           <p>
@@ -761,20 +693,18 @@ const onConfirmDelete = async () => {
       </template>
       <template #footer>
         <div class="flex w-full justify-between gap-2">
-          <UButton color="neutral" variant="ghost" @click="isEntExpireOpen = false">ยกเลิก</UButton>
-          <UButton color="warning" :loading="isEntExpiring" icon="i-lucide-calendar-x" @click="onConfirmEntExpire">ยืนยันปิดใช้งาน</UButton>
+          <UButton color="neutral" variant="ghost" @click="closeEntExpireModal">ยกเลิก</UButton>
+          <UButton color="warning" :loading="isEntExpiring" icon="i-lucide-calendar-x" @click="onConfirmEntExpire">
+            ยืนยันปิดใช้งาน</UButton>
         </div>
       </template>
     </UModal>
 
-    <UModal
-      v-model:open="isDeleteOpen"
-      title="ยืนยันการลบ"
-      :ui="{ body: '!bg-default p-4! dark:!bg-elevated/55' }"
-    >
+    <UModal v-model:open="isDeleteOpen" title="ยืนยันการลบ" :ui="{ body: '!bg-default p-4! dark:!bg-elevated/55' }">
       <template #body>
         <div class="space-y-3 text-sm">
-          <p>คุณต้องการลบลูกค้า <span class="font-semibold">{{ selectedMember?.name || selectedMember?.email }}</span> ใช่หรือไม่?</p>
+          <p>คุณต้องการลบลูกค้า <span class="font-semibold">{{ selectedMember?.name || selectedMember?.email }}</span>
+            ใช่หรือไม่?</p>
           <div class="flex items-start gap-2 rounded-lg border border-warning/30 bg-warning/5 p-3 text-xs text-warning">
             <UIcon name="i-lucide-triangle-alert" class="mt-0.5 size-3.5 shrink-0" />
             <span>ลูกค้าที่มีการใช้สิทธิ์แพ็กเกจไปแล้วจะลบไม่ได้ แพ็กเกจที่ยังไม่ถูกใช้จะถูกยกเลิกอัตโนมัติ</span>
@@ -783,8 +713,9 @@ const onConfirmDelete = async () => {
       </template>
       <template #footer>
         <div class="flex w-full justify-between gap-2">
-          <UButton color="neutral" variant="ghost" @click="isDeleteOpen = false">ยกเลิก</UButton>
-          <UButton color="error" :loading="isDeleting" icon="i-lucide-trash-2" @click="onConfirmDelete">ยืนยันลบ</UButton>
+          <UButton color="neutral" variant="ghost" @click="closeDeleteMemberModal">ยกเลิก</UButton>
+          <UButton color="error" :loading="isDeleting" icon="i-lucide-trash-2" @click="onConfirmDelete">ยืนยันลบ
+          </UButton>
         </div>
       </template>
     </UModal>

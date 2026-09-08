@@ -93,6 +93,9 @@ const setHistoricalTime = (field: "sold" | "paid", value: string) => {
   if (field === "sold") historicalSoldTime.value = normalized;
   if (field === "paid") historicalPaidTime.value = normalized;
 };
+const setHistoricalPaymentStatus = (value: "UNPAID" | "PAID"): void => {
+  historicalPaymentStatus.value = value;
+};
 const timeOptions = computed(() => {
   const options: Array<{ label: string; value: string }> = [];
   for (let hour = 0; hour < 24; hour += 1) {
@@ -114,6 +117,9 @@ const historicalPaidDateLabel = computed(() => formatHistoricalDateLabel(histori
 
 const searchQuery = ref("");
 const packageTypeFilter = ref<"all" | PackageType>("all");
+const setPackageTypeFilter = (value: "all" | PackageType): void => {
+  packageTypeFilter.value = value;
+};
 
 const productMap = computed(() => new Map((products.value ?? []).map((pkg) => [pkg.id, pkg])));
 const customerOptions = computed(() =>
@@ -179,10 +185,22 @@ const paymentStatusOptions: Array<{ label: string; value: PaymentStatus }> = [
 
 const form = reactive(createEmptyForm());
 const isSubmitting = ref(false);
+const setPaymentMethod = (value: PaymentMethod): void => {
+  form.method = value;
+};
+const setPaymentStatus = (value: PaymentStatus): void => {
+  form.status = value;
+};
 
 const isXl = useMediaQuery("(min-width: 1280px)");
 const isCartOpen = ref(false);
 watch(isXl, (value) => { if (value) isCartOpen.value = false; });
+const closeCart = (): void => {
+  isCartOpen.value = false;
+};
+const openCart = (): void => {
+  isCartOpen.value = true;
+};
 const slipFile = ref<File | null>(null);
 const uploadedSlip = ref<AdminSaleSlipImage | null>(null);
 
@@ -387,27 +405,17 @@ const handleSubmit = async () => {
         </div>
 
         <div :class="[filterBarClass, 'flex items-center gap-1.5']">
-          <UInput
-            v-model="searchQuery"
-            icon="i-lucide-search"
-            placeholder="ค้นหาชื่อแพ็กเกจ"
-            class="min-w-0 flex-[1_1_28rem]"
-          />
+          <UInput v-model="searchQuery" icon="i-lucide-search" placeholder="ค้นหาชื่อแพ็กเกจ"
+            class="min-w-0 flex-[1_1_28rem]" />
           <div class="grid shrink-0 grid-cols-3 gap-1 sm:flex sm:justify-end">
-            <UButton
-              v-for="filter in packageTypeFilters"
-              :key="filter.value"
-              :label="filter.label"
-              color="neutral"
-              :variant="packageTypeFilter === filter.value ? 'solid' : 'outline'"
-              size="sm"
-              class="justify-center"
-              @click="packageTypeFilter = filter.value"
-            />
+            <UButton v-for="filter in packageTypeFilters" :key="filter.value" :label="filter.label" color="neutral"
+              :variant="packageTypeFilter === filter.value ? 'solid' : 'outline'" size="sm" class="justify-center"
+              @click="setPackageTypeFilter(filter.value)" />
           </div>
         </div>
 
-        <div v-if="isCatalogLoading" class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-3 2xl:grid-cols-4">
+        <div v-if="isCatalogLoading"
+          class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-3 2xl:grid-cols-4">
           <PosCatalogCard v-for="i in 8" :key="`pkg-sk-${i}`" loading />
         </div>
 
@@ -422,23 +430,14 @@ const handleSubmit = async () => {
             </div>
 
             <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-3 2xl:grid-cols-4">
-              <PosCatalogCard
-                v-for="pkg in group.products"
-                :key="pkg.id"
-                :title="pkg.name"
-                :description="pkg.description"
-                :badge-label="packageTypeBadges[pkg.packageType].label"
-                :badge-color="packageTypeBadges[pkg.packageType].color"
-                :price-label="formatCurrency(pkg.price)"
+              <PosCatalogCard v-for="pkg in group.products" :key="pkg.id" :title="pkg.name"
+                :description="pkg.description" :badge-label="packageTypeBadges[pkg.packageType].label"
+                :badge-color="packageTypeBadges[pkg.packageType].color" :price-label="formatCurrency(pkg.price)"
                 :meta-label="`${pkg.credits ? `${pkg.credits} เครดิต` : 'ไม่จำกัดเครดิต'} | ${pkg.validityDays ? `${pkg.validityDays} วัน` : 'ไม่กำหนดอายุ'}`"
-                :quantity="selectedItemMap.get(pkg.id)?.quantity ?? 0"
-                :selected="selectedItemMap.has(pkg.id)"
-                :decrement-disabled="!selectedItemMap.has(pkg.id)"
-                @select="incrementProduct(pkg.id)"
-                @decrement="decrementProduct(pkg.id)"
-                @increment="incrementProduct(pkg.id)"
-                @change="setProductQuantity(pkg.id, $event)"
-              />
+                :quantity="selectedItemMap.get(pkg.id)?.quantity ?? 0" :selected="selectedItemMap.has(pkg.id)"
+                :decrement-disabled="!selectedItemMap.has(pkg.id)" @select="incrementProduct(pkg.id)"
+                @decrement="decrementProduct(pkg.id)" @increment="incrementProduct(pkg.id)"
+                @change="setProductQuantity(pkg.id, $event)" />
             </div>
           </section>
         </div>
@@ -449,138 +448,82 @@ const handleSubmit = async () => {
       </section>
     </div>
 
-    <aside
-      :class="isXl
-        ? 'space-y-3 rounded-lg xl:sticky xl:top-4 xl:self-start'
-        : [
-            'admin-workspace fixed inset-y-0 right-0 z-50 flex w-full max-w-lg flex-col overflow-y-auto border-l border-default transition-transform duration-200',
-            isCartOpen ? 'translate-x-0' : 'translate-x-full',
-          ]"
-    >
-      <div v-if="!isXl" class="sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-default bg-default px-4 py-3 dark:bg-elevated/55">
+    <aside :class="isXl
+      ? 'space-y-3 rounded-lg xl:sticky xl:top-4 xl:self-start'
+      : [
+        'admin-workspace fixed inset-y-0 right-0 z-50 flex w-full max-w-lg flex-col overflow-y-auto border-l border-default transition-transform duration-200',
+        isCartOpen ? 'translate-x-0' : 'translate-x-full',
+      ]">
+      <div v-if="!isXl"
+        class="sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-default bg-default px-4 py-3 dark:bg-elevated/55">
         <p class="text-base font-semibold text-highlighted">สรุปรายการขายแพ็กเกจ</p>
-        <UButton icon="i-lucide-x" color="neutral" variant="ghost" size="sm" aria-label="ปิด" @click="isCartOpen = false" />
+        <UButton icon="i-lucide-x" color="neutral" variant="ghost" size="sm" aria-label="ปิด" @click="closeCart" />
       </div>
       <div :class="!isXl ? 'flex-1 p-2' : ''">
-        <PosCheckoutPanel
-          title="สรุปรายการขายแพ็กเกจ"
-          :flat="!isXl"
-          :section-class="checkoutSectionClass"
-          :customer-id="form.customerId"
-          :customer-options="customerOptions"
-          :customer-loading="isCustomersLoading"
-          allow-new-customer
-          :customer-mode="form.customerMode"
-          :new-customer-name="form.newCustomerName"
-          :new-customer-phone="form.newCustomerPhone"
-          :new-customer-email="form.newCustomerEmail"
-          :note="form.note"
-          total-label="ยอดรวมสุทธิ"
-          :total-value="formatCurrency(totalAmount)"
+        <PosCheckoutPanel title="สรุปรายการขายแพ็กเกจ" :flat="!isXl" :section-class="checkoutSectionClass"
+          :customer-id="form.customerId" :customer-options="customerOptions" :customer-loading="isCustomersLoading"
+          allow-new-customer :customer-mode="form.customerMode" :new-customer-name="form.newCustomerName"
+          :new-customer-phone="form.newCustomerPhone" :new-customer-email="form.newCustomerEmail" :note="form.note"
+          total-label="ยอดรวมสุทธิ" :total-value="formatCurrency(totalAmount)"
           :total-meta="`${cartItems.length} รายการ | ${totalQuantity} ชิ้น`"
-          :submit-label="backdatedEnabled ? 'บันทึกขายแพ็กเกจย้อนหลัง' : 'บันทึก'"
-          :is-submitting="isSubmitting"
-          :slip-file="slipFile"
-          :uploaded-slip-url="uploadedSlip?.secureUrl || uploadedSlip?.url"
+          :submit-label="backdatedEnabled ? 'บันทึกขายแพ็กเกจย้อนหลัง' : 'บันทึก'" :is-submitting="isSubmitting"
+          :slip-file="slipFile" :uploaded-slip-url="uploadedSlip?.secureUrl || uploadedSlip?.url"
           :uploaded-slip-label="uploadedSlip?.secureUrl || uploadedSlip?.url || null"
-          @update:customer-id="form.customerId = $event"
-          @update:customer-mode="form.customerMode = $event"
+          @update:customer-id="form.customerId = $event" @update:customer-mode="form.customerMode = $event"
           @update:new-customer-name="form.newCustomerName = $event"
           @update:new-customer-phone="form.newCustomerPhone = $event"
-          @update:new-customer-email="form.newCustomerEmail = $event"
-          @search-customer="setCustomerSearch"
-          @update:note="form.note = $event"
-          @update:slip-file="slipFile = $event"
-          @remove-slip="resetSlip"
-          @submit="handleSubmit"
-          @reset="resetForm"
-        >
+          @update:new-customer-email="form.newCustomerEmail = $event" @search-customer="setCustomerSearch"
+          @update:note="form.note = $event" @update:slip-file="slipFile = $event" @remove-slip="resetSlip"
+          @submit="handleSubmit" @reset="resetForm">
           <template #cart>
             <div v-if="backdatedEnabled" :class="[checkoutSectionClass, 'space-y-3']">
               <p class="text-sm font-semibold text-highlighted">ข้อมูลการขายย้อนหลัง</p>
               <UFormField label="วันและเวลาขายจริง" required>
                 <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
                   <UPopover>
-                    <UButton
-                      :label="historicalSoldDateLabel"
-                      icon="i-lucide-calendar"
-                      color="neutral"
-                      variant="outline"
-                      block
-                      class="justify-start font-normal"
-                    />
+                    <UButton :label="historicalSoldDateLabel" icon="i-lucide-calendar" color="neutral" variant="outline"
+                      block class="justify-start font-normal" />
                     <template #content>
-                      <UCalendar v-model="historicalSoldDate" :max-value="historicalMaxDate" locale="th-TH" class="p-2" />
+                      <UCalendar v-model="historicalSoldDate" :max-value="historicalMaxDate" locale="th-TH"
+                        class="p-2" />
                     </template>
                   </UPopover>
-                  <UInputMenu
-                    v-model="historicalSoldTime"
-                    v-model:search-term="historicalSoldTimeSearch"
-                    :items="timeOptions"
-                    value-key="value"
-                    create-item="always"
-                    icon="i-lucide-clock"
-                    placeholder="เช่น 09:15"
-                    class="w-full"
-                    @create="setHistoricalTime('sold', $event)"
-                    @blur="setHistoricalTime('sold', historicalSoldTimeSearch)"
-                  />
+                  <UInputMenu v-model="historicalSoldTime" v-model:search-term="historicalSoldTimeSearch"
+                    :items="timeOptions" value-key="value" create-item="always" icon="i-lucide-clock"
+                    placeholder="เช่น 09:15" class="w-full" @create="setHistoricalTime('sold', $event)"
+                    @blur="setHistoricalTime('sold', historicalSoldTimeSearch)" />
                 </div>
               </UFormField>
               <UFormField label="สถานะการชำระเงิน" required>
                 <div class="grid grid-cols-2 gap-2">
-                  <UButton
-                    v-for="option in historicalPaymentStatusOptions"
-                    :key="option.value"
-                    :label="option.label"
+                  <UButton v-for="option in historicalPaymentStatusOptions" :key="option.value" :label="option.label"
                     :color="historicalPaymentStatus === option.value ? 'primary' : 'neutral'"
-                    :variant="historicalPaymentStatus === option.value ? 'solid' : 'outline'"
-                    block
-                    @click="historicalPaymentStatus = option.value"
-                  />
+                    :variant="historicalPaymentStatus === option.value ? 'solid' : 'outline'" block
+                    @click="setHistoricalPaymentStatus(option.value)" />
                 </div>
               </UFormField>
               <UFormField v-if="historicalPaid" label="วันและเวลาชำระเงินจริง" required>
                 <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
                   <UPopover>
-                    <UButton
-                      :label="historicalPaidDateLabel"
-                      icon="i-lucide-calendar"
-                      color="neutral"
-                      variant="outline"
-                      block
-                      class="justify-start font-normal"
-                    />
+                    <UButton :label="historicalPaidDateLabel" icon="i-lucide-calendar" color="neutral" variant="outline"
+                      block class="justify-start font-normal" />
                     <template #content>
-                      <UCalendar v-model="historicalPaidDate" :max-value="historicalMaxDate" locale="th-TH" class="p-2" />
+                      <UCalendar v-model="historicalPaidDate" :max-value="historicalMaxDate" locale="th-TH"
+                        class="p-2" />
                     </template>
                   </UPopover>
-                  <UInputMenu
-                    v-model="historicalPaidTime"
-                    v-model:search-term="historicalPaidTimeSearch"
-                    :items="timeOptions"
-                    value-key="value"
-                    create-item="always"
-                    icon="i-lucide-clock"
-                    placeholder="เช่น 10:20"
-                    class="w-full"
-                    @create="setHistoricalTime('paid', $event)"
-                    @blur="setHistoricalTime('paid', historicalPaidTimeSearch)"
-                  />
+                  <UInputMenu v-model="historicalPaidTime" v-model:search-term="historicalPaidTimeSearch"
+                    :items="timeOptions" value-key="value" create-item="always" icon="i-lucide-clock"
+                    placeholder="เช่น 10:20" class="w-full" @create="setHistoricalTime('paid', $event)"
+                    @blur="setHistoricalTime('paid', historicalPaidTimeSearch)" />
                 </div>
               </UFormField>
               <UFormField v-if="historicalPaid" label="ช่องทางการชำระเงิน">
                 <div class="grid grid-cols-2 gap-2">
-                  <UButton
-                    v-for="option in paymentMethodOptions"
-                    :key="option.value"
-                    :label="option.label"
-                    :icon="option.icon"
-                    :color="form.method === option.value ? 'primary' : 'neutral'"
-                    :variant="form.method === option.value ? 'solid' : 'outline'"
-                    block
-                    @click="form.method = option.value"
-                  />
+                  <UButton v-for="option in paymentMethodOptions" :key="option.value" :label="option.label"
+                    :icon="option.icon" :color="form.method === option.value ? 'primary' : 'neutral'"
+                    :variant="form.method === option.value ? 'solid' : 'outline'" block
+                    @click="setPaymentMethod(option.value)" />
                 </div>
               </UFormField>
               <p v-if="historicalError" role="alert" class="text-sm text-error">{{ historicalError }}</p>
@@ -602,14 +545,8 @@ const handleSubmit = async () => {
                       </p>
                     </div>
                     <div class="flex shrink-0 items-center gap-1.5">
-                      <UInputNumber
-                        :model-value="item.quantity"
-                        :min="0"
-                        :step="1"
-                        size="xs"
-                        class="w-20"
-                        @update:model-value="setItemQuantity(item.key, Number.isFinite($event) ? $event : 0)"
-                      />
+                      <UInputNumber :model-value="item.quantity" :min="0" :step="1" size="xs" class="w-20"
+                        @update:model-value="setItemQuantity(item.key, Number.isFinite($event) ? $event : 0)" />
                       <span class="w-16 text-right text-xs font-medium text-muted">
                         {{ formatCurrency(item.totalPrice) }}
                       </span>
@@ -632,29 +569,18 @@ const handleSubmit = async () => {
                 <p class="text-sm font-semibold text-highlighted">การชำระเงิน</p>
                 <UFormField label="สถานะการชำระเงิน">
                   <div class="grid grid-cols-3 gap-2">
-                    <UButton
-                      v-for="option in paymentStatusOptions"
-                      :key="option.value"
-                      :label="option.label"
+                    <UButton v-for="option in paymentStatusOptions" :key="option.value" :label="option.label"
                       :color="form.status === option.value ? 'primary' : 'neutral'"
-                      :variant="form.status === option.value ? 'solid' : 'outline'"
-                      block
-                      @click="form.status = option.value"
-                    />
+                      :variant="form.status === option.value ? 'solid' : 'outline'" block
+                      @click="setPaymentStatus(option.value)" />
                   </div>
                 </UFormField>
                 <UFormField label="ช่องทางการชำระเงิน">
                   <div class="grid grid-cols-2 gap-2">
-                    <UButton
-                      v-for="option in paymentMethodOptions"
-                      :key="option.value"
-                      :label="option.label"
-                      :icon="option.icon"
-                      :color="form.method === option.value ? 'primary' : 'neutral'"
-                      :variant="form.method === option.value ? 'solid' : 'outline'"
-                      block
-                      @click="form.method = option.value"
-                    />
+                    <UButton v-for="option in paymentMethodOptions" :key="option.value" :label="option.label"
+                      :icon="option.icon" :color="form.method === option.value ? 'primary' : 'neutral'"
+                      :variant="form.method === option.value ? 'solid' : 'outline'" block
+                      @click="setPaymentMethod(option.value)" />
                   </div>
                 </UFormField>
               </div>
@@ -666,14 +592,8 @@ const handleSubmit = async () => {
                   <span class="font-medium text-highlighted">{{ formatCurrency(subtotalAmount) }}</span>
                 </div>
                 <UFormField label="ส่วนลด">
-                  <UInputNumber
-                    v-model="form.discountAmount"
-                    :min="0"
-                    :max="subtotalAmount"
-                    :step="1"
-                    :format-options="{ minimumFractionDigits: 0, maximumFractionDigits: 2 }"
-                    class="w-full"
-                  />
+                  <UInputNumber v-model="form.discountAmount" :min="0" :max="subtotalAmount" :step="1"
+                    :format-options="{ minimumFractionDigits: 0, maximumFractionDigits: 2 }" class="w-full" />
                 </UFormField>
                 <div v-if="vatRate > 0" class="flex items-center justify-between text-sm">
                   <span class="text-muted">{{ vatIncluded ? `รวม VAT ${vatRate}%` : `VAT ${vatRate}%` }}</span>
@@ -688,24 +608,13 @@ const handleSubmit = async () => {
   </div>
 
   <!-- Mobile/Tablet: FAB + backdrop -->
-  <div
-    v-if="!isXl && isCartOpen"
-    class="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm"
-    aria-hidden="true"
-    @click="isCartOpen = false"
-  />
-  <UButton
-    v-if="!isXl"
-    icon="i-lucide-shopping-cart"
-    color="primary"
-    size="xl"
-    class="fixed bottom-6 right-6 z-30 size-14 justify-center rounded-full"
-    aria-label="เปิดตะกร้าแพ็กเกจ"
-    @click="isCartOpen = true"
-  >
-    <span
-      v-if="totalQuantity > 0"
-      class="absolute -right-1 -top-1 inline-flex min-w-5 items-center justify-center rounded-full bg-error px-1.5 text-xs font-semibold text-white"
-    >{{ totalQuantity }}</span>
+  <div v-if="!isXl && isCartOpen" class="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm" aria-hidden="true"
+    @click="isCartOpen = false" />
+  <UButton v-if="!isXl" icon="i-lucide-shopping-cart" color="primary" size="xl"
+    class="fixed bottom-6 right-6 z-30 size-14 justify-center rounded-full" aria-label="เปิดตะกร้าแพ็กเกจ"
+    @click="openCart">
+    <span v-if="totalQuantity > 0"
+      class="absolute -right-1 -top-1 inline-flex min-w-5 items-center justify-center rounded-full bg-error px-1.5 text-xs font-semibold text-white">{{
+        totalQuantity }}</span>
   </UButton>
 </template>

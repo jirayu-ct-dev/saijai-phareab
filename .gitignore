@@ -49,6 +49,8 @@ logs
 !.agents/skills/docker-deployment-standards/**
 !.agents/skills/xprinter-xp-c260m/
 !.agents/skills/xprinter-xp-c260m/**
+!.agents/skills/raspberry-pi-print-gateway/
+!.agents/skills/raspberry-pi-print-gateway/**
 .codex
 error.md
 flow.md

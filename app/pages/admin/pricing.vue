@@ -304,304 +304,246 @@ watch(isManageOpen, (open) => {
     openAddService()
   }
 })
+
+const openManageCategory = (): void => {
+  isManageOpen.value = true
+}
+
+const openAddItemModal = (): void => {
+  isAddItemModalOpen.value = true
+}
+
+const closeAddItemModal = (): void => {
+  isAddItemModalOpen.value = false
+}
+
+const closeManageModal = (): void => {
+  isManageOpen.value = false
+}
 </script>
 
 <template>
   <div class="contents">
-  <UDashboardPanel>
-    <template #header>
-      <UDashboardNavbar title="ราคาหน้าร้าน" icon="i-lucide-tags">
-        <template #leading>
-          <UDashboardSidebarCollapse class="hidden lg:inline-flex" />
-        </template>
-        <template #right>
-          <div class="flex items-center gap-2">
-            <UButton
-              label="จัดการประเภท / บริการ"
-              icon="i-lucide-settings-2"
-              color="neutral"
-              variant="outline"
-              class="shrink-0"
-              aria-label="จัดการประเภท / บริการ"
-              :ui="{ label: 'hidden sm:inline' }"
-              @click="isManageOpen = true"
-            />
-            <UButton
-              label="เพิ่มรายการ"
-              icon="i-lucide-plus"
-              color="primary"
-              class="shrink-0"
-              aria-label="เพิ่มรายการ"
-              :ui="{ label: 'hidden sm:inline' }"
-              @click="isAddItemModalOpen = true"
-            />
-          </div>
-        </template>
-      </UDashboardNavbar>
-    </template>
+    <UDashboardPanel>
+      <template #header>
+        <UDashboardNavbar title="ราคาหน้าร้าน" icon="i-lucide-tags">
+          <template #leading>
+            <UDashboardSidebarCollapse class="hidden lg:inline-flex" />
+          </template>
+          <template #right>
+            <div class="flex items-center gap-2">
+              <UButton label="จัดการประเภท / บริการ" icon="i-lucide-settings-2" color="neutral" variant="outline"
+                class="shrink-0" aria-label="จัดการประเภท / บริการ" :ui="{ label: 'hidden sm:inline' }"
+                @click="openManageCategory" />
+              <UButton label="เพิ่มรายการ" icon="i-lucide-plus" color="primary" class="shrink-0"
+                aria-label="เพิ่มรายการ" :ui="{ label: 'hidden sm:inline' }" @click="openAddItemModal" />
+            </div>
+          </template>
+        </UDashboardNavbar>
+      </template>
 
-    <template #body>
-      <div class="flex flex-col gap-3 p-2 sm:p-6">
-        <AdminPricingTable
-          :data="pageData"
-          :loading="isLoading"
-          :show-skeleton="showSkeleton"
-          @update-price="handleUpdatePrice"
-          @update-item="handleUpdateItem"
-          @delete-item="handleDeleteItem"
-          @refresh="refresh"
-        />
-      </div>
-    </template>
-  </UDashboardPanel>
-
-  <!-- Add Item Modal -->
-  <UModal
-    v-model:open="isAddItemModalOpen"
-    title="เพิ่มรายการซักใหม่"
-    description="กำหนดชื่อ ประเภท และราคาตามบริการ"
-    :ui="{
-      content: 'max-w-3xl bg-default dark:bg-default',
-      body: '!p-2 sm:p-4! bg-default dark:bg-default',
-      header: 'bg-default dark:bg-default',
-      footer: 'bg-default dark:bg-default',
-    }"
-  >
-    <template #body>
-      <div class="flex flex-col gap-3">
-        <div class="-mx-2 border border-default/30 bg-default p-4 dark:border-default/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg">
-          <p class="mb-3 font-medium text-highlighted">ข้อมูลรายการ</p>
-          <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <UFormField label="ชื่อรายการ" required>
-              <UInput v-model="newItemData.name" class="w-full" placeholder="เช่น เสื้อ, กางเกงยีนส์" />
-            </UFormField>
-            <UFormField label="ประเภท / หมวดหมู่">
-              <USelect
-                v-model="newItemData.categoryId"
-                :items="pageData.categories.map(c => ({ ...c, description: c.description ?? undefined }))"
-                label-key="name"
-                value-key="id"
-                class="w-full"
-                placeholder="เลือกประเภท"
-              />
-            </UFormField>
-            <UFormField label="หมายเหตุ" class="sm:col-span-2">
-              <UInput v-model="newItemData.description" class="w-full" placeholder="เช่น คิดตามขนาด, 5 บาท/ตร.ม." />
-            </UFormField>
-          </div>
+      <template #body>
+        <div class="flex flex-col gap-3 p-2 sm:p-6">
+          <AdminPricingTable :data="pageData" :loading="isLoading" :show-skeleton="showSkeleton"
+            @update-price="handleUpdatePrice" @update-item="handleUpdateItem" @delete-item="handleDeleteItem"
+            @refresh="refresh" />
         </div>
+      </template>
+    </UDashboardPanel>
 
-        <div class="-mx-2 border border-default/30 bg-default p-4 dark:border-default/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg">
-          <p class="mb-3 font-medium text-highlighted">ราคาตามบริการ</p>
-          <div class="space-y-2">
-            <div
-              v-for="service in pageData.services"
-              :key="service.id"
-              class="space-y-2 rounded-lg border border-default/25 bg-elevated/30 p-3 dark:border-default/15 dark:bg-elevated/25"
-            >
-              <div class="flex items-center justify-between gap-2">
-                <span class="text-sm font-medium text-highlighted">{{ service.name }}</span>
-                <div class="flex items-center gap-1.5">
-                  <span class="text-xs text-muted">ช่วงราคา</span>
-                  <USwitch v-model="newItemRangeEnabled[service.id]" size="xs" />
+    <!-- Add Item Modal -->
+    <UModal v-model:open="isAddItemModalOpen" title="เพิ่มรายการซักใหม่" description="กำหนดชื่อ ประเภท และราคาตามบริการ"
+      :ui="{
+        content: 'max-w-3xl bg-default dark:bg-default',
+        body: '!p-2 sm:p-4! bg-default dark:bg-default',
+        header: 'bg-default dark:bg-default',
+        footer: 'bg-default dark:bg-default',
+      }">
+      <template #body>
+        <div class="flex flex-col gap-3">
+          <div
+            class="-mx-2 border border-default/30 bg-default p-4 dark:border-default/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg">
+            <p class="mb-3 font-medium text-highlighted">ข้อมูลรายการ</p>
+            <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <UFormField label="ชื่อรายการ" required>
+                <UInput v-model="newItemData.name" class="w-full" placeholder="เช่น เสื้อ, กางเกงยีนส์" />
+              </UFormField>
+              <UFormField label="ประเภท / หมวดหมู่">
+                <USelect v-model="newItemData.categoryId"
+                  :items="pageData.categories.map(c => ({ ...c, description: c.description ?? undefined }))"
+                  label-key="name" value-key="id" class="w-full" placeholder="เลือกประเภท" />
+              </UFormField>
+              <UFormField label="หมายเหตุ" class="sm:col-span-2">
+                <UInput v-model="newItemData.description" class="w-full" placeholder="เช่น คิดตามขนาด, 5 บาท/ตร.ม." />
+              </UFormField>
+            </div>
+          </div>
+
+          <div
+            class="-mx-2 border border-default/30 bg-default p-4 dark:border-default/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg">
+            <p class="mb-3 font-medium text-highlighted">ราคาตามบริการ</p>
+            <div class="space-y-2">
+              <div v-for="service in pageData.services" :key="service.id"
+                class="space-y-2 rounded-lg border border-default/25 bg-elevated/30 p-3 dark:border-default/15 dark:bg-elevated/25">
+                <div class="flex items-center justify-between gap-2">
+                  <span class="text-sm font-medium text-highlighted">{{ service.name }}</span>
+                  <div class="flex items-center gap-1.5">
+                    <span class="text-xs text-muted">ช่วงราคา</span>
+                    <USwitch v-model="newItemRangeEnabled[service.id]" size="xs" />
+                  </div>
                 </div>
-              </div>
-              <UInput
-                v-if="!newItemRangeEnabled[service.id]"
-                v-model.number="newItemPrices[service.id]"
-                type="number"
-                class="w-full"
-                placeholder="ราคา"
-              />
-              <div v-else class="grid grid-cols-3 items-end gap-2">
-                <UFormField label="ต่ำสุด">
-                  <UInput v-model.number="newItemPricesMin[service.id]" type="number" class="w-full" placeholder="0" @update:model-value="newItemPrices[service.id] = newItemPricesMin[service.id]" />
-                </UFormField>
-                <UFormField label="สูงสุด">
-                  <UInput v-model.number="newItemPricesMax[service.id]" type="number" class="w-full" placeholder="0" />
-                </UFormField>
-                <UFormField label="ราคาเริ่มต้น">
-                  <UInput v-model.number="newItemPrices[service.id]" type="number" class="w-full" placeholder="ใช้ค่าต่ำสุด" />
-                </UFormField>
+                <UInput v-if="!newItemRangeEnabled[service.id]" v-model.number="newItemPrices[service.id]" type="number"
+                  class="w-full" placeholder="ราคา" />
+                <div v-else class="grid grid-cols-3 items-end gap-2">
+                  <UFormField label="ต่ำสุด">
+                    <UInput v-model.number="newItemPricesMin[service.id]" type="number" class="w-full" placeholder="0"
+                      @update:model-value="newItemPrices[service.id] = newItemPricesMin[service.id]" />
+                  </UFormField>
+                  <UFormField label="สูงสุด">
+                    <UInput v-model.number="newItemPricesMax[service.id]" type="number" class="w-full"
+                      placeholder="0" />
+                  </UFormField>
+                  <UFormField label="ราคาเริ่มต้น">
+                    <UInput v-model.number="newItemPrices[service.id]" type="number" class="w-full"
+                      placeholder="ใช้ค่าต่ำสุด" />
+                  </UFormField>
+                </div>
               </div>
             </div>
           </div>
         </div>
-      </div>
-    </template>
-    <template #footer>
-      <div class="flex w-full justify-end gap-3">
-        <UButton label="ยกเลิก" variant="outline" color="neutral" @click="isAddItemModalOpen = false" />
-        <UButton label="บันทึก" color="primary" icon="i-lucide-check" :loading="isSavingItem" :disabled="!newItemData.name" @click="saveNewItem" />
-      </div>
-    </template>
-  </UModal>
+      </template>
+      <template #footer>
+        <div class="flex w-full justify-end gap-3">
+          <UButton label="ยกเลิก" variant="outline" color="neutral" @click="closeAddItemModal" />
+          <UButton label="บันทึก" color="primary" icon="i-lucide-check" :loading="isSavingItem"
+            :disabled="!newItemData.name" @click="saveNewItem" />
+        </div>
+      </template>
+    </UModal>
 
-  <!-- Manage Categories & Services Modal -->
-  <UModal
-    v-model:open="isManageOpen"
-    title="จัดการประเภทและบริการ"
-    description="เพิ่ม แก้ไข หรือลบประเภทสินค้าและประเภทบริการ"
-    :ui="{
-      content: 'max-w-3xl bg-default dark:bg-default',
-      body: '!p-2 sm:p-4! bg-default dark:bg-default',
-      header: 'bg-default dark:bg-default',
-      footer: 'bg-default dark:bg-default',
-    }"
-  >
-    <template #body>
-      <UTabs
-        v-model="manageTab"
-        color="neutral"
-        variant="link"
-        :items="[
+    <!-- Manage Categories & Services Modal -->
+    <UModal v-model:open="isManageOpen" title="จัดการประเภทและบริการ"
+      description="เพิ่ม แก้ไข หรือลบประเภทสินค้าและประเภทบริการ" :ui="{
+        content: 'max-w-3xl bg-default dark:bg-default',
+        body: '!p-2 sm:p-4! bg-default dark:bg-default',
+        header: 'bg-default dark:bg-default',
+        footer: 'bg-default dark:bg-default',
+      }">
+      <template #body>
+        <UTabs v-model="manageTab" color="neutral" variant="link" :items="[
           { label: 'ประเภทสินค้า', value: 'category', slot: 'category', icon: 'i-lucide-layers' },
           { label: 'บริการ', value: 'service', slot: 'service', icon: 'i-lucide-sparkles' }
         ]"
-        :ui="{ list: '-mx-2 border border-default/30 bg-default px-3! dark:border-default/40 dark:bg-default/80 sm:mx-0 sm:rounded-lg' }"
-        class="w-full"
-      >
-        <!-- ── Category Tab ── -->
-        <template #category>
-          <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <!-- List -->
-            <div class="-mx-2 space-y-2 border border-default/30 bg-default p-4 dark:border-default/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg">
-              <p class="text-xs font-semibold uppercase tracking-wide text-muted">รายการประเภท</p>
-              <div v-if="pageData.categories.length" class="space-y-1">
-                <div
-                  v-for="cat in pageData.categories"
-                  :key="cat.id"
-                  class="flex items-center gap-2 border px-3 py-2 transition-colors sm:rounded-lg"
-                  :class="editingCategory?.id === cat.id
-                    ? 'border-primary/30 bg-primary/5 dark:border-primary/25 dark:bg-elevated/65'
-                    : 'border-default/25 bg-elevated/30 hover:border-default/40 hover:bg-elevated/50 dark:border-default/15 dark:bg-elevated/25 dark:hover:bg-elevated/45'"
-                >
-                  <div class="min-w-0 flex-1 cursor-pointer" @click="openEditCategory(cat)">
-                    <p class="truncate text-sm font-medium text-highlighted">{{ cat.name }}</p>
-                    <p v-if="cat.description" class="truncate text-xs text-muted">{{ cat.description }}</p>
+          :ui="{ list: '-mx-2 border border-default/30 bg-default px-3! dark:border-default/40 dark:bg-default/80 sm:mx-0 sm:rounded-lg' }"
+          class="w-full">
+          <!-- ── Category Tab ── -->
+          <template #category>
+            <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <!-- List -->
+              <div
+                class="-mx-2 space-y-2 border border-default/30 bg-default p-4 dark:border-default/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg">
+                <p class="text-xs font-semibold uppercase tracking-wide text-muted">รายการประเภท</p>
+                <div v-if="pageData.categories.length" class="space-y-1">
+                  <div v-for="cat in pageData.categories" :key="cat.id"
+                    class="flex items-center gap-2 border px-3 py-2 transition-colors sm:rounded-lg"
+                    :class="editingCategory?.id === cat.id
+                      ? 'border-primary/30 bg-primary/5 dark:border-primary/25 dark:bg-elevated/65'
+                      : 'border-default/25 bg-elevated/30 hover:border-default/40 hover:bg-elevated/50 dark:border-default/15 dark:bg-elevated/25 dark:hover:bg-elevated/45'">
+                    <div class="min-w-0 flex-1 cursor-pointer" @click="openEditCategory(cat)">
+                      <p class="truncate text-sm font-medium text-highlighted">{{ cat.name }}</p>
+                      <p v-if="cat.description" class="truncate text-xs text-muted">{{ cat.description }}</p>
+                    </div>
+                    <UButton icon="i-lucide-trash-2" size="xs" color="error" variant="ghost"
+                      :loading="isDeletingCategoryId === cat.id" @click="deleteCategory(cat)" />
                   </div>
-                  <UButton
-                    icon="i-lucide-trash-2"
-                    size="xs"
-                    color="error"
-                    variant="ghost"
-                    :loading="isDeletingCategoryId === cat.id"
-                    @click="deleteCategory(cat)"
-                  />
+                </div>
+                <p v-else
+                  class="rounded-lg border border-dashed border-default/30 p-4 text-center text-sm text-muted dark:border-default/20">
+                  ยังไม่มีประเภทสินค้า
+                </p>
+              </div>
+
+              <!-- Form -->
+              <div
+                class="-mx-2 space-y-3 border border-default/30 bg-default p-4 dark:border-default/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg">
+                <p class="text-xs font-semibold uppercase tracking-wide text-muted">
+                  {{ editingCategory ? 'แก้ไขประเภท' : 'เพิ่มประเภทใหม่' }}
+                </p>
+                <UFormField label="ชื่อประเภท" required>
+                  <UInput v-model="categoryForm.name" class="w-full" placeholder="เช่น เสื้อผ้า, ผ้าปูที่นอน" />
+                </UFormField>
+                <UFormField label="คำอธิบาย">
+                  <UInput v-model="categoryForm.description" class="w-full" placeholder="ไม่บังคับ" />
+                </UFormField>
+                <div class="flex gap-2">
+                  <UButton v-if="editingCategory" label="ยกเลิก" color="neutral" variant="ghost" size="sm"
+                    @click="openAddCategory" />
+                  <UButton :label="editingCategory ? 'บันทึกการแก้ไข' : 'เพิ่มประเภท'"
+                    :icon="editingCategory ? 'i-lucide-check' : 'i-lucide-plus'" color="primary" size="sm"
+                    :loading="isSavingCategory" @click="saveCategory" />
                 </div>
               </div>
-              <p v-else class="rounded-lg border border-dashed border-default/30 p-4 text-center text-sm text-muted dark:border-default/20">
-                ยังไม่มีประเภทสินค้า
-              </p>
             </div>
+          </template>
 
-            <!-- Form -->
-            <div class="-mx-2 space-y-3 border border-default/30 bg-default p-4 dark:border-default/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg">
-              <p class="text-xs font-semibold uppercase tracking-wide text-muted">
-                {{ editingCategory ? 'แก้ไขประเภท' : 'เพิ่มประเภทใหม่' }}
-              </p>
-              <UFormField label="ชื่อประเภท" required>
-                <UInput v-model="categoryForm.name" class="w-full" placeholder="เช่น เสื้อผ้า, ผ้าปูที่นอน" />
-              </UFormField>
-              <UFormField label="คำอธิบาย">
-                <UInput v-model="categoryForm.description" class="w-full" placeholder="ไม่บังคับ" />
-              </UFormField>
-              <div class="flex gap-2">
-                <UButton
-                  v-if="editingCategory"
-                  label="ยกเลิก"
-                  color="neutral"
-                  variant="ghost"
-                  size="sm"
-                  @click="openAddCategory"
-                />
-                <UButton
-                  :label="editingCategory ? 'บันทึกการแก้ไข' : 'เพิ่มประเภท'"
-                  :icon="editingCategory ? 'i-lucide-check' : 'i-lucide-plus'"
-                  color="primary"
-                  size="sm"
-                  :loading="isSavingCategory"
-                  @click="saveCategory"
-                />
-              </div>
-            </div>
-          </div>
-        </template>
-
-        <!-- ── Service Tab ── -->
-        <template #service>
-          <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <!-- List -->
-            <div class="-mx-2 space-y-2 border border-default/30 bg-default p-4 dark:border-default/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg">
-              <p class="text-xs font-semibold uppercase tracking-wide text-muted">รายการบริการ</p>
-              <div v-if="pageData.services.length" class="space-y-1">
-                <div
-                  v-for="svc in pageData.services"
-                  :key="svc.id"
-                  class="flex items-center gap-2 border px-3 py-2 transition-colors sm:rounded-lg"
-                  :class="editingService?.id === svc.id
-                    ? 'border-info/30 bg-info/5 dark:border-info/25 dark:bg-elevated/65'
-                    : 'border-default/25 bg-elevated/30 hover:border-default/40 hover:bg-elevated/50 dark:border-default/15 dark:bg-elevated/25 dark:hover:bg-elevated/45'"
-                >
-                  <div class="min-w-0 flex-1 cursor-pointer" @click="openEditService(svc)">
-                    <p class="truncate text-sm font-medium text-highlighted">{{ svc.name }}</p>
-                    <p v-if="svc.description" class="truncate text-xs text-muted">{{ svc.description }}</p>
+          <!-- ── Service Tab ── -->
+          <template #service>
+            <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <!-- List -->
+              <div
+                class="-mx-2 space-y-2 border border-default/30 bg-default p-4 dark:border-default/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg">
+                <p class="text-xs font-semibold uppercase tracking-wide text-muted">รายการบริการ</p>
+                <div v-if="pageData.services.length" class="space-y-1">
+                  <div v-for="svc in pageData.services" :key="svc.id"
+                    class="flex items-center gap-2 border px-3 py-2 transition-colors sm:rounded-lg"
+                    :class="editingService?.id === svc.id
+                      ? 'border-info/30 bg-info/5 dark:border-info/25 dark:bg-elevated/65'
+                      : 'border-default/25 bg-elevated/30 hover:border-default/40 hover:bg-elevated/50 dark:border-default/15 dark:bg-elevated/25 dark:hover:bg-elevated/45'">
+                    <div class="min-w-0 flex-1 cursor-pointer" @click="openEditService(svc)">
+                      <p class="truncate text-sm font-medium text-highlighted">{{ svc.name }}</p>
+                      <p v-if="svc.description" class="truncate text-xs text-muted">{{ svc.description }}</p>
+                    </div>
+                    <UButton icon="i-lucide-trash-2" size="xs" color="error" variant="ghost"
+                      :loading="isDeletingServiceId === svc.id" @click="deleteService(svc)" />
                   </div>
-                  <UButton
-                    icon="i-lucide-trash-2"
-                    size="xs"
-                    color="error"
-                    variant="ghost"
-                    :loading="isDeletingServiceId === svc.id"
-                    @click="deleteService(svc)"
-                  />
+                </div>
+                <p v-else
+                  class="rounded-lg border border-dashed border-default/30 p-4 text-center text-sm text-muted dark:border-default/20">
+                  ยังไม่มีบริการ
+                </p>
+              </div>
+
+              <!-- Form -->
+              <div
+                class="-mx-2 space-y-3 border border-default/30 bg-default p-4 dark:border-default/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg">
+                <p class="text-xs font-semibold uppercase tracking-wide text-muted">
+                  {{ editingService ? 'แก้ไขบริการ' : 'เพิ่มบริการใหม่' }}
+                </p>
+                <UFormField label="ชื่อบริการ" required>
+                  <UInput v-model="serviceForm.name" class="w-full" placeholder="เช่น ซักแห้ง, ซักพร้อมรีด" />
+                </UFormField>
+                <UFormField label="คำอธิบาย">
+                  <UInput v-model="serviceForm.description" class="w-full" placeholder="ไม่บังคับ" />
+                </UFormField>
+                <div class="flex gap-2">
+                  <UButton v-if="editingService" label="ยกเลิก" color="neutral" variant="ghost" size="sm"
+                    @click="openAddService" />
+                  <UButton :label="editingService ? 'บันทึกการแก้ไข' : 'เพิ่มบริการ'"
+                    :icon="editingService ? 'i-lucide-check' : 'i-lucide-plus'" color="primary" size="sm"
+                    :loading="isSavingService" @click="saveService" />
                 </div>
               </div>
-              <p v-else class="rounded-lg border border-dashed border-default/30 p-4 text-center text-sm text-muted dark:border-default/20">
-                ยังไม่มีบริการ
-              </p>
             </div>
+          </template>
+        </UTabs>
+      </template>
 
-            <!-- Form -->
-            <div class="-mx-2 space-y-3 border border-default/30 bg-default p-4 dark:border-default/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg">
-              <p class="text-xs font-semibold uppercase tracking-wide text-muted">
-                {{ editingService ? 'แก้ไขบริการ' : 'เพิ่มบริการใหม่' }}
-              </p>
-              <UFormField label="ชื่อบริการ" required>
-                <UInput v-model="serviceForm.name" class="w-full" placeholder="เช่น ซักแห้ง, ซักพร้อมรีด" />
-              </UFormField>
-              <UFormField label="คำอธิบาย">
-                <UInput v-model="serviceForm.description" class="w-full" placeholder="ไม่บังคับ" />
-              </UFormField>
-              <div class="flex gap-2">
-                <UButton
-                  v-if="editingService"
-                  label="ยกเลิก"
-                  color="neutral"
-                  variant="ghost"
-                  size="sm"
-                  @click="openAddService"
-                />
-                <UButton
-                  :label="editingService ? 'บันทึกการแก้ไข' : 'เพิ่มบริการ'"
-                  :icon="editingService ? 'i-lucide-check' : 'i-lucide-plus'"
-                  color="primary"
-                  size="sm"
-                  :loading="isSavingService"
-                  @click="saveService"
-                />
-              </div>
-            </div>
-          </div>
-        </template>
-      </UTabs>
-    </template>
-
-    <template #footer>
-      <div class="flex w-full justify-end">
-        <UButton label="ปิด" color="neutral" variant="outline" @click="isManageOpen = false" />
-      </div>
-    </template>
-  </UModal>
+      <template #footer>
+        <div class="flex w-full justify-end">
+          <UButton label="ปิด" color="neutral" variant="outline" @click="closeManageModal" />
+        </div>
+      </template>
+    </UModal>
   </div>
 </template>

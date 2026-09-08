@@ -141,9 +141,9 @@ const filteredUsers = computed<AdminUser[]>(() => {
     const currentPackages = getCurrentPackages(user)
     const matchKeyword = keyword
       ? [user.name ?? '', isInternalCustomerEmail(user.email) ? '' : user.email, user.phoneNumber ?? '', ...currentPackages.map((entitlement) => entitlement.product.name)]
-          .join(' ')
-          .toLowerCase()
-          .includes(keyword)
+        .join(' ')
+        .toLowerCase()
+        .includes(keyword)
       : true
 
     const matchRole = roleFilter.value === 'all' ? true : user.role === roleFilter.value
@@ -163,7 +163,7 @@ const filteredUsers = computed<AdminUser[]>(() => {
 })
 
 const selectedRows = computed<TableRow<AdminUser>[]>(() => table.value?.tableApi?.getFilteredSelectedRowModel().rows ?? [])
-const selectedUsers = computed<AdminUser[]>(() => 
+const selectedUsers = computed<AdminUser[]>(() =>
   selectedRows.value.map((row) => row.original)
 )
 const selectedRowsCount = computed(() => selectedUsers.value.length)
@@ -203,6 +203,26 @@ const resetFilters = () => {
 const handleRefresh = async () => {
   await refresh()
   resetFilters()
+}
+
+const openDeleteModal = (): void => {
+  showDeleteModal.value = true
+}
+
+const closeDeleteModal = (): void => {
+  showDeleteModal.value = false
+}
+
+const togglePasswordVisibility = (): void => {
+  showPassword.value = !showPassword.value
+}
+
+const closeAddUserModal = (): void => {
+  showAddUserModal.value = false
+}
+
+const closeEditUserModal = (): void => {
+  isFormOpen.value = false
 }
 
 const handleUsersRemoved = async (removedUsers: AdminUser[]) => {
@@ -578,10 +598,10 @@ const columns: TableColumn<AdminUser>[] = [
 
       const chatLineButton = user.lineUserId
         ? h(UIButtonChatLine, {
-            lineUserId: user.lineUserId,
-            size: 'xs',
-            iconOnly: true
-          })
+          lineUserId: user.lineUserId,
+          size: 'xs',
+          iconOnly: true
+        })
         : null
 
       return h('div', { class: 'flex items-center justify-end gap-1' }, [
@@ -600,525 +620,358 @@ const columns: TableColumn<AdminUser>[] = [
 
 <template>
   <div class="contents">
-  <UDashboardPanel id="users">
-    <template #header>
-      <UDashboardNavbar title="จัดการลูกค้าและผู้ใช้งาน" icon="i-lucide-users">
-        <template #leading>
-          <UDashboardSidebarCollapse class="hidden lg:inline-flex" />
-        </template>
-
-        <template #right>
-          <UButton
-            label="เพิ่มผู้ใช้งาน"
-            icon="i-lucide-user-plus"
-            color="primary"
-            class="shrink-0"
-            aria-label="เพิ่มผู้ใช้งาน"
-            :ui="{ label: 'hidden sm:inline' }"
-            @click="openCreateModal"
-          />
-        </template>
-      </UDashboardNavbar>
-    </template>
-
-    <template #body>
-      <div class="flex flex-col gap-3 p-2 sm:p-6">
-        <section class="flex flex-col gap-1">
-        <div class="-mx-2 rounded-lg border border-default/30 bg-default p-2 px-3! py-3! dark:border-default/40 dark:bg-default/80 space-y-2 sm:mx-0 md:flex md:items-center md:justify-between md:gap-3 md:space-y-0">
-          <div class="flex min-w-0 items-center gap-2 md:flex-1 md:max-w-sm">
-            <UInput
-              v-model="searchQuery"
-              class="min-w-0 flex-1"
-              icon="i-lucide-search"
-              placeholder="ค้นหาชื่อ อีเมล เบอร์โทร หรือแพ็กเกจ"
-            />
-            <UButton
-              v-if="selectedRowsCount"
-              label="ลบ"
-              color="error"
-              variant="subtle"
-              icon="i-lucide-trash"
-              class="shrink-0 md:hidden"
-              @click="showDeleteModal = true"
-            >
-              <template #trailing>
-                <UKbd>{{ selectedRowsCount }}</UKbd>
-              </template>
-            </UButton>
-            <UIButtonRefresh class="shrink-0 md:hidden" :loading="isLoading" @refresh="handleRefresh" />
-          </div>
-
-          <div class="grid grid-cols-3 gap-2 sm:flex sm:flex-wrap sm:items-center md:justify-end">
-            <USelect
-              v-model="roleFilter"
-              :items="ROLE_FILTER_OPTIONS"
-              value-key="value"
-              class="min-w-0 sm:w-36"
-            />
-            <USelect
-              v-model="packageFilter"
-              :items="packageFilterOptions"
-              value-key="value"
-              class="min-w-0 sm:w-44"
-            />
-            <USelect
-              v-model="verificationFilter"
-              :items="EMAIL_VERIFICATION_OPTIONS"
-              value-key="value"
-              class="min-w-0 sm:w-40"
-            />
-            <UButton
-              v-if="selectedRowsCount"
-              label="ลบ"
-              color="error"
-              variant="subtle"
-              icon="i-lucide-trash"
-              class="hidden shrink-0 md:inline-flex"
-              @click="showDeleteModal = true"
-            >
-              <template #trailing>
-                <UKbd>{{ selectedRowsCount }}</UKbd>
-              </template>
-            </UButton>
-            <UIButtonRefresh class="hidden shrink-0 md:inline-flex" :loading="isLoading" @refresh="handleRefresh" />
-          </div>
-        </div>
-
-        <UModal
-          v-model:open="showDeleteModal"
-          title="ลบผู้ใช้งานที่เลือก"
-          :description="`ยืนยันการลบผู้ใช้งาน ${selectedRowsCount} รายการ`"
-        >
-          <template #body>
-            <div v-if="selectedUsers.length" class="max-h-72 space-y-3 overflow-auto pr-1">
-              <div
-                v-for="user in selectedUsers"
-                :key="user.id"
-                class="flex items-center gap-3"
-              >
-                <UAvatar v-bind="getAvatarProps(user)" />
-                <div class="min-w-0 flex-1">
-                  <p class="truncate font-medium text-highlighted">
-                    {{ user.name || '-' }}
-                  </p>
-                  <p class="truncate text-sm text-muted">
-                    {{ customerEmailLabel(user.email) }}
-                  </p>
-                </div>
-                <UButton
-                  icon="i-lucide-x"
-                  variant="ghost"
-                  size="xs"
-                  color="neutral"
-                  @click="handleUserDeselected(user)"
-                />
-              </div>
-            </div>
-            <p v-else class="py-6 text-center text-sm text-muted">
-              ยังไม่มีผู้ใช้งานที่เลือก
-            </p>
+    <UDashboardPanel id="users">
+      <template #header>
+        <UDashboardNavbar title="จัดการลูกค้าและผู้ใช้งาน" icon="i-lucide-users">
+          <template #leading>
+            <UDashboardSidebarCollapse class="hidden lg:inline-flex" />
           </template>
 
-          <template #footer>
-            <div class="flex w-full justify-end gap-3">
-              <UButton
-                label="ยกเลิก"
-                color="neutral"
-                variant="outline"
-                @click="showDeleteModal = false"
-              />
-              <UButton
-                label="ลบ"
-                color="error"
-                :disabled="!selectedRowsCount"
-                @click="handleUsersRemoved([...selectedUsers])"
-              />
-            </div>
+          <template #right>
+            <UButton label="เพิ่มผู้ใช้งาน" icon="i-lucide-user-plus" color="primary" class="shrink-0"
+              aria-label="เพิ่มผู้ใช้งาน" :ui="{ label: 'hidden sm:inline' }" @click="openCreateModal" />
           </template>
-        </UModal>
+        </UDashboardNavbar>
+      </template>
 
-        <template v-if="showSkeleton">
-          <div class="-mx-2 space-y-1 sm:mx-0 md:hidden">
+      <template #body>
+        <div class="flex flex-col gap-3 p-2 sm:p-6">
+          <section class="flex flex-col gap-1">
             <div
-              v-for="i in 5"
-              :key="`u-mob-sk-${i}`"
-              class="overflow-hidden border border-default/30 bg-default transition-[background-color,border-color] duration-200 hover:border-default/45 hover:bg-default dark:border-default/20 dark:bg-elevated/55 dark:hover:bg-elevated/70"
-            >
-              <div class="flex items-center gap-2 p-2">
-                <USkeleton class="size-4 rounded-lg shrink-0" />
-                <USkeleton class="size-8 rounded-full shrink-0" />
-                <div class="min-w-0 flex-1 space-y-1.5">
-                  <div class="flex items-start justify-between gap-2">
-                    <div class="min-w-0 flex-1 space-y-1">
-                      <USkeleton class="h-3.5 w-32 rounded-lg" />
-                      <USkeleton class="h-2.5 w-40 rounded-lg" />
-                    </div>
-                    <div class="flex shrink-0 flex-col items-end gap-1">
-                      <USkeleton class="h-4 w-14 rounded-full" />
-                      <USkeleton class="h-4 w-16 rounded-full" />
-                    </div>
-                  </div>
-                  <USkeleton class="h-2.5 w-3/4 rounded-lg" />
-                  <div class="flex items-center justify-end gap-1">
-                    <USkeleton class="size-5 rounded-lg" />
-                    <USkeleton class="size-5 rounded-lg" />
-                  </div>
-                </div>
+              class="-mx-2 rounded-lg border border-default/30 bg-default p-2 px-3! py-3! dark:border-default/40 dark:bg-default/80 space-y-2 sm:mx-0 md:flex md:items-center md:justify-between md:gap-3 md:space-y-0">
+              <div class="flex min-w-0 items-center gap-2 md:flex-1 md:max-w-sm">
+                <UInput v-model="searchQuery" class="min-w-0 flex-1" icon="i-lucide-search"
+                  placeholder="ค้นหาชื่อ อีเมล เบอร์โทร หรือแพ็กเกจ" />
+                <UButton v-if="selectedRowsCount" label="ลบ" color="error" variant="subtle" icon="i-lucide-trash"
+                  class="shrink-0 md:hidden" @click="showDeleteModal = true">
+                  <template #trailing>
+                    <UKbd>{{ selectedRowsCount }}</UKbd>
+                  </template>
+                </UButton>
+                <UIButtonRefresh class="shrink-0 md:hidden" :loading="isLoading" @refresh="handleRefresh" />
+              </div>
+
+              <div class="grid grid-cols-3 gap-2 sm:flex sm:flex-wrap sm:items-center md:justify-end">
+                <USelect v-model="roleFilter" :items="ROLE_FILTER_OPTIONS" value-key="value" class="min-w-0 sm:w-36" />
+                <USelect v-model="packageFilter" :items="packageFilterOptions" value-key="value"
+                  class="min-w-0 sm:w-44" />
+                <USelect v-model="verificationFilter" :items="EMAIL_VERIFICATION_OPTIONS" value-key="value"
+                  class="min-w-0 sm:w-40" />
+                <UButton v-if="selectedRowsCount" label="ลบ" color="error" variant="subtle" icon="i-lucide-trash"
+                  class="hidden shrink-0 md:inline-flex" @click="showDeleteModal = true">
+                  <template #trailing>
+                    <UKbd>{{ selectedRowsCount }}</UKbd>
+                  </template>
+                </UButton>
+                <UIButtonRefresh class="hidden shrink-0 md:inline-flex" :loading="isLoading" @refresh="handleRefresh" />
               </div>
             </div>
-          </div>
-          <div class="hidden rounded-lg border border-default/30 bg-default p-4 p-0! dark:border-default/20 dark:bg-elevated/55 md:block">
-            <div class="space-y-2 p-3">
-              <USkeleton v-for="i in 8" :key="`u-dt-sk-${i}`" class="h-12 w-full rounded-lg" />
-            </div>
-          </div>
-        </template>
 
-        <template v-else>
-          <div class="md:hidden">
-            <div v-if="isLoading" class="-mx-2 space-y-1 sm:mx-0">
-              <USkeleton v-for="i in 5" :key="i" class="h-24 w-full rounded-lg" />
-            </div>
-
-            <div v-else-if="!paginatedUsers.length" class="flex flex-col items-center justify-center rounded-lg border border-dashed border-default/30 bg-default/55 px-3 py-5 text-center text-muted dark:border-default/20 dark:bg-elevated/30">
-              <UIcon name="i-lucide-users" class="mb-3 size-10 opacity-60" />
-              <p>ไม่พบผู้ใช้งาน</p>
-            </div>
-
-            <div v-else class="-mx-2 space-y-1 sm:mx-0">
-              <div
-                v-for="(user, index) in paginatedUsers"
-                :key="user.id"
-                class="overflow-hidden border border-default/30 bg-default transition-[background-color,border-color] duration-200 hover:border-default/45 hover:bg-default dark:border-default/20 dark:bg-elevated/55 dark:hover:bg-elevated/70"
-              >
-                <div class="flex items-center gap-2 p-2">
-                  <UCheckbox
-                    :model-value="isMobileRowSelected(index)"
-                    aria-label="เลือกผู้ใช้งาน"
-                    class="shrink-0"
-                    @update:model-value="setMobileRowSelected(index, $event)"
-                  />
-                  <NuxtLink :to="`/admin/users/${user.id}`" class="shrink-0">
-                    <UAvatar v-bind="getAvatarProps(user)" size="sm" />
-                  </NuxtLink>
-
-                  <div class="min-w-0 flex-1">
-                    <div class="flex min-w-0 items-start justify-between gap-2">
-                      <div class="min-w-0 flex-1">
-                        <NuxtLink :to="`/admin/users/${user.id}`" class="block max-w-full truncate text-sm font-medium text-highlighted hover:underline">
-                          {{ user.name || '-' }}
-                          <span class="text-[11px] font-normal text-muted">· {{ user.phoneNumber || ROLE_BADGE_MAP[user.role].label }}</span>
-                        </NuxtLink>
-                        <NuxtLink :to="`/admin/users/${user.id}`" class="block max-w-full truncate text-[11px] text-muted hover:underline">
-                          {{ customerEmailLabel(user.email) }}
-                        </NuxtLink>
-                      </div>
-
-                      <div class="flex shrink-0 flex-col items-end gap-1">
-                        <UPopover
-                          v-model:open="mobileQuickRoleOpenMap[user.id]"
-                          :content="{ align: 'end' }"
-                        >
-                          <UBadge
-                            :color="ROLE_BADGE_MAP[user.role].color"
-                            variant="subtle"
-                            size="xs"
-                            icon="i-lucide-pencil"
-                            class="cursor-pointer"
-                          >
-                            {{ ROLE_BADGE_MAP[user.role].label }}
-                          </UBadge>
-
-                          <template #content>
-                            <div class="space-y-0.5 p-1">
-                              <UButton
-                                v-for="item in roleItems"
-                                :key="item.value"
-                                :label="item.label"
-                                :color="item.value === user.role ? 'primary' : 'neutral'"
-                                :variant="item.value === user.role ? 'subtle' : 'ghost'"
-                                size="xs"
-                                class="w-full justify-start"
-                                @click="handleQuickRoleChange(user, item.value)"
-                              />
-                            </div>
-                          </template>
-                        </UPopover>
-                        <UBadge
-                          variant="subtle"
-                          size="xs"
-                          :color="user.customerAccountStatus === 'OFFLINE' ? 'warning' : EMAIL_STATUS_BADGE_MAP[user.emailVerified ? 'verified' : 'pending'].color"
-                        >
-                          {{ user.customerAccountStatus === 'OFFLINE' ? 'ยังไม่เปิดใช้งาน' : EMAIL_STATUS_BADGE_MAP[user.emailVerified ? 'verified' : 'pending'].label }}
-                        </UBadge>
-                        <UBadge
-                          v-if="user.role === 'EMPLOYEE' || user.role === 'ADMIN'"
-                          variant="subtle"
-                          size="xs"
-                          :color="user.isActive ? 'success' : 'warning'"
-                        >
-                          {{ user.isActive ? 'ใช้งาน' : 'พักงาน' }}
-                        </UBadge>
-                      </div>
-                    </div>
-
-                    <div class="mt-1 min-w-0">
-                      <p v-if="getCurrentPackages(user).length" class="truncate text-xs text-highlighted">
-                        {{ getCurrentPackages(user)[0]?.product.name }}<span v-if="getCurrentPackages(user).length > 1"> + อีก {{ getCurrentPackages(user).length - 1 }} แพ็กเกจ</span>
+            <UModal v-model:open="showDeleteModal" title="ลบผู้ใช้งานที่เลือก"
+              :description="`ยืนยันการลบผู้ใช้งาน ${selectedRowsCount} รายการ`">
+              <template #body>
+                <div v-if="selectedUsers.length" class="max-h-72 space-y-3 overflow-auto pr-1">
+                  <div v-for="user in selectedUsers" :key="user.id" class="flex items-center gap-3">
+                    <UAvatar v-bind="getAvatarProps(user)" />
+                    <div class="min-w-0 flex-1">
+                      <p class="truncate font-medium text-highlighted">
+                        {{ user.name || '-' }}
                       </p>
-                      <p v-else class="truncate text-xs text-muted">ไม่มีแพ็กเกจที่ใช้งาน</p>
+                      <p class="truncate text-sm text-muted">
+                        {{ customerEmailLabel(user.email) }}
+                      </p>
                     </div>
+                    <UButton icon="i-lucide-x" variant="ghost" size="xs" color="neutral"
+                      @click="handleUserDeselected(user)" />
+                  </div>
+                </div>
+                <p v-else class="py-6 text-center text-sm text-muted">
+                  ยังไม่มีผู้ใช้งานที่เลือก
+                </p>
+              </template>
 
-                    <div class="mt-1 flex items-center justify-between gap-2">
-                      <div class="min-w-0 truncate text-[11px] text-muted">
-                        สมัคร {{ formatDateShort(user.createdAt) }}
+              <template #footer>
+                <div class="flex w-full justify-end gap-3">
+                  <UButton label="ยกเลิก" color="neutral" variant="outline" @click="closeDeleteModal" />
+                  <UButton label="ลบ" color="error" :disabled="!selectedRowsCount"
+                    @click="handleUsersRemoved([...selectedUsers])" />
+                </div>
+              </template>
+            </UModal>
+
+            <template v-if="showSkeleton">
+              <div class="-mx-2 space-y-1 sm:mx-0 md:hidden">
+                <div v-for="i in 5" :key="`u-mob-sk-${i}`"
+                  class="overflow-hidden border border-default/30 bg-default transition-[background-color,border-color] duration-200 hover:border-default/45 hover:bg-default dark:border-default/20 dark:bg-elevated/55 dark:hover:bg-elevated/70">
+                  <div class="flex items-center gap-2 p-2">
+                    <USkeleton class="size-4 rounded-lg shrink-0" />
+                    <USkeleton class="size-8 rounded-full shrink-0" />
+                    <div class="min-w-0 flex-1 space-y-1.5">
+                      <div class="flex items-start justify-between gap-2">
+                        <div class="min-w-0 flex-1 space-y-1">
+                          <USkeleton class="h-3.5 w-32 rounded-lg" />
+                          <USkeleton class="h-2.5 w-40 rounded-lg" />
+                        </div>
+                        <div class="flex shrink-0 flex-col items-end gap-1">
+                          <USkeleton class="h-4 w-14 rounded-full" />
+                          <USkeleton class="h-4 w-16 rounded-full" />
+                        </div>
                       </div>
-                      <div class="flex shrink-0 items-center justify-end gap-1">
-                        <UIButtonChatLine
-                          v-if="user.lineUserId"
-                          :line-user-id="user.lineUserId"
-                          size="xs"
-                          icon-only
-                        />
-                        <UDropdownMenu :items="getUserActionItems(user)" :content="{ align: 'end' }">
-                          <UButton icon="i-lucide-ellipsis" size="xs" color="neutral" variant="ghost" aria-label="เมนูเพิ่มเติม" />
-                        </UDropdownMenu>
+                      <USkeleton class="h-2.5 w-3/4 rounded-lg" />
+                      <div class="flex items-center justify-end gap-1">
+                        <USkeleton class="size-5 rounded-lg" />
+                        <USkeleton class="size-5 rounded-lg" />
                       </div>
                     </div>
                   </div>
                 </div>
               </div>
-            </div>
-          </div>
-
-          <div class="hidden overflow-hidden rounded-lg border border-default/30 bg-default p-4 p-0! dark:border-default/20 dark:bg-elevated/55 md:block">
-            <UTable
-              ref="table"
-              v-model:column-visibility="columnVisibility"
-              v-model:row-selection="rowSelection"
-              v-model:pagination="pagination"
-              :pagination-options="{ getPaginationRowModel: getPaginationRowModel() }"
-              :data="filteredUsers"
-              :columns="columns"
-              :loading="isLoading"
-              :ui="{
-                root: 'relative overflow-x-auto',
-                base: 'table-fixed border-separate border-spacing-0',
-                thead: 'sticky top-0 z-1 [&>tr]:bg-default dark:[&>tr]:bg-default/80 [&>tr]:after:content-none',
-                tbody: '[&>tr]:last:[&>td]:border-b-0 [&>tr:hover>td]:bg-primary/5 dark:[&>tr:hover>td]:bg-elevated/45',
-                th: 'border-b border-default bg-default py-2.5 text-xs font-semibold uppercase tracking-wide text-toned dark:border-default/40 dark:bg-default/80',
-                td: 'border-b border-default py-2.5 transition-colors dark:border-default/25',
-                separator: 'h-0',
-              }"
-            >
-              <template #empty>
-                <div v-if="isLoading" class="space-y-2 p-3">
-                  <USkeleton v-for="i in 6" :key="`u-tbl-${i}`" class="h-12 w-full rounded-lg" />
+              <div
+                class="hidden rounded-lg border border-default/30 bg-default p-0! dark:border-default/20 dark:bg-elevated/55 md:block">
+                <div class="space-y-2 p-3">
+                  <USkeleton v-for="i in 8" :key="`u-dt-sk-${i}`" class="h-12 w-full rounded-lg" />
                 </div>
-                <div v-else class="flex flex-col items-center justify-center rounded-lg border border-dashed border-default/30 bg-default/55 px-3 py-5 text-center text-muted dark:border-default/20 dark:bg-elevated/30">
+              </div>
+            </template>
+
+            <template v-else>
+              <div class="md:hidden">
+                <div v-if="isLoading" class="-mx-2 space-y-1 sm:mx-0">
+                  <USkeleton v-for="i in 5" :key="i" class="h-24 w-full rounded-lg" />
+                </div>
+
+                <div v-else-if="!paginatedUsers.length"
+                  class="flex flex-col items-center justify-center rounded-lg border border-dashed border-default/30 bg-default/55 px-3 py-5 text-center text-muted dark:border-default/20 dark:bg-elevated/30">
                   <UIcon name="i-lucide-users" class="mb-3 size-10 opacity-60" />
                   <p>ไม่พบผู้ใช้งาน</p>
                 </div>
-              </template>
-            </UTable>
-          </div>
-        </template>
-        </section>
 
-        <div class="mt-auto flex flex-wrap items-center justify-between gap-3 border-t border-default pt-4">
-          <div class="text-sm text-muted">
-            <template v-if="showSkeleton">
-              <span class="inline-flex items-center gap-2">
-                <UIcon name="i-lucide-loader-2" class="size-4 animate-spin" />
-                กำลังโหลด...
-              </span>
+                <div v-else class="-mx-2 space-y-1 sm:mx-0">
+                  <div v-for="(user, index) in paginatedUsers" :key="user.id"
+                    class="overflow-hidden border border-default/30 bg-default transition-[background-color,border-color] duration-200 hover:border-default/45 hover:bg-default dark:border-default/20 dark:bg-elevated/55 dark:hover:bg-elevated/70">
+                    <div class="flex items-center gap-2 p-2">
+                      <UCheckbox :model-value="isMobileRowSelected(index)" aria-label="เลือกผู้ใช้งาน" class="shrink-0"
+                        @update:model-value="setMobileRowSelected(index, $event)" />
+                      <NuxtLink :to="`/admin/users/${user.id}`" class="shrink-0">
+                        <UAvatar v-bind="getAvatarProps(user)" size="sm" />
+                      </NuxtLink>
+
+                      <div class="min-w-0 flex-1">
+                        <div class="flex min-w-0 items-start justify-between gap-2">
+                          <div class="min-w-0 flex-1">
+                            <NuxtLink :to="`/admin/users/${user.id}`"
+                              class="block max-w-full truncate text-sm font-medium text-highlighted hover:underline">
+                              {{ user.name || '-' }}
+                              <span class="text-[11px] font-normal text-muted">· {{ user.phoneNumber ||
+                                ROLE_BADGE_MAP[user.role].label }}</span>
+                            </NuxtLink>
+                            <NuxtLink :to="`/admin/users/${user.id}`"
+                              class="block max-w-full truncate text-[11px] text-muted hover:underline">
+                              {{ customerEmailLabel(user.email) }}
+                            </NuxtLink>
+                          </div>
+
+                          <div class="flex shrink-0 flex-col items-end gap-1">
+                            <UPopover v-model:open="mobileQuickRoleOpenMap[user.id]" :content="{ align: 'end' }">
+                              <UBadge :color="ROLE_BADGE_MAP[user.role].color" variant="subtle" size="xs"
+                                icon="i-lucide-pencil" class="cursor-pointer">
+                                {{ ROLE_BADGE_MAP[user.role].label }}
+                              </UBadge>
+
+                              <template #content>
+                                <div class="space-y-0.5 p-1">
+                                  <UButton v-for="item in roleItems" :key="item.value" :label="item.label"
+                                    :color="item.value === user.role ? 'primary' : 'neutral'"
+                                    :variant="item.value === user.role ? 'subtle' : 'ghost'" size="xs"
+                                    class="w-full justify-start" @click="handleQuickRoleChange(user, item.value)" />
+                                </div>
+                              </template>
+                            </UPopover>
+                            <UBadge variant="subtle" size="xs"
+                              :color="user.customerAccountStatus === 'OFFLINE' ? 'warning' : EMAIL_STATUS_BADGE_MAP[user.emailVerified ? 'verified' : 'pending'].color">
+                              {{ user.customerAccountStatus === 'OFFLINE' ? 'ยังไม่เปิดใช้งาน' :
+                                EMAIL_STATUS_BADGE_MAP[user.emailVerified ?
+                              'verified' : 'pending'].label }}
+                            </UBadge>
+                            <UBadge v-if="user.role === 'EMPLOYEE' || user.role === 'ADMIN'" variant="subtle" size="xs"
+                              :color="user.isActive ? 'success' : 'warning'">
+                              {{ user.isActive ? 'ใช้งาน' : 'พักงาน' }}
+                            </UBadge>
+                          </div>
+                        </div>
+
+                        <div class="mt-1 min-w-0">
+                          <p v-if="getCurrentPackages(user).length" class="truncate text-xs text-highlighted">
+                            {{ getCurrentPackages(user)[0]?.product.name }}<span
+                              v-if="getCurrentPackages(user).length > 1"> + อีก {{
+                              getCurrentPackages(user).length - 1 }} แพ็กเกจ</span>
+                          </p>
+                          <p v-else class="truncate text-xs text-muted">ไม่มีแพ็กเกจที่ใช้งาน</p>
+                        </div>
+
+                        <div class="mt-1 flex items-center justify-between gap-2">
+                          <div class="min-w-0 truncate text-[11px] text-muted">
+                            สมัคร {{ formatDateShort(user.createdAt) }}
+                          </div>
+                          <div class="flex shrink-0 items-center justify-end gap-1">
+                            <UIButtonChatLine v-if="user.lineUserId" :line-user-id="user.lineUserId" size="xs"
+                              icon-only />
+                            <UDropdownMenu :items="getUserActionItems(user)" :content="{ align: 'end' }">
+                              <UButton icon="i-lucide-ellipsis" size="xs" color="neutral" variant="ghost"
+                                aria-label="เมนูเพิ่มเติม" />
+                            </UDropdownMenu>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div
+                class="hidden overflow-hidden rounded-lg border border-default/30 bg-default p-0! dark:border-default/20 dark:bg-elevated/55 md:block">
+                <UTable ref="table" v-model:column-visibility="columnVisibility" v-model:row-selection="rowSelection"
+                  v-model:pagination="pagination"
+                  :pagination-options="{ getPaginationRowModel: getPaginationRowModel() }" :data="filteredUsers"
+                  :columns="columns" :loading="isLoading" :ui="{
+                    root: 'relative overflow-x-auto',
+                    base: 'table-fixed border-separate border-spacing-0',
+                    thead: 'sticky top-0 z-1 [&>tr]:bg-default dark:[&>tr]:bg-default/80 [&>tr]:after:content-none',
+                    tbody: '[&>tr]:last:[&>td]:border-b-0 [&>tr:hover>td]:bg-primary/5 dark:[&>tr:hover>td]:bg-elevated/45',
+                    th: 'border-b border-default bg-default py-2.5 text-xs font-semibold uppercase tracking-wide text-toned dark:border-default/40 dark:bg-default/80',
+                    td: 'border-b border-default py-2.5 transition-colors dark:border-default/25',
+                    separator: 'h-0',
+                  }">
+                  <template #empty>
+                    <div v-if="isLoading" class="space-y-2 p-3">
+                      <USkeleton v-for="i in 6" :key="`u-tbl-${i}`" class="h-12 w-full rounded-lg" />
+                    </div>
+                    <div v-else
+                      class="flex flex-col items-center justify-center rounded-lg border border-dashed border-default/30 bg-default/55 px-3 py-5 text-center text-muted dark:border-default/20 dark:bg-elevated/30">
+                      <UIcon name="i-lucide-users" class="mb-3 size-10 opacity-60" />
+                      <p>ไม่พบผู้ใช้งาน</p>
+                    </div>
+                  </template>
+                </UTable>
+              </div>
             </template>
-            <template v-else>เลือก {{ selectedRowsCount }} จาก {{ filteredRowCount }} แถวทั้งหมด</template>
-          </div>
+          </section>
 
-          <div class="flex items-center gap-1.5">
-            <UPagination
-              v-if="!showSkeleton"
-              :page="pagination.pageIndex + 1"
-              :items-per-page="pagination.pageSize"
-              :total="filteredRowCount"
-              @update:page="(page: number) => { pagination = { ...pagination, pageIndex: page - 1 } }"
-            />
+          <div class="mt-auto flex flex-wrap items-center justify-between gap-3 border-t border-default pt-4">
+            <div class="text-sm text-muted">
+              <template v-if="showSkeleton">
+                <span class="inline-flex items-center gap-2">
+                  <UIcon name="i-lucide-loader-2" class="size-4 animate-spin" />
+                  กำลังโหลด...
+                </span>
+              </template>
+              <template v-else>เลือก {{ selectedRowsCount }} จาก {{ filteredRowCount }} แถวทั้งหมด</template>
+            </div>
+
+            <div class="flex items-center gap-1.5">
+              <UPagination v-if="!showSkeleton" :page="pagination.pageIndex + 1" :items-per-page="pagination.pageSize"
+                :total="filteredRowCount"
+                @update:page="(page: number) => { pagination = { ...pagination, pageIndex: page - 1 } }" />
+            </div>
           </div>
         </div>
-      </div>
-    </template>
-  </UDashboardPanel>
+      </template>
+    </UDashboardPanel>
 
-  <UModal
-    v-model:open="showAddUserModal"
-    title="เพิ่มผู้ใช้งานใหม่"
-    description="สร้างบัญชีสำหรับลูกค้าหรือพนักงานในระบบ"
-  >
-    <template #body>
-      <UForm :state="newUserForm" class="space-y-4">
-        <UFormField name="name" label="ชื่อผู้ใช้งาน" required>
-          <UInput
-            v-model="newUserForm.name"
-            placeholder="เช่น สมชาย ใจดี"
-            class="w-full"
-            required
-          />
-        </UFormField>
+    <UModal v-model:open="showAddUserModal" title="เพิ่มผู้ใช้งานใหม่"
+      description="สร้างบัญชีสำหรับลูกค้าหรือพนักงานในระบบ">
+      <template #body>
+        <UForm :state="newUserForm" class="space-y-4">
+          <UFormField name="name" label="ชื่อผู้ใช้งาน" required>
+            <UInput v-model="newUserForm.name" placeholder="เช่น สมชาย ใจดี" class="w-full" required />
+          </UFormField>
 
-        <UFormField name="email" label="อีเมล" required>
-          <UInput
-            v-model="newUserForm.email"
-            type="email"
-            placeholder="someone@example.com"
-            class="w-full"
-            required
-          />
-        </UFormField>
+          <UFormField name="email" label="อีเมล" required>
+            <UInput v-model="newUserForm.email" type="email" placeholder="someone@example.com" class="w-full"
+              required />
+          </UFormField>
 
-        <UFormField name="password" label="รหัสผ่าน" :ui="{ label: 'w-full' }">
-          <template #label>
-            <div class="flex w-full items-center justify-between gap-2">
-              <span class="text-sm font-medium text-highlighted">
-                รหัสผ่าน <span class="text-error">*</span>
-              </span>
-              <div class="flex shrink-0 items-center gap-1.5 whitespace-nowrap text-xs font-medium text-primary">
-                <UButton
-                  label="สุ่มรหัสผ่าน"
-                  size="xs"
-                  variant="ghost"
-                  icon="i-lucide-wand-2"
-                  @click="handleGeneratePassword"
-                />
-                <UButton
-                  label="คัดลอก"
-                  size="xs"
-                  variant="ghost"
-                  icon="i-lucide-copy"
-                  @click="handleCopyPassword"
-                />
+          <UFormField name="password" label="รหัสผ่าน" :ui="{ label: 'w-full' }">
+            <template #label>
+              <div class="flex w-full items-center justify-between gap-2">
+                <span class="text-sm font-medium text-highlighted">
+                  รหัสผ่าน <span class="text-error">*</span>
+                </span>
+                <div class="flex shrink-0 items-center gap-1.5 whitespace-nowrap text-xs font-medium text-primary">
+                  <UButton label="สุ่มรหัสผ่าน" size="xs" variant="ghost" icon="i-lucide-wand-2"
+                    @click="handleGeneratePassword" />
+                  <UButton label="คัดลอก" size="xs" variant="ghost" icon="i-lucide-copy" @click="handleCopyPassword" />
+                </div>
               </div>
-            </div>
-          </template>
-          <UInput
-            id="password"
-            v-model="newUserForm.password"
-            :type="showPassword ? 'text' : 'password'"
-            placeholder="สร้างหรือสุ่มรหัสผ่าน"
-            class="w-full"
-            required
-          >
-            <template #trailing>
-              <UButton
-                :icon="showPassword ? 'i-lucide-eye-off' : 'i-lucide-eye'"
-                color="neutral"
-                variant="link"
-                size="sm"
-                :aria-label="showPassword ? 'ซ่อนรหัสผ่าน' : 'แสดงรหัสผ่าน'"
-                @click="showPassword = !showPassword"
-              />
             </template>
-          </UInput>
-        </UFormField>
+            <UInput id="password" v-model="newUserForm.password" :type="showPassword ? 'text' : 'password'"
+              placeholder="สร้างหรือสุ่มรหัสผ่าน" class="w-full" required>
+              <template #trailing>
+                <UButton :icon="showPassword ? 'i-lucide-eye-off' : 'i-lucide-eye'" color="neutral" variant="link"
+                  size="sm" :aria-label="showPassword ? 'ซ่อนรหัสผ่าน' : 'แสดงรหัสผ่าน'"
+                  @click="togglePasswordVisibility" />
+              </template>
+            </UInput>
+          </UFormField>
 
-        <UFormField name="role" label="สิทธิ์">
-          <USelect
-            v-model="newUserForm.role"
-            :items="ROLE_FILTER_OPTIONS.filter((item) => item.value !== 'all')"
-            value-key="value"
-            class="w-full"
-          />
-        </UFormField>
-      </UForm>
-    </template>
+          <UFormField name="role" label="สิทธิ์">
+            <USelect v-model="newUserForm.role" :items="ROLE_FILTER_OPTIONS.filter((item) => item.value !== 'all')"
+              value-key="value" class="w-full" />
+          </UFormField>
+        </UForm>
+      </template>
 
-    <template #footer>
-      <div class="flex w-full justify-end gap-3">
-        <UButton
-          label="ยกเลิก"
-          color="neutral"
-          variant="outline"
-          @click="showAddUserModal = false"
-        />
-        <UButton
-          label="สร้างผู้ใช้งาน"
-          icon="i-lucide-check"
-          color="primary"
-          :loading="isCreatingUser"
-          @click="handleCreateUser"
-        />
-      </div>
-    </template>
-  </UModal>
+      <template #footer>
+        <div class="flex w-full justify-end gap-3">
+          <UButton label="ยกเลิก" color="neutral" variant="outline" @click="closeAddUserModal" />
+          <UButton label="สร้างผู้ใช้งาน" icon="i-lucide-check" color="primary" :loading="isCreatingUser"
+            @click="handleCreateUser" />
+        </div>
+      </template>
+    </UModal>
 
-  <UModal
-    v-model:open="isFormOpen"
-    title="แก้ไขผู้ใช้งาน"
-    description="อัปเดตข้อมูลและสิทธิ์ของผู้ใช้งาน"
-  >
-    <template #body>
-      <div class="space-y-4">
-        <UFormField label="ชื่อ">
-          <UInput v-model="form.name" class="w-full" />
-        </UFormField>
+    <UModal v-model:open="isFormOpen" title="แก้ไขผู้ใช้งาน" description="อัปเดตข้อมูลและสิทธิ์ของผู้ใช้งาน">
+      <template #body>
+        <div class="space-y-4">
+          <UFormField label="ชื่อ">
+            <UInput v-model="form.name" class="w-full" />
+          </UFormField>
 
-        <UFormField label="อีเมล" :required="editingUser?.customerAccountStatus !== 'OFFLINE'">
-          <UInput v-model="form.email" type="email" class="w-full" placeholder="customer@example.com" />
-          <template v-if="editingUser?.customerAccountStatus === 'OFFLINE'" #help>
-            เว้นว่างเพื่อเก็บบัญชีแบบยังไม่เปิดใช้งาน หรือกรอกอีเมลจริงของลูกค้า
-          </template>
-        </UFormField>
+          <UFormField label="อีเมล" :required="editingUser?.customerAccountStatus !== 'OFFLINE'">
+            <UInput v-model="form.email" type="email" class="w-full" placeholder="customer@example.com" />
+            <template v-if="editingUser?.customerAccountStatus === 'OFFLINE'" #help>
+              เว้นว่างเพื่อเก็บบัญชีแบบยังไม่เปิดใช้งาน หรือกรอกอีเมลจริงของลูกค้า
+            </template>
+          </UFormField>
 
-        <UFormField label="เบอร์โทร">
-          <UInput v-model="form.phoneNumber" class="w-full" />
-        </UFormField>
+          <UFormField label="เบอร์โทร">
+            <UInput v-model="form.phoneNumber" class="w-full" />
+          </UFormField>
 
-        <UFormField label="สิทธิ์">
-          <USelect
-            v-model="form.role"
-            :items="ROLE_FILTER_OPTIONS.filter((item) => item.value !== 'all')"
-            value-key="value"
-            class="w-full"
-          />
-        </UFormField>
-      </div>
-    </template>
+          <UFormField label="สิทธิ์">
+            <USelect v-model="form.role" :items="ROLE_FILTER_OPTIONS.filter((item) => item.value !== 'all')"
+              value-key="value" class="w-full" />
+          </UFormField>
+        </div>
+      </template>
 
-    <template #footer>
-      <div class="flex w-full justify-end gap-3">
-        <UButton
-          label="ยกเลิก"
-          color="neutral"
-          variant="outline"
-          @click="isFormOpen = false"
-        />
-        <UButton
-          label="บันทึกการแก้ไข"
-          icon="i-lucide-check"
-          color="primary"
-          :loading="isSubmitting"
-          @click="saveUser"
-        />
-      </div>
-    </template>
-  </UModal>
+      <template #footer>
+        <div class="flex w-full justify-end gap-3">
+          <UButton label="ยกเลิก" color="neutral" variant="outline" @click="closeEditUserModal" />
+          <UButton label="บันทึกการแก้ไข" icon="i-lucide-check" color="primary" :loading="isSubmitting"
+            @click="saveUser" />
+        </div>
+      </template>
+    </UModal>
 
-  <UIConfirmModal
-    v-model:open="isSingleDeleteOpen"
-    title="ลบผู้ใช้งาน"
-    description="ยืนยันการลบผู้ใช้งานออกจากระบบ"
-    icon="i-lucide-trash-2"
-    icon-color="error"
-    confirm-label="ลบผู้ใช้งาน"
-    confirm-color="error"
-    :loading="isSingleDeleting"
-    @confirm="confirmSingleDelete"
-  >
-    <template #message>
-      คุณต้องการลบผู้ใช้งาน
-      <strong class="text-highlighted">{{ deletingUser?.name || customerEmailLabel(deletingUser?.email) }}</strong>
-      ใช่หรือไม่?
-    </template>
-  </UIConfirmModal>
+    <UIConfirmModal v-model:open="isSingleDeleteOpen" title="ลบผู้ใช้งาน" description="ยืนยันการลบผู้ใช้งานออกจากระบบ"
+      icon="i-lucide-trash-2" icon-color="error" confirm-label="ลบผู้ใช้งาน" confirm-color="error"
+      :loading="isSingleDeleting" @confirm="confirmSingleDelete">
+      <template #message>
+        คุณต้องการลบผู้ใช้งาน
+        <strong class="text-highlighted">{{ deletingUser?.name || customerEmailLabel(deletingUser?.email) }}</strong>
+        ใช่หรือไม่?
+      </template>
+    </UIConfirmModal>
   </div>
 </template>

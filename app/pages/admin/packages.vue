@@ -237,284 +237,194 @@ const handleRemoveFromBulkDelete = (pkgId: string) => {
   bulkDeletePackages.value = bulkDeletePackages.value.filter((p) => p.id !== pkgId);
   if (!bulkDeletePackages.value.length) isBulkDeleteOpen.value = false;
 };
+
+const closeServiceModal = (): void => {
+  isServiceModalOpen.value = false;
+};
+
+const closeBulkDeleteModal = (): void => {
+  isBulkDeleteOpen.value = false;
+};
 </script>
 
 <template>
   <div class="contents">
-  <UDashboardPanel>
-    <template #header>
-      <UDashboardNavbar title="จัดการแพ็กเกจ" icon="i-lucide-package">
-        <template #leading>
-          <UDashboardSidebarCollapse class="hidden lg:inline-flex" />
-        </template>
-        <template #right>
-          <div class="flex items-center gap-2">
-            <UButton
-              label="เพิ่ม / แก้ไขบริการ"
-              icon="i-lucide-sparkles"
-              color="neutral"
-              variant="outline"
-              class="shrink-0"
-              aria-label="เพิ่มหรือแก้ไขบริการ"
-              :ui="{ label: 'hidden sm:inline' }"
-              @click="openServiceModal"
-            />
-            <UButton
-              label="เพิ่มแพ็กเกจ"
-              trailing-icon="i-lucide-plus"
-              color="primary"
-              class="shrink-0"
-              aria-label="เพิ่มแพ็กเกจ"
-              :ui="{ label: 'hidden sm:inline' }"
-              @click="openCreateModal"
-            />
-          </div>
-        </template>
-      </UDashboardNavbar>
-    </template>
+    <UDashboardPanel>
+      <template #header>
+        <UDashboardNavbar title="จัดการแพ็กเกจ" icon="i-lucide-package">
+          <template #leading>
+            <UDashboardSidebarCollapse class="hidden lg:inline-flex" />
+          </template>
+          <template #right>
+            <div class="flex items-center gap-2">
+              <UButton label="เพิ่ม / แก้ไขบริการ" icon="i-lucide-sparkles" color="neutral" variant="outline"
+                class="shrink-0" aria-label="เพิ่มหรือแก้ไขบริการ" :ui="{ label: 'hidden sm:inline' }"
+                @click="openServiceModal" />
+              <UButton label="เพิ่มแพ็กเกจ" trailing-icon="i-lucide-plus" color="primary" class="shrink-0"
+                aria-label="เพิ่มแพ็กเกจ" :ui="{ label: 'hidden sm:inline' }" @click="openCreateModal" />
+            </div>
+          </template>
+        </UDashboardNavbar>
+      </template>
 
-    <template #body>
-      <div class="flex flex-col gap-3 p-2 sm:p-6">
-        <div v-if="tabItems.length > 1" class="-mx-2 border border-default/30 bg-default px-3! py-1! dark:border-default/40 dark:bg-default/80 sm:mx-0 sm:rounded-lg">
-          <UTabs
-            v-model="activeTab"
-            color="neutral"
-            variant="link"
-            :content="false"
-            :items="tabItems"
-            class="w-full"
-          />
+      <template #body>
+        <div class="flex flex-col gap-3 p-2 sm:p-6">
+          <div v-if="tabItems.length > 1"
+            class="-mx-2 border border-default/30 bg-default px-3! py-1! dark:border-default/40 dark:bg-default/80 sm:mx-0 sm:rounded-lg">
+            <UTabs v-model="activeTab" color="neutral" variant="link" :content="false" :items="tabItems"
+              class="w-full" />
+          </div>
+
+          <AdminPackagesPackageTable :packages="filteredPackages" :loading="loading"
+            :toggling-public-package-id="togglingPublicPackageId" @edit="openEditModal" @delete="openDeleteModal"
+            @bulk-delete="openBulkDeleteModal" @toggle-public="handleTogglePublic" @refresh="refresh" />
         </div>
+      </template>
+    </UDashboardPanel>
 
-        <AdminPackagesPackageTable
-          :packages="filteredPackages"
-          :loading="loading"
-          :toggling-public-package-id="togglingPublicPackageId"
-          @edit="openEditModal"
-          @delete="openDeleteModal"
-          @bulk-delete="openBulkDeleteModal"
-          @toggle-public="handleTogglePublic"
-          @refresh="refresh"
-        />
-      </div>
-    </template>
-  </UDashboardPanel>
+    <AdminPackagesPackageFormModal v-model:open="isFormOpen" :edit-package="editingPackage" :saving="isSavingPackage"
+      :services="packageServices" :services-loading="isLoadingServices" @save="handleSave" />
 
-  <AdminPackagesPackageFormModal
-      v-model:open="isFormOpen"
-      :edit-package="editingPackage"
-      :saving="isSavingPackage"
-      :services="packageServices"
-      :services-loading="isLoadingServices"
-      @save="handleSave"
-  />
-
-  <UModal
-    v-model:open="isServiceModalOpen"
-    title="เพิ่ม / แก้ไขบริการ"
-    description="จัดการบริการสำหรับกำหนดให้แพ็กเกจหลัก"
-    :dismissible="!isSavingService"
-    :ui="{ content: 'max-w-3xl' }"
-  >
-    <template #body>
-      <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <div class="-mx-2 space-y-2 border border-default/30 bg-default p-4 dark:border-default/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg">
-          <p class="text-xs font-semibold uppercase tracking-wide text-muted">รายการบริการ</p>
-          <div v-if="isLoadingServices" class="space-y-2">
-            <USkeleton v-for="index in 3" :key="index" class="h-12 w-full" />
-          </div>
-          <div v-else-if="packageServices.length" class="space-y-1">
-            <button
-              v-for="service in packageServices"
-              :key="service.id"
-              type="button"
-              class="flex w-full items-center gap-2 border px-3 py-2 text-left transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary sm:rounded-lg"
-              :class="editingService?.id === service.id
-                ? 'border-info/30 bg-info/5 dark:border-info/25 dark:bg-elevated/65'
-                : 'border-default/25 bg-elevated/30 hover:border-default/40 hover:bg-elevated/50 dark:border-default/15 dark:bg-elevated/25 dark:hover:bg-elevated/45'"
-              @click="openEditService(service)"
-            >
-              <span class="min-w-0 flex-1">
-                <span class="block truncate text-sm font-medium text-highlighted">{{ service.name }}</span>
-                <span v-if="service.description" class="block truncate text-xs text-muted">{{ service.description }}</span>
-              </span>
-              <UIcon name="i-lucide-pencil" class="size-4 shrink-0 text-muted" />
-            </button>
-          </div>
-          <p v-else class="rounded-lg border border-dashed border-default/30 p-4 text-center text-sm text-muted dark:border-default/20">
-            ยังไม่มีบริการ
-          </p>
-        </div>
-
-        <form
-          class="-mx-2 space-y-3 border border-default/30 bg-default p-4 dark:border-default/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg"
-          @submit.prevent="saveService"
-        >
-          <p class="text-xs font-semibold uppercase tracking-wide text-muted">
-            {{ editingService ? "แก้ไขบริการ" : "เพิ่มบริการใหม่" }}
-          </p>
-          <UFormField label="ชื่อบริการ" required>
-            <UInput v-model="serviceForm.name" class="w-full" placeholder="เช่น ซักแห้ง, ซักพร้อมรีด" />
-          </UFormField>
-          <UFormField label="คำอธิบาย">
-            <UInput v-model="serviceForm.description" class="w-full" placeholder="ไม่บังคับ" />
-          </UFormField>
-          <div class="flex gap-2">
-            <UButton
-              v-if="editingService"
-              label="ยกเลิก"
-              color="neutral"
-              variant="ghost"
-              size="sm"
-              :disabled="isSavingService"
-              @click="resetServiceForm"
-            />
-            <UButton
-              type="submit"
-              :label="editingService ? 'บันทึกการแก้ไข' : 'เพิ่มบริการ'"
-              :icon="editingService ? 'i-lucide-check' : 'i-lucide-plus'"
-              color="primary"
-              size="sm"
-              :loading="isSavingService"
-              :disabled="isSavingService"
-            />
-          </div>
-        </form>
-      </div>
-    </template>
-
-    <template #footer>
-      <div class="flex w-full justify-end">
-        <UButton
-          label="ปิด"
-          color="neutral"
-          variant="outline"
-          :disabled="isSavingService"
-          @click="isServiceModalOpen = false"
-        />
-      </div>
-    </template>
-  </UModal>
-
-  <UIConfirmModal
-    v-model:open="isDeleteOpen"
-    title="ลบแพ็กเกจ"
-    description="ยืนยันการลบแพ็กเกจนี้ออกจากระบบ"
-    icon="i-lucide-trash-2"
-    icon-color="error"
-    confirm-label="ลบแพ็กเกจ"
-    confirm-color="error"
-    :loading="isDeleting"
-    @confirm="handleConfirmDelete"
-    @cancel="isDeleteOpen = false"
-  >
-    <template #message>
-      คุณต้องการลบแพ็กเกจ
-      <strong class="text-highlighted">{{ deletingPackage?.name }}</strong>
-      หรือไม่?
-    </template>
-
-    <template #subMessage>
-      <div class="space-y-1">
-        <p>
-          <span class="text-muted">ประเภท:</span>
-          <UBadge
-            :color="packageTypeColors[deletingPackage?.packageType as PackageType]"
-            variant="subtle"
-            size="sm"
-            class="ml-1"
-          >
-            {{ packageTypeLabels[deletingPackage?.packageType as PackageType] }}
-          </UBadge>
-        </p>
-        <p>
-          <span class="text-muted">ราคา:</span>
-          <strong class="text-highlighted ml-1">
-            {{
-              Number(deletingPackage?.price) === 0
-                ? "ฟรี"
-                : formatCurrency(Number(deletingPackage?.price ?? 0))
-            }}
-          </strong>
-        </p>
-        <p v-if="deletingPackage?.credits">
-          <span class="text-muted">เครดิต:</span>
-          <strong class="text-highlighted ml-1">
-            {{ deletingPackage.credits.toLocaleString("th-TH") }} เครดิต
-          </strong>
-        </p>
-      </div>
-    </template>
-  </UIConfirmModal>
-
-  <UModal
-    v-model:open="isBulkDeleteOpen"
-    title="ลบแพ็กเกจที่เลือก"
-    :description="`ยืนยันการลบแพ็กเกจ ${bulkDeletePackages.length} รายการ`"
-  >
-    <template #body>
-      <div
-        v-if="bulkDeletePackages.length"
-        class="space-y-3 max-h-72 overflow-auto pr-1"
-      >
-        <div
-          v-for="pkg in bulkDeletePackages"
-          :key="pkg.id"
-          class="flex items-center gap-3"
-        >
+    <UModal v-model:open="isServiceModalOpen" title="เพิ่ม / แก้ไขบริการ"
+      description="จัดการบริการสำหรับกำหนดให้แพ็กเกจหลัก" :dismissible="!isSavingService"
+      :ui="{ content: 'max-w-3xl' }">
+      <template #body>
+        <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div
-            class="size-10 rounded-lg flex items-center justify-center shrink-0"
-            :class="pkg.packageType === 'MAIN' ? 'bg-primary/10' : 'bg-info/10'"
-          >
-            <UIcon
-              :name="pkg.packageType === 'MAIN' ? 'i-lucide-package' : 'i-lucide-puzzle'"
-              :class="pkg.packageType === 'MAIN' ? 'size-5 text-primary' : 'size-5 text-info'"
-            />
-          </div>
-          <div class="flex-1 min-w-0">
-            <p class="font-medium text-highlighted truncate">{{ pkg.name }}</p>
-            <p class="text-sm text-muted truncate">
-              {{
-                Number(pkg.price) === 0
-                  ? "ฟรี"
-                  : formatCurrency(Number(pkg.price))
-              }}
-              <template v-if="pkg.credits">
-                - {{ pkg.credits.toLocaleString("th-TH") }} เครดิต
-              </template>
+            class="-mx-2 space-y-2 border border-default/30 bg-default p-4 dark:border-default/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg">
+            <p class="text-xs font-semibold uppercase tracking-wide text-muted">รายการบริการ</p>
+            <div v-if="isLoadingServices" class="space-y-2">
+              <USkeleton v-for="index in 3" :key="index" class="h-12 w-full" />
+            </div>
+            <div v-else-if="packageServices.length" class="space-y-1">
+              <button v-for="service in packageServices" :key="service.id" type="button"
+                class="flex w-full items-center gap-2 border px-3 py-2 text-left transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary sm:rounded-lg"
+                :class="editingService?.id === service.id
+                  ? 'border-info/30 bg-info/5 dark:border-info/25 dark:bg-elevated/65'
+                  : 'border-default/25 bg-elevated/30 hover:border-default/40 hover:bg-elevated/50 dark:border-default/15 dark:bg-elevated/25 dark:hover:bg-elevated/45'"
+                @click="openEditService(service)">
+                <span class="min-w-0 flex-1">
+                  <span class="block truncate text-sm font-medium text-highlighted">{{ service.name }}</span>
+                  <span v-if="service.description" class="block truncate text-xs text-muted">{{ service.description
+                    }}</span>
+                </span>
+                <UIcon name="i-lucide-pencil" class="size-4 shrink-0 text-muted" />
+              </button>
+            </div>
+            <p v-else
+              class="rounded-lg border border-dashed border-default/30 p-4 text-center text-sm text-muted dark:border-default/20">
+              ยังไม่มีบริการ
             </p>
           </div>
-          <UButton
-            icon="i-lucide-x"
-            variant="ghost"
-            size="xs"
-            color="neutral"
-            @click="handleRemoveFromBulkDelete(pkg.id)"
-          />
-        </div>
-      </div>
-      <p v-else class="text-sm text-muted text-center py-6">
-        ไม่มีแพ็กเกจที่จะลบ
-      </p>
-    </template>
 
-    <template #footer>
-      <div class="flex justify-end gap-3 w-full">
-        <UButton
-          label="ยกเลิก"
-          color="neutral"
-          variant="outline"
-          @click="isBulkDeleteOpen = false"
-        />
-        <UButton
-          label="ลบ"
-          color="error"
-          :disabled="!bulkDeletePackages.length"
-          :loading="isBulkDeleting"
-          @click="handleConfirmBulkDelete"
-        />
-      </div>
-    </template>
-  </UModal>
+          <form
+            class="-mx-2 space-y-3 border border-default/30 bg-default p-4 dark:border-default/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg"
+            @submit.prevent="saveService">
+            <p class="text-xs font-semibold uppercase tracking-wide text-muted">
+              {{ editingService ? "แก้ไขบริการ" : "เพิ่มบริการใหม่" }}
+            </p>
+            <UFormField label="ชื่อบริการ" required>
+              <UInput v-model="serviceForm.name" class="w-full" placeholder="เช่น ซักแห้ง, ซักพร้อมรีด" />
+            </UFormField>
+            <UFormField label="คำอธิบาย">
+              <UInput v-model="serviceForm.description" class="w-full" placeholder="ไม่บังคับ" />
+            </UFormField>
+            <div class="flex gap-2">
+              <UButton v-if="editingService" label="ยกเลิก" color="neutral" variant="ghost" size="sm"
+                :disabled="isSavingService" @click="resetServiceForm" />
+              <UButton type="submit" :label="editingService ? 'บันทึกการแก้ไข' : 'เพิ่มบริการ'"
+                :icon="editingService ? 'i-lucide-check' : 'i-lucide-plus'" color="primary" size="sm"
+                :loading="isSavingService" :disabled="isSavingService" />
+            </div>
+          </form>
+        </div>
+      </template>
+
+      <template #footer>
+        <div class="flex w-full justify-end">
+          <UButton label="ปิด" color="neutral" variant="outline" :disabled="isSavingService"
+            @click="closeServiceModal" />
+        </div>
+      </template>
+    </UModal>
+
+    <UIConfirmModal v-model:open="isDeleteOpen" title="ลบแพ็กเกจ" description="ยืนยันการลบแพ็กเกจนี้ออกจากระบบ"
+      icon="i-lucide-trash-2" icon-color="error" confirm-label="ลบแพ็กเกจ" confirm-color="error" :loading="isDeleting"
+      @confirm="handleConfirmDelete" @cancel="isDeleteOpen = false">
+      <template #message>
+        คุณต้องการลบแพ็กเกจ
+        <strong class="text-highlighted">{{ deletingPackage?.name }}</strong>
+        หรือไม่?
+      </template>
+
+      <template #subMessage>
+        <div class="space-y-1">
+          <p>
+            <span class="text-muted">ประเภท:</span>
+            <UBadge :color="packageTypeColors[deletingPackage?.packageType as PackageType]" variant="subtle" size="sm"
+              class="ml-1">
+              {{ packageTypeLabels[deletingPackage?.packageType as PackageType] }}
+            </UBadge>
+          </p>
+          <p>
+            <span class="text-muted">ราคา:</span>
+            <strong class="text-highlighted ml-1">
+              {{
+                Number(deletingPackage?.price) === 0
+                  ? "ฟรี"
+                  : formatCurrency(Number(deletingPackage?.price ?? 0))
+              }}
+            </strong>
+          </p>
+          <p v-if="deletingPackage?.credits">
+            <span class="text-muted">เครดิต:</span>
+            <strong class="text-highlighted ml-1">
+              {{ deletingPackage.credits.toLocaleString("th-TH") }} เครดิต
+            </strong>
+          </p>
+        </div>
+      </template>
+    </UIConfirmModal>
+
+    <UModal v-model:open="isBulkDeleteOpen" title="ลบแพ็กเกจที่เลือก"
+      :description="`ยืนยันการลบแพ็กเกจ ${bulkDeletePackages.length} รายการ`">
+      <template #body>
+        <div v-if="bulkDeletePackages.length" class="space-y-3 max-h-72 overflow-auto pr-1">
+          <div v-for="pkg in bulkDeletePackages" :key="pkg.id" class="flex items-center gap-3">
+            <div class="size-10 rounded-lg flex items-center justify-center shrink-0"
+              :class="pkg.packageType === 'MAIN' ? 'bg-primary/10' : 'bg-info/10'">
+              <UIcon :name="pkg.packageType === 'MAIN' ? 'i-lucide-package' : 'i-lucide-puzzle'"
+                :class="pkg.packageType === 'MAIN' ? 'size-5 text-primary' : 'size-5 text-info'" />
+            </div>
+            <div class="flex-1 min-w-0">
+              <p class="font-medium text-highlighted truncate">{{ pkg.name }}</p>
+              <p class="text-sm text-muted truncate">
+                {{
+                  Number(pkg.price) === 0
+                    ? "ฟรี"
+                    : formatCurrency(Number(pkg.price))
+                }}
+                <template v-if="pkg.credits">
+                  - {{ pkg.credits.toLocaleString("th-TH") }} เครดิต
+                </template>
+              </p>
+            </div>
+            <UButton icon="i-lucide-x" variant="ghost" size="xs" color="neutral"
+              @click="handleRemoveFromBulkDelete(pkg.id)" />
+          </div>
+        </div>
+        <p v-else class="text-sm text-muted text-center py-6">
+          ไม่มีแพ็กเกจที่จะลบ
+        </p>
+      </template>
+
+      <template #footer>
+        <div class="flex justify-end gap-3 w-full">
+          <UButton label="ยกเลิก" color="neutral" variant="outline" @click="closeBulkDeleteModal" />
+          <UButton label="ลบ" color="error" :disabled="!bulkDeletePackages.length" :loading="isBulkDeleting"
+            @click="handleConfirmBulkDelete" />
+        </div>
+      </template>
+    </UModal>
   </div>
 </template>

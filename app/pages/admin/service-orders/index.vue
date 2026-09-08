@@ -237,6 +237,14 @@ const openDeleteModal = (order: AdminServiceOrder) => {
   isDeleteOpen.value = true;
 };
 
+const openBulkDeleteModal = (): void => {
+  isBulkDeleteOpen.value = true;
+};
+
+const closeBulkDeleteModal = (): void => {
+  isBulkDeleteOpen.value = false;
+};
+
 const confirmDelete = async () => {
   if (!deletingOrder.value) return;
   isDeleting.value = true;
@@ -594,7 +602,7 @@ const columns: TableColumn<AdminServiceOrder>[] = [
 
                 <UButton v-if="selectedRowsCount" color="error" variant="subtle" icon="i-lucide-trash"
                   class="shrink-0 md:hidden" :aria-label="`ลบ ${selectedRowsCount} รายการ`"
-                  @click="isBulkDeleteOpen = true">
+                  @click="openBulkDeleteModal">
                   <template #trailing>
                     <UKbd class="hidden sm:inline-flex">{{ selectedRowsCount }}</UKbd>
                   </template>
@@ -624,7 +632,7 @@ const columns: TableColumn<AdminServiceOrder>[] = [
 
                 <UButton v-if="selectedRowsCount" color="error" variant="subtle" icon="i-lucide-trash"
                   class="hidden shrink-0 md:inline-flex" :aria-label="`ลบ ${selectedRowsCount} รายการ`"
-                  @click="isBulkDeleteOpen = true">
+                  @click="openBulkDeleteModal">
                   <template #trailing>
                     <UKbd class="hidden sm:inline-flex">{{ selectedRowsCount }}</UKbd>
                   </template>
@@ -845,7 +853,7 @@ const columns: TableColumn<AdminServiceOrder>[] = [
 
         <template #footer>
           <div class="flex w-full justify-end gap-3">
-            <UButton label="ยกเลิก" color="neutral" variant="outline" @click="isBulkDeleteOpen = false" />
+            <UButton label="ยกเลิก" color="neutral" variant="outline" @click="closeBulkDeleteModal" />
             <UButton label="ลบ" color="error" :disabled="!selectedRowsCount" :loading="isDeleting"
               @click="confirmBulkDelete" />
           </div>

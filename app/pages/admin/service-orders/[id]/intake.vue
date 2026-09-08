@@ -18,6 +18,10 @@ const { data, error } = useFetch<ServiceOrderResponse>(
 
 const paymentId = computed(() => data.value?.payments[0]?.id ?? null);
 
+const goBackToServiceOrders = (): void => {
+  void navigateTo('/admin/service-orders');
+};
+
 watchEffect(async () => {
   if (paymentId.value) {
     await navigateTo(`/admin/payment/${paymentId.value}/quotation`, { replace: true });
@@ -33,7 +37,7 @@ watchEffect(async () => {
           <p class="text-base font-semibold text-highlighted">ไม่พบใบเสร็จของรายการนี้</p>
           <p class="mt-2 text-sm text-muted">กรุณาตรวจสอบรายการชำระเงิน</p>
           <div class="mt-4">
-            <UButton label="กลับ" color="neutral" variant="outline" @click="navigateTo('/admin/service-orders')" />
+            <UButton label="กลับ" color="neutral" variant="outline" @click="goBackToServiceOrders" />
           </div>
         </div>
         <USkeleton v-else class="h-40 w-full max-w-md" />

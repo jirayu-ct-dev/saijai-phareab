@@ -104,18 +104,18 @@ const filteredPayments = computed<AdminPaymentRecord[]>(() => {
   return (payments.value ?? []).filter((payment) => {
     const matchKeyword = keyword
       ? [
-          payment.paymentNo ?? "",
-          payment.customer.name ?? "",
-          payment.customer.email,
-          payment.customer.phoneNumber ?? "",
-          payment.packageSale.productName ?? "",
-          ...payment.packageSale.items.map((item) => item.productName),
-          payment.serviceOrder?.id ?? "",
-          payment.serviceOrder?.orderNo ?? "",
-        ]
-          .join(" ")
-          .toLowerCase()
-          .includes(keyword)
+        payment.paymentNo ?? "",
+        payment.customer.name ?? "",
+        payment.customer.email,
+        payment.customer.phoneNumber ?? "",
+        payment.packageSale.productName ?? "",
+        ...payment.packageSale.items.map((item) => item.productName),
+        payment.serviceOrder?.id ?? "",
+        payment.serviceOrder?.orderNo ?? "",
+      ]
+        .join(" ")
+        .toLowerCase()
+        .includes(keyword)
       : true;
 
     const matchSaleType = (() => {
@@ -247,6 +247,14 @@ const deletingPayment = ref<AdminPaymentRecord | null>(null);
 const openDeleteModal = (payment: AdminPaymentRecord) => {
   deletingPayment.value = payment;
   isDeleteOpen.value = true;
+};
+
+const openBulkDeleteModal = (): void => {
+  isBulkDeleteOpen.value = true;
+};
+
+const closeBulkDeleteModal = (): void => {
+  isBulkDeleteOpen.value = false;
 };
 
 const confirmDelete = async () => {
@@ -459,16 +467,16 @@ const columns: TableColumn<AdminPaymentRecord>[] = [
     cell: ({ row }) => {
       const confirmButton = canConfirmPayment(row.original)
         ? h(UButton, {
-            icon: "i-lucide-check",
-            size: "xs",
-            color: "success",
-            variant: "ghost",
-            title: "ยืนยันการชำระเงิน",
-            onClick: (e: MouseEvent) => {
-              e.stopPropagation();
-              openEditStateModal(row.original);
-            },
-          })
+          icon: "i-lucide-check",
+          size: "xs",
+          color: "success",
+          variant: "ghost",
+          title: "ยืนยันการชำระเงิน",
+          onClick: (e: MouseEvent) => {
+            e.stopPropagation();
+            openEditStateModal(row.original);
+          },
+        })
         : null;
       const detailButton = h(UButton, {
         icon: "i-lucide-eye",
@@ -519,49 +527,33 @@ const columns: TableColumn<AdminPaymentRecord>[] = [
 
 <template>
   <div class="contents">
-  <UDashboardPanel id="payments">
-    <template #header>
-      <UDashboardNavbar title="ประวัติการชำระเงิน" icon="i-lucide-receipt">
-        <template #leading>
-          <UDashboardSidebarCollapse class="hidden lg:inline-flex" />
-        </template>
+    <UDashboardPanel id="payments">
+      <template #header>
+        <UDashboardNavbar title="ประวัติการชำระเงิน" icon="i-lucide-receipt">
+          <template #leading>
+            <UDashboardSidebarCollapse class="hidden lg:inline-flex" />
+          </template>
 
-        <template #right>
-          <UButton
-            label="ไปหน้ารายการขาย"
-            icon="i-lucide-shopping-cart"
-            color="primary"
-            class="shrink-0"
-            aria-label="ไปหน้ารายการขาย"
-            :ui="{ label: 'hidden sm:inline' }"
-            @click="navigateTo('/admin/sales')"
-          />
-        </template>
-      </UDashboardNavbar>
-    </template>
+          <template #right>
+            <UButton label="ไปหน้ารายการขาย" icon="i-lucide-shopping-cart" color="primary" class="shrink-0"
+              aria-label="ไปหน้ารายการขาย" :ui="{ label: 'hidden sm:inline' }" @click="goToSalesPage" />
+          </template>
+        </UDashboardNavbar>
+      </template>
 
-    <template #body>
+      <template #body>
         <div class="flex flex-col gap-3 p-2 sm:p-6">
           <section class="flex flex-col gap-1">
-            <div class="-mx-2 rounded-lg border border-default/30 bg-default p-2 px-3! py-3! dark:border-default/40 dark:bg-default/80 space-y-2 sm:mx-0 md:flex md:items-center md:justify-between md:gap-3 md:space-y-0">
+            <div
+              class="-mx-2 rounded-lg border border-default/30 bg-default p-2 px-3! py-3! dark:border-default/40 dark:bg-default/80 space-y-2 sm:mx-0 md:flex md:items-center md:justify-between md:gap-3 md:space-y-0">
               <div class="flex min-w-0 items-center gap-2 md:flex-1 md:max-w-sm">
-                <UInput
-                  v-model="searchQuery"
-                  class="min-w-0 flex-1"
-                  icon="i-lucide-search"
-                  placeholder="ค้นหาลูกค้า เลขชำระ เลขรับผ้า หรือชื่อรายการ"
-                />
+                <UInput v-model="searchQuery" class="min-w-0 flex-1" icon="i-lucide-search"
+                  placeholder="ค้นหาลูกค้า เลขชำระ เลขรับผ้า หรือชื่อรายการ" />
 
                 <ClientOnly>
-                  <UButton
-                    v-if="isAdmin && selectedRowsCount"
-                    color="error"
-                    variant="subtle"
-                    icon="i-lucide-trash"
-                    class="shrink-0 md:hidden"
-                    :aria-label="`ลบ ${selectedRowsCount} รายการ`"
-                    @click="isBulkDeleteOpen = true"
-                  >
+                  <UButton v-if="isAdmin && selectedRowsCount" color="error" variant="subtle" icon="i-lucide-trash"
+                    class="shrink-0 md:hidden" :aria-label="`ลบ ${selectedRowsCount} รายการ`"
+                    @click="isBulkDeleteOpen = true">
                     <template #trailing>
                       <UKbd class="hidden sm:inline-flex">{{ selectedRowsCount }}</UKbd>
                     </template>
@@ -575,15 +567,9 @@ const columns: TableColumn<AdminPaymentRecord>[] = [
                 <USelect v-model="saleTypeFilter" :items="saleTypeOptions" value-key="value" class="min-w-0 sm:w-44" />
 
                 <ClientOnly>
-                  <UButton
-                    v-if="isAdmin && selectedRowsCount"
-                    color="error"
-                    variant="subtle"
-                    icon="i-lucide-trash"
-                    class="hidden shrink-0 md:inline-flex"
-                    :aria-label="`ลบ ${selectedRowsCount} รายการ`"
-                    @click="isBulkDeleteOpen = true"
-                  >
+                  <UButton v-if="isAdmin && selectedRowsCount" color="error" variant="subtle" icon="i-lucide-trash"
+                    class="hidden shrink-0 md:inline-flex" :aria-label="`ลบ ${selectedRowsCount} รายการ`"
+                    @click="isBulkDeleteOpen = true">
                     <template #trailing>
                       <UKbd class="hidden sm:inline-flex">{{ selectedRowsCount }}</UKbd>
                     </template>
@@ -596,11 +582,8 @@ const columns: TableColumn<AdminPaymentRecord>[] = [
 
             <template v-if="showSkeleton">
               <div class="-mx-2 space-y-1 sm:mx-0 md:hidden">
-                <div
-                  v-for="i in 5"
-                  :key="`mob-sk-${i}`"
-                  class="overflow-hidden border border-default/30 bg-default transition-[background-color,border-color] duration-200 hover:border-default/45 hover:bg-default dark:border-default/20 dark:bg-elevated/55 dark:hover:bg-elevated/70"
-                >
+                <div v-for="i in 5" :key="`mob-sk-${i}`"
+                  class="overflow-hidden border border-default/30 bg-default transition-[background-color,border-color] duration-200 hover:border-default/45 hover:bg-default dark:border-default/20 dark:bg-elevated/55 dark:hover:bg-elevated/70">
                   <div class="flex items-center gap-2 p-2">
                     <USkeleton class="size-4 rounded-lg shrink-0" />
                     <USkeleton class="size-8 rounded-full shrink-0" />
@@ -633,7 +616,8 @@ const columns: TableColumn<AdminPaymentRecord>[] = [
                   </div>
                 </div>
               </div>
-              <div class="hidden rounded-lg border border-default/30 bg-default p-0! dark:border-default/20 dark:bg-elevated/55 md:block">
+              <div
+                class="hidden rounded-lg border border-default/30 bg-default p-0! dark:border-default/20 dark:bg-elevated/55 md:block">
                 <div class="space-y-2 p-3">
                   <USkeleton v-for="i in 8" :key="`dt-sk-${i}`" class="h-12 w-full rounded-lg" />
                 </div>
@@ -641,140 +625,117 @@ const columns: TableColumn<AdminPaymentRecord>[] = [
             </template>
 
             <template v-else>
-            <div class="md:hidden">
-            <div v-if="isLoading" class="-mx-2 space-y-1 sm:mx-0">
-              <USkeleton v-for="i in 5" :key="i" class="h-40 w-full rounded-lg" />
-            </div>
+              <div class="md:hidden">
+                <div v-if="isLoading" class="-mx-2 space-y-1 sm:mx-0">
+                  <USkeleton v-for="i in 5" :key="i" class="h-40 w-full rounded-lg" />
+                </div>
 
-            <div v-else-if="!paginatedPayments.length" class="flex flex-col items-center justify-center rounded-lg border border-dashed border-default/30 bg-default/55 px-3 py-5 text-center text-muted dark:border-default/20 dark:bg-elevated/30">
-              <UIcon name="i-lucide-receipt" class="mb-3 size-10 opacity-60" />
-              <p>ไม่พบประวัติการชำระเงิน</p>
-            </div>
+                <div v-else-if="!paginatedPayments.length"
+                  class="flex flex-col items-center justify-center rounded-lg border border-dashed border-default/30 bg-default/55 px-3 py-5 text-center text-muted dark:border-default/20 dark:bg-elevated/30">
+                  <UIcon name="i-lucide-receipt" class="mb-3 size-10 opacity-60" />
+                  <p>ไม่พบประวัติการชำระเงิน</p>
+                </div>
 
-            <div v-else class="-mx-2 space-y-1 sm:mx-0">
-              <div
-                v-for="(payment, index) in paginatedPayments"
-                :key="payment.id"
-                class="overflow-hidden border border-default/30 bg-default transition-[background-color,border-color] duration-200 hover:border-default/45 hover:bg-default dark:border-default/20 dark:bg-elevated/55 dark:hover:bg-elevated/70"
-              >
-                <div class="flex items-start gap-2 p-2">
-                  <UCheckbox
-                    :model-value="isMobileRowSelected(index)"
-                    aria-label="เลือกรายการ"
-                    class="mt-1 shrink-0"
-                    @update:model-value="setMobileRowSelected(index, $event)"
-                  />
+                <div v-else class="-mx-2 space-y-1 sm:mx-0">
+                  <div v-for="(payment, index) in paginatedPayments" :key="payment.id"
+                    class="overflow-hidden border border-default/30 bg-default transition-[background-color,border-color] duration-200 hover:border-default/45 hover:bg-default dark:border-default/20 dark:bg-elevated/55 dark:hover:bg-elevated/70">
+                    <div class="flex items-start gap-2 p-2">
+                      <UCheckbox :model-value="isMobileRowSelected(index)" aria-label="เลือกรายการ"
+                        class="mt-1 shrink-0" @update:model-value="setMobileRowSelected(index, $event)" />
 
-                  <UAvatar v-bind="getAvatarProps(payment.customer)" size="sm" class="mt-0.5 shrink-0" />
+                      <UAvatar v-bind="getAvatarProps(payment.customer)" size="sm" class="mt-0.5 shrink-0" />
 
-                  <div class="min-w-0 flex-1 space-y-1">
-                    <div class="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-start gap-2">
-                      <button
-                        type="button"
-                        class="min-w-0 truncate text-left text-sm font-medium text-highlighted hover:underline"
-                        @click="openMemberDetail(payment)"
-                      >
-                        {{ payment.customer.name || "-" }}
-                      </button>
-                      <div class="shrink-0 text-right">
-                        <template v-if="isServiceMember(payment) && Number(payment.amount ?? 0) === 0">
-                          <p class="text-[13px] font-semibold leading-none text-success">ใช้เครดิต</p>
-                          <p class="mt-0.5 text-[10px] leading-none text-muted">{{ Number(payment.serviceOrder?.creditUsed ?? 0) }} เครดิต</p>
-                        </template>
-                        <p v-else class="text-[13px] font-semibold leading-none tabular-nums text-primary">{{ formatCurrency(payment.amount) }}</p>
-                      </div>
-                    </div>
+                      <div class="min-w-0 flex-1 space-y-1">
+                        <div class="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-start gap-2">
+                          <button type="button"
+                            class="min-w-0 truncate text-left text-sm font-medium text-highlighted hover:underline"
+                            @click="openMemberDetail(payment)">
+                            {{ payment.customer.name || "-" }}
+                          </button>
+                          <div class="shrink-0 text-right">
+                            <template v-if="isServiceMember(payment) && Number(payment.amount ?? 0) === 0">
+                              <p class="text-[13px] font-semibold leading-none text-success">ใช้เครดิต</p>
+                              <p class="mt-0.5 text-[10px] leading-none text-muted">{{
+                                Number(payment.serviceOrder?.creditUsed ?? 0) }} เครดิต</p>
+                            </template>
+                            <p v-else class="text-[13px] font-semibold leading-none tabular-nums text-primary">{{
+                              formatCurrency(payment.amount) }}
+                            </p>
+                          </div>
+                        </div>
 
-                    <div class="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-2">
-                      <button
-                        type="button"
-                        class="min-w-0 truncate text-left font-mono text-[10px] leading-4 text-muted hover:underline"
-                        @click="openPaymentDetail(payment)"
-                      >
-                        {{ payment.paymentNo || payment.id }}
-                      </button>
-                      <div class="flex shrink-0 items-center justify-end gap-1">
-                        <UBadge :color="getSaleTypeColor(payment)" variant="subtle" size="xs">
-                          {{ getSaleTypeLabel(payment) }}
-                        </UBadge>
-                        <button
-                          type="button"
-                          class="inline-flex items-center transition"
-                          :class="canManagePaymentState(payment) ? 'cursor-pointer hover:bg-elevated/60' : 'cursor-default'"
-                          :title="getPaymentStateActionTitle(payment)"
-                          :aria-label="canManagePaymentState(payment) ? 'เปลี่ยนสถานะการชำระเงิน' : undefined"
-                          @click="handlePaymentStateClick(payment)"
-                        >
-                          <UBadge
-                            :color="paymentStatusColors[payment.status]"
-                            variant="subtle"
-                            size="xs"
-                            :icon="canManagePaymentState(payment) ? 'i-lucide-pencil' : undefined"
-                          >
-                            {{ paymentStatusLabels[payment.status] }}
-                          </UBadge>
-                        </button>
-                      </div>
-                    </div>
+                        <div class="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-2">
+                          <button type="button"
+                            class="min-w-0 truncate text-left font-mono text-[10px] leading-4 text-muted hover:underline"
+                            @click="openPaymentDetail(payment)">
+                            {{ payment.paymentNo || payment.id }}
+                          </button>
+                          <div class="flex shrink-0 items-center justify-end gap-1">
+                            <UBadge :color="getSaleTypeColor(payment)" variant="subtle" size="xs">
+                              {{ getSaleTypeLabel(payment) }}
+                            </UBadge>
+                            <button type="button" class="inline-flex items-center transition"
+                              :class="canManagePaymentState(payment) ? 'cursor-pointer hover:bg-elevated/60' : 'cursor-default'"
+                              :title="getPaymentStateActionTitle(payment)"
+                              :aria-label="canManagePaymentState(payment) ? 'เปลี่ยนสถานะการชำระเงิน' : undefined"
+                              @click="handlePaymentStateClick(payment)">
+                              <UBadge :color="paymentStatusColors[payment.status]" variant="subtle" size="xs"
+                                :icon="canManagePaymentState(payment) ? 'i-lucide-pencil' : undefined">
+                                {{ paymentStatusLabels[payment.status] }}
+                              </UBadge>
+                            </button>
+                          </div>
+                        </div>
 
-                    <div class="min-w-0">
-                      <p class="min-w-0 truncate text-xs text-highlighted">{{ formatMobilePaymentItem(payment) }}</p>
-                    </div>
+                        <div class="min-w-0">
+                          <p class="min-w-0 truncate text-xs text-highlighted">{{ formatMobilePaymentItem(payment) }}
+                          </p>
+                        </div>
 
-                    <div class="flex items-center justify-between gap-2">
-                      <div class="min-w-0 truncate text-[11px] text-muted">
-                        {{ getMobilePaymentMeta(payment) }}
-                      </div>
-                      <div class="flex shrink-0 items-center justify-end gap-1">
-                        <UButton
-                          icon="i-lucide-credit-card"
-                          size="xs"
-                          color="primary"
-                          variant="ghost"
-                          aria-label="แก้ไขการชำระเงิน"
-                          @click="openEditStateModal(payment)"
-                        />
-                        <UDropdownMenu :items="getActionItems(payment)" :content="{ align: 'end' }">
-                          <UButton icon="i-lucide-ellipsis" size="xs" color="neutral" variant="ghost" aria-label="เมนูเพิ่มเติม" />
-                        </UDropdownMenu>
+                        <div class="flex items-center justify-between gap-2">
+                          <div class="min-w-0 truncate text-[11px] text-muted">
+                            {{ getMobilePaymentMeta(payment) }}
+                          </div>
+                          <div class="flex shrink-0 items-center justify-end gap-1">
+                            <UButton icon="i-lucide-credit-card" size="xs" color="primary" variant="ghost"
+                              aria-label="แก้ไขการชำระเงิน" @click="openEditStateModal(payment)" />
+                            <UDropdownMenu :items="getActionItems(payment)" :content="{ align: 'end' }">
+                              <UButton icon="i-lucide-ellipsis" size="xs" color="neutral" variant="ghost"
+                                aria-label="เมนูเพิ่มเติม" />
+                            </UDropdownMenu>
+                          </div>
+                        </div>
                       </div>
                     </div>
                   </div>
                 </div>
               </div>
-            </div>
-          </div>
 
-            <div class="hidden overflow-hidden rounded-lg border border-default/30 bg-default p-0! dark:border-default/20 dark:bg-elevated/55 md:block">
-            <UTable
-              ref="table"
-              v-model:row-selection="rowSelection"
-              v-model:pagination="pagination"
-              :pagination-options="{ getPaginationRowModel: getPaginationRowModel() }"
-              :data="filteredPayments"
-              :columns="columns"
-              :loading="isLoading"
-              :ui="{
-                root: 'relative overflow-x-auto',
-                base: 'table-fixed border-separate border-spacing-0',
-                thead: 'sticky top-0 z-1 [&>tr]:bg-default dark:[&>tr]:bg-default/80 [&>tr]:after:content-none',
-                tbody: '[&>tr]:last:[&>td]:border-b-0 [&>tr:hover>td]:bg-primary/5 dark:[&>tr:hover>td]:bg-elevated/45',
-                th: 'border-b border-default bg-default py-2.5 text-xs font-semibold uppercase tracking-wide text-toned dark:border-default/40 dark:bg-default/80',
-                td: 'border-b border-default py-2.5 transition-colors dark:border-default/25',
-                separator: 'h-0',
-              }"
-            >
-              <template #empty>
-                <div v-if="isLoading" class="space-y-2 p-3">
-                  <USkeleton v-for="i in 6" :key="`tbl-${i}`" class="h-12 w-full rounded-lg" />
-                </div>
-                <div v-else class="flex flex-col items-center justify-center rounded-lg border border-dashed border-default/30 bg-default/55 px-3 py-5 text-center text-muted dark:border-default/20 dark:bg-elevated/30">
-                  <UIcon name="i-lucide-receipt" class="mb-3 size-10 opacity-60" />
-                  <p>ไม่พบประวัติการชำระเงิน</p>
-                </div>
-              </template>
-            </UTable>
-            </div>
+              <div
+                class="hidden overflow-hidden rounded-lg border border-default/30 bg-default p-0! dark:border-default/20 dark:bg-elevated/55 md:block">
+                <UTable ref="table" v-model:row-selection="rowSelection" v-model:pagination="pagination"
+                  :pagination-options="{ getPaginationRowModel: getPaginationRowModel() }" :data="filteredPayments"
+                  :columns="columns" :loading="isLoading" :ui="{
+                    root: 'relative overflow-x-auto',
+                    base: 'table-fixed border-separate border-spacing-0',
+                    thead: 'sticky top-0 z-1 [&>tr]:bg-default dark:[&>tr]:bg-default/80 [&>tr]:after:content-none',
+                    tbody: '[&>tr]:last:[&>td]:border-b-0 [&>tr:hover>td]:bg-primary/5 dark:[&>tr:hover>td]:bg-elevated/45',
+                    th: 'border-b border-default bg-default py-2.5 text-xs font-semibold uppercase tracking-wide text-toned dark:border-default/40 dark:bg-default/80',
+                    td: 'border-b border-default py-2.5 transition-colors dark:border-default/25',
+                    separator: 'h-0',
+                  }">
+                  <template #empty>
+                    <div v-if="isLoading" class="space-y-2 p-3">
+                      <USkeleton v-for="i in 6" :key="`tbl-${i}`" class="h-12 w-full rounded-lg" />
+                    </div>
+                    <div v-else
+                      class="flex flex-col items-center justify-center rounded-lg border border-dashed border-default/30 bg-default/55 px-3 py-5 text-center text-muted dark:border-default/20 dark:bg-elevated/30">
+                      <UIcon name="i-lucide-receipt" class="mb-3 size-10 opacity-60" />
+                      <p>ไม่พบประวัติการชำระเงิน</p>
+                    </div>
+                  </template>
+                </UTable>
+              </div>
             </template>
           </section>
 
@@ -789,107 +750,75 @@ const columns: TableColumn<AdminPaymentRecord>[] = [
               <template v-else>{{ paginationSummary }}</template>
             </div>
 
-            <UPagination
-              v-if="!showSkeleton"
-              :page="pagination.pageIndex + 1"
-              :items-per-page="pagination.pageSize"
-              :total="filteredRowCount"
-              @update:page="setPage"
-            />
+            <UPagination v-if="!showSkeleton" :page="pagination.pageIndex + 1" :items-per-page="pagination.pageSize"
+              :total="filteredRowCount" @update:page="setPage" />
           </div>
         </div>
 
-    </template>
-  </UDashboardPanel>
+      </template>
+    </UDashboardPanel>
 
-  <ClientOnly>
-    <UModal
-      v-if="isAdmin"
-      v-model:open="isBulkDeleteOpen"
-      title="ลบประวัติการชำระเงินที่เลือก"
-      :description="`ยืนยันการลบ ${selectedRowsCount} รายการ`"
-    >
-      <template #body>
-        <div v-if="selectedPayments.length" class="max-h-72 space-y-3 overflow-auto pr-1">
-          <div
-            v-for="payment in selectedPayments"
-            :key="payment.id"
-            class="flex items-start gap-3"
-          >
-            <UAvatar v-bind="getAvatarProps(payment.customer)" />
-            <div class="min-w-0 flex-1">
-              <p class="truncate font-medium text-highlighted">
-                {{ payment.customer.name || customerEmailLabel(payment.customer.email) }}
-              </p>
-              <p class="truncate text-sm text-muted">
-                {{ payment.paymentNo || payment.id }}
-              </p>
+    <ClientOnly>
+      <UModal v-if="isAdmin" v-model:open="isBulkDeleteOpen" title="ลบประวัติการชำระเงินที่เลือก"
+        :description="`ยืนยันการลบ ${selectedRowsCount} รายการ`">
+        <template #body>
+          <div v-if="selectedPayments.length" class="max-h-72 space-y-3 overflow-auto pr-1">
+            <div v-for="payment in selectedPayments" :key="payment.id" class="flex items-start gap-3">
+              <UAvatar v-bind="getAvatarProps(payment.customer)" />
+              <div class="min-w-0 flex-1">
+                <p class="truncate font-medium text-highlighted">
+                  {{ payment.customer.name || customerEmailLabel(payment.customer.email) }}
+                </p>
+                <p class="truncate text-sm text-muted">
+                  {{ payment.paymentNo || payment.id }}
+                </p>
+              </div>
+              <UButton icon="i-lucide-x" variant="ghost" size="xs" color="neutral"
+                @click="handlePaymentDeselected(payment)" />
             </div>
-            <UButton
-              icon="i-lucide-x"
-              variant="ghost"
-              size="xs"
-              color="neutral"
-              @click="handlePaymentDeselected(payment)"
-            />
           </div>
-        </div>
-        <p v-else class="py-6 text-center text-sm text-muted">
-          ยังไม่มีรายการที่เลือก
-        </p>
-      </template>
-
-      <template #footer>
-        <div class="flex w-full justify-end gap-3">
-          <UButton label="ยกเลิก" color="neutral" variant="outline" @click="isBulkDeleteOpen = false" />
-          <UButton label="ลบ" color="error" :disabled="!selectedRowsCount" :loading="isDeleting" @click="confirmBulkDelete" />
-        </div>
-      </template>
-    </UModal>
-
-    <UIConfirmModal
-      v-if="isAdmin"
-      v-model:open="isDeleteOpen"
-      title="ลบประวัติการชำระเงิน"
-      description="ยืนยันการลบประวัติการชำระเงินนี้ออกจากระบบ"
-      icon="i-lucide-trash-2"
-      icon-color="error"
-      confirm-label="ลบรายการ"
-      confirm-color="error"
-      :loading="isDeleting"
-      @confirm="confirmDelete"
-    >
-      <template #message>
-        ต้องการลบรายการของ
-        <strong class="text-highlighted">
-          {{ deletingPayment?.customer.name || customerEmailLabel(deletingPayment?.customer.email) }}
-        </strong>
-        ใช่หรือไม่?
-      </template>
-
-      <template #subMessage>
-        <div class="space-y-1">
-          <p class="text-sm text-muted">เลขชำระ: {{ deletingPayment?.paymentNo || "-" }}</p>
-          <p class="text-sm text-muted">
-            รายการขาย:
-            {{ deletingPayment?.packageSale.items.map((item) => `${item.productName} x${item.quantity}`).join(", ") || (deletingPayment?.serviceOrder?.orderNo || deletingPayment?.serviceOrder?.id || "-") }}
+          <p v-else class="py-6 text-center text-sm text-muted">
+            ยังไม่มีรายการที่เลือก
           </p>
-          <p class="text-sm text-muted">จำนวนเงิน: {{ formatCurrency(Number(deletingPayment?.amount ?? 0)) }}</p>
-        </div>
-      </template>
-    </UIConfirmModal>
-  </ClientOnly>
+        </template>
 
-  <EditPaymentStateModal
-    v-if="editStateTarget"
-    v-model:open="editStateModalOpen"
-    :payment-id="editStateTarget.id"
-    :payment-no="editStateTarget.paymentNo"
-    :amount="Number(editStateTarget.amount ?? 0)"
-    :status="editStateTarget.status"
-    :method="editStateTarget.method"
-    :existing-slip="editStateTarget.slipImage ?? null"
-    @updated="onStateUpdatedFromList"
-  />
+        <template #footer>
+          <div class="flex w-full justify-end gap-3">
+            <UButton label="ยกเลิก" color="neutral" variant="outline" @click="closeBulkDeleteModal" />
+            <UButton label="ลบ" color="error" :disabled="!selectedRowsCount" :loading="isDeleting"
+              @click="confirmBulkDelete" />
+          </div>
+        </template>
+      </UModal>
+
+      <UIConfirmModal v-if="isAdmin" v-model:open="isDeleteOpen" title="ลบประวัติการชำระเงิน"
+        description="ยืนยันการลบประวัติการชำระเงินนี้ออกจากระบบ" icon="i-lucide-trash-2" icon-color="error"
+        confirm-label="ลบรายการ" confirm-color="error" :loading="isDeleting" @confirm="confirmDelete">
+        <template #message>
+          ต้องการลบรายการของ
+          <strong class="text-highlighted">
+            {{ deletingPayment?.customer.name || customerEmailLabel(deletingPayment?.customer.email) }}
+          </strong>
+          ใช่หรือไม่?
+        </template>
+
+        <template #subMessage>
+          <div class="space-y-1">
+            <p class="text-sm text-muted">เลขชำระ: {{ deletingPayment?.paymentNo || "-" }}</p>
+            <p class="text-sm text-muted">
+              รายการขาย:
+              {{deletingPayment?.packageSale.items.map((item) => `${item.productName} x${item.quantity}`).join(", ") ||
+                (deletingPayment?.serviceOrder?.orderNo || deletingPayment?.serviceOrder?.id || "-") }}
+            </p>
+            <p class="text-sm text-muted">จำนวนเงิน: {{ formatCurrency(Number(deletingPayment?.amount ?? 0)) }}</p>
+          </div>
+        </template>
+      </UIConfirmModal>
+    </ClientOnly>
+
+    <EditPaymentStateModal v-if="editStateTarget" v-model:open="editStateModalOpen" :payment-id="editStateTarget.id"
+      :payment-no="editStateTarget.paymentNo" :amount="Number(editStateTarget.amount ?? 0)"
+      :status="editStateTarget.status" :method="editStateTarget.method"
+      :existing-slip="editStateTarget.slipImage ?? null" @updated="onStateUpdatedFromList" />
   </div>
 </template>
