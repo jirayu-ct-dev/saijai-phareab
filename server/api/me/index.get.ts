@@ -47,7 +47,7 @@ export default defineEventHandler(async (event) => {
       },
       include: {
         product: {
-          select: { name: true }
+          select: { name: true, isDelivery: true }
         }
       }
     });
@@ -66,6 +66,7 @@ export default defineEventHandler(async (event) => {
       activeEntitlements: activeEntitlements.map(ent => ({
         id: ent.id,
         productName: ent.product.name,
+        isDelivery: ent.product.isDelivery,
         creditInitial: ent.creditInitial,
         creditRemaining: ent.creditRemaining,
         endAt: ent.endAt?.toISOString() || null,

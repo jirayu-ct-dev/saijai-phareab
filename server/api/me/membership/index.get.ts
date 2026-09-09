@@ -16,6 +16,7 @@ export default defineEventHandler(async (event) => {
             id: true,
             name: true,
             packageType: true,
+            isDelivery: true,
             price: true,
           }
         }
@@ -32,6 +33,7 @@ export default defineEventHandler(async (event) => {
       productId: ent.product.id,
       productName: ent.product.name,
       packageType: ent.product.packageType,
+      isDelivery: ent.product.isDelivery,
       status: ent.status,
       creditInitial: ent.creditInitial,
       creditRemaining: ent.creditRemaining,

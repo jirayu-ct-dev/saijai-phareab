@@ -89,7 +89,11 @@ const items = [
                   class="mb-4"
                 />
 
-                <div class="space-y-2">
+                <div v-if="ent.isDelivery" class="flex items-center gap-2 rounded-md border border-success/25 bg-success/5 p-3 text-sm text-success">
+                  <UIcon name="i-lucide-truck" class="size-5 shrink-0" />
+                  <span>บริการรับ-ส่ง · ไม่หักเครดิต</span>
+                </div>
+                <div v-else class="space-y-2">
                   <div class="flex justify-between text-sm">
                     <span class="text-toned">เครดิตคงเหลือ</span>
                     <span class="font-bold text-highlighted">{{ ent.creditRemaining }} / {{ ent.creditInitial }} ครั้ง</span>
@@ -131,7 +135,11 @@ const items = [
                   </UBadge>
                 </div>
 
-                <div class="space-y-2 opacity-60">
+                <div v-if="ent.isDelivery" class="flex items-center gap-2 rounded-md border border-default py-3 px-3 text-sm text-muted opacity-70">
+                  <UIcon name="i-lucide-truck" class="size-5 shrink-0" />
+                  <span>บริการรับ-ส่ง · ไม่หักเครดิต</span>
+                </div>
+                <div v-else class="space-y-2 opacity-60">
                   <div class="flex justify-between text-sm">
                     <span class="text-toned">เครดิตคงเหลือ</span>
                     <span class="font-bold text-highlighted">{{ ent.creditRemaining }} / {{ ent.creditInitial }} ครั้ง</span>

@@ -18,6 +18,7 @@ interface MembershipUsage {
   orderNo: string | null;
   receivedAt: string;
   creditUsed: number | null;
+  isDelivery: boolean;
   itemCount: number;
   status: string;
 }
@@ -26,6 +27,7 @@ interface MembershipEntitlement {
   id: string;
   productName: string;
   packageType: string;
+  isDelivery: boolean;
   creditInitial: number | null;
   creditRemaining: number | null;
   status: string;
@@ -206,11 +208,11 @@ const columns: TableColumn<MembershipUsage>[] = [
   },
   {
     accessorKey: "creditUsed",
-    header: sortableHeader("เครดิตที่ใช้", "creditUsed", true),
+    header: sortableHeader("การใช้สิทธิ์", "creditUsed", true),
     cell: ({ row }) => h("div", { class: "text-right" }, h(
       UBadge,
-      { color: "primary", variant: "subtle", size: "sm" },
-      () => `${row.original.creditUsed ?? 0} ครั้ง`,
+      { color: row.original.isDelivery ? "success" : "primary", variant: "subtle", size: "sm" },
+      () => row.original.isDelivery ? "ใช้บริการ" : `${row.original.creditUsed ?? 0} ครั้ง`,
     )),
   },
   {
@@ -257,7 +259,7 @@ const emptyState = computed(() => {
 <template>
   <UDashboardPanel id="my-membership-usage" grow>
     <template #header>
-      <UDashboardNavbar title="ประวัติการใช้เครดิต" icon="i-lucide-receipt-text">
+  <UDashboardNavbar :title="entitlement?.isDelivery ? 'ประวัติการใช้บริการรับ-ส่ง' : 'ประวัติการใช้เครดิต'" icon="i-lucide-receipt-text">
         <template #leading>
           <UDashboardSidebarCollapse />
         </template>
@@ -327,12 +329,16 @@ const emptyState = computed(() => {
               </div>
 
               <div class="min-w-0 sm:w-64">
-                <div class="flex items-baseline justify-between gap-2 text-sm">
+                <div v-if="entitlement.isDelivery" class="flex items-center gap-2 rounded-md border border-success/25 bg-success/5 p-3 text-sm text-success">
+                  <UIcon name="i-lucide-truck" class="size-5 shrink-0" />
+                  <span>บริการรับ-ส่ง · ไม่หักเครดิต</span>
+                </div>
+                <div v-else class="flex items-baseline justify-between gap-2 text-sm">
                   <span class="text-muted">ใช้ไป {{ creditUsed }} / {{ creditInitial }} ครั้ง</span>
                   <span class="font-semibold" :class="entitlement.status === 'ACTIVE' ? 'text-primary' : 'text-dimmed'">เหลือ {{ creditRemaining }}</span>
                 </div>
                 <UProgress
-                  v-if="creditInitial > 0"
+                  v-if="!entitlement.isDelivery && creditInitial > 0"
                   :model-value="creditRemaining"
                   :max="creditInitial"
                   color="primary"
@@ -375,8 +381,8 @@ const emptyState = computed(() => {
                       </button>
 
                       <div class="flex shrink-0 flex-col items-end gap-1">
-                        <UBadge color="primary" variant="subtle" size="xs" class="font-medium">
-                          ใช้ {{ usage.creditUsed ?? 0 }} ครั้ง
+                        <UBadge :color="usage.isDelivery ? 'success' : 'primary'" variant="subtle" size="xs" class="font-medium">
+                          {{ usage.isDelivery ? 'ใช้บริการ' : `ใช้ ${usage.creditUsed ?? 0} ครั้ง` }}
                         </UBadge>
                         <UBadge :color="orderStatusColors[usage.status as ServiceOrderStatus]" variant="soft" size="xs">
                           {{ orderStatusLabels[usage.status as ServiceOrderStatus] }}

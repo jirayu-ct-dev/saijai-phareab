@@ -35,12 +35,15 @@ const expiryLabel = (endAt: string | null) => {
   return `เหลืออีก ${days} วัน`
 }
 
-const packageState = (endAt: string | null, initial: number | null, remaining: number | null) => {
+const packageState = (endAt: string | null, initial: number | null, remaining: number | null, isDelivery = false) => {
   const days = daysLeft(endAt)
   const credits = creditMeta(initial, remaining)
 
   if (days !== null && days < 0) {
     return { label: 'หมดอายุ', color: 'neutral' as const }
+  }
+  if (isDelivery) {
+    return { label: 'บริการรับ-ส่ง', color: 'success' as const }
   }
   if (credits.left === 0) {
     return { label: 'เครดิตหมด', color: 'error' as const }
@@ -127,15 +130,20 @@ const packageState = (endAt: string | null, initial: number | null, remaining: n
             {{ ent.productName }}
           </h3>
           <UBadge
-            :color="packageState(ent.endAt, ent.creditInitial, ent.creditRemaining).color"
+            :color="packageState(ent.endAt, ent.creditInitial, ent.creditRemaining, ent.isDelivery).color"
             variant="subtle"
             class="shrink-0"
           >
-            {{ packageState(ent.endAt, ent.creditInitial, ent.creditRemaining).label }}
+            {{ packageState(ent.endAt, ent.creditInitial, ent.creditRemaining, ent.isDelivery).label }}
           </UBadge>
         </div>
 
-        <div class="mt-4 rounded-lg border border-default/40 bg-elevated/40 p-3">
+        <div v-if="ent.isDelivery" class="mt-4 flex items-center gap-2 rounded-lg border border-success/25 bg-success/5 p-3 text-sm text-success">
+          <UIcon name="i-lucide-truck" class="size-5 shrink-0" />
+          <span>บริการรับ-ส่ง · ไม่หักเครดิต</span>
+        </div>
+
+        <div v-else class="mt-4 rounded-lg border border-default/40 bg-elevated/40 p-3">
           <div class="flex items-end justify-between gap-3">
             <span class="text-sm text-muted">เครดิตคงเหลือ</span>
             <p class="shrink-0 text-right text-highlighted">
@@ -149,7 +157,7 @@ const packageState = (endAt: string | null, initial: number | null, remaining: n
             class="mt-3"
             :model-value="creditMeta(ent.creditInitial, ent.creditRemaining).left"
             :max="creditMeta(ent.creditInitial, ent.creditRemaining).total"
-            :color="packageState(ent.endAt, ent.creditInitial, ent.creditRemaining).color"
+            :color="packageState(ent.endAt, ent.creditInitial, ent.creditRemaining, ent.isDelivery).color"
             size="lg"
             :get-value-text="formatCreditValue"
           />

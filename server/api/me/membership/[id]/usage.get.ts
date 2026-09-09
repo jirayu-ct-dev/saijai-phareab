@@ -18,7 +18,7 @@ export default defineEventHandler(async (event) => {
       },
       include: {
         product: {
-          select: { name: true, packageType: true }
+          select: { name: true, packageType: true, isDelivery: true }
         }
       }
     });
@@ -31,13 +31,14 @@ export default defineEventHandler(async (event) => {
       ? (await prisma.serviceOrderAddonUsage.findMany({
           where: {
             memberEntitlementId: entitlementId,
-            credits: { gt: 0 },
+            OR: [{ credits: { gt: 0 } }, { isDelivery: true }],
             refundedAt: null,
             serviceOrder: { deletedAt: null },
           },
           select: {
             id: true,
             credits: true,
+            isDelivery: true,
             serviceOrder: {
               select: {
                 id: true,
@@ -56,6 +57,7 @@ export default defineEventHandler(async (event) => {
           orderNo: usage.serviceOrder.orderNo,
           receivedAt: usage.serviceOrder.receivedAt.toISOString(),
           creditUsed: usage.credits,
+          isDelivery: usage.isDelivery,
           itemCount: usage.serviceOrder._count.serviceOrderItems,
           status: usage.serviceOrder.status,
         }))
@@ -80,6 +82,7 @@ export default defineEventHandler(async (event) => {
           orderNo: usage.orderNo,
           receivedAt: usage.receivedAt.toISOString(),
           creditUsed: usage.creditUsed,
+          isDelivery: false,
           itemCount: usage._count.serviceOrderItems,
           status: usage.status,
         }));
@@ -89,6 +92,7 @@ export default defineEventHandler(async (event) => {
         id: entitlement.id,
         productName: entitlement.product.name,
         packageType: entitlement.product.packageType,
+        isDelivery: entitlement.product.isDelivery,
         creditInitial: entitlement.creditInitial,
         creditRemaining: entitlement.creditRemaining,
         status: entitlement.status,
