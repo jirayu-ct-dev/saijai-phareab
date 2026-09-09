@@ -1,4 +1,4 @@
-import { uploadImageBufferToCloudinary } from "~~/server/utils/cloudinary";
+import { getCloudinaryFolder, uploadImageBufferToCloudinary } from "~~/server/utils/cloudinary";
 import { validateImageUpload } from "~~/server/utils/imageUpload";
 import { requireRole } from "~~/server/utils/auth";
 import { prisma } from "~~/server/utils/prisma";
@@ -21,7 +21,7 @@ export default defineEventHandler(async (event) => {
 
   try {
     const uploaded = await uploadImageBufferToCloudinary(file.data, {
-      folder: "saijai-phareab/admin-service-orders",
+      folder: getCloudinaryFolder("admin-service-orders"),
       publicId: `service-order-${Date.now()}`,
       resourceType: "image",
     });

@@ -10,6 +10,11 @@ const getRequiredEnv = (name: string): string => {
 
 let isCloudinaryConfigured = false;
 
+export const getCloudinaryFolder = (folder: string): string => {
+  const prefix = process.env.CLOUDINARY_FOLDER_PREFIX?.trim() || "saijai-phareab";
+  return `${prefix}/${folder}`;
+};
+
 const ensureCloudinaryConfigured = (): void => {
   if (isCloudinaryConfigured) {
     return;
@@ -83,4 +88,3 @@ export const deleteImageFromCloudinary = async (publicId: string): Promise<void>
   ensureCloudinaryConfigured();
   await cloudinary.uploader.destroy(publicId);
 };
-
