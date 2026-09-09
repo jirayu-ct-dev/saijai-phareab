@@ -507,7 +507,7 @@ onMounted(() => {
         <div>
           <h3 class="mb-2 text-xs font-semibold uppercase tracking-wider text-muted">ที่มารายรับ (Income Breakdown)</h3>
           <div class="grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
-            <div class="rounded-lg border border-default/20 bg-default/60 p-3 dark:bg-elevated/35">
+            <div class="rounded-lg border border-default/30 bg-default p-3 dark:border-default/20 dark:bg-elevated/55">
               <div class="flex items-center gap-2">
                 <UIcon name="i-lucide-package" class="size-4 text-primary" />
                 <span class="truncate text-xs text-muted">ยอดซื้อแพ็กเกจ</span>
@@ -517,7 +517,7 @@ onMounted(() => {
               </p>
             </div>
 
-            <div class="rounded-lg border border-default/20 bg-default/60 p-3 dark:bg-elevated/35">
+            <div class="rounded-lg border border-default/30 bg-default p-3 dark:border-default/20 dark:bg-elevated/55">
               <div class="flex items-center gap-2">
                 <UIcon name="i-lucide-shirt" class="size-4 text-primary" />
                 <span class="truncate text-xs text-muted">ยอดออเดอร์ผ้ารายชิ้น</span>
@@ -527,7 +527,7 @@ onMounted(() => {
               </p>
             </div>
 
-            <div class="rounded-lg border border-default/20 bg-default/60 p-3 dark:bg-elevated/35">
+            <div class="rounded-lg border border-default/30 bg-default p-3 dark:border-default/20 dark:bg-elevated/55">
               <div class="flex items-center gap-2">
                 <UIcon name="i-lucide-scale" class="size-4 text-primary" />
                 <span class="truncate text-xs text-muted">ยอดซัก–พับชั่งกิโล</span>
@@ -537,7 +537,7 @@ onMounted(() => {
               </p>
             </div>
 
-            <div class="rounded-lg border border-default/20 bg-default/60 p-3 dark:bg-elevated/35">
+            <div class="rounded-lg border border-default/30 bg-default p-3 dark:border-default/20 dark:bg-elevated/55">
               <div class="flex items-center gap-2">
                 <UIcon name="i-lucide-circle-dot" class="size-4 text-primary" />
                 <span class="truncate text-xs text-muted">รายรับอื่น</span>
