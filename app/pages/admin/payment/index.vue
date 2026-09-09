@@ -190,6 +190,7 @@ watch(() => pagination.value.pageIndex, () => {
 });
 
 const openPaymentDetail = (payment: AdminPaymentRecord) => navigateTo(`/admin/payment/${payment.id}`);
+const goToSalesPage = () => navigateTo("/admin/sales");
 const openReceipt = (payment: AdminPaymentRecord) => {
   const target = payment.status === "PAID" ? "receipt" : "quotation";
   return navigateTo(`/admin/payment/${payment.id}/${target}`);
