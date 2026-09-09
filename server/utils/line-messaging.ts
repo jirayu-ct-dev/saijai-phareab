@@ -219,6 +219,19 @@ export const pushMessage = async (payload: LinePushMessageRequest): Promise<void
   await callLineMessagingApi("/message/push", payload);
 };
 
+export const linkRichMenuToUser = async (lineUserId: string, richMenuId: string): Promise<void> => {
+  const accessToken = await getLineAccessToken();
+  const userId = encodeURIComponent(lineUserId);
+  const menuId = encodeURIComponent(richMenuId);
+
+  await $fetch(`https://api.line.me/v2/bot/user/${userId}/richmenu/${menuId}`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+};
+
 export const startLoadingAnimation = async (payload: LineLoadingAnimationRequest): Promise<void> => {
   await callLineMessagingApi("/chat/loading/start", payload);
 };

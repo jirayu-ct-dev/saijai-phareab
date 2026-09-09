@@ -36,6 +36,11 @@ onMounted(async () => {
   const linked = route.query.linked as string | undefined;
   if (linked === "line") {
     notify.success("เชื่อมบัญชี LINE สำเร็จ");
+    try {
+      await $fetch("/api/me/line-rich-menu/sync", { method: "POST" });
+    } catch (syncError) {
+      console.warn("[LineLinkSection] LINE rich menu sync failed", syncError);
+    }
     await refresh();
     await router.replace({ query: { ...route.query, linked: undefined } });
   }

@@ -3,6 +3,10 @@ import { getSafeInternalRedirect } from "~~/shared/utils/authNavigation";
 
 export default defineNuxtRouteMiddleware(async (to) => {
   const authSession = useState<unknown | null>("auth:session", () => null);
+  const richMenuSync = useState<{ userId: string; syncedAt: number } | null>(
+    "line-rich-menu:sync",
+    () => null,
+  );
   const publicRoutes = [
     "/",
     "/pricing",
@@ -65,6 +69,21 @@ export default defineNuxtRouteMiddleware(async (to) => {
     if (liffResult === "redirecting") return;
     if (liffResult === "logged-in") {
       session = await fetchSessionStatus({ force: true });
+    }
+  }
+
+  if (
+    import.meta.client &&
+    session?.user &&
+    (!richMenuSync.value ||
+      richMenuSync.value.userId !== session.user.id ||
+      Date.now() - richMenuSync.value.syncedAt > 5 * 60 * 1000)
+  ) {
+    try {
+      await $fetch("/api/me/line-rich-menu/sync", { method: "POST" });
+      richMenuSync.value = { userId: session.user.id, syncedAt: Date.now() };
+    } catch (error) {
+      console.warn("[auth] LINE rich menu sync failed", error);
     }
   }
 
