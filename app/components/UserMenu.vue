@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import type { DropdownMenuItem } from "@nuxt/ui";
+import { getRoleHomeLabel, getRoleHomeRoute } from "~/utils/roleNavigation";
+import type { Role } from "~~/shared/types/enums";
 
 defineProps<{
   collapsed?: boolean;
@@ -21,9 +23,9 @@ const profileRoute = computed(() => (isStaff.value ? "/admin/settings/profile" :
 // is role-admin and would bounce employees to the public home page.
 const settingsRoute = computed(() => (isStaff.value ? "/admin/settings/account" : "/me/settings/notification"));
 const homeRoute = computed(() => "/");
-const adminHomeRoute = computed(() =>
-  user.value?.role === "ADMIN" ? "/admin" : "/admin/employee-dashboard",
-);
+const adminHomeRoute = computed(() => getRoleHomeRoute(user.value?.role as Role | undefined));
+const roleHomeLabel = computed(() => getRoleHomeLabel(user.value?.role as Role | undefined));
+const roleHomeIcon = computed(() => user.value?.role === "EMPLOYEE" ? "i-lucide-briefcase" : "i-lucide-shield");
 const isAdminArea = computed(() => route.path.startsWith("/admin"));
 
 const handleLogout = async (e: Event) => {
@@ -60,8 +62,8 @@ const items = computed<DropdownMenuItem[][]>(() => [
     ? [
         [
           {
-            label: isAdminArea.value ? "สลับไปหน้าลูกค้า" : "สลับไปหน้าผู้ดูแล",
-            icon: isAdminArea.value ? "i-lucide-layout-dashboard" : "i-lucide-shield",
+            label: isAdminArea.value ? "สลับไปหน้าลูกค้า" : roleHomeLabel.value,
+            icon: isAdminArea.value ? "i-lucide-layout-dashboard" : roleHomeIcon.value,
             onSelect() {
               navigateTo(isAdminArea.value ? "/me" : adminHomeRoute.value);
             },

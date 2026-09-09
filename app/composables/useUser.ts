@@ -11,6 +11,10 @@ export const useUser = () => {
   // ใช้ state กลางสำหรับ session เพื่อให้ SSR กับ client ได้ข้อมูลชุดเดียวกัน
   const session = useState<SessionWithUser>("auth:session", () => null);
   const user = computed(() => session.value?.user as AppUser | undefined);
+  const richMenuSync = useState<{ userId: string; syncedAt: number } | null>(
+    "line-rich-menu:sync",
+    () => null,
+  );
 
   const userAvatar = computed(() => ({
     as: { img: "img" },
@@ -24,6 +28,25 @@ export const useUser = () => {
     session.value = await fetchSessionStatus({ force: true });
 
     return session.value;
+  };
+
+  const syncLineRichMenu = async (): Promise<boolean> => {
+    if (!import.meta.client || !user.value) return false;
+
+    try {
+      const result = await $fetch<{ linked: boolean }>("/api/me/line-rich-menu/sync", {
+        method: "POST",
+      });
+      if (result.linked && user.value) {
+        richMenuSync.value = { userId: user.value.id, syncedAt: Date.now() };
+      }
+      return result.linked;
+    } catch (error) {
+      // Rich Menu is a best-effort LINE presentation update and must not block
+      // a successful login when LINE is temporarily unavailable.
+      console.warn("[useUser] LINE rich menu sync failed", error);
+      return false;
+    }
   };
 
   const redirectByRole = async (role?: string) => {
@@ -156,6 +179,10 @@ export const useUser = () => {
           console.error("[useUser] Failed to sync LIFF name:", e);
         }
       }
+
+      // LIFF can finish authentication without a route change, so the global
+      // route middleware is not guaranteed to run again after this login.
+      await syncLineRichMenu();
     } catch (error: any) {
       console.error(error);
       throw new Error(error.message || "เกิดข้อผิดพลาดในการเข้าสู่ระบบด้วย LINE");
@@ -183,6 +210,7 @@ export const useUser = () => {
     user,
     userAvatar,
     refreshSession,
+    syncLineRichMenu,
     login,
     register,
     loginWithLine,

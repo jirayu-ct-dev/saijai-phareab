@@ -70,7 +70,7 @@ const itemsDropdown = computed<DropdownMenuItem[][]>(() => {
             to: '/admin'
         })
         roleLinks.push({
-            label: 'แดชบอร์ดเมมเบอร์',
+            label: 'หน้าหลักลูกค้า',
             icon: 'i-lucide-layout-dashboard',
             to: '/me'
         })
@@ -81,13 +81,13 @@ const itemsDropdown = computed<DropdownMenuItem[][]>(() => {
             to: '/admin/employee-dashboard'
         })
         roleLinks.push({
-            label: 'แดชบอร์ดเมมเบอร์',
+            label: 'หน้าหลักลูกค้า',
             icon: 'i-lucide-layout-dashboard',
             to: '/me'
         })
     } else {
         roleLinks.push({
-            label: 'หน้าหลักสมาชิก',
+            label: 'หน้าหลักลูกค้า',
             icon: 'i-lucide-layout-dashboard',
             to: '/me'
         })

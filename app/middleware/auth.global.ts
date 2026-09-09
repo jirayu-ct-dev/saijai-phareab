@@ -80,8 +80,12 @@ export default defineNuxtRouteMiddleware(async (to) => {
       Date.now() - richMenuSync.value.syncedAt > 5 * 60 * 1000)
   ) {
     try {
-      await $fetch("/api/me/line-rich-menu/sync", { method: "POST" });
-      richMenuSync.value = { userId: session.user.id, syncedAt: Date.now() };
+      const result = await $fetch<{ linked: boolean }>("/api/me/line-rich-menu/sync", { method: "POST" });
+      // Do not suppress future retries when the user has no linked LINE
+      // account yet or the deployment is missing its Rich Menu configuration.
+      if (result.linked) {
+        richMenuSync.value = { userId: session.user.id, syncedAt: Date.now() };
+      }
     } catch (error) {
       console.warn("[auth] LINE rich menu sync failed", error);
     }
