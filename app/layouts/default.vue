@@ -2,6 +2,7 @@
 import type { NavigationMenuItem, DropdownMenuItem } from '@nuxt/ui'
 
 const { addLineFriend } = useLiffAuth()
+const lineUrl = useLineOaUrl()
 const { logout, user, session, userAvatar } = useUser()
 const open = ref(false)
 
@@ -241,7 +242,7 @@ const itemsDropdown = computed<DropdownMenuItem[][]>(() => {
                                 class="text-[#E1306C]">
                                 <UIcon name="i-simple-icons-instagram" class="size-5" />
                             </UButton> -->
-                            <UButton color="neutral" variant="ghost" size="sm" to="https://line.me/R/ti/p/@883vmdct"
+                            <UButton color="neutral" variant="ghost" size="sm" :to="lineUrl"
                                 target="_blank" rel="noopener noreferrer" aria-label="LINE" class="text-[#06C755]">
                                 <UIcon name="i-simple-icons-line" class="size-5" />
                             </UButton>

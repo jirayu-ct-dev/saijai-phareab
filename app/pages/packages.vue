@@ -19,7 +19,7 @@ const { data: packages, pending, error, refresh } = await useFetch<PublicPackage
   default: () => [],
 });
 
-const lineUrl = "https://line.me/R/ti/p/@883vmdct";
+const lineUrl = useLineOaUrl();
 
 const mainPackages = computed(() => packages.value.filter((pkg) => pkg.packageType === "MAIN"));
 const addonPackages = computed(() => packages.value.filter((pkg) => pkg.packageType === "ADDON"));

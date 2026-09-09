@@ -95,6 +95,7 @@ export default defineNuxtConfig({
   runtimeConfig: {
     public: {
       liffId: process.env.NUXT_PUBLIC_LIFF_ID,
+      lineOaId: process.env.NUXT_PUBLIC_LINE_OA_ID,
       lineBizChatUrl: process.env.LINE_BIZ_CHAT_URL,
       printGatewayEnabled: process.env.NUXT_PUBLIC_PRINT_GATEWAY_ENABLED === 'true',
       printGatewayUrl: process.env.NUXT_PUBLIC_PRINT_GATEWAY_URL,

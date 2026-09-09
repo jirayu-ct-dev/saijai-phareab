@@ -1,3 +1,7 @@
+<script setup lang="ts">
+const lineUrl = useLineOaUrl();
+</script>
+
 <template>
   <section id="contact" class="py-16 md:py-24">
     <UContainer>
@@ -16,7 +20,7 @@
 
         <!-- LINE Card -->
         <a
-          href="https://line.me/R/ti/p/@883vmdct"
+          :href="lineUrl"
           target="_blank"
           rel="noopener noreferrer"
           class="group flex flex-col items-center text-center bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 hover:border-[#06C755]/50 dark:hover:border-[#06C755]/50 rounded-lg p-8 shadow-sm hover:shadow-md transition-all duration-300"
@@ -104,7 +108,7 @@
               <UButton
                 size="xl"
                 class="bg-[#06C755] hover:bg-[#05B04C] text-white font-bold rounded-lg px-8 w-full justify-center"
-                to="https://line.me/R/ti/p/@883vmdct"
+                :to="lineUrl"
                 target="_blank"
                 rel="noopener noreferrer"
               >
