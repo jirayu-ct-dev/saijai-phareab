@@ -3,7 +3,7 @@ import { getSafeInternalRedirect } from "~~/shared/utils/authNavigation";
 
 export default defineNuxtRouteMiddleware(async (to) => {
   const authSession = useState<unknown | null>("auth:session", () => null);
-  const richMenuSync = useState<{ userId: string; syncedAt: number } | null>(
+  const richMenuSync = useState<{ userId: string; attemptedAt: number; syncedAt?: number } | null>(
     "line-rich-menu:sync",
     () => null,
   );
@@ -77,12 +77,18 @@ export default defineNuxtRouteMiddleware(async (to) => {
     session?.user &&
     (!richMenuSync.value ||
       richMenuSync.value.userId !== session.user.id ||
-      Date.now() - richMenuSync.value.syncedAt > 5 * 60 * 1000)
+      Date.now() - richMenuSync.value.attemptedAt > 60 * 1000)
   ) {
     try {
-      await $fetch("/api/me/line-rich-menu/sync", { method: "POST" });
-      richMenuSync.value = { userId: session.user.id, syncedAt: Date.now() };
+      const result = await $fetch<{ linked: boolean }>("/api/me/line-rich-menu/sync", { method: "POST" });
+      const attemptedAt = Date.now();
+      richMenuSync.value = {
+        userId: session.user.id,
+        attemptedAt,
+        ...(result.linked ? { syncedAt: attemptedAt } : {}),
+      };
     } catch (error) {
+      richMenuSync.value = { userId: session.user.id, attemptedAt: Date.now() };
       console.warn("[auth] LINE rich menu sync failed", error);
     }
   }

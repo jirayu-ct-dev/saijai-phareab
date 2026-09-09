@@ -1,6 +1,7 @@
 import { requireRole } from "~~/server/utils/auth";
 import { prisma } from "~~/server/utils/prisma";
 import { buildPaymentEntitlementEdit } from "~~/server/utils/paymentEntitlementEdit";
+import { syncLineRichMenuForUser } from "~~/server/utils/line-richmenu";
 
 interface UpdatePaymentBody {
   customerId?: string;
@@ -283,6 +284,14 @@ export default defineEventHandler(async (event) => {
 
       return tx.paymentRecord.findUniqueOrThrow({ where: { id } });
     });
+
+    for (const customerId of new Set([existingPackageSale.customerId, nextCustomerId])) {
+      try {
+        await syncLineRichMenuForUser(customerId);
+      } catch (error) {
+        console.warn("[PUT /api/admin/payments/:id] LINE rich menu sync failed", error);
+      }
+    }
 
     return updated;
   } catch (error) {

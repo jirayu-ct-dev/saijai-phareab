@@ -1,5 +1,6 @@
 import { prisma } from "~~/server/utils/prisma";
 import { requireRole } from "~~/server/utils/auth";
+import { unlinkLineRichMenuForUser } from "~~/server/utils/line-richmenu";
 
 export default defineEventHandler(async (event) => {
   const id = getRouterParam(event, "id");
@@ -22,6 +23,12 @@ export default defineEventHandler(async (event) => {
     });
     if (!existing) {
       throw createError({ statusCode: 404, statusMessage: "User not found" });
+    }
+
+    try {
+      await unlinkLineRichMenuForUser(id);
+    } catch (error) {
+      console.warn("[DELETE /api/admin/users/:id] LINE rich menu unlink failed", error);
     }
 
     await prisma.user.update({

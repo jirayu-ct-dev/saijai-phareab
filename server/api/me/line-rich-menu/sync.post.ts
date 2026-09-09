@@ -3,7 +3,7 @@ import { syncLineRichMenuForUser } from "~~/server/utils/line-richmenu";
 
 export default defineEventHandler(async (event) => {
   const actor = requireUser(event);
-  const linked = await syncLineRichMenuForUser(actor.id);
+  const result = await syncLineRichMenuForUser(actor.id);
 
-  return { success: true, linked };
+  return { success: true, ...result };
 });

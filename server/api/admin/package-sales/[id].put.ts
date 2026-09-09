@@ -4,6 +4,7 @@ import { createPaymentNo } from "~~/server/utils/paymentNo";
 import { prisma } from "~~/server/utils/prisma";
 import { getBusinessSetting } from "~~/server/utils/appSetting";
 import { computeVat } from "~~/server/utils/vat";
+import { syncLineRichMenuForUser } from "~~/server/utils/line-richmenu";
 
 type UpdatePackageSaleBody = {
   customerId: string;
@@ -341,6 +342,14 @@ export default defineEventHandler(async (event) => {
         });
       }
     });
+
+    for (const customerId of new Set([existingSale.customerId, body.customerId])) {
+      try {
+        await syncLineRichMenuForUser(customerId);
+      } catch (error) {
+        console.warn("[PUT /api/admin/package-sales/:id] LINE rich menu sync failed", error);
+      }
+    }
 
     return { success: true };
   } catch (error) {

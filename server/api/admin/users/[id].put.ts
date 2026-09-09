@@ -76,7 +76,7 @@ export default defineEventHandler(async (event) => {
   try {
     const existing = await prisma.user.findFirst({
       where: { id, deletedAt: null },
-      select: { id: true, email: true, role: true, customerAccountStatus: true },
+      select: { id: true, email: true, role: true, isActive: true, customerAccountStatus: true },
     });
     if (!existing) {
       throw createError({ statusCode: 404, statusMessage: "User not found" });
@@ -85,12 +85,12 @@ export default defineEventHandler(async (event) => {
       throw createError({ statusCode: 409, statusMessage: "ต้องเปิดใช้งานบัญชีลูกค้าก่อนเปลี่ยนเป็นพนักงาน" });
     }
     const isRoleChanged = payload.role !== undefined && payload.role !== existing.role;
-    const isDeactivated = body.isActive === false;
+    const isActiveChanged = body.isActive !== undefined && body.isActive !== existing.isActive;
 
     // Guard against removing the last active admin (demotion or deactivation).
     const losesAdmin =
       existing.role === "ADMIN" &&
-      ((payload.role !== undefined && payload.role !== "ADMIN") || isDeactivated);
+      ((payload.role !== undefined && payload.role !== "ADMIN") || body.isActive === false);
     if (losesAdmin) {
       const otherActiveAdmins = await prisma.user.count({
         where: { role: "ADMIN", deletedAt: null, isActive: true, id: { not: id } },
@@ -121,7 +121,7 @@ export default defineEventHandler(async (event) => {
       });
 
       let sessionsRevoked = 0;
-      if (isRoleChanged || isDeactivated) {
+      if (isRoleChanged || isActiveChanged) {
         const revokeResult = await tx.session.deleteMany({
           where: { userId: id },
         });
@@ -134,7 +134,7 @@ export default defineEventHandler(async (event) => {
       };
     });
 
-    if (isRoleChanged || isDeactivated) {
+    if (isRoleChanged || isActiveChanged) {
       try {
         await syncLineRichMenuForUser(id);
       } catch (error) {

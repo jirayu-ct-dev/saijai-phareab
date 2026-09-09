@@ -94,6 +94,15 @@ export type LineMessageContentResponse = {
   buffer: Buffer;
 };
 
+export type LineRichMenuLinkResponse = {
+  status: number;
+};
+
+export type LineRichMenuLookupResponse = {
+  status: number;
+  richMenuId: string | null;
+};
+
 const TOKEN_EXPIRY_BUFFER_SECONDS = 60;
 let cachedStatelessAccessToken: CachedAccessToken | null = null;
 
@@ -219,17 +228,68 @@ export const pushMessage = async (payload: LinePushMessageRequest): Promise<void
   await callLineMessagingApi("/message/push", payload);
 };
 
-export const linkRichMenuToUser = async (lineUserId: string, richMenuId: string): Promise<void> => {
+export const linkRichMenuToUser = async (
+  lineUserId: string,
+  richMenuId: string,
+): Promise<LineRichMenuLinkResponse> => {
   const accessToken = await getLineAccessToken();
   const userId = encodeURIComponent(lineUserId);
   const menuId = encodeURIComponent(richMenuId);
 
-  await $fetch(`https://api.line.me/v2/bot/user/${userId}/richmenu/${menuId}`, {
+  const response = await fetch(getMessagingApiUrl(`/user/${userId}/richmenu/${menuId}`), {
     method: "POST",
     headers: {
       Authorization: `Bearer ${accessToken}`,
     },
   });
+
+  if (!response.ok) {
+    throw new Error(`LINE rich menu link failed with status ${response.status}`);
+  }
+
+  return { status: response.status };
+};
+
+export const getRichMenuForUser = async (lineUserId: string): Promise<LineRichMenuLookupResponse> => {
+  const accessToken = await getLineAccessToken();
+  const userId = encodeURIComponent(lineUserId);
+  const response = await fetch(getMessagingApiUrl(`/user/${userId}/richmenu`), {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+
+  if (response.status === 404) {
+    return { status: response.status, richMenuId: null };
+  }
+
+  if (!response.ok) {
+    throw new Error(`LINE rich menu lookup failed with status ${response.status}`);
+  }
+
+  const body = (await response.json()) as { richMenuId?: unknown };
+  return {
+    status: response.status,
+    richMenuId: typeof body.richMenuId === "string" ? body.richMenuId : null,
+  };
+};
+
+export const unlinkRichMenuFromUser = async (lineUserId: string): Promise<LineRichMenuLinkResponse> => {
+  const accessToken = await getLineAccessToken();
+  const userId = encodeURIComponent(lineUserId);
+  const response = await fetch(getMessagingApiUrl(`/user/${userId}/richmenu`), {
+    method: "DELETE",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+
+  if (!response.ok && response.status !== 404) {
+    throw new Error(`LINE rich menu unlink failed with status ${response.status}`);
+  }
+
+  return { status: response.status };
 };
 
 export const startLoadingAnimation = async (payload: LineLoadingAnimationRequest): Promise<void> => {

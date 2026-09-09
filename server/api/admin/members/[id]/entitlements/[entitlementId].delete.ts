@@ -1,5 +1,6 @@
-import { prisma } from "~~/server/utils/prisma";
 import { requireRole } from "~~/server/utils/auth";
+import { prisma } from "~~/server/utils/prisma";
+import { syncLineRichMenuForUser } from "~~/server/utils/line-richmenu";
 
 export default defineEventHandler(async (event) => {
   const actor = requireRole(event, ["ADMIN"]);
@@ -39,6 +40,12 @@ export default defineEventHandler(async (event) => {
       status: "CANCELLED",
     },
   });
+
+  try {
+    await syncLineRichMenuForUser(id);
+  } catch (error) {
+    console.warn("[DELETE /api/admin/members/:id/entitlements/:entitlementId] LINE rich menu sync failed", error);
+  }
 
   return { success: true };
 });

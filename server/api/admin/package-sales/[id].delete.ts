@@ -1,5 +1,6 @@
 import { requireRole } from "~~/server/utils/auth";
 import { prisma } from "~~/server/utils/prisma";
+import { syncLineRichMenuForUser } from "~~/server/utils/line-richmenu";
 
 export default defineEventHandler(async (event) => {
   const actor = requireRole(event, ["EMPLOYEE", "ADMIN"]);
@@ -98,6 +99,12 @@ export default defineEventHandler(async (event) => {
         });
       }
     });
+
+    try {
+      await syncLineRichMenuForUser(existingSale.customerId);
+    } catch (error) {
+      console.warn("[DELETE /api/admin/package-sales/:id] LINE rich menu sync failed", error);
+    }
 
     return { success: true };
   } catch (error) {

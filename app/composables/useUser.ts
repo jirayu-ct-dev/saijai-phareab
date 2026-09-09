@@ -11,6 +11,10 @@ export const useUser = () => {
   // ใช้ state กลางสำหรับ session เพื่อให้ SSR กับ client ได้ข้อมูลชุดเดียวกัน
   const session = useState<SessionWithUser>("auth:session", () => null);
   const user = computed(() => session.value?.user as AppUser | undefined);
+  const richMenuSync = useState<{ userId: string; attemptedAt: number; syncedAt?: number } | null>(
+    "line-rich-menu:sync",
+    () => null,
+  );
 
   const userAvatar = computed(() => ({
     as: { img: "img" },
@@ -26,6 +30,32 @@ export const useUser = () => {
     return session.value;
   };
 
+  const syncLineRichMenu = async (): Promise<boolean> => {
+    if (!import.meta.client || !user.value) return false;
+
+    try {
+      const result = await $fetch<{ linked: boolean }>("/api/me/line-rich-menu/sync", {
+        method: "POST",
+      });
+      if (user.value) {
+        const attemptedAt = Date.now();
+        richMenuSync.value = {
+          userId: user.value.id,
+          attemptedAt,
+          ...(result.linked ? { syncedAt: attemptedAt } : {}),
+        };
+      }
+      return result.linked;
+    } catch (error) {
+      // Rich Menu is a best-effort LINE presentation update and must not block
+      // a successful login when LINE is temporarily unavailable.
+      if (user.value) {
+        richMenuSync.value = { userId: user.value.id, attemptedAt: Date.now() };
+      }
+      console.warn("[useUser] LINE rich menu sync failed", error);
+      return false;
+    }
+  };
   const redirectByRole = async (role?: string) => {
     if (user.value?.isActive === false && (role === "ADMIN" || role === "EMPLOYEE")) {
       return navigateTo("/me");
@@ -156,6 +186,10 @@ export const useUser = () => {
           console.error("[useUser] Failed to sync LIFF name:", e);
         }
       }
+
+      // LIFF can finish authentication without a route change, so the global
+      // route middleware is not guaranteed to run again after this login.
+      await syncLineRichMenu();
     } catch (error: any) {
       console.error(error);
       throw new Error(error.message || "เกิดข้อผิดพลาดในการเข้าสู่ระบบด้วย LINE");
@@ -183,6 +217,7 @@ export const useUser = () => {
     user,
     userAvatar,
     refreshSession,
+    syncLineRichMenu,
     login,
     register,
     loginWithLine,

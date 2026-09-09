@@ -1,5 +1,6 @@
 import { prisma } from "~~/server/utils/prisma";
 import { requireRole } from "~~/server/utils/auth";
+import { unlinkLineRichMenuForUser } from "~~/server/utils/line-richmenu";
 
 export default defineEventHandler(async (event) => {
   const actor = requireRole(event, ["ADMIN"]);
@@ -37,6 +38,12 @@ export default defineEventHandler(async (event) => {
       statusCode: 409,
       statusMessage: "ไม่สามารถลบลูกค้าที่มีการใช้สิทธิ์แพ็กเกจไปแล้ว",
     });
+  }
+
+  try {
+    await unlinkLineRichMenuForUser(id);
+  } catch (error) {
+    console.warn("[DELETE /api/admin/members/:id] LINE rich menu unlink failed", error);
   }
 
   await prisma.$transaction(async (tx) => {
