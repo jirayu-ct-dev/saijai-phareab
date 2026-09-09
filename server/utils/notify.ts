@@ -684,7 +684,8 @@ export const notifyServiceOrderCreated = async (params: {
     const resolved = resolveOrderCustomer(order);
     const customerName = resolved.name;
     const customerLabel = resolved.label;
-    const orderUrl = `${getBaseUrl()}/admin/service-orders/${order.id}`;
+    const customerOrderUrl = `${getBaseUrl()}/me/service-orders/${order.id}`;
+    const staffOrderUrl = `${getBaseUrl()}/admin/service-orders/${order.id}`;
     const hasDelivery = order.addonUsageRecords.some((usage) => usage.isDelivery);
     const customerSubline = notifyStatus === "RECEIVED"
       ? order.dueAt ? `รับผ้าได้: ${formatDateTime(order.dueAt.toISOString())}` : null
@@ -707,7 +708,7 @@ export const notifyServiceOrderCreated = async (params: {
         subline: audience === "customer" ? customerSubline : staffSublineFor(notifyStatus, hasDelivery),
         bodyContents,
         buttonLabel: "ดูรายละเอียดออเดอร์",
-        buttonUrl: orderUrl,
+        buttonUrl: audience === "customer" ? customerOrderUrl : staffOrderUrl,
         color: statusColors[notifyStatus],
         altText: `[${shopName}] ${serviceOrderStatusLabels[notifyStatus]} ${order.orderNo ?? ""}`,
       });
@@ -770,7 +771,8 @@ export const notifyServiceOrderStatusChanged = async (params: {
     const resolved = resolveOrderCustomer(order);
     const customerName = resolved.name;
     const customerLabel = resolved.label;
-    const orderUrl = `${getBaseUrl()}/admin/service-orders/${order.id}`;
+    const customerOrderUrl = `${getBaseUrl()}/me/service-orders/${order.id}`;
+    const staffOrderUrl = `${getBaseUrl()}/admin/service-orders/${order.id}`;
     const hasDelivery = order.addonUsageRecords.some((usage) => usage.isDelivery);
 
     const bodyContents = await buildOrderBody({
@@ -793,7 +795,7 @@ export const notifyServiceOrderStatusChanged = async (params: {
         subline: audience === "customer" ? customerSublineFor(params.toStatus, hasDelivery) : staffSublineFor(params.toStatus, hasDelivery),
         bodyContents,
         buttonLabel: "ดูรายละเอียดออเดอร์",
-        buttonUrl: orderUrl,
+        buttonUrl: audience === "customer" ? customerOrderUrl : staffOrderUrl,
         color: statusColors[params.toStatus],
         altText: `[${shopName}] ${order.orderNo ?? ""} ${serviceOrderStatusLabels[params.toStatus]}`,
       });
