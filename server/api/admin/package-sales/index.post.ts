@@ -6,6 +6,7 @@ import { prisma } from "~~/server/utils/prisma";
 import { getBusinessSetting } from "~~/server/utils/appSetting";
 import { computeVat } from "~~/server/utils/vat";
 import { notifyReceipt } from "~~/server/utils/notify";
+import { syncLineRichMenuForUser } from "~~/server/utils/line-richmenu";
 import { backdatedSaleSchema } from "~~/shared/utils/backdatedOrder";
 import { createOfflineCustomer, isCustomerUniqueConflict, resolveOfflineCustomerConflict } from "~~/server/utils/customerAccount";
 
@@ -153,6 +154,7 @@ export default defineEventHandler(async (event) => {
     const isPaid = paymentStatus === "PAID";
 
     let activationToken: string | null = null;
+    let saleCustomerId = customerId;
     const created = await prisma.$transaction(async (tx) => {
       let paymentUserId = customerId!;
       if (newCustomer) {
@@ -165,6 +167,7 @@ export default defineEventHandler(async (event) => {
         paymentUserId = offlineCustomer.customer.id;
         activationToken = offlineCustomer.activationToken;
       }
+      saleCustomerId = paymentUserId;
 
       const packageSale = await tx.packageSale.create({
         data: {
@@ -257,6 +260,13 @@ export default defineEventHandler(async (event) => {
 
     if (isPaid && !history) {
       await notifyReceipt({ paymentId: created.paymentId });
+    }
+    if (isPaid && saleCustomerId) {
+      try {
+        await syncLineRichMenuForUser(saleCustomerId);
+      } catch (error) {
+        console.warn("[POST /api/admin/package-sales] LINE rich menu sync failed", error);
+      }
     }
     return { ...created, activationToken };
   } catch (error) {

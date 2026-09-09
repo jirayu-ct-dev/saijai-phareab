@@ -4,6 +4,7 @@ import { requireRole } from "~~/server/utils/auth";
 import type { Role } from "~~/shared/types/enums";
 import { normalizeThaiPhoneNumber } from "~~/shared/utils/phone";
 import { isInternalCustomerEmail } from "~~/server/utils/customerAccount";
+import { syncLineRichMenuForUser } from "~~/server/utils/line-richmenu";
 
 type UpdateUserBody = {
   email?: string;
@@ -132,6 +133,14 @@ export default defineEventHandler(async (event) => {
         sessionsRevoked,
       };
     });
+
+    if (isRoleChanged || isDeactivated) {
+      try {
+        await syncLineRichMenuForUser(id);
+      } catch (error) {
+        console.warn("[PUT /api/admin/users/:id] LINE rich menu sync failed", error);
+      }
+    }
 
     return result;
   } catch (error) {

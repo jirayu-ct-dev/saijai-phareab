@@ -1,5 +1,6 @@
 import { requireRole } from "~~/server/utils/auth";
 import { prisma } from "~~/server/utils/prisma";
+import { syncLineRichMenuForUser } from "~~/server/utils/line-richmenu";
 
 type CancelPaymentBody = { note?: string | null };
 
@@ -100,6 +101,14 @@ export default defineEventHandler(async (event) => {
 
   } catch (error) {
     throw error;
+  }
+
+  if (existing.packageSale?.customerId) {
+    try {
+      await syncLineRichMenuForUser(existing.packageSale.customerId);
+    } catch (error) {
+      console.warn("[POST /api/admin/payments/:id/cancel] LINE rich menu sync failed", error);
+    }
   }
 
   return { id: paymentId, status: "CANCELLED" as const };

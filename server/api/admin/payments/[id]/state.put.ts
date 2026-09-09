@@ -3,6 +3,7 @@ import { requireRole } from "~~/server/utils/auth";
 import { prisma } from "~~/server/utils/prisma";
 import { createReceiptNo } from "~~/server/utils/receiptNo";
 import { notifyReceipt } from "~~/server/utils/notify";
+import { syncLineRichMenuForUser } from "~~/server/utils/line-richmenu";
 import {
   applyPaymentStateTransition,
   canTransitionPaymentStatus,
@@ -183,6 +184,14 @@ export default defineEventHandler(async (event) => {
   // payment — only the first transition to PAID should send a receipt.
   if (nextStatus === "PAID" && existing.status !== "PAID") {
     await notifyReceipt({ paymentId });
+  }
+
+  if ((nextStatus === "PAID" || nextStatus === "CANCELLED") && existing.packageSale?.customerId) {
+    try {
+      await syncLineRichMenuForUser(existing.packageSale.customerId);
+    } catch (error) {
+      console.warn("[PUT /api/admin/payments/:id/state] LINE rich menu sync failed", error);
+    }
   }
 
   return { id: paymentId, status: nextStatus, method: nextMethod ?? null };

@@ -1,6 +1,7 @@
 import { z } from "zod/v4";
 import { prisma } from "~~/server/utils/prisma";
 import { requireRole } from "~~/server/utils/auth";
+import { syncLineRichMenuForUser } from "~~/server/utils/line-richmenu";
 
 const schema = z.object({
   userId: z.string().min(1),
@@ -31,6 +32,12 @@ export default defineEventHandler(async (event) => {
     data: { role: body.role },
     select: { id: true, name: true, email: true, role: true, image: true, phoneNumber: true, createdAt: true },
   });
+
+  try {
+    await syncLineRichMenuForUser(updated.id);
+  } catch (error) {
+    console.warn("[POST /api/admin/employees/promote] LINE rich menu sync failed", error);
+  }
 
   return updated;
 });
