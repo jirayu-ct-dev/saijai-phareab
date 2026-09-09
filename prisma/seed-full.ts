@@ -38,7 +38,7 @@ async function main() {
   // ═══════════════════════════════════════════
   console.log("⚙️  Settings...");
 
-  await prisma.shopSetting.upsert({
+  await prisma.appSetting.upsert({
     where: { id: "singleton" },
     update: {},
     create: {
@@ -46,14 +46,6 @@ async function main() {
       name: "ใส่ใจ ผ้าเรียบ",
       phone: "081-234-5678",
       address: "123/4 ถ.สุขุมวิท แขวงคลองเตย เขตคลองเตย กรุงเทพฯ 10110",
-    },
-  });
-
-  await prisma.appSetting.upsert({
-    where: { id: "singleton" },
-    update: {},
-    create: {
-      id: "singleton",
       hangerPricePerUnit: 10,
       washFoldPricePerKg: 60,
       washFoldMinKg: 1,
@@ -68,11 +60,6 @@ async function main() {
     },
   });
 
-  await prisma.notificationSetting.upsert({
-    where: { id: "singleton" },
-    update: {},
-    create: { id: "singleton" },
-  });
 
   // ═══════════════════════════════════════════
   // 2. USERS
@@ -184,7 +171,6 @@ async function main() {
       id: sale1Id,
       customerId: USERS.customer2,
       soldById: USERS.admin,
-      status: "PAID",
       subtotalAmount: baht(1290),
       discountAmount: baht(0),
       totalAmount: baht(1290),
@@ -232,7 +218,6 @@ async function main() {
       id: sale2Id,
       customerId: USERS.customer,
       soldById: USERS.employee,
-      status: "DRAFT",
       subtotalAmount: baht(850),
       totalAmount: baht(850),
       createdAt: daysAgo(1),
