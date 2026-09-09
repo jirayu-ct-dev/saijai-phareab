@@ -256,9 +256,7 @@ export default defineEventHandler(async (event) => {
     });
 
     if (isPaid && !history) {
-      void notifyReceipt({ paymentId: created.paymentId }).catch((err) => {
-        console.error("[package-sales] notifyReceipt failed", err);
-      });
+      await notifyReceipt({ paymentId: created.paymentId });
     }
     return { ...created, activationToken };
   } catch (error) {

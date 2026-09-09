@@ -538,7 +538,7 @@ export default defineEventHandler(async (event) => {
         where: { id: created.id, status: "RECEIVED", deletedAt: null },
         data: { status: "PROCESSING" },
       });
-      void notifyServiceOrderStatusChanged({
+      await notifyServiceOrderStatusChanged({
         serviceOrderId: created.id,
         fromStatus: "RECEIVED",
         toStatus: "PROCESSING",

@@ -107,7 +107,7 @@ export default defineEventHandler(async (event) => {
         toStatus: nextStatus,
       });
     } else {
-      void notifyServiceOrderStatusChanged({
+      await notifyServiceOrderStatusChanged({
         serviceOrderId: existing.id,
         fromStatus: existing.status,
         toStatus: nextStatus,

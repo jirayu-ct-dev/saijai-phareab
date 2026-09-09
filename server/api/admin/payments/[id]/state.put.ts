@@ -182,9 +182,7 @@ export default defineEventHandler(async (event) => {
   // Skip the customer notification for a repeated PAID call on an already-paid
   // payment — only the first transition to PAID should send a receipt.
   if (nextStatus === "PAID" && existing.status !== "PAID") {
-    void notifyReceipt({ paymentId }).catch((err) => {
-      console.error("[state.put] notifyReceipt failed", err);
-    });
+    await notifyReceipt({ paymentId });
   }
 
   return { id: paymentId, status: nextStatus, method: nextMethod ?? null };
