@@ -698,55 +698,25 @@ const columns: TableColumn<AdminServiceOrder>[] = [
                 <div v-else class="-mx-2 space-y-1 sm:mx-0">
                   <div v-for="(order, index) in paginatedServiceOrders" :key="order.id"
                     class="overflow-hidden border border-default/30 bg-default transition-[background-color,border-color] duration-200 hover:border-default/45 hover:bg-default dark:border-default/20 dark:bg-elevated/55 dark:hover:bg-elevated/70">
-                    <div class="flex items-center gap-2 p-2">
+                    <div class="grid grid-cols-[auto_auto_minmax(0,1fr)_auto] items-start gap-2 p-2">
                       <UCheckbox :model-value="isMobileRowSelected(index)" aria-label="เลือกรายการ" class="shrink-0"
                         @update:model-value="setMobileRowSelected(index, $event)" />
 
                       <UAvatar v-bind="getAvatarProps(order.customer)" size="sm" class="shrink-0" />
 
-                      <div class="min-w-0 flex-1">
-                        <div class="flex min-w-0 items-start justify-between gap-2">
-                          <div class="min-w-0 flex-1">
-                            <button type="button"
-                              class="block max-w-full truncate text-left text-sm font-medium text-highlighted hover:underline"
-                              @click="openCustomerPage(order, $event)">
-                              {{ order.customer.name || "-" }}
-                              <span class="text-[11px] font-normal text-muted">· {{ order.customer.phoneNumber ||
-                                customerEmailLabel(order.customer.email) }}</span>
-                            </button>
-                            <button type="button"
-                              class="block max-w-full truncate font-mono text-[10px] text-muted hover:underline"
-                              @click="openDetailPage(order)">
-                              {{ order.orderNo || order.id }}
-                            </button>
-                          </div>
-
-                          <div class="flex shrink-0 flex-col items-end gap-2">
-                            <button type="button"
-                              class="inline-flex transition hover:opacity-85 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-                              title="อัปเดตสถานะผ้า" @click="openEditStatusModal(order, $event)">
-                              <UBadge :color="orderStatusColors[order.status]" variant="soft" size="sm"
-                                icon="i-lucide-pencil" class="font-medium">
-                                {{ orderStatusLabels[order.status] }}
-                              </UBadge>
-                            </button>
-                            <template v-if="order.memberEntitlement && Number(order.totalAmount ?? 0) === 0">
-                              <span class="text-[13px] font-semibold leading-none text-success">ใช้เครดิต</span>
-                              <span class="text-[10px] text-muted">{{ order.creditUsed ?? 0 }} เครดิต</span>
-                            </template>
-                            <span v-else class="text-[13px] font-semibold leading-none tabular-nums text-primary">{{
-                              formatCurrency(Number(order.totalAmount ?? 0)) }}</span>
-                            <button v-if="order.payment" type="button"
-                              :class="paymentBadgeClass(canEditPaymentFor(order))"
-                              :title="canEditPaymentFor(order) ? 'แก้ไขการชำระเงิน' : undefined"
-                              @click.stop="canEditPaymentFor(order) && openEditPaymentModal(order)">
-                              <UBadge :color="paymentStatusColors[order.payment.status]" variant="subtle" size="sm"
-                                :icon="canEditPaymentFor(order) ? 'i-lucide-pencil' : undefined" class="font-medium">
-                                {{ paymentStatusLabels[order.payment.status] }}
-                              </UBadge>
-                            </button>
-                          </div>
-                        </div>
+                      <div class="min-w-0">
+                        <button type="button"
+                          class="block max-w-full truncate text-left text-sm font-medium text-highlighted hover:underline"
+                          @click="openCustomerPage(order, $event)">
+                          {{ order.customer.name || "-" }}
+                          <span class="text-[11px] font-normal text-muted">· {{ order.customer.phoneNumber ||
+                            customerEmailLabel(order.customer.email) }}</span>
+                        </button>
+                        <button type="button"
+                          class="block max-w-full truncate font-mono text-[10px] text-muted hover:underline"
+                          @click="openDetailPage(order)">
+                          {{ order.orderNo || order.id }}
+                        </button>
 
                         <div class="mt-1 min-w-0">
                           <p class="truncate text-xs text-highlighted">
@@ -754,21 +724,46 @@ const columns: TableColumn<AdminServiceOrder>[] = [
                           </p>
                         </div>
 
-                        <div class="mt-1 flex items-center justify-between gap-2">
-                          <div class="min-w-0 truncate text-[11px] text-muted">
-                            รับ {{ formatOptionalShortDate(order.receivedAt) }} · {{ order.status === "COMPLETED" ?
-                              "ส่ง" : "นัด" }} {{
-                              formatOptionalShortDate((order.status === "COMPLETED" ? order.payment?.paidAt : order.dueAt)
-                                || order.dueAt) }}
-                          </div>
-                          <div class="flex shrink-0 items-center justify-end gap-1">
-                            <UButton icon="i-lucide-eye" size="xs" color="neutral" variant="ghost"
-                              aria-label="ดูรายละเอียดรายการรับผ้า" @click="openDetailPage(order)" />
-                            <UDropdownMenu :items="getActionItems(order)" :content="{ align: 'end' }">
-                              <UButton icon="i-lucide-ellipsis" size="xs" color="neutral" variant="ghost"
-                                aria-label="เมนูเพิ่มเติม" />
-                            </UDropdownMenu>
-                          </div>
+                        <div class="mt-1 min-w-0 truncate text-[11px] text-muted">
+                          รับ {{ formatOptionalShortDate(order.receivedAt) }} · {{ order.status === "COMPLETED" ?
+                            "ส่ง" : "นัด" }} {{
+                            formatOptionalShortDate((order.status === "COMPLETED" ? order.payment?.paidAt : order.dueAt)
+                              || order.dueAt) }}
+                        </div>
+                      </div>
+
+                      <div class="flex min-w-0 flex-col items-end gap-2 self-stretch">
+                        <button type="button"
+                          class="inline-flex shrink-0 transition hover:opacity-85 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                          title="อัปเดตสถานะผ้า" @click="openEditStatusModal(order, $event)">
+                          <UBadge :color="orderStatusColors[order.status]" variant="soft" size="sm"
+                            icon="i-lucide-pencil" class="font-medium">
+                            {{ orderStatusLabels[order.status] }}
+                          </UBadge>
+                        </button>
+                        <template v-if="order.memberEntitlement && Number(order.totalAmount ?? 0) === 0">
+                          <span class="text-[13px] font-semibold leading-none text-success">ใช้เครดิต</span>
+                          <span class="text-[10px] text-muted">{{ order.creditUsed ?? 0 }} เครดิต</span>
+                        </template>
+                        <span v-else class="text-[13px] font-semibold leading-none tabular-nums text-primary">{{
+                          formatCurrency(Number(order.totalAmount ?? 0)) }}</span>
+                        <button v-if="order.payment" type="button"
+                          :class="paymentBadgeClass(canEditPaymentFor(order))"
+                          :title="canEditPaymentFor(order) ? 'แก้ไขการชำระเงิน' : undefined"
+                          @click.stop="canEditPaymentFor(order) && openEditPaymentModal(order)">
+                          <UBadge :color="paymentStatusColors[order.payment.status]" variant="subtle" size="sm"
+                            :icon="canEditPaymentFor(order) ? 'i-lucide-pencil' : undefined" class="font-medium">
+                            {{ paymentStatusLabels[order.payment.status] }}
+                          </UBadge>
+                        </button>
+
+                        <div class="mt-auto flex shrink-0 items-center justify-end gap-1">
+                          <UButton icon="i-lucide-eye" size="xs" color="neutral" variant="ghost"
+                            aria-label="ดูรายละเอียดรายการรับผ้า" @click="openDetailPage(order)" />
+                          <UDropdownMenu :items="getActionItems(order)" :content="{ align: 'end' }">
+                            <UButton icon="i-lucide-ellipsis" size="xs" color="neutral" variant="ghost"
+                              aria-label="เมนูเพิ่มเติม" />
+                          </UDropdownMenu>
                         </div>
                       </div>
                     </div>
