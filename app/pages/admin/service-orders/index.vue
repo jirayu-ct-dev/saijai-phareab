@@ -733,29 +733,32 @@ const columns: TableColumn<AdminServiceOrder>[] = [
                       </div>
 
                       <div class="flex min-w-0 flex-col items-end gap-2 self-stretch">
-                        <button type="button"
-                          class="inline-flex shrink-0 transition hover:opacity-85 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-                          title="อัปเดตสถานะถัดไป" @click="openEditStatusModal(order, $event)">
-                          <UBadge :color="orderStatusColors[order.status]" variant="soft" size="sm"
-                            icon="i-lucide-pencil" class="font-medium">
-                            {{ orderStatusLabels[order.status] }}
-                          </UBadge>
-                        </button>
+                        <div class="flex flex-wrap items-center justify-end gap-1">
+                          <button type="button"
+                            class="inline-flex shrink-0 transition hover:opacity-85 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                            title="อัปเดตสถานะถัดไป" aria-label="อัปเดตสถานะถัดไป"
+                            @click="openEditStatusModal(order, $event)">
+                            <UBadge :color="orderStatusColors[order.status]" variant="soft" size="sm"
+                              icon="i-lucide-pencil" class="font-medium">
+                              {{ orderStatusLabels[order.status] }}
+                            </UBadge>
+                          </button>
+                          <button v-if="order.payment" type="button"
+                            :class="paymentBadgeClass(canEditPaymentFor(order))"
+                            :title="canEditPaymentFor(order) ? 'แก้ไขการชำระเงิน' : undefined"
+                            @click.stop="canEditPaymentFor(order) && openEditPaymentModal(order)">
+                            <UBadge :color="paymentStatusColors[order.payment.status]" variant="subtle" size="sm"
+                              :icon="canEditPaymentFor(order) ? 'i-lucide-pencil' : undefined" class="font-medium">
+                              {{ paymentStatusLabels[order.payment.status] }}
+                            </UBadge>
+                          </button>
+                        </div>
                         <template v-if="order.memberEntitlement && Number(order.totalAmount ?? 0) === 0">
                           <span class="text-[13px] font-semibold leading-none text-success">ใช้เครดิต</span>
                           <span class="text-[10px] text-muted">{{ order.creditUsed ?? 0 }} เครดิต</span>
                         </template>
                         <span v-else class="text-[13px] font-semibold leading-none tabular-nums text-primary">{{
                           formatCurrency(Number(order.totalAmount ?? 0)) }}</span>
-                        <button v-if="order.payment" type="button"
-                          :class="paymentBadgeClass(canEditPaymentFor(order))"
-                          :title="canEditPaymentFor(order) ? 'แก้ไขการชำระเงิน' : undefined"
-                          @click.stop="canEditPaymentFor(order) && openEditPaymentModal(order)">
-                          <UBadge :color="paymentStatusColors[order.payment.status]" variant="subtle" size="sm"
-                            :icon="canEditPaymentFor(order) ? 'i-lucide-pencil' : undefined" class="font-medium">
-                            {{ paymentStatusLabels[order.payment.status] }}
-                          </UBadge>
-                        </button>
 
                         <div class="mt-auto flex shrink-0 items-center justify-end gap-1">
                           <UButton icon="i-lucide-eye" size="xs" color="neutral" variant="ghost"
