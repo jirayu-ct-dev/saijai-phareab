@@ -4,6 +4,9 @@
 Raspberry Pi 2 เป็น Gateway อยู่ใน skill `raspberry-pi-print-gateway` เอกสารนี้
 เน้นเฉพาะการเปลี่ยนค่า `.env` หลังติดตั้งแล้ว
 
+อ่านภาพรวมเส้นทางพิมพ์และลำดับไล่ปัญหาที่
+[`docs/print-gateway-flow.md`](docs/print-gateway-flow.md)
+
 ```bash
 corepack enable
 pnpm install
@@ -285,8 +288,10 @@ curl -fsS -H 'Origin: http://localhost:3004' \
 
 ```bash
 curl -fsS -H 'Origin: https://saijaiphareab.shop' \
-  https://<gateway-hostname>:17321/health
+  https://print.saijaiphareab.shop:17321/health
 ```
+
+ผลปกติคือ `{"available":true,"version":"0.3.0"}` คำสั่งนี้ไม่สั่งพิมพ์
 
 ถ้าไม่เป็น `active` ให้ดู log ของ boot ปัจจุบัน:
 
@@ -316,8 +321,8 @@ PRINT_GATEWAY_ALLOWED_ORIGINS=https://<DOMAIN_ใหม่>
 ```dotenv
 NUXT_PUBLIC_PRINT_GATEWAY_URL=https://<DOMAIN_GATEWAY_ใหม่>:17321
 PRINT_GATEWAY_PUBLIC_URL=https://<DOMAIN_GATEWAY_ใหม่>:17321
-PRINT_GATEWAY_TLS_CERT_HOST_PATH=/absolute/path/to/fullchain.pem
-PRINT_GATEWAY_TLS_KEY_HOST_PATH=/absolute/path/to/privkey.pem
+PRINT_GATEWAY_TLS_CERT_PATH=/absolute/path/to/fullchain.pem
+PRINT_GATEWAY_TLS_KEY_PATH=/absolute/path/to/privkey.pem
 ```
 
 สุดท้ายแก้ DNS/certificate, อัปเดต LIFF Endpoint URL ใน LINE Developers (ถ้าใช้),
@@ -359,8 +364,8 @@ PRINT_GATEWAY_PUBLIC_URL=https://print.saijaiphareab.shop:17321
 PRINT_GATEWAY_ALLOWED_ORIGINS=https://saijaiphareab.shop
 PRINT_GATEWAY_DISCOVERY_CIDRS=<IP_เครื่องพิมพ์ที่ยืนยันแล้ว>/32
 PRINT_GATEWAY_DISCOVERY_PORTS=<port_เครื่องพิมพ์ที่ยืนยันแล้ว>
-PRINT_GATEWAY_TLS_CERT_PATH=/absolute/path/on/pi/fullchain.pem
-PRINT_GATEWAY_TLS_KEY_PATH=/absolute/path/on/pi/privkey.pem
+PRINT_GATEWAY_TLS_CERT_PATH=/etc/saijai-print-gateway/tls/fullchain.pem
+PRINT_GATEWAY_TLS_KEY_PATH=/etc/saijai-print-gateway/tls/privkey.pem
 ```
 
 `print.saijaiphareab.shop` ต้อง resolve ไปยัง Raspberry Pi จาก browser ในร้าน
@@ -422,6 +427,23 @@ systemctl is-active saijai-gateway.service
 curl -fsS -H 'Origin: https://saijaiphareab.shop' \
   https://print.saijaiphareab.shop:17321/health
 ```
+
+ผลปกติคือ:
+
+```json
+{"available":true,"version":"0.3.0"}
+```
+
+ตรวจการต่ออายุ TLS อัตโนมัติ (ไม่สั่งพิมพ์):
+
+```bash
+systemctl is-active certbot.timer
+sudo certbot renew --dry-run
+```
+
+ผลที่ยืนยันว่าพร้อมต่ออายุคือ `certbot.timer` เป็น `active` และมีข้อความ
+`all simulated renewals succeeded` ห้ามเปิดเผยไฟล์
+`/root/.secrets/certbot/cloudflare.ini` เพราะมี Cloudflare API token
 
 ถ้าไม่เป็น `active`:
 

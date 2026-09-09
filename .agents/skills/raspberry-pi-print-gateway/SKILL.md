@@ -20,8 +20,11 @@ explicitly authorized physical test print.
 
 Read these references as needed:
 
-- [SETUP.md](../../../SETUP.md) for the copy-paste Raspberry Pi 2 native
-  systemd runbook and the step-by-step printer IP/port change procedure.
+- [print-gateway-flow.md](../../../docs/print-gateway-flow.md) first when tracing
+  browser → Nuxt document rendering → Gateway → printer behavior, interpreting
+  an error result, or diagnosing a production incident layer by layer.
+- [SETUP.md](../../../SETUP.md) for current environment ownership, health checks,
+  and the step-by-step printer/Gateway IP or port change procedure.
 - [deployment-plan.md](references/deployment-plan.md) for the Raspberry Pi 2
   compatibility decision, topology, installation sequence, and verification.
 - [pi2-native-poc-runbook.md](references/pi2-native-poc-runbook.md) for the
@@ -132,10 +135,12 @@ for a different unit or network interface.
    never commit it or copy secrets into it.
 5. Verify `/health` from an allowed shop origin, then discover and trust the
    printer. A port check alone proves only that something is listening.
-6. Run software-only tests and a minimal ASCII fixture first. Add Thai raster,
+6. For HTTPS deployments, verify the certificate renewal method, timer, secret
+   permissions, deploy hook, service restart, and a post-renewal health check.
+7. Run software-only tests and a minimal ASCII fixture first. Add Thai raster,
    logo, QR, feed, and partial cut in stages. Physical printing is an external
    side effect and requires explicit authorization.
-7. Test offline, reconnect, concurrent print attempts, restart, and
+8. Test offline, reconnect, concurrent print attempts, restart, and
    `UNKNOWN_PROGRESS` handling. Confirm that no automatic retry or duplicate
    receipt is introduced.
 

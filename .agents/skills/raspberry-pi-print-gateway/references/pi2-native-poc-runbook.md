@@ -244,6 +244,52 @@ curl -fsS -H 'Origin: https://saijaiphareab.shop' \
   https://<gateway-hostname>:17321/health
 ```
 
+## Verified shop production values
+
+The shop deployment observed on 2026-09-09 promoted the native service to the
+following private-LAN topology:
+
+```text
+App origin:       https://saijaiphareab.shop
+Gateway origin:   https://print.saijaiphareab.shop:17321
+Gateway address:  192.168.1.175
+Printer endpoint: 192.168.1.171:9100
+```
+
+The router had DHCP reservations for both devices. Cloudflare had a DNS-only A
+record mapping `print.saijaiphareab.shop` to the private Gateway address. The
+Gateway health endpoint returned version `0.3.0`, TCP reachability to the
+printer succeeded, and discovery returned a candidate. These checks did not by
+themselves prove a completed physical print.
+
+The runtime TLS paths were:
+
+```dotenv
+PRINT_GATEWAY_TLS_CERT_PATH=/etc/saijai-print-gateway/tls/fullchain.pem
+PRINT_GATEWAY_TLS_KEY_PATH=/etc/saijai-print-gateway/tls/privkey.pem
+```
+
+Certificate renewal uses Certbot's Cloudflare DNS plugin. The API token is kept
+in `/root/.secrets/certbot/cloudflare.ini` with mode `600`; never display or
+commit it. The intended deploy hook at
+`/etc/letsencrypt/renewal-hooks/deploy/saijai-gateway.sh` is configured to copy
+the renewed certificate and key to the runtime paths and restart
+`saijai-gateway.service`.
+
+The following non-printing verification succeeded on 2026-09-09:
+
+```bash
+sudo certbot renew --dry-run
+systemctl is-active certbot.timer
+systemctl is-active saijai-gateway.service
+```
+
+Expected results are a successful simulated renewal followed by `active` and
+`active`. A Cloudflare Python `PendingDeprecationWarning` is not a renewal
+failure; do not change system Python packages merely to suppress it. The dry-run
+proved the DNS renewal path, not execution of the deploy hook; after the first
+real renewal, verify the runtime certificate, service state, and `/health`.
+
 If the service is not active, inspect only the current boot first:
 
 ```bash

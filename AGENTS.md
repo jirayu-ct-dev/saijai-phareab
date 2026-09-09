@@ -32,6 +32,7 @@
 - `server/tasks/`: Nitro tasks. `notify:expiring-packages` is scheduled in `nuxt.config.ts` for 02:00 UTC / 09:00 Asia/Bangkok.
 - `shared/types/`, `shared/config/`, `shared/utils/`: contracts, label/status configuration, and utilities shared by client and server. Prefer these over duplicate local definitions.
 - `prisma/schema.prisma`: PostgreSQL schema; `prisma/migrations/`: migration history; `prisma/seed.ts`: normal catalog/package seed; `prisma/seed-full.ts`: larger development/demo dataset.
+- `print-bridge/`: standalone Node LAN Print Gateway used by shop browsers to discover trusted printers and send bounded ESC/POS payloads over private TCP. Read `docs/print-gateway-flow.md` when tracing or changing the browser → Nuxt document → Gateway → printer path, and use `SETUP.md` for operational health checks and address changes.
 - `tests/server/`, `tests/shared/`: Node-environment Vitest coverage for domain transitions and shared utilities.
 - `public/` contains static web assets.
 
@@ -68,6 +69,12 @@
 - For schema changes, update `prisma/schema.prisma`, add a new migration, and run Prisma generation. Never edit an already-applied migration.
 - Migration history currently contains overlapping index operations between `20260519000000_db_audit_fixes` and `20260522000000_reconcile_schema`; validate the full chain on a disposable database before relying on a fresh migration replay.
 
+### LAN printing
+
+- The production Nuxt server renders trusted payment/order data into ESC/POS bytes, but the shop browser calls the LAN Gateway directly; the cloud server must not connect to the private printer.
+- Preserve exact-origin CORS, private-client checks, opaque trusted printer IDs, bounded discovery, per-printer mutexes, and the no-queue/no-automatic-retry contract. `SENT` confirms transport only; `UNKNOWN_PROGRESS` requires physical inspection before a human retries.
+- Use the `raspberry-pi-print-gateway` skill for Raspberry Pi deployment, TLS, network changes, or incident diagnosis. Physical print tests, router changes, certificate issuance, and other external mutations still require the user's authorization.
+
 ## Environment and external services
 
 - Copy `.env.example` to `.env`; never print, commit, or replace secret values. Public runtime values use the `NUXT_PUBLIC_` prefix; provider credentials remain server-only.
@@ -84,6 +91,7 @@ pnpm test
 pnpm exec nuxi typecheck
 pnpm run build
 pnpm run preview
+pnpm print-gateway
 pnpm exec prisma migrate dev --name <migration-name>
 pnpm exec prisma generate
 pnpm exec prisma db seed
@@ -102,6 +110,7 @@ docker compose -f docker-compose.local.yml up --build -d
 - `Dockerfile` is a Node 24 multi-stage build that installs with the frozen pnpm lockfile, generates Prisma Client, builds Nuxt, and runs the generated `.output/server/index.mjs` on port 3000.
 - `docker-compose.yml` is the production workflow. It requires external `DATABASE_URL` and `DIRECT_URL`, runs `prisma migrate deploy` as a one-shot job before starting the app, and never creates a database or demo data.
 - `docker-compose.local.yml` is the disposable local/demo workflow: PostgreSQL 16 on host port 5434, `prisma db push`, full demo seed, known test accounts, and the app on host port 3004.
+- `docker-compose.print-gateway.production.yml` is the standalone HTTPS Gateway Compose profile. The verified Raspberry Pi 2 deployment instead uses native systemd; follow the `raspberry-pi-print-gateway` skill rather than assuming Docker or Node 24 works on ARMv7.
 - No Nginx, TLS, or platform-specific infrastructure manifest is checked in. Those concerns must be provided by the production platform or reverse proxy.
 
 ## Verification and change discipline
