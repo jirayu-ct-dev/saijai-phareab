@@ -1,6 +1,7 @@
 import { z } from "zod/v4";
 import { prisma } from "~~/server/utils/prisma";
 import { requireRole } from "~~/server/utils/auth";
+import { syncLineRichMenuForUser } from "~~/server/utils/line-richmenu";
 import { parseBangkokDateTime } from "~~/shared/utils/pickup";
 
 const schema = z.object({
@@ -52,6 +53,12 @@ export default defineEventHandler(async (event) => {
     },
     select: { id: true },
   });
+
+  try {
+    await syncLineRichMenuForUser(id);
+  } catch (error) {
+    console.warn("[PUT /api/admin/members/:id/entitlements/:entitlementId] LINE rich menu sync failed", error);
+  }
 
   return { success: true, id: updated.id };
 });

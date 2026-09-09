@@ -72,6 +72,13 @@ const onLink = async () => {
 const onUnlink = async () => {
   isProcessing.value = true;
   try {
+    // Remove the LINE per-user Rich Menu before Better Auth deletes the
+    // account row, otherwise the old role menu can remain linked in LINE.
+    try {
+      await $fetch("/api/me/line-rich-menu/unlink", { method: "DELETE" });
+    } catch (unlinkMenuError) {
+      console.warn("[LineLinkSection] LINE rich menu unlink failed", unlinkMenuError);
+    }
     const { error } = await authClient.unlinkAccount({ providerId: "line" });
     if (error) throw new Error(error.message || "");
     notify.success("ยกเลิกการเชื่อมบัญชี LINE แล้ว");

@@ -11,7 +11,7 @@ export const useUser = () => {
   // ใช้ state กลางสำหรับ session เพื่อให้ SSR กับ client ได้ข้อมูลชุดเดียวกัน
   const session = useState<SessionWithUser>("auth:session", () => null);
   const user = computed(() => session.value?.user as AppUser | undefined);
-  const richMenuSync = useState<{ userId: string; syncedAt: number } | null>(
+  const richMenuSync = useState<{ userId: string; attemptedAt: number; syncedAt?: number } | null>(
     "line-rich-menu:sync",
     () => null,
   );
@@ -37,13 +37,21 @@ export const useUser = () => {
       const result = await $fetch<{ linked: boolean }>("/api/me/line-rich-menu/sync", {
         method: "POST",
       });
-      if (result.linked && user.value) {
-        richMenuSync.value = { userId: user.value.id, syncedAt: Date.now() };
+      if (user.value) {
+        const attemptedAt = Date.now();
+        richMenuSync.value = {
+          userId: user.value.id,
+          attemptedAt,
+          ...(result.linked ? { syncedAt: attemptedAt } : {}),
+        };
       }
       return result.linked;
     } catch (error) {
       // Rich Menu is a best-effort LINE presentation update and must not block
       // a successful login when LINE is temporarily unavailable.
+      if (user.value) {
+        richMenuSync.value = { userId: user.value.id, attemptedAt: Date.now() };
+      }
       console.warn("[useUser] LINE rich menu sync failed", error);
       return false;
     }

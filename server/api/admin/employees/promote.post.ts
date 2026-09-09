@@ -27,10 +27,14 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 409, statusMessage: "ต้องเปิดใช้งานบัญชีลูกค้าก่อนเปลี่ยนเป็นพนักงาน" });
   }
 
-  const updated = await prisma.user.update({
-    where: { id: body.userId },
-    data: { role: body.role },
-    select: { id: true, name: true, email: true, role: true, image: true, phoneNumber: true, createdAt: true },
+  const updated = await prisma.$transaction(async (tx) => {
+    const promoted = await tx.user.update({
+      where: { id: body.userId },
+      data: { role: body.role },
+      select: { id: true, name: true, email: true, role: true, image: true, phoneNumber: true, createdAt: true },
+    });
+    await tx.session.deleteMany({ where: { userId: body.userId } });
+    return promoted;
   });
 
   try {
