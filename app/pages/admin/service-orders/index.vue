@@ -510,7 +510,7 @@ const columns: TableColumn<AdminServiceOrder>[] = [
         {
           type: "button",
           class: "inline-flex rounded-full text-left transition hover:opacity-80 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary cursor-pointer",
-          title: "อัปเดตสถานะผ้า",
+          title: "อัปเดตสถานะถัดไป",
           onClick: (e: MouseEvent) => openEditStatusModal(order, e),
         },
         [
@@ -698,7 +698,7 @@ const columns: TableColumn<AdminServiceOrder>[] = [
                 <div v-else class="-mx-2 space-y-1 sm:mx-0">
                   <div v-for="(order, index) in paginatedServiceOrders" :key="order.id"
                     class="overflow-hidden border border-default/30 bg-default transition-[background-color,border-color] duration-200 hover:border-default/45 hover:bg-default dark:border-default/20 dark:bg-elevated/55 dark:hover:bg-elevated/70">
-                    <div class="grid grid-cols-[auto_auto_minmax(0,1fr)_auto] items-start gap-2 p-2">
+                    <div class="grid grid-cols-[auto_auto_minmax(0,1fr)_auto] items-center gap-2 p-2">
                       <UCheckbox :model-value="isMobileRowSelected(index)" aria-label="เลือกรายการ" class="shrink-0"
                         @update:model-value="setMobileRowSelected(index, $event)" />
 
@@ -735,7 +735,7 @@ const columns: TableColumn<AdminServiceOrder>[] = [
                       <div class="flex min-w-0 flex-col items-end gap-2 self-stretch">
                         <button type="button"
                           class="inline-flex shrink-0 transition hover:opacity-85 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-                          title="อัปเดตสถานะผ้า" @click="openEditStatusModal(order, $event)">
+                          title="อัปเดตสถานะถัดไป" @click="openEditStatusModal(order, $event)">
                           <UBadge :color="orderStatusColors[order.status]" variant="soft" size="sm"
                             icon="i-lucide-pencil" class="font-medium">
                             {{ orderStatusLabels[order.status] }}

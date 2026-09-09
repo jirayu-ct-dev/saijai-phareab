@@ -394,8 +394,8 @@ const getItemPhotos = (item: ServiceOrderDetailItem) =>
               <UButton v-if="order" label="แก้ไขรายการ" color="primary" variant="subtle" icon="i-lucide-pencil"
                 class="shrink-0" aria-label="แก้ไขรายการ" :ui="{ label: 'hidden sm:inline' }"
                 @click="openEditItemsModal" />
-              <UButton v-if="order" label="แก้ไขสถานะผ้า" color="primary" variant="subtle" icon="i-lucide-refresh-cw"
-                class="shrink-0" aria-label="แก้ไขสถานะผ้า" :ui="{ label: 'hidden sm:inline' }"
+              <UButton v-if="order" label="อัปเดตสถานะถัดไป" color="primary" variant="subtle" icon="i-lucide-refresh-cw"
+                class="shrink-0" aria-label="อัปเดตสถานะถัดไป" :ui="{ label: 'hidden sm:inline' }"
                 @click="openEditStatusModal" />
               <UButton v-if="canEditPayment" label="แก้ไขการชำระเงิน" color="primary" variant="subtle"
                 icon="i-lucide-credit-card" class="shrink-0" aria-label="แก้ไขการชำระเงิน"

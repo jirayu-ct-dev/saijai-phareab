@@ -16,6 +16,15 @@ export const orderStatusColors: Record<OrderStatus, string> = {
     CANCELLED: 'error',
 }
 
+const nextServiceOrderStatuses: Partial<Record<OrderStatus, OrderStatus>> = {
+    RECEIVED: 'PROCESSING',
+    PROCESSING: 'DELIVERING',
+    DELIVERING: 'COMPLETED',
+}
+
+export const getNextServiceOrderStatus = (status: OrderStatus): OrderStatus | null =>
+    nextServiceOrderStatuses[status] ?? null
+
 export const orderTypeLabels: Record<OrderType, string> = {
     PACKAGE: 'แพ็กเกจ',
     STOREFRONT: 'หน้าร้าน',
@@ -25,5 +34,3 @@ export const orderTypeColors: Record<OrderType, string> = {
     PACKAGE: 'secondary',
     STOREFRONT: 'primary',
 }
-
-
