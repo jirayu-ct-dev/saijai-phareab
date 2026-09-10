@@ -9,13 +9,25 @@ import sharp from "sharp";
 const richMenuDir = path.dirname(fileURLToPath(import.meta.url));
 const projectDir = path.resolve(richMenuDir, "..");
 
-// Load the exam database first, then the LINE-only local file. Never print values.
-dotenv.config({ path: path.join(projectDir, ".env.local") });
+// Load shared defaults, then local target settings. Never print values.
+dotenv.config({ path: path.join(projectDir, ".env") });
+dotenv.config({ path: path.join(projectDir, ".env.local"), override: true });
 dotenv.config({ path: path.join(richMenuDir, ".env.local"), override: true });
 
-const accessToken = process.env.LINE_ACCESS_TOKEN?.trim();
+const accessToken = (
+  process.env.RICHMENU_LINE_ACCESS_TOKEN?.trim() ||
+  process.env.LINE_ACCESS_TOKEN?.trim() ||
+  process.env.LINE_CHANNEL_ACCESS_TOKEN?.trim()
+);
+const liffId = process.env.RICHMENU_LIFF_ID?.trim();
+const databaseUrl = process.env.RICHMENU_DATABASE_URL?.trim();
+const namePrefix = process.env.RICHMENU_NAME_PREFIX?.trim();
+
 if (!accessToken) {
-  throw new Error("Missing LINE_ACCESS_TOKEN in richmenu/.env.local");
+  throw new Error("Missing RICHMENU_LINE_ACCESS_TOKEN (or a LINE access-token variable)");
+}
+if (!liffId) {
+  throw new Error("Missing RICHMENU_LIFF_ID; set the LIFF app for this LINE channel explicitly");
 }
 
 const api = "https://api.line.me";
@@ -65,7 +77,25 @@ async function hasRichMenuImage(richMenuId) {
 
 async function createOrReuseRichMenu(definition, existingMenus) {
   const metadata = JSON.parse(await fs.readFile(path.join(richMenuDir, "json", definition.json), "utf8"));
-  const existing = existingMenus.find((menu) => menu.name === metadata.name);
+  metadata.name = namePrefix ? `${namePrefix}-${metadata.name}` : metadata.name;
+  metadata.areas = metadata.areas.map((area) => {
+    if (area.action?.type !== "uri" || typeof area.action.uri !== "string") return area;
+    return {
+      ...area,
+      action: {
+        ...area.action,
+        uri: area.action.uri.replace(/^https:\/\/liff\.line\.me\/[^/]+/, `https://liff.line.me/${liffId}`),
+      },
+    };
+  });
+
+  const existing = existingMenus.find((menu) => (
+    menu.name === metadata.name &&
+    menu.selected === metadata.selected &&
+    menu.chatBarText === metadata.chatBarText &&
+    JSON.stringify(menu.size) === JSON.stringify(metadata.size) &&
+    JSON.stringify(menu.areas) === JSON.stringify(metadata.areas)
+  ));
   const richMenuId = existing?.richMenuId ?? (await lineRequest(`${api}/v2/bot/richmenu`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -99,12 +129,12 @@ function menuKeyForUser(row) {
 }
 
 async function syncLinkedUsers(menuIds) {
-  if (!process.env.DATABASE_URL) {
-    console.log("DATABASE_URL is not configured; skipped linked-user sync.");
+  if (!databaseUrl) {
+    console.log("RICHMENU_DATABASE_URL is not configured; skipped linked-user sync.");
     return { total: 0, linked: 0 };
   }
 
-  const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
+  const pool = new pg.Pool({ connectionString: databaseUrl });
   try {
     const { rows } = await pool.query(`
       SELECT
