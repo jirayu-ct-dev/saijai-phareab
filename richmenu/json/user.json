@@ -15,7 +15,7 @@
             },
             "action": {
                 "type": "uri",
-                "uri": "https://liff.line.me/2011430155-SqmA5vMF/packages"
+                "uri": "https://liff.line.me/2008353043-Z6ED4BLd/packages"
             }
         },
         {
@@ -27,7 +27,7 @@
             },
             "action": {
                 "type": "uri",
-                "uri": "https://liff.line.me/2011430155-SqmA5vMF/me/service-orders"
+                "uri": "https://liff.line.me/2008353043-Z6ED4BLd/me/service-orders"
             }
         },
         {
@@ -39,7 +39,7 @@
             },
             "action": {
                 "type": "uri",
-                "uri": "https://liff.line.me/2011430155-SqmA5vMF/me/payment"
+                "uri": "https://liff.line.me/2008353043-Z6ED4BLd/me/payment"
             }
         },
         {
@@ -51,7 +51,7 @@
             },
             "action": {
                 "type": "uri",
-                "uri": "https://liff.line.me/2011430155-SqmA5vMF/me/settings/notification"
+                "uri": "https://liff.line.me/2008353043-Z6ED4BLd/me/settings/notification"
             }
         },
         {
@@ -63,7 +63,7 @@
             },
             "action": {
                 "type": "uri",
-                "uri": "https://liff.line.me/2011430155-SqmA5vMF/me/settings/profile"
+                "uri": "https://liff.line.me/2008353043-Z6ED4BLd/me/settings/profile"
             }
         },
         {

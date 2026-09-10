@@ -15,7 +15,7 @@
             },
             "action": {
                 "type": "uri",
-                "uri": "https://liff.line.me/2011430155-SqmA5vMF/admin"
+                "uri": "https://liff.line.me/2008353043-Z6ED4BLd/admin"
             }
         },
         {
@@ -27,7 +27,7 @@
             },
             "action": {
                 "type": "uri",
-                "uri": "https://liff.line.me/2011430155-SqmA5vMF/admin/sales"
+                "uri": "https://liff.line.me/2008353043-Z6ED4BLd/admin/sales"
             }
         },
         {
@@ -39,7 +39,7 @@
             },
             "action": {
                 "type": "uri",
-                "uri": "https://liff.line.me/2011430155-SqmA5vMF/admin/service-orders"
+                "uri": "https://liff.line.me/2008353043-Z6ED4BLd/admin/service-orders"
             }
         },
         {
@@ -51,7 +51,7 @@
             },
             "action": {
                 "type": "uri",
-                "uri": "https://liff.line.me/2011430155-SqmA5vMF/admin/payment"
+                "uri": "https://liff.line.me/2008353043-Z6ED4BLd/admin/payment"
             }
         },
         {
@@ -63,7 +63,7 @@
             },
             "action": {
                 "type": "uri",
-                "uri": "https://liff.line.me/2011430155-SqmA5vMF/admin/settings/member"
+                "uri": "https://liff.line.me/2008353043-Z6ED4BLd/admin/settings/member"
             }
         },
         {
@@ -75,7 +75,7 @@
             },
             "action": {
                 "type": "uri",
-                "uri": "https://liff.line.me/2011430155-SqmA5vMF/admin/"
+                "uri": "https://liff.line.me/2008353043-Z6ED4BLd/admin/"
             }
         }
     ]
