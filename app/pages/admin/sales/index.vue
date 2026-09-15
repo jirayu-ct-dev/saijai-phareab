@@ -191,7 +191,7 @@ const resultDescription = computed(() =>
 );
 
 const primaryActionLabel = computed(() =>
-  latestSaleResult.saleType === "PACKAGE" || latestSaleResult.paid ? "เปิดใบเสร็จ" : "เปิดใบแจ้งราคา",
+  latestSaleResult.saleType === "PACKAGE" || latestSaleResult.paid ? "ใบเสร็จ" : "ใบแจ้งราคา",
 );
 const primaryActionIcon = computed(() =>
   latestSaleResult.saleType === "PACKAGE" ? "i-lucide-receipt" : "i-lucide-file-text",
@@ -330,11 +330,13 @@ const copyActivationLink = async () => {
       </template>
 
       <template #footer>
-        <div class="flex w-full flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-          <UButton label="เสร็จสิ้น" color="neutral" variant="ghost" @click="closeSaleResultModal" />
-          <UButton v-if="latestSaleResult.saleType === 'STOREFRONT'" label="ดูรายละเอียดงาน" color="neutral"
-            variant="outline" icon="i-lucide-eye" @click="openLatestServiceOrder" />
-          <UButton :label="primaryActionLabel" color="neutral" :icon="primaryActionIcon" @click="openDocument" />
+        <div class="flex w-full items-center justify-between gap-2">
+          <UButton label="ปิด" color="neutral" variant="ghost" @click="closeSaleResultModal" />
+          <div class="flex items-center gap-2">
+            <UButton v-if="latestSaleResult.saleType === 'STOREFRONT'" label="ดูงาน" color="neutral"
+              variant="outline" icon="i-lucide-eye" @click="openLatestServiceOrder" />
+            <UButton :label="primaryActionLabel" color="neutral" :icon="primaryActionIcon" @click="openDocument" />
+          </div>
         </div>
       </template>
     </UModal>

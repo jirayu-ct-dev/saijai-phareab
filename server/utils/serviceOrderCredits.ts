@@ -215,6 +215,33 @@ export const refundAddonUsages = async (
   return "normalized";
 };
 
+export const reverseCompletedAddonDeductions = async (tx: TxClient, serviceOrderId: string) => {
+  const records = await tx.serviceOrderAddonUsage.findMany({
+    where: {
+      serviceOrderId,
+      deductOn: "COMPLETED",
+      deductedAt: { not: null },
+      refundedAt: null,
+      credits: { gt: 0 },
+    },
+    select: { id: true, memberEntitlementId: true, credits: true },
+  });
+
+  for (const usage of records) {
+    if (!usage.memberEntitlementId) {
+      throw createError({ statusCode: 409, statusMessage: "ไม่สามารถคืนเครดิตได้ เนื่องจากรายการใช้สิทธิ์ไม่มีแพ็กเกจอ้างอิง" });
+    }
+    await refundEntitlementCredits(tx, usage.memberEntitlementId, usage.credits);
+  }
+
+  if (records.length > 0) {
+    await tx.serviceOrderAddonUsage.updateMany({
+      where: { id: { in: records.map((usage) => usage.id) } },
+      data: { deductedAt: null },
+    });
+  }
+};
+
 export const voidPendingAddonUsageRecords = async (tx: TxClient, serviceOrderId: string) => {
   await tx.serviceOrderAddonUsage.updateMany({
     where: {

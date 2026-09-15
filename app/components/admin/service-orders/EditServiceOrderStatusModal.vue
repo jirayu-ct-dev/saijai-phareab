@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import type { ServiceOrderStatus } from "~~/shared/types/enums";
-import { getNextServiceOrderStatus, orderStatusColors, orderStatusLabels } from "~~/shared/config/orderConfig";
+import { orderStatusColors, orderStatusLabels } from "~~/shared/config/orderConfig";
 import type { AdminServiceOrder } from "~~/app/composables/useAdminServiceOrders";
 
 type BadgeColor = "success" | "error" | "info" | "primary" | "secondary" | "warning" | "neutral";
 
 const orderStatusBadgeColors = orderStatusColors as Record<ServiceOrderStatus, BadgeColor>;
+const serviceOrderStatuses: ServiceOrderStatus[] = ["RECEIVED", "PROCESSING", "DELIVERING", "COMPLETED", "CANCELLED"];
 
 const props = defineProps<{
   order: Pick<AdminServiceOrder, "id" | "orderNo" | "status" | "customer"> | null;
@@ -21,9 +22,21 @@ const emit = defineEmits<{
 
 const isSubmitting = ref(false);
 const cancelConfirmOpen = ref(false);
+const selectedStatus = ref<ServiceOrderStatus>("RECEIVED");
+const notify = useNotify();
 const { updateServiceOrderStatus } = useAdminServiceOrders({ fetchList: false, refreshAfterMutation: false });
 
-const nextStatus = computed(() => props.order ? getNextServiceOrderStatus(props.order.status) : null);
+const selectableStatuses = computed(() => {
+  if (!props.order) return new Set<ServiceOrderStatus>();
+  if (props.order.status === "CANCELLED") {
+    return new Set<ServiceOrderStatus>([props.order.status]);
+  }
+  return new Set<ServiceOrderStatus>(serviceOrderStatuses.filter((status) => status !== "RECEIVED" || status === props.order?.status));
+});
+
+watch([open, () => props.order], ([isOpen]) => {
+  if (isOpen && props.order) selectedStatus.value = props.order.status;
+}, { immediate: true });
 
 const handleSubmit = async (status: ServiceOrderStatus) => {
   if (!props.order || isSubmitting.value) return;
@@ -38,8 +51,31 @@ const handleSubmit = async (status: ServiceOrderStatus) => {
   emit("updated");
 };
 
-const handleNextStatus = () => {
-  if (nextStatus.value) void handleSubmit(nextStatus.value);
+const selectStatus = (status: ServiceOrderStatus) => {
+  if (!props.order || isSubmitting.value) return;
+  if (selectableStatuses.value.has(status)) {
+    selectedStatus.value = status;
+    return;
+  }
+
+  if (props.order.status === "CANCELLED") {
+    notify.info("รายการนี้ถูกยกเลิกแล้ว จึงไม่สามารถเปลี่ยนสถานะได้");
+    return;
+  }
+  notify.info("ไม่สามารถย้อนสถานะกลับเป็นรับผ้าได้");
+};
+
+const submitSelectedStatus = () => {
+  if (!props.order) return;
+  if (selectedStatus.value === props.order.status) {
+    notify.info("สถานะนี้เป็นสถานะปัจจุบันอยู่แล้ว");
+    return;
+  }
+  if (selectedStatus.value === "CANCELLED") {
+    cancelConfirmOpen.value = true;
+    return;
+  }
+  void handleSubmit(selectedStatus.value);
 };
 
 const confirmCancellation = () => {
@@ -59,33 +95,24 @@ const confirmCancellation = () => {
           <p class="mt-1 font-mono text-xs text-muted">{{ order.orderNo || order.id }}</p>
         </div>
 
-        <div v-if="nextStatus" class="rounded-md border border-primary/20 bg-primary/5 p-3">
-          <p class="text-xs text-muted">สถานะถัดไป</p>
-          <div class="mt-2 flex flex-wrap items-center gap-2 text-sm">
-          <UBadge :color="orderStatusBadgeColors[order.status]" variant="subtle">
-            {{ orderStatusLabels[order.status] }}
-          </UBadge>
-            <UIcon name="i-lucide-arrow-right" class="size-4 text-muted" />
-            <UBadge :color="orderStatusBadgeColors[nextStatus]" variant="subtle">
-              {{ orderStatusLabels[nextStatus] }}
-            </UBadge>
+        <UFormField label="เลือกสถานะผ้า">
+          <div class="grid grid-cols-2 gap-2">
+            <UButton v-for="status in serviceOrderStatuses" :key="status" :label="orderStatusLabels[status]"
+              :color="selectedStatus === status ? orderStatusBadgeColors[status] : 'neutral'"
+              :variant="selectedStatus === status ? 'solid' : 'outline'" block
+              :class="{ 'opacity-60': !selectableStatuses.has(status) }" :disabled="isSubmitting"
+              @click="selectStatus(status)" />
           </div>
-        </div>
-        <div v-else class="rounded-md border border-default/40 bg-elevated/30 p-3 text-sm text-muted">
-          สถานะนี้เป็นสถานะสุดท้ายแล้ว
-        </div>
+          <p class="mt-1 text-xs text-muted">เปลี่ยนหรือย้อนสถานะได้ ยกเว้นย้อนกลับเป็นรับผ้า</p>
+        </UFormField>
       </div>
     </template>
 
     <template #footer>
-      <div class="flex w-full flex-wrap items-center justify-between gap-2">
+      <div class="flex w-full items-center justify-end gap-2">
         <UButton label="ปิด" color="neutral" variant="outline" :disabled="isSubmitting" @click="closeModal" />
-        <div class="flex flex-wrap justify-end gap-2">
-          <UButton v-if="order && nextStatus" label="ยกเลิกออเดอร์" color="error" variant="ghost"
-            :disabled="isSubmitting" @click="cancelConfirmOpen = true" />
-          <UButton v-if="nextStatus" :label="`อัปเดตเป็น ${orderStatusLabels[nextStatus]}`" color="primary"
-            icon="i-lucide-arrow-right" :loading="isSubmitting" @click="handleNextStatus" />
-        </div>
+        <UButton label="บันทึก" color="primary" icon="i-lucide-save" :loading="isSubmitting"
+          :disabled="!order" @click="submitSelectedStatus" />
       </div>
     </template>
   </UModal>

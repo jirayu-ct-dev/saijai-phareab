@@ -92,7 +92,7 @@ const performRemoveSlip = () => {
 
 const panelClass = computed(() =>
   props.flat
-    ? "space-y-2"
+    ? "space-y-2 rounded-lg bg-default p-4 dark:bg-elevated/55"
     :
     "-mx-2 border border-default/30 bg-default p-4 dark:border-default/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg sm:p-5",
 );
