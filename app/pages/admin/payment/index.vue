@@ -20,7 +20,6 @@ const UAvatar = resolveComponent("UAvatar");
 const UBadge = resolveComponent("UBadge");
 const UButton = resolveComponent("UButton");
 const UCheckbox = resolveComponent("UCheckbox");
-const UDropdownMenu = resolveComponent("UDropdownMenu");
 const UIcon = resolveComponent("UIcon");
 
 const sortableHeader = (
@@ -37,7 +36,6 @@ const { user } = useUser();
 const isAdmin = computed(() => (user.value?.role as Role | undefined) === "ADMIN");
 const { payments, isLoading, refresh, deletePayment } = useAdminPayments();
 
-const canConfirmPayment = (payment: AdminPaymentRecord) => payment.status !== "PAID" && payment.status !== "CANCELLED";
 const editStateModalOpen = ref(false);
 const editStateTarget = ref<AdminPaymentRecord | null>(null);
 const openEditStateModal = (payment: AdminPaymentRecord) => {
@@ -192,11 +190,12 @@ watch(() => pagination.value.pageIndex, () => {
 });
 
 const openPaymentDetail = (payment: AdminPaymentRecord) => navigateTo(`/admin/payment/${payment.id}`);
-const goToSalesPage = () => navigateTo("/admin/sales");
-const openReceipt = (payment: AdminPaymentRecord) => {
-  const target = payment.status === "PAID" ? "receipt" : "quotation";
-  return navigateTo(`/admin/payment/${payment.id}/${target}`);
+const openSelectedRow = (event: Event, row: { original: AdminPaymentRecord }) => {
+  const target = event.target;
+  if (target instanceof Element && target.closest("button, a, input, select, textarea, [role='button'], [role='menuitem'], [data-row-action]")) return;
+  void openPaymentDetail(row.original);
 };
+const goToSalesPage = () => navigateTo("/admin/sales");
 const openMemberDetail = (payment: AdminPaymentRecord) => navigateTo(`/admin/users/${payment.customer.id}`);
 const openServiceOrderDetail = (serviceOrderId: string) => navigateTo(`/admin/service-orders/${serviceOrderId}`);
 
@@ -351,35 +350,6 @@ const confirmBulkDelete = async () => {
   }
 };
 
-const getActionItems = (payment: AdminPaymentRecord) => {
-  const primaryItems: Array<Record<string, unknown>> = [
-    { label: "ดูรายละเอียด", icon: "i-lucide-eye", onSelect: () => openPaymentDetail(payment) },
-    payment.status === "PAID"
-      ? { label: "ดูใบเสร็จ", icon: "i-lucide-receipt", onSelect: () => openReceipt(payment) }
-      : { label: "ดูใบแจ้งราคา", icon: "i-lucide-file-text", onSelect: () => openReceipt(payment) },
-  ];
-
-  const serviceOrderId = payment.serviceOrder?.id;
-  if (serviceOrderId) {
-    primaryItems.push({
-      label: `เลขออเดอร์ ${payment.serviceOrder?.orderNo || serviceOrderId}`,
-      icon: "i-lucide-package-search",
-      onSelect: () => openServiceOrderDetail(serviceOrderId),
-    });
-  } else {
-    primaryItems.push({ label: "ดูข้อมูลลูกค้า", icon: "i-lucide-user-round-search", onSelect: () => openMemberDetail(payment) });
-  }
-
-  if (isAdmin.value) {
-    return [
-      primaryItems,
-      [{ label: "ลบรายการ", icon: "i-lucide-trash-2", color: "error", onSelect: () => openDeleteModal(payment) }],
-    ];
-  }
-
-  return [primaryItems];
-};
-
 const columns: TableColumn<AdminPaymentRecord>[] = [
   {
     id: "select",
@@ -515,19 +485,6 @@ const columns: TableColumn<AdminPaymentRecord>[] = [
     id: "actions",
     header: "",
     cell: ({ row }) => {
-      const confirmButton = canConfirmPayment(row.original)
-        ? h(UButton, {
-          icon: "i-lucide-check",
-          size: "xs",
-          color: "success",
-          variant: "ghost",
-          title: "ยืนยันการชำระเงิน",
-          onClick: (e: MouseEvent) => {
-            e.stopPropagation();
-            openEditStateModal(row.original);
-          },
-        })
-        : null;
       const detailButton = h(UButton, {
         icon: "i-lucide-eye",
         size: "xs",
@@ -537,18 +494,6 @@ const columns: TableColumn<AdminPaymentRecord>[] = [
         onClick: (e: MouseEvent) => {
           e.stopPropagation();
           openPaymentDetail(row.original);
-        },
-      });
-
-      const editButton = h(UButton, {
-        icon: "i-lucide-credit-card",
-        size: "xs",
-        color: "primary",
-        variant: "ghost",
-        title: "แก้ไขการชำระเงิน",
-        onClick: (e: MouseEvent) => {
-          e.stopPropagation();
-          openEditStateModal(row.original);
         },
       });
 
@@ -564,25 +509,10 @@ const columns: TableColumn<AdminPaymentRecord>[] = [
         onClick: (event: Event) => requestPrint(row.original, event),
       });
 
-      const menuButton = h(UButton, {
-        icon: "i-lucide-ellipsis",
-        size: "xs",
-        color: "neutral",
-        variant: "ghost",
-        title: "เมนูเพิ่มเติม",
-      });
-
       return h("div", { class: "flex items-center justify-end gap-1" }, [
-        confirmButton,
-        editButton,
-        printButton,
         detailButton,
-        h(
-          UDropdownMenu,
-          { items: getActionItems(row.original), content: { align: "end" } },
-          { default: () => menuButton },
-        ),
-      ].filter(Boolean));
+        printButton,
+      ]);
     },
   },
 ];
@@ -701,7 +631,8 @@ const columns: TableColumn<AdminPaymentRecord>[] = [
 
                 <div v-else class="-mx-2 space-y-1 sm:mx-0">
                   <div v-for="(payment, index) in paginatedPayments" :key="payment.id"
-                    class="overflow-hidden border border-default/30 bg-default transition-[background-color,border-color] duration-200 hover:border-default/45 hover:bg-default dark:border-default/20 dark:bg-elevated/55 dark:hover:bg-elevated/70">
+                    class="cursor-pointer overflow-hidden border border-default/30 bg-default transition-[background-color,border-color] duration-200 hover:border-default/45 hover:bg-default dark:border-default/20 dark:bg-elevated/55 dark:hover:bg-elevated/70"
+                    @click="openSelectedRow($event, { original: payment })">
                     <div class="flex items-start gap-2 p-2">
                       <UCheckbox :model-value="isMobileRowSelected(index)" aria-label="เลือกรายการ"
                         class="mt-1 shrink-0" @update:model-value="setMobileRowSelected(index, $event)" />
@@ -760,16 +691,12 @@ const columns: TableColumn<AdminPaymentRecord>[] = [
                             {{ getMobilePaymentMeta(payment) }}
                           </div>
                           <div class="flex shrink-0 items-center justify-end gap-1">
-                            <UButton icon="i-lucide-credit-card" size="xs" color="primary" variant="ghost"
-                              aria-label="แก้ไขการชำระเงิน" @click="openEditStateModal(payment)" />
+                            <UButton icon="i-lucide-eye" size="xs" color="neutral" variant="ghost"
+                              aria-label="ดูรายละเอียดประวัติการชำระเงิน" @click="openPaymentDetail(payment)" />
                             <UButton icon="i-lucide-printer" size="xs" color="primary" variant="ghost"
                               :aria-label="payment.status === 'PAID' ? 'พิมพ์ใบเสร็จ' : 'พิมพ์ใบแจ้งราคา'"
                               :loading="printingPaymentId === payment.id" :disabled="Boolean(printingPaymentId)"
                               @click="requestPrint(payment, $event)" />
-                            <UDropdownMenu :items="getActionItems(payment)" :content="{ align: 'end' }">
-                              <UButton icon="i-lucide-ellipsis" size="xs" color="neutral" variant="ghost"
-                                aria-label="เมนูเพิ่มเติม" />
-                            </UDropdownMenu>
                           </div>
                         </div>
                       </div>
@@ -790,7 +717,7 @@ const columns: TableColumn<AdminPaymentRecord>[] = [
                     th: 'border-b border-default bg-default py-2.5 text-xs font-semibold uppercase tracking-wide text-toned dark:border-default/40 dark:bg-default/80',
                     td: 'border-b border-default py-2.5 transition-colors dark:border-default/25',
                     separator: 'h-0',
-                  }">
+                  }" @select="openSelectedRow">
                   <template #empty>
                     <div v-if="isLoading" class="space-y-2 p-3">
                       <USkeleton v-for="i in 6" :key="`tbl-${i}`" class="h-12 w-full rounded-lg" />
