@@ -5,11 +5,13 @@ import { h, resolveComponent } from "vue";
 import EditPaymentStateModal from "~~/app/components/admin/payment/EditPaymentStateModal.vue";
 import EditServiceOrderModal from "~~/app/components/admin/service-orders/EditServiceOrderModal.vue";
 import EditServiceOrderStatusModal from "~~/app/components/admin/service-orders/EditServiceOrderStatusModal.vue";
+import PrinterConnectModal from "~~/app/components/thermal/PrinterConnectModal.vue";
 import type { AdminServiceOrder } from "~~/app/composables/useAdminServiceOrders";
 import { orderStatusColors, orderStatusLabels } from "~~/shared/config/orderConfig";
 import { paymentStatusColors, paymentStatusLabels } from "~~/shared/config/paymentConfig";
 import { formatCurrency, formatDate, formatDateTime } from "~~/shared/utils/format";
 import type { PaymentStatus, ServiceOrderStatus } from "~~/shared/types/enums";
+import { binaryResponseToPrintBytes } from "~~/shared/utils/directPrint";
 import { columnSortIcon, cycleColumnSorting } from "~~/shared/utils/table";
 
 definePageMeta({
@@ -333,6 +335,11 @@ watch(
 );
 
 const openDetailPage = (order: AdminServiceOrder) => navigateTo(`/admin/service-orders/${order.id}`);
+const openSelectedRow = (event: Event, row: { original: AdminServiceOrder }) => {
+  const target = event.target;
+  if (target instanceof Element && target.closest("button, a, input, select, textarea, [role='button'], [role='menuitem'], [data-row-action]")) return;
+  void openDetailPage(row.original);
+};
 const openCustomerPage = (order: AdminServiceOrder, e: MouseEvent) => {
   e.stopPropagation();
   if (order.customer?.id) navigateTo(`/admin/users/${order.customer.id}`);
@@ -349,7 +356,7 @@ const onPaymentUpdated = async () => {
   await refresh();
 };
 
-const canEditPaymentFor = (order: AdminServiceOrder) => Boolean(order.payment?.id) && order.status !== "COMPLETED";
+const canEditPaymentFor = (order: AdminServiceOrder) => Boolean(order.payment?.id);
 
 const paymentBadgeClass = (editable: boolean) => [
   "inline-flex rounded-full text-left transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary",
@@ -381,6 +388,55 @@ const renderPaymentBadge = (order: AdminServiceOrder, extraClass?: string) => {
   );
 };
 
+const { state: printerState, print, restoreGatewayConnection } = useThermalPrinter();
+const showPrinterModal = ref(false);
+const pendingPrintOrder = ref<AdminServiceOrder | null>(null);
+const printingPaymentId = ref<string | null>(null);
+
+const printOrderDocument = async (order: AdminServiceOrder) => {
+  const payment = order.payment;
+  if (!payment?.id || printingPaymentId.value) return;
+
+  printingPaymentId.value = payment.id;
+  try {
+    const type = payment.status === "PAID" ? "receipt" : "quotation";
+    const width = printerState.value.paperWidth === 58 ? 384 : 576;
+    const result = await print(async () => {
+      const blob = await $fetch<Blob>(`/api/admin/payments/${payment.id}/document`, {
+        query: { type, format: "escpos", width },
+        responseType: "blob",
+      });
+      return binaryResponseToPrintBytes(blob);
+    });
+
+    if (result.ok) notify.success("ส่งข้อมูลไปยังเครื่องพิมพ์แล้ว กรุณาตรวจใบที่เครื่อง");
+    else if (result.code === "BUSY") notify.error("เครื่องพิมพ์กำลังรับงานอื่น กรุณารอสักครู่แล้วกดใหม่");
+    else if (result.code === "UNKNOWN_PROGRESS") notify.error("ผลการส่งไม่ชัดเจน กรุณาตรวจที่เครื่องก่อนกดพิมพ์อีกครั้ง");
+    else notify.error("ส่งงานพิมพ์ไม่สำเร็จ กรุณาตรวจการเชื่อมต่อแล้วลองใหม่");
+  } catch (error) {
+    notify.error(error instanceof Error ? error.message : "พิมพ์เอกสารไม่สำเร็จ");
+  } finally {
+    printingPaymentId.value = null;
+  }
+};
+
+const requestPrint = async (order: AdminServiceOrder, event?: Event) => {
+  event?.stopPropagation();
+  if (!order.payment?.id) return;
+  if (printerState.value.isConnected || await restoreGatewayConnection()) {
+    await printOrderDocument(order);
+    return;
+  }
+  pendingPrintOrder.value = order;
+  showPrinterModal.value = true;
+};
+
+const printAfterConnection = async () => {
+  const order = pendingPrintOrder.value;
+  pendingPrintOrder.value = null;
+  if (order) await printOrderDocument(order);
+};
+
 const getActionItems = (order: AdminServiceOrder) => {
   const primaryItems: Array<Record<string, unknown>> = [
     { label: "ดูรายละเอียด", icon: "i-lucide-eye", onSelect: () => openDetailPage(order) },
@@ -389,7 +445,7 @@ const getActionItems = (order: AdminServiceOrder) => {
       ? { label: "ดูใบเสร็จ", icon: "i-lucide-receipt", onSelect: () => openDocument(order) }
       : { label: "ดูใบแจ้งราคา", icon: "i-lucide-file-text", onSelect: () => openDocument(order) },
   ];
-  if (order.payment?.id && order.status !== "COMPLETED") {
+  if (order.payment?.id) {
     primaryItems.push({
       label: "แก้ไขการชำระเงิน",
       icon: "i-lucide-credit-card",
@@ -539,7 +595,7 @@ const columns: TableColumn<AdminServiceOrder>[] = [
   {
     id: "actions",
     header: "",
-    meta: { class: { th: "w-20", td: "w-20" } },
+    meta: { class: { th: "w-28", td: "w-28" } },
     cell: ({ row }) => {
       const order = row.original;
 
@@ -551,8 +607,19 @@ const columns: TableColumn<AdminServiceOrder>[] = [
           variant: "ghost",
           title: "ดูรายละเอียด",
           "aria-label": "ดูรายละเอียด",
-          onClick: () => openDetailPage(order),
+          onClick: (event: Event) => { event.stopPropagation(); openDetailPage(order); },
         }),
+        order.payment?.id ? h(UButton, {
+          icon: "i-lucide-printer",
+          size: "xs",
+          color: "primary",
+          variant: "ghost",
+          title: order.payment.status === "PAID" ? "พิมพ์ใบเสร็จ" : "พิมพ์ใบแจ้งราคา",
+          "aria-label": order.payment.status === "PAID" ? "พิมพ์ใบเสร็จ" : "พิมพ์ใบแจ้งราคา",
+          loading: printingPaymentId.value === order.payment.id,
+          disabled: Boolean(printingPaymentId.value),
+          onClick: (event: Event) => requestPrint(order, event),
+        }) : null,
         h(
           UDropdownMenu,
           { items: getActionItems(order), content: { align: "end" } },
@@ -697,7 +764,9 @@ const columns: TableColumn<AdminServiceOrder>[] = [
 
                 <div v-else class="-mx-2 space-y-1 sm:mx-0">
                   <div v-for="(order, index) in paginatedServiceOrders" :key="order.id"
-                    class="overflow-hidden border border-default/30 bg-default transition-[background-color,border-color] duration-200 hover:border-default/45 hover:bg-default dark:border-default/20 dark:bg-elevated/55 dark:hover:bg-elevated/70">
+                    class="cursor-pointer overflow-hidden border border-default/30 bg-default transition-[background-color,border-color] duration-200 hover:border-default/45 hover:bg-default focus-visible:outline-2 focus-visible:outline-primary dark:border-default/20 dark:bg-elevated/55 dark:hover:bg-elevated/70"
+                    role="link" tabindex="0" @click="openSelectedRow($event, { original: order })"
+                    @keydown.enter="openSelectedRow($event, { original: order })">
                     <div class="grid grid-cols-[auto_auto_minmax(0,1fr)_auto] items-center gap-2 p-2">
                       <UCheckbox :model-value="isMobileRowSelected(index)" aria-label="เลือกรายการ" class="shrink-0"
                         @update:model-value="setMobileRowSelected(index, $event)" />
@@ -762,10 +831,14 @@ const columns: TableColumn<AdminServiceOrder>[] = [
 
                         <div class="mt-auto flex shrink-0 items-center justify-end gap-1">
                           <UButton icon="i-lucide-eye" size="xs" color="neutral" variant="ghost"
-                            aria-label="ดูรายละเอียดรายการรับผ้า" @click="openDetailPage(order)" />
+                            aria-label="ดูรายละเอียดรายการรับผ้า" @click.stop="openDetailPage(order)" />
+                          <UButton v-if="order.payment" icon="i-lucide-printer" size="xs" color="primary"
+                            variant="ghost" :aria-label="order.payment.status === 'PAID' ? 'พิมพ์ใบเสร็จ' : 'พิมพ์ใบแจ้งราคา'"
+                            :loading="printingPaymentId === order.payment.id" :disabled="Boolean(printingPaymentId)"
+                            @click.stop="requestPrint(order, $event)" />
                           <UDropdownMenu :items="getActionItems(order)" :content="{ align: 'end' }">
                             <UButton icon="i-lucide-ellipsis" size="xs" color="neutral" variant="ghost"
-                              aria-label="เมนูเพิ่มเติม" />
+                              aria-label="เมนูเพิ่มเติม" @click.stop />
                           </UDropdownMenu>
                         </div>
                       </div>
@@ -786,7 +859,7 @@ const columns: TableColumn<AdminServiceOrder>[] = [
                     th: 'border-b border-default bg-default px-3 py-2.5 text-xs font-semibold uppercase tracking-wide text-toned dark:border-default/40 dark:bg-default/80',
                     td: 'border-b border-default px-3 py-2.5 transition-colors dark:border-default/25',
                     separator: 'h-0',
-                  }">
+                  }" @select="openSelectedRow">
                   <template #empty>
                     <div v-if="isLoading" class="space-y-2 p-3">
                       <USkeleton v-for="i in 6" :key="`so-tbl-${i}`" class="h-12 w-full rounded-lg" />
@@ -885,6 +958,8 @@ const columns: TableColumn<AdminServiceOrder>[] = [
         :amount="Number(editPaymentTarget.payment.amount ?? 0)" :status="editPaymentTarget.payment.status"
         :method="editPaymentTarget.payment.method" :existing-slip="editPaymentTarget.payment.slipImage ?? null"
         @updated="onPaymentUpdated" />
+
+      <PrinterConnectModal v-model:open="showPrinterModal" @connected="printAfterConnection" />
 
     </ClientOnly>
   </div>
