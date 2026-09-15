@@ -3,7 +3,7 @@ import type { Prisma } from "~~/app/generated/prisma/client";
 import { requireRole } from "~~/server/utils/auth";
 import { notifyServiceOrderStatusChanged } from "~~/server/utils/notify";
 import { prisma } from "~~/server/utils/prisma";
-import { deductAddonUsageRecords, refundAddonUsages, refundPrimaryCredit, voidPendingAddonUsageRecords } from "~~/server/utils/serviceOrderCredits";
+import { deductAddonUsageRecords, refundAddonUsages, refundPrimaryCredit, reverseCompletedAddonDeductions, voidPendingAddonUsageRecords } from "~~/server/utils/serviceOrderCredits";
 import { canTransitionServiceOrderStatus, isServiceOrderStatus, resolveServiceOrderCompletedAt } from "~~/server/utils/serviceOrderStatusTransition";
 
 type UpdateServiceOrderStatusBody = {
@@ -59,6 +59,7 @@ export default defineEventHandler(async (event) => {
       const transitionAt = new Date();
       const shouldRefundCredits = existing.status !== "CANCELLED" && nextStatus === "CANCELLED";
       const shouldDeductCompletedAddons = existing.status !== "CANCELLED" && nextStatus === "COMPLETED";
+      const shouldReverseCompletedAddons = existing.status === "COMPLETED" && nextStatus !== "CANCELLED";
       if (shouldRefundCredits) {
         await refundPrimaryCredit(tx, {
           memberEntitlementId: existing.memberEntitlementId,
@@ -70,6 +71,9 @@ export default defineEventHandler(async (event) => {
 
       if (shouldDeductCompletedAddons) {
         await deductAddonUsageRecords(tx, existing.id, "COMPLETED");
+      }
+      if (shouldReverseCompletedAddons) {
+        await reverseCompletedAddonDeductions(tx, existing.id);
       }
 
       const updateData: Prisma.ServiceOrderUncheckedUpdateManyInput = {

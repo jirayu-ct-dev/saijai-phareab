@@ -7,6 +7,8 @@ import { formatCurrency, formatDate, formatDateTime } from "~~/shared/utils/form
 import type { Role } from "~~/shared/types/enums";
 import { paymentMethodLabels, paymentStatusColors, paymentStatusLabels } from "~~/shared/config/paymentConfig";
 import EditPaymentStateModal from "~~/app/components/admin/payment/EditPaymentStateModal.vue";
+import PrinterConnectModal from "~~/app/components/thermal/PrinterConnectModal.vue";
+import { binaryResponseToPrintBytes } from "~~/shared/utils/directPrint";
 import { columnSortIcon, cycleColumnSorting } from "~~/shared/utils/table";
 
 definePageMeta({
@@ -278,6 +280,53 @@ const handlePaymentDeselected = (payment: AdminPaymentRecord) => {
 };
 
 const notify = useNotify();
+const { state: printerState, print, restoreGatewayConnection } = useThermalPrinter();
+const showPrinterModal = ref(false);
+const pendingPrintPayment = ref<AdminPaymentRecord | null>(null);
+const printingPaymentId = ref<string | null>(null);
+
+const printPaymentDocument = async (payment: AdminPaymentRecord) => {
+  if (printingPaymentId.value) return;
+
+  printingPaymentId.value = payment.id;
+  try {
+    const type = payment.status === "PAID" ? "receipt" : "quotation";
+    const width = printerState.value.paperWidth === 58 ? 384 : 576;
+    const result = await print(async () => {
+      const blob = await $fetch<Blob>(`/api/admin/payments/${payment.id}/document`, {
+        query: { type, format: "escpos", width },
+        responseType: "blob",
+      });
+      return binaryResponseToPrintBytes(blob);
+    });
+
+    if (result.ok) notify.success("ส่งข้อมูลไปยังเครื่องพิมพ์แล้ว กรุณาตรวจใบที่เครื่อง");
+    else if (result.code === "BUSY") notify.error("เครื่องพิมพ์กำลังรับงานอื่น กรุณารอสักครู่แล้วกดใหม่");
+    else if (result.code === "UNKNOWN_PROGRESS") notify.error("ผลการส่งไม่ชัดเจน กรุณาตรวจที่เครื่องก่อนกดพิมพ์อีกครั้ง");
+    else notify.error("ส่งงานพิมพ์ไม่สำเร็จ กรุณาตรวจการเชื่อมต่อแล้วลองใหม่");
+  } catch (error) {
+    notify.error(error instanceof Error ? error.message : "พิมพ์เอกสารไม่สำเร็จ");
+  } finally {
+    printingPaymentId.value = null;
+  }
+};
+
+const requestPrint = async (payment: AdminPaymentRecord, event?: Event) => {
+  event?.stopPropagation();
+  if (printerState.value.isConnected || await restoreGatewayConnection()) {
+    await printPaymentDocument(payment);
+    return;
+  }
+  pendingPrintPayment.value = payment;
+  showPrinterModal.value = true;
+};
+
+const printAfterConnection = async () => {
+  const payment = pendingPrintPayment.value;
+  pendingPrintPayment.value = null;
+  if (payment) await printPaymentDocument(payment);
+};
+
 const confirmBulkDelete = async () => {
   if (!selectedPayments.value.length) return;
 
@@ -503,6 +552,18 @@ const columns: TableColumn<AdminPaymentRecord>[] = [
         },
       });
 
+      const printButton = h(UButton, {
+        icon: "i-lucide-printer",
+        size: "xs",
+        color: "primary",
+        variant: "ghost",
+        title: row.original.status === "PAID" ? "พิมพ์ใบเสร็จ" : "พิมพ์ใบแจ้งราคา",
+        "aria-label": row.original.status === "PAID" ? "พิมพ์ใบเสร็จ" : "พิมพ์ใบแจ้งราคา",
+        loading: printingPaymentId.value === row.original.id,
+        disabled: Boolean(printingPaymentId.value),
+        onClick: (event: Event) => requestPrint(row.original, event),
+      });
+
       const menuButton = h(UButton, {
         icon: "i-lucide-ellipsis",
         size: "xs",
@@ -514,6 +575,7 @@ const columns: TableColumn<AdminPaymentRecord>[] = [
       return h("div", { class: "flex items-center justify-end gap-1" }, [
         confirmButton,
         editButton,
+        printButton,
         detailButton,
         h(
           UDropdownMenu,
@@ -700,6 +762,10 @@ const columns: TableColumn<AdminPaymentRecord>[] = [
                           <div class="flex shrink-0 items-center justify-end gap-1">
                             <UButton icon="i-lucide-credit-card" size="xs" color="primary" variant="ghost"
                               aria-label="แก้ไขการชำระเงิน" @click="openEditStateModal(payment)" />
+                            <UButton icon="i-lucide-printer" size="xs" color="primary" variant="ghost"
+                              :aria-label="payment.status === 'PAID' ? 'พิมพ์ใบเสร็จ' : 'พิมพ์ใบแจ้งราคา'"
+                              :loading="printingPaymentId === payment.id" :disabled="Boolean(printingPaymentId)"
+                              @click="requestPrint(payment, $event)" />
                             <UDropdownMenu :items="getActionItems(payment)" :content="{ align: 'end' }">
                               <UButton icon="i-lucide-ellipsis" size="xs" color="neutral" variant="ghost"
                                 aria-label="เมนูเพิ่มเติม" />
@@ -815,6 +881,8 @@ const columns: TableColumn<AdminPaymentRecord>[] = [
           </div>
         </template>
       </UIConfirmModal>
+
+      <PrinterConnectModal v-model:open="showPrinterModal" @connected="printAfterConnection" />
     </ClientOnly>
 
     <EditPaymentStateModal v-if="editStateTarget" v-model:open="editStateModalOpen" :payment-id="editStateTarget.id"

@@ -8,6 +8,7 @@ import {
   deductAddonUsageRecords,
   refundAddonUsages,
   refundPrimaryCredit,
+  reverseCompletedAddonDeductions,
 } from "../../server/utils/serviceOrderCredits";
 
 describe("service-order status transitions", () => {
@@ -104,9 +105,42 @@ describe("service-order status transitions", () => {
     });
   });
 
-  it("rejects invalid status jumps such as RECEIVED -> COMPLETED", () => {
-    expect(canTransitionServiceOrderStatus("RECEIVED", "COMPLETED")).toBe(false);
-    expect(getAllowedServiceOrderTransitions("RECEIVED")).toEqual(["PROCESSING", "CANCELLED"]);
+  it("allows skipping and moving backwards except to RECEIVED", () => {
+    expect(canTransitionServiceOrderStatus("RECEIVED", "DELIVERING")).toBe(true);
+    expect(canTransitionServiceOrderStatus("RECEIVED", "COMPLETED")).toBe(true);
+    expect(canTransitionServiceOrderStatus("PROCESSING", "COMPLETED")).toBe(true);
+    expect(canTransitionServiceOrderStatus("DELIVERING", "PROCESSING")).toBe(true);
+    expect(canTransitionServiceOrderStatus("COMPLETED", "PROCESSING")).toBe(true);
+    expect(canTransitionServiceOrderStatus("COMPLETED", "RECEIVED")).toBe(false);
+    expect(getAllowedServiceOrderTransitions("RECEIVED")).toEqual([
+      "PROCESSING",
+      "DELIVERING",
+      "COMPLETED",
+      "CANCELLED",
+    ]);
+  });
+
+  it("returns completed add-on credits when moving out of COMPLETED", async () => {
+    const tx = {
+      memberEntitlement: { updateMany: vi.fn().mockResolvedValue({ count: 1 }) },
+      serviceOrderAddonUsage: {
+        findMany: vi.fn().mockResolvedValue([
+          { id: "usage-1", memberEntitlementId: "entitlement-1", credits: 2 },
+        ]),
+        updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+      },
+    };
+
+    await reverseCompletedAddonDeductions(tx as never, "order-1");
+
+    expect(tx.memberEntitlement.updateMany).toHaveBeenCalledWith({
+      where: { id: "entitlement-1", deletedAt: null, creditRemaining: { not: null } },
+      data: { creditRemaining: { increment: 2 } },
+    });
+    expect(tx.serviceOrderAddonUsage.updateMany).toHaveBeenCalledWith({
+      where: { id: { in: ["usage-1"] } },
+      data: { deductedAt: null },
+    });
   });
 
   it("stamps the exact first transition into COMPLETED", () => {
@@ -136,6 +170,24 @@ describe("service-order status transitions", () => {
       currentCompletedAt: completedAt,
       transitionAt,
     })).toBe(completedAt);
+  });
+
+  it("clears completedAt when moving out of COMPLETED and stamps it again when recompleted", () => {
+    const firstCompletedAt = new Date("2026-09-01T04:30:00.000Z");
+    const transitionAt = new Date("2026-09-02T04:30:00.000Z");
+
+    expect(resolveServiceOrderCompletedAt({
+      fromStatus: "COMPLETED",
+      toStatus: "PROCESSING",
+      currentCompletedAt: firstCompletedAt,
+      transitionAt,
+    })).toBeNull();
+    expect(resolveServiceOrderCompletedAt({
+      fromStatus: "PROCESSING",
+      toStatus: "COMPLETED",
+      currentCompletedAt: firstCompletedAt,
+      transitionAt,
+    })).toBe(transitionAt);
   });
 
   it("stamps an order created directly as COMPLETED and leaves other new orders null", () => {

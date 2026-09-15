@@ -9,10 +9,10 @@ export const serviceOrderStatuses: ServiceOrderStatus[] = [
 ];
 
 const allowedTransitions: Partial<Record<ServiceOrderStatus, ServiceOrderStatus[]>> = {
-  RECEIVED: ["PROCESSING", "CANCELLED"],
-  PROCESSING: ["DELIVERING", "CANCELLED"],
-  DELIVERING: ["COMPLETED", "CANCELLED"],
-  COMPLETED: [],
+  RECEIVED: ["PROCESSING", "DELIVERING", "COMPLETED", "CANCELLED"],
+  PROCESSING: ["DELIVERING", "COMPLETED", "CANCELLED"],
+  DELIVERING: ["PROCESSING", "COMPLETED", "CANCELLED"],
+  COMPLETED: ["PROCESSING", "DELIVERING", "CANCELLED"],
   CANCELLED: [],
 };
 
@@ -37,7 +37,7 @@ export const resolveServiceOrderCompletedAt = (params: {
     return params.currentCompletedAt;
   }
   if (params.toStatus === "COMPLETED") {
-    return params.currentCompletedAt ?? params.transitionAt;
+    return params.transitionAt;
   }
-  return params.currentCompletedAt;
+  return null;
 };
