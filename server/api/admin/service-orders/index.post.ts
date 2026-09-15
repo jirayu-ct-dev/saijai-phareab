@@ -260,7 +260,6 @@ export default defineEventHandler(async (event) => {
         id: string;
         customerId: string;
         creditRemaining: number | null;
-        product: { serviceId: string | null };
       };
 
       if (requestedEntitlementId) {
@@ -276,7 +275,6 @@ export default defineEventHandler(async (event) => {
             id: true,
             customerId: true,
             creditRemaining: true,
-            product: { select: { serviceId: true } },
           },
         });
 
@@ -290,12 +288,10 @@ export default defineEventHandler(async (event) => {
         }
       }
 
-      // FIFO allocate credit only to the service assigned to the package.
       const creditAvailable = memberEntitlement ? Math.max(0, Number(memberEntitlement.creditRemaining ?? 0)) : 0;
       const allocation = allocatePackageCredits(
         orderItems.map((item) => ({ ...item, serviceId: item.price.storefrontService?.id ?? null })),
         creditAvailable,
-        memberEntitlement?.product?.serviceId ?? null,
       );
       const allocatedItems: AllocatedItem[] = allocation.items;
       const creditUsed = allocation.creditUsed;
