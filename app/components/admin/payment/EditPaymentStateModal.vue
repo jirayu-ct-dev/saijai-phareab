@@ -30,10 +30,10 @@ const statusOptions: Array<{ label: string; value: PaymentStatus }> = [
   { label: paymentStatusLabels.CANCELLED, value: "CANCELLED" },
 ];
 
-const methodOptions: Array<{ label: string; value: PaymentMethod | "NONE" }> = [
-  { label: "ไม่ระบุ", value: "NONE" },
-  { label: paymentMethodLabels.CASH, value: "CASH" },
-  { label: paymentMethodLabels.TRANSFER, value: "TRANSFER" },
+const methodOptions: Array<{ label: string; value: PaymentMethod | "NONE"; icon: string }> = [
+  { label: "ไม่ระบุ", value: "NONE", icon: "i-lucide-minus" },
+  { label: paymentMethodLabels.CASH, value: "CASH", icon: "i-lucide-banknote" },
+  { label: paymentMethodLabels.TRANSFER, value: "TRANSFER", icon: "i-lucide-credit-card" },
 ];
 
 const form = reactive<{
@@ -125,13 +125,23 @@ const submit = async () => {
           <span class="shrink-0 font-semibold text-highlighted">{{ formatCurrency(amount) }}</span>
         </div>
 
-        <div class="grid gap-3 sm:grid-cols-2">
-          <UFormField label="สถานะ">
-            <USelect v-model="form.status" :items="statusOptions" value-key="value" class="w-full" />
+        <div class="space-y-4">
+          <UFormField label="สถานะการชำระเงิน">
+            <div class="grid grid-cols-2 gap-2 sm:grid-cols-4">
+              <UButton v-for="option in statusOptions" :key="option.value" :label="option.label"
+                :color="form.status === option.value ? 'primary' : 'neutral'"
+                :variant="form.status === option.value ? 'solid' : 'outline'" block
+                :disabled="isSaving || isUploading" @click="form.status = option.value" />
+            </div>
           </UFormField>
 
-          <UFormField label="วิธีชำระ">
-            <USelect v-model="form.method" :items="methodOptions" value-key="value" class="w-full" />
+          <UFormField label="ช่องทางการชำระเงิน">
+            <div class="grid grid-cols-3 gap-2">
+              <UButton v-for="option in methodOptions" :key="option.value" :label="option.label" :icon="option.icon"
+                :color="form.method === option.value ? 'primary' : 'neutral'"
+                :variant="form.method === option.value ? 'solid' : 'outline'" block
+                :disabled="isSaving || isUploading" @click="form.method = option.value" />
+            </div>
           </UFormField>
         </div>
 

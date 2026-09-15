@@ -308,7 +308,7 @@ const usedCreditLabel = computed(() => {
   return `${order.value.creditUsed} เครดิต`;
 });
 const latestPayment = computed(() => order.value?.payments[0] ?? null);
-const canEditPayment = computed(() => Boolean(latestPayment.value) && order.value?.status !== "COMPLETED");
+const canEditPayment = computed(() => Boolean(latestPayment.value));
 const latestPaymentStatusLabel = computed(() =>
   latestPayment.value ? paymentStatusLabels[latestPayment.value.status] : "ยังไม่มีรายการชำระเงิน",
 );

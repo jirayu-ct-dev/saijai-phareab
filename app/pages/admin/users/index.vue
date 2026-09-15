@@ -17,7 +17,6 @@ const UAvatar = resolveComponent('UAvatar')
 const UButton = resolveComponent('UButton')
 const UBadge = resolveComponent('UBadge')
 const UCheckbox = resolveComponent('UCheckbox')
-const UDropdownMenu = resolveComponent('UDropdownMenu')
 const UIButtonChatLine = resolveComponent('UIButtonChatLine')
 const UPopover = resolveComponent('UPopover')
 const UIcon = resolveComponent('UIcon')
@@ -382,6 +381,13 @@ const openEditModal = (user: AdminUser) => {
   isFormOpen.value = true
 }
 
+const openUserDetail = (user: AdminUser) => navigateTo(`/admin/users/${user.id}`)
+const openSelectedRow = (event: Event, row: { original: AdminUser }) => {
+  const target = event.target
+  if (target instanceof Element && target.closest("button, a, input, select, textarea, [role='button'], [role='menuitem'], [data-row-action]")) return
+  void openUserDetail(row.original)
+}
+
 const saveUser = async () => {
   if (!editingUser.value) return
   const email = form.email?.trim().toLowerCase() || ''
@@ -405,35 +411,6 @@ const saveUser = async () => {
   if (ok) {
     isFormOpen.value = false
   }
-}
-
-const getUserActionItems = (user: AdminUser): Array<Array<Record<string, unknown>>> => {
-  const items: Array<Array<Record<string, unknown>>> = [
-    [
-      { label: 'แก้ไขผู้ใช้งาน', icon: 'i-lucide-pencil', onSelect: () => openEditModal(user) }
-    ],
-  ]
-
-  if (user.role === 'EMPLOYEE' || user.role === 'ADMIN') {
-    items.push([
-      {
-        label: user.isActive ? 'พักงาน' : 'เปิดใช้งาน',
-        icon: user.isActive ? 'i-lucide-user-x' : 'i-lucide-user-check',
-        onSelect: () => toggleActive(user)
-      }
-    ])
-  }
-
-  items.push([
-    {
-      label: 'ลบผู้ใช้งาน',
-      icon: 'i-lucide-trash-2',
-      color: 'error',
-      onSelect: () => openSingleDeleteModal(user)
-    }
-  ])
-
-  return items
 }
 
 const columns: TableColumn<AdminUser>[] = [
@@ -579,21 +556,33 @@ const columns: TableColumn<AdminUser>[] = [
     cell: ({ row }) => {
       const user = row.original
 
-      const detailButton = h(UButton, {
-        icon: 'i-lucide-eye',
+      const editButton = h(UButton, {
+        icon: 'i-lucide-pencil',
         size: 'xs',
         color: 'neutral',
         variant: 'ghost',
-        title: 'ดูรายละเอียดลูกค้า',
-        to: `/admin/users/${user.id}`
+        title: 'แก้ไขผู้ใช้งาน',
+        onClick: () => openEditModal(user)
       })
 
-      const menuButton = h(UButton, {
-        icon: 'i-lucide-ellipsis',
+      const activeButton = user.role === 'EMPLOYEE' || user.role === 'ADMIN'
+        ? h(UButton, {
+          icon: user.isActive ? 'i-lucide-user-x' : 'i-lucide-user-check',
+          size: 'xs',
+          color: 'neutral',
+          variant: 'ghost',
+          title: user.isActive ? 'พักงาน' : 'เปิดใช้งาน',
+          onClick: () => toggleActive(user)
+        })
+        : null
+
+      const deleteButton = h(UButton, {
+        icon: 'i-lucide-trash-2',
         size: 'xs',
-        color: 'neutral',
+        color: 'error',
         variant: 'ghost',
-        title: 'เมนูเพิ่มเติม'
+        title: 'ลบผู้ใช้งาน',
+        onClick: () => openSingleDeleteModal(user)
       })
 
       const chatLineButton = user.lineUserId
@@ -605,14 +594,11 @@ const columns: TableColumn<AdminUser>[] = [
         : null
 
       return h('div', { class: 'flex items-center justify-end gap-1' }, [
-        detailButton,
         chatLineButton,
-        h(
-          UDropdownMenu,
-          { items: getUserActionItems(user), content: { align: 'end' } },
-          { default: () => menuButton }
-        )
-      ])
+        editButton,
+        activeButton,
+        deleteButton
+      ].filter(Boolean))
     }
   }
 ]
@@ -748,7 +734,8 @@ const columns: TableColumn<AdminUser>[] = [
 
                 <div v-else class="-mx-2 space-y-1 sm:mx-0">
                   <div v-for="(user, index) in paginatedUsers" :key="user.id"
-                    class="overflow-hidden border border-default/30 bg-default transition-[background-color,border-color] duration-200 hover:border-default/45 hover:bg-default dark:border-default/20 dark:bg-elevated/55 dark:hover:bg-elevated/70">
+                    class="cursor-pointer overflow-hidden border border-default/30 bg-default transition-[background-color,border-color] duration-200 hover:border-default/45 hover:bg-default dark:border-default/20 dark:bg-elevated/55 dark:hover:bg-elevated/70"
+                    @click="openSelectedRow($event, { original: user })">
                     <div class="flex items-center gap-2 p-2">
                       <UCheckbox :model-value="isMobileRowSelected(index)" aria-label="เลือกผู้ใช้งาน" class="shrink-0"
                         @update:model-value="setMobileRowSelected(index, $event)" />
@@ -816,10 +803,14 @@ const columns: TableColumn<AdminUser>[] = [
                           <div class="flex shrink-0 items-center justify-end gap-1">
                             <UIButtonChatLine v-if="user.lineUserId" :line-user-id="user.lineUserId" size="xs"
                               icon-only />
-                            <UDropdownMenu :items="getUserActionItems(user)" :content="{ align: 'end' }">
-                              <UButton icon="i-lucide-ellipsis" size="xs" color="neutral" variant="ghost"
-                                aria-label="เมนูเพิ่มเติม" />
-                            </UDropdownMenu>
+                            <UButton icon="i-lucide-pencil" size="xs" color="neutral" variant="ghost"
+                              aria-label="แก้ไขผู้ใช้งาน" @click="openEditModal(user)" />
+                            <UButton v-if="user.role === 'EMPLOYEE' || user.role === 'ADMIN'"
+                              :icon="user.isActive ? 'i-lucide-user-x' : 'i-lucide-user-check'" size="xs"
+                              color="neutral" variant="ghost" :aria-label="user.isActive ? 'พักงาน' : 'เปิดใช้งาน'"
+                              @click="toggleActive(user)" />
+                            <UButton icon="i-lucide-trash-2" size="xs" color="error" variant="ghost"
+                              aria-label="ลบผู้ใช้งาน" @click="openSingleDeleteModal(user)" />
                           </div>
                         </div>
                       </div>
@@ -841,7 +832,7 @@ const columns: TableColumn<AdminUser>[] = [
                     th: 'border-b border-default bg-default py-2.5 text-xs font-semibold uppercase tracking-wide text-toned dark:border-default/40 dark:bg-default/80',
                     td: 'border-b border-default py-2.5 transition-colors dark:border-default/25',
                     separator: 'h-0',
-                  }">
+                  }" @select="openSelectedRow">
                   <template #empty>
                     <div v-if="isLoading" class="space-y-2 p-3">
                       <USkeleton v-for="i in 6" :key="`u-tbl-${i}`" class="h-12 w-full rounded-lg" />

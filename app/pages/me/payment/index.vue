@@ -63,7 +63,6 @@ type MyReceiptRecord = {
 const UAvatar = resolveComponent("UAvatar");
 const UBadge = resolveComponent("UBadge");
 const UButton = resolveComponent("UButton");
-const UDropdownMenu = resolveComponent("UDropdownMenu");
 
 const { payments, pending: isLoading, refresh } = useMyPayments();
 
@@ -183,6 +182,12 @@ const openPaymentDetail = (payment: MyReceiptRecord) => navigateTo(`/me/payment/
 const openReceipt = (payment: MyReceiptRecord) => navigateTo(`/me/payment/${payment.id}/${getDocumentPath(payment)}`);
 const openServiceOrderDetail = (serviceOrderId: string) => navigateTo(`/me/service-orders/${serviceOrderId}`);
 
+const openSelectedRow = (event: Event, row: { original: MyReceiptRecord }) => {
+  const target = event.target;
+  if (target instanceof Element && target.closest("button, a, input, select, textarea, [role='button'], [data-row-action]")) return;
+  return openPaymentDetail(row.original);
+};
+
 const getSaleTypeLabel = (payment: MyReceiptRecord) => {
   const type = getSaleType(payment);
   if (type === "SERVICE_MEMBER") return "งานซักรีด (รายเดือน)";
@@ -217,26 +222,6 @@ const getPaymentMethodLabel = (payment: MyReceiptRecord) => (
 const getMobilePaymentMeta = (payment: MyReceiptRecord) => {
   const date = formatOptionalShortDate(payment.createdAt);
   return payment.method ? `${getPaymentMethodLabel(payment)} · ${date}` : date;
-};
-
-const getActionItems = (payment: MyReceiptRecord) => {
-  const primaryItems: Array<Record<string, unknown>> = [
-    { label: "ดูรายละเอียด", icon: "i-lucide-eye", onSelect: () => openPaymentDetail(payment) },
-    payment.status === "PAID"
-      ? { label: "ดูใบเสร็จ", icon: "i-lucide-receipt", onSelect: () => openReceipt(payment) }
-      : { label: "ดูใบแจ้งราคา", icon: "i-lucide-file-text", onSelect: () => openReceipt(payment) },
-  ];
-
-  const serviceOrderId = payment.serviceOrder?.id;
-  if (serviceOrderId) {
-    primaryItems.push({
-      label: `เลขออเดอร์ ${payment.serviceOrder?.orderNo || serviceOrderId}`,
-      icon: "i-lucide-package-search",
-      onSelect: () => openServiceOrderDetail(serviceOrderId),
-    });
-  }
-
-  return [primaryItems];
 };
 
 const columns: TableColumn<MyReceiptRecord>[] = [
@@ -276,17 +261,11 @@ const columns: TableColumn<MyReceiptRecord>[] = [
     cell: ({ row }) => {
       const payment = row.original;
       const items = payment.packageSale?.items ?? [];
-      const serviceOrderId = payment.serviceOrder?.id;
-      const handleClick = (event: MouseEvent) => {
-        event.stopPropagation();
-        if (serviceOrderId) openServiceOrderDetail(serviceOrderId);
-        else openPaymentDetail(payment);
-      };
 
       if (items.length > 0) {
         return h(
           "div",
-          { class: "space-y-1 cursor-pointer", onClick: handleClick },
+          { class: "space-y-1" },
           items.map((item) =>
             h("div", { key: `${item.productId}-${item.quantity}`, class: "flex items-center gap-3 text-sm" }, [
               h("span", { class: "text-highlighted" }, item.productName),
@@ -296,7 +275,7 @@ const columns: TableColumn<MyReceiptRecord>[] = [
         );
       }
 
-      return h("div", { class: "flex items-center gap-3 text-sm cursor-pointer", onClick: handleClick }, [
+      return h("div", { class: "flex items-center gap-3 text-sm" }, [
         h("span", { class: "text-highlighted" }, "รายการผ้า"),
         h("span", { class: "shrink-0 whitespace-nowrap text-muted" }, `${payment.serviceOrder?.itemCount ?? 0} รายการ`),
       ]);
@@ -342,18 +321,6 @@ const columns: TableColumn<MyReceiptRecord>[] = [
     id: "actions",
     header: "",
     cell: ({ row }) => {
-      const detailButton = h(UButton, {
-        icon: "i-lucide-eye",
-        size: "xs",
-        color: "neutral",
-        variant: "ghost",
-        title: "ดูรายละเอียด",
-        onClick: (event: MouseEvent) => {
-          event.stopPropagation();
-          openPaymentDetail(row.original);
-        },
-      });
-
       const documentButton = h(UButton, {
         icon: row.original.status === "PAID" ? "i-lucide-receipt" : "i-lucide-file-text",
         size: "xs",
@@ -366,18 +333,21 @@ const columns: TableColumn<MyReceiptRecord>[] = [
         },
       });
 
-      const menuButton = h(UButton, {
-        icon: "i-lucide-ellipsis",
-        size: "xs",
-        color: "neutral",
-        variant: "ghost",
-        title: "เมนูเพิ่มเติม",
-      });
-
       return h("div", { class: "flex items-center justify-end gap-1" }, [
         documentButton,
-        detailButton,
-        h(UDropdownMenu, { items: getActionItems(row.original), content: { align: "end" } }, { default: () => menuButton }),
+        row.original.serviceOrder?.id
+          ? h(UButton, {
+              icon: "i-lucide-package-search",
+              size: "xs",
+              color: "neutral",
+              variant: "ghost",
+              title: "ดูรายการรับผ้า",
+              onClick: (event: MouseEvent) => {
+                event.stopPropagation();
+                openServiceOrderDetail(row.original.serviceOrder!.id);
+              },
+            })
+          : null,
       ]);
     },
   },
@@ -470,20 +440,17 @@ const columns: TableColumn<MyReceiptRecord>[] = [
                 <div
                   v-for="payment in paginatedPayments"
                   :key="payment.id"
-                  class="overflow-hidden border border-default/30 bg-default transition-[background-color,border-color] duration-200 hover:border-default/45 hover:bg-default dark:border-default/20 dark:bg-elevated/55 dark:hover:bg-elevated/70"
+                  class="cursor-pointer overflow-hidden border border-default/30 bg-default transition-[background-color,border-color] duration-200 hover:border-default/45 hover:bg-default dark:border-default/20 dark:bg-elevated/55 dark:hover:bg-elevated/70"
+                  @click="openSelectedRow($event, { original: payment })"
                 >
                   <div class="flex items-start gap-2 p-2">
                     <UAvatar v-bind="getAvatarProps(payment.customer)" size="sm" class="mt-0.5 shrink-0" />
 
                     <div class="min-w-0 flex-1 space-y-1">
                       <div class="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-start gap-2">
-                        <button
-                          type="button"
-                          class="min-w-0 truncate text-left text-sm font-medium text-highlighted hover:underline"
-                          @click="openPaymentDetail(payment)"
-                        >
+                        <p class="min-w-0 truncate text-left text-sm font-medium text-highlighted">
                           {{ payment.customer.name || "-" }}
-                        </button>
+                        </p>
                         <div class="shrink-0 text-right">
                           <template v-if="isServiceMember(payment) && Number(payment.amount ?? 0) === 0">
                             <p class="text-[13px] font-semibold leading-none text-success">ใช้เครดิต</p>
@@ -494,13 +461,9 @@ const columns: TableColumn<MyReceiptRecord>[] = [
                       </div>
 
                       <div class="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-2">
-                        <button
-                          type="button"
-                          class="min-w-0 truncate text-left font-mono text-[10px] leading-4 text-muted hover:underline"
-                          @click="openPaymentDetail(payment)"
-                        >
+                        <p class="min-w-0 truncate text-left font-mono text-[10px] leading-4 text-muted">
                           {{ payment.paymentNo || payment.id }}
-                        </button>
+                        </p>
                         <div class="flex shrink-0 items-center justify-end gap-1">
                           <UBadge :color="getSaleTypeColor(payment)" variant="subtle" size="xs">
                             {{ getSaleTypeLabel(payment) }}
@@ -528,9 +491,15 @@ const columns: TableColumn<MyReceiptRecord>[] = [
                             :aria-label="payment.status === 'PAID' ? 'ดูใบเสร็จ' : 'ดูใบแจ้งราคา'"
                             @click="openReceipt(payment)"
                           />
-                          <UDropdownMenu :items="getActionItems(payment)" :content="{ align: 'end' }">
-                            <UButton icon="i-lucide-ellipsis" size="xs" color="neutral" variant="ghost" aria-label="เมนูเพิ่มเติม" />
-                          </UDropdownMenu>
+                          <UButton
+                            v-if="payment.serviceOrder?.id"
+                            icon="i-lucide-package-search"
+                            size="xs"
+                            color="neutral"
+                            variant="ghost"
+                            aria-label="ดูรายการรับผ้า"
+                            @click="openServiceOrderDetail(payment.serviceOrder.id)"
+                          />
                         </div>
                       </div>
                     </div>
@@ -545,6 +514,7 @@ const columns: TableColumn<MyReceiptRecord>[] = [
                 :data="filteredPayments"
                 :columns="columns"
                 :loading="isLoading"
+                @select="openSelectedRow"
                 :ui="{
                   root: 'relative overflow-x-auto',
                   base: 'table-fixed border-separate border-spacing-0',

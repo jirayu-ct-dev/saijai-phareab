@@ -14,7 +14,6 @@ definePageMeta({
 const UAvatar = resolveComponent("UAvatar");
 const UBadge = resolveComponent("UBadge");
 const UButton = resolveComponent("UButton");
-const UDropdownMenu = resolveComponent("UDropdownMenu");
 
 const serviceOrderStatusOptions: Array<{ label: string; value: ServiceOrderStatus }> = [
   { label: orderStatusLabels.RECEIVED, value: "RECEIVED" },
@@ -113,20 +112,17 @@ const formatOptionalShortDate = (value: string | null | undefined) => value ? fo
 
 const openDocument = (order: MyServiceOrder) => {
   const paymentId = order.payment?.id;
-  if (!paymentId) return navigateTo(`/me/service-orders/${order.id}`);
-  return navigateTo(`/me/payment/${paymentId}`);
+  if (!paymentId) return;
+  const documentPath = order.payment?.status === "PAID" ? "receipt" : "quotation";
+  return navigateTo(`/me/payment/${paymentId}/${documentPath}`);
 };
 
 const openDetailPage = (order: MyServiceOrder) => navigateTo(`/me/service-orders/${order.id}`);
 
-const getActionItems = (order: MyServiceOrder) => {
-  const primaryItems: Array<Record<string, unknown>> = [
-    { label: "ดูรายละเอียด", icon: "i-lucide-eye", onSelect: () => openDetailPage(order) },
-    order.payment?.status === "PAID"
-      ? { label: "ดูใบเสร็จ", icon: "i-lucide-receipt", onSelect: () => openDocument(order) }
-      : { label: "ดูใบแจ้งราคา", icon: "i-lucide-file-text", onSelect: () => openDocument(order) },
-  ];
-  return [primaryItems];
+const openSelectedRow = (event: Event, row: { original: MyServiceOrder }) => {
+  const target = event.target;
+  if (target instanceof Element && target.closest("button, a, input, select, textarea, [role='button'], [data-row-action]")) return;
+  return openDetailPage(row.original);
 };
 
 const columns: TableColumn<MyServiceOrder>[] = [
@@ -222,27 +218,17 @@ const columns: TableColumn<MyServiceOrder>[] = [
     cell: ({ row }) => {
       const order = row.original;
       return h("div", { class: "flex items-center justify-end gap-1" }, [
-        h(UButton, {
-          icon: "i-lucide-eye",
+        order.payment?.id ? h(UButton, {
+          icon: order.payment?.status === "PAID" ? "i-lucide-receipt" : "i-lucide-file-text",
           size: "xs",
-          color: "neutral",
+          color: "primary",
           variant: "ghost",
-          title: "ดูรายละเอียดรายการรับผ้า",
-          onClick: () => openDetailPage(order),
-        }),
-        h(
-          UDropdownMenu,
-          { items: getActionItems(order), content: { align: "end" } },
-          {
-            default: () => h(UButton, {
-              icon: "i-lucide-ellipsis",
-              size: "xs",
-              color: "neutral",
-              variant: "ghost",
-              title: "เมนูเพิ่มเติม",
-            }),
+          title: order.payment?.status === "PAID" ? "ดูใบเสร็จ" : "ดูใบแจ้งราคา",
+          onClick: (event: MouseEvent) => {
+            event.stopPropagation();
+            openDocument(order);
           },
-        ),
+        }) : null,
       ]);
     },
   },
@@ -333,7 +319,8 @@ const columns: TableColumn<MyServiceOrder>[] = [
                 <div
                   v-for="order in filteredServiceOrders"
                   :key="order.id"
-                  class="overflow-hidden border border-default/30 bg-default transition-[background-color,border-color] duration-200 hover:border-default/45 hover:bg-default dark:border-default/20 dark:bg-elevated/55 dark:hover:bg-elevated/70"
+                  class="cursor-pointer overflow-hidden border border-default/30 bg-default transition-[background-color,border-color] duration-200 hover:border-default/45 hover:bg-default dark:border-default/20 dark:bg-elevated/55 dark:hover:bg-elevated/70"
+                  @click="openSelectedRow($event, { original: order })"
                 >
                   <div class="flex items-center gap-2 p-2">
                     <UAvatar v-bind="getAvatarProps(order.customer)" size="sm" class="shrink-0" />
@@ -341,21 +328,13 @@ const columns: TableColumn<MyServiceOrder>[] = [
                     <div class="min-w-0 flex-1">
                       <div class="flex min-w-0 items-start justify-between gap-2">
                         <div class="min-w-0 flex-1">
-                          <button
-                            type="button"
-                            class="block max-w-full truncate text-left text-sm font-medium text-highlighted hover:underline"
-                            @click="openDetailPage(order)"
-                          >
+                          <p class="block max-w-full truncate text-left text-sm font-medium text-highlighted">
                             {{ order.customer?.name || "-" }}
                             <span class="text-[11px] font-normal text-muted">· {{ order.customer?.phoneNumber || order.customer?.email || "-" }}</span>
-                          </button>
-                          <button
-                            type="button"
-                            class="block max-w-full truncate font-mono text-[10px] text-muted hover:underline"
-                            @click="openDetailPage(order)"
-                          >
+                          </p>
+                          <p class="block max-w-full truncate font-mono text-[10px] text-muted">
                             {{ order.orderNo || order.id }}
-                          </button>
+                          </p>
                         </div>
 
                         <div class="flex shrink-0 flex-col items-end gap-1.5">
@@ -381,10 +360,15 @@ const columns: TableColumn<MyServiceOrder>[] = [
                           รับ {{ formatOptionalShortDate(order.receivedAt) }} · {{ order.status === "COMPLETED" ? "ส่ง" : "นัด" }} {{ formatOptionalShortDate((order.status === "COMPLETED" ? order.payment?.paidAt : order.dueAt) || order.dueAt) }}
                         </div>
                         <div class="flex shrink-0 items-center justify-end gap-1">
-                          <UButton icon="i-lucide-eye" size="xs" color="neutral" variant="ghost" aria-label="ดูรายละเอียด" @click="openDetailPage(order)" />
-                          <UDropdownMenu :items="getActionItems(order)" :content="{ align: 'end' }">
-                            <UButton icon="i-lucide-ellipsis" size="xs" color="neutral" variant="ghost" aria-label="เมนูเพิ่มเติม" />
-                          </UDropdownMenu>
+                          <UButton
+                            v-if="order.payment?.id"
+                            :icon="order.payment?.status === 'PAID' ? 'i-lucide-receipt' : 'i-lucide-file-text'"
+                            size="xs"
+                            color="primary"
+                            variant="ghost"
+                            :aria-label="order.payment?.status === 'PAID' ? 'ดูใบเสร็จ' : 'ดูใบแจ้งราคา'"
+                            @click="openDocument(order)"
+                          />
                         </div>
                       </div>
                     </div>
@@ -399,6 +383,7 @@ const columns: TableColumn<MyServiceOrder>[] = [
                 :data="filteredServiceOrders"
                 :columns="columns"
                 :loading="isLoading"
+                @select="openSelectedRow"
                 :ui="{
                   root: 'relative overflow-x-auto',
                   base: 'table-fixed border-separate border-spacing-0',

@@ -7,6 +7,8 @@ import { formatCurrency, formatDate, formatDateTime } from "~~/shared/utils/form
 import type { Role } from "~~/shared/types/enums";
 import { paymentMethodLabels, paymentStatusColors, paymentStatusLabels } from "~~/shared/config/paymentConfig";
 import EditPaymentStateModal from "~~/app/components/admin/payment/EditPaymentStateModal.vue";
+import PrinterConnectModal from "~~/app/components/thermal/PrinterConnectModal.vue";
+import { binaryResponseToPrintBytes } from "~~/shared/utils/directPrint";
 import { columnSortIcon, cycleColumnSorting } from "~~/shared/utils/table";
 
 definePageMeta({
@@ -18,7 +20,6 @@ const UAvatar = resolveComponent("UAvatar");
 const UBadge = resolveComponent("UBadge");
 const UButton = resolveComponent("UButton");
 const UCheckbox = resolveComponent("UCheckbox");
-const UDropdownMenu = resolveComponent("UDropdownMenu");
 const UIcon = resolveComponent("UIcon");
 
 const sortableHeader = (
@@ -35,7 +36,6 @@ const { user } = useUser();
 const isAdmin = computed(() => (user.value?.role as Role | undefined) === "ADMIN");
 const { payments, isLoading, refresh, deletePayment } = useAdminPayments();
 
-const canConfirmPayment = (payment: AdminPaymentRecord) => payment.status !== "PAID" && payment.status !== "CANCELLED";
 const editStateModalOpen = ref(false);
 const editStateTarget = ref<AdminPaymentRecord | null>(null);
 const openEditStateModal = (payment: AdminPaymentRecord) => {
@@ -190,11 +190,12 @@ watch(() => pagination.value.pageIndex, () => {
 });
 
 const openPaymentDetail = (payment: AdminPaymentRecord) => navigateTo(`/admin/payment/${payment.id}`);
-const goToSalesPage = () => navigateTo("/admin/sales");
-const openReceipt = (payment: AdminPaymentRecord) => {
-  const target = payment.status === "PAID" ? "receipt" : "quotation";
-  return navigateTo(`/admin/payment/${payment.id}/${target}`);
+const openSelectedRow = (event: Event, row: { original: AdminPaymentRecord }) => {
+  const target = event.target;
+  if (target instanceof Element && target.closest("button, a, input, select, textarea, [role='button'], [role='menuitem'], [data-row-action]")) return;
+  void openPaymentDetail(row.original);
 };
+const goToSalesPage = () => navigateTo("/admin/sales");
 const openMemberDetail = (payment: AdminPaymentRecord) => navigateTo(`/admin/users/${payment.customer.id}`);
 const openServiceOrderDetail = (serviceOrderId: string) => navigateTo(`/admin/service-orders/${serviceOrderId}`);
 
@@ -278,6 +279,53 @@ const handlePaymentDeselected = (payment: AdminPaymentRecord) => {
 };
 
 const notify = useNotify();
+const { state: printerState, print, restoreGatewayConnection } = useThermalPrinter();
+const showPrinterModal = ref(false);
+const pendingPrintPayment = ref<AdminPaymentRecord | null>(null);
+const printingPaymentId = ref<string | null>(null);
+
+const printPaymentDocument = async (payment: AdminPaymentRecord) => {
+  if (printingPaymentId.value) return;
+
+  printingPaymentId.value = payment.id;
+  try {
+    const type = payment.status === "PAID" ? "receipt" : "quotation";
+    const width = printerState.value.paperWidth === 58 ? 384 : 576;
+    const result = await print(async () => {
+      const blob = await $fetch<Blob>(`/api/admin/payments/${payment.id}/document`, {
+        query: { type, format: "escpos", width },
+        responseType: "blob",
+      });
+      return binaryResponseToPrintBytes(blob);
+    });
+
+    if (result.ok) notify.success("ส่งข้อมูลไปยังเครื่องพิมพ์แล้ว กรุณาตรวจใบที่เครื่อง");
+    else if (result.code === "BUSY") notify.error("เครื่องพิมพ์กำลังรับงานอื่น กรุณารอสักครู่แล้วกดใหม่");
+    else if (result.code === "UNKNOWN_PROGRESS") notify.error("ผลการส่งไม่ชัดเจน กรุณาตรวจที่เครื่องก่อนกดพิมพ์อีกครั้ง");
+    else notify.error("ส่งงานพิมพ์ไม่สำเร็จ กรุณาตรวจการเชื่อมต่อแล้วลองใหม่");
+  } catch (error) {
+    notify.error(error instanceof Error ? error.message : "พิมพ์เอกสารไม่สำเร็จ");
+  } finally {
+    printingPaymentId.value = null;
+  }
+};
+
+const requestPrint = async (payment: AdminPaymentRecord, event?: Event) => {
+  event?.stopPropagation();
+  if (printerState.value.isConnected || await restoreGatewayConnection()) {
+    await printPaymentDocument(payment);
+    return;
+  }
+  pendingPrintPayment.value = payment;
+  showPrinterModal.value = true;
+};
+
+const printAfterConnection = async () => {
+  const payment = pendingPrintPayment.value;
+  pendingPrintPayment.value = null;
+  if (payment) await printPaymentDocument(payment);
+};
+
 const confirmBulkDelete = async () => {
   if (!selectedPayments.value.length) return;
 
@@ -300,35 +348,6 @@ const confirmBulkDelete = async () => {
   } finally {
     isDeleting.value = false;
   }
-};
-
-const getActionItems = (payment: AdminPaymentRecord) => {
-  const primaryItems: Array<Record<string, unknown>> = [
-    { label: "ดูรายละเอียด", icon: "i-lucide-eye", onSelect: () => openPaymentDetail(payment) },
-    payment.status === "PAID"
-      ? { label: "ดูใบเสร็จ", icon: "i-lucide-receipt", onSelect: () => openReceipt(payment) }
-      : { label: "ดูใบแจ้งราคา", icon: "i-lucide-file-text", onSelect: () => openReceipt(payment) },
-  ];
-
-  const serviceOrderId = payment.serviceOrder?.id;
-  if (serviceOrderId) {
-    primaryItems.push({
-      label: `เลขออเดอร์ ${payment.serviceOrder?.orderNo || serviceOrderId}`,
-      icon: "i-lucide-package-search",
-      onSelect: () => openServiceOrderDetail(serviceOrderId),
-    });
-  } else {
-    primaryItems.push({ label: "ดูข้อมูลลูกค้า", icon: "i-lucide-user-round-search", onSelect: () => openMemberDetail(payment) });
-  }
-
-  if (isAdmin.value) {
-    return [
-      primaryItems,
-      [{ label: "ลบรายการ", icon: "i-lucide-trash-2", color: "error", onSelect: () => openDeleteModal(payment) }],
-    ];
-  }
-
-  return [primaryItems];
 };
 
 const columns: TableColumn<AdminPaymentRecord>[] = [
@@ -466,19 +485,6 @@ const columns: TableColumn<AdminPaymentRecord>[] = [
     id: "actions",
     header: "",
     cell: ({ row }) => {
-      const confirmButton = canConfirmPayment(row.original)
-        ? h(UButton, {
-          icon: "i-lucide-check",
-          size: "xs",
-          color: "success",
-          variant: "ghost",
-          title: "ยืนยันการชำระเงิน",
-          onClick: (e: MouseEvent) => {
-            e.stopPropagation();
-            openEditStateModal(row.original);
-          },
-        })
-        : null;
       const detailButton = h(UButton, {
         icon: "i-lucide-eye",
         size: "xs",
@@ -491,36 +497,22 @@ const columns: TableColumn<AdminPaymentRecord>[] = [
         },
       });
 
-      const editButton = h(UButton, {
-        icon: "i-lucide-credit-card",
+      const printButton = h(UButton, {
+        icon: "i-lucide-printer",
         size: "xs",
         color: "primary",
         variant: "ghost",
-        title: "แก้ไขการชำระเงิน",
-        onClick: (e: MouseEvent) => {
-          e.stopPropagation();
-          openEditStateModal(row.original);
-        },
-      });
-
-      const menuButton = h(UButton, {
-        icon: "i-lucide-ellipsis",
-        size: "xs",
-        color: "neutral",
-        variant: "ghost",
-        title: "เมนูเพิ่มเติม",
+        title: row.original.status === "PAID" ? "พิมพ์ใบเสร็จ" : "พิมพ์ใบแจ้งราคา",
+        "aria-label": row.original.status === "PAID" ? "พิมพ์ใบเสร็จ" : "พิมพ์ใบแจ้งราคา",
+        loading: printingPaymentId.value === row.original.id,
+        disabled: Boolean(printingPaymentId.value),
+        onClick: (event: Event) => requestPrint(row.original, event),
       });
 
       return h("div", { class: "flex items-center justify-end gap-1" }, [
-        confirmButton,
-        editButton,
         detailButton,
-        h(
-          UDropdownMenu,
-          { items: getActionItems(row.original), content: { align: "end" } },
-          { default: () => menuButton },
-        ),
-      ].filter(Boolean));
+        printButton,
+      ]);
     },
   },
 ];
@@ -639,7 +631,8 @@ const columns: TableColumn<AdminPaymentRecord>[] = [
 
                 <div v-else class="-mx-2 space-y-1 sm:mx-0">
                   <div v-for="(payment, index) in paginatedPayments" :key="payment.id"
-                    class="overflow-hidden border border-default/30 bg-default transition-[background-color,border-color] duration-200 hover:border-default/45 hover:bg-default dark:border-default/20 dark:bg-elevated/55 dark:hover:bg-elevated/70">
+                    class="cursor-pointer overflow-hidden border border-default/30 bg-default transition-[background-color,border-color] duration-200 hover:border-default/45 hover:bg-default dark:border-default/20 dark:bg-elevated/55 dark:hover:bg-elevated/70"
+                    @click="openSelectedRow($event, { original: payment })">
                     <div class="flex items-start gap-2 p-2">
                       <UCheckbox :model-value="isMobileRowSelected(index)" aria-label="เลือกรายการ"
                         class="mt-1 shrink-0" @update:model-value="setMobileRowSelected(index, $event)" />
@@ -698,12 +691,12 @@ const columns: TableColumn<AdminPaymentRecord>[] = [
                             {{ getMobilePaymentMeta(payment) }}
                           </div>
                           <div class="flex shrink-0 items-center justify-end gap-1">
-                            <UButton icon="i-lucide-credit-card" size="xs" color="primary" variant="ghost"
-                              aria-label="แก้ไขการชำระเงิน" @click="openEditStateModal(payment)" />
-                            <UDropdownMenu :items="getActionItems(payment)" :content="{ align: 'end' }">
-                              <UButton icon="i-lucide-ellipsis" size="xs" color="neutral" variant="ghost"
-                                aria-label="เมนูเพิ่มเติม" />
-                            </UDropdownMenu>
+                            <UButton icon="i-lucide-eye" size="xs" color="neutral" variant="ghost"
+                              aria-label="ดูรายละเอียดประวัติการชำระเงิน" @click="openPaymentDetail(payment)" />
+                            <UButton icon="i-lucide-printer" size="xs" color="primary" variant="ghost"
+                              :aria-label="payment.status === 'PAID' ? 'พิมพ์ใบเสร็จ' : 'พิมพ์ใบแจ้งราคา'"
+                              :loading="printingPaymentId === payment.id" :disabled="Boolean(printingPaymentId)"
+                              @click="requestPrint(payment, $event)" />
                           </div>
                         </div>
                       </div>
@@ -724,7 +717,7 @@ const columns: TableColumn<AdminPaymentRecord>[] = [
                     th: 'border-b border-default bg-default py-2.5 text-xs font-semibold uppercase tracking-wide text-toned dark:border-default/40 dark:bg-default/80',
                     td: 'border-b border-default py-2.5 transition-colors dark:border-default/25',
                     separator: 'h-0',
-                  }">
+                  }" @select="openSelectedRow">
                   <template #empty>
                     <div v-if="isLoading" class="space-y-2 p-3">
                       <USkeleton v-for="i in 6" :key="`tbl-${i}`" class="h-12 w-full rounded-lg" />
@@ -815,6 +808,8 @@ const columns: TableColumn<AdminPaymentRecord>[] = [
           </div>
         </template>
       </UIConfirmModal>
+
+      <PrinterConnectModal v-model:open="showPrinterModal" @connected="printAfterConnection" />
     </ClientOnly>
 
     <EditPaymentStateModal v-if="editStateTarget" v-model:open="editStateModalOpen" :payment-id="editStateTarget.id"
