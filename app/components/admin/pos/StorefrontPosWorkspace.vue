@@ -16,8 +16,6 @@ const dashboardCardClass =
   "-mx-2 border border-default/30 bg-default p-4 dark:border-default/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg";
 const filterBarClass =
   "-mx-2 rounded-lg border border-default/30 bg-default p-2 dark:border-default/40 dark:bg-default/80 sm:mx-0";
-const mobileListCardClass =
-  "border border-default/30 bg-default transition-[background-color,border-color] duration-200 hover:border-default/45 hover:bg-default dark:border-default/20 dark:bg-elevated/55 dark:hover:bg-elevated/70";
 const emptyStateClass =
   "flex flex-col items-center justify-center rounded-lg border border-dashed border-default/30 bg-default/55 px-3 py-5 text-center text-muted dark:border-default/20 dark:bg-elevated/30";
 const checkoutSectionClass = "border-b border-default/40 pb-4";
@@ -905,73 +903,13 @@ const useDuplicateCustomer = async () => {
           </div>
         </div>
 
-        <div v-if="isCatalogLoading" class="space-y-3">
-          <div class="-mx-2 space-y-1 sm:mx-0 md:hidden">
-            <div v-for="i in 5" :key="`mlist-${i}`" :class="[mobileListCardClass, 'px-4 py-3 sm:rounded-lg']"
-              aria-hidden="true">
-              <div class="flex min-w-0 items-start justify-between gap-3">
-                <div class="min-w-0 flex-1 space-y-2">
-                  <USkeleton class="h-4 w-3/4 rounded-lg" />
-                  <USkeleton class="h-3 w-5/6 rounded-lg" />
-                </div>
-                <USkeleton class="h-4 w-16 shrink-0 rounded-lg" />
-              </div>
-
-              <div class="mt-3 flex items-center justify-between gap-3">
-                <USkeleton class="h-3 w-20 rounded-lg" />
-                <div class="flex items-center gap-1">
-                  <USkeleton class="size-7 rounded-lg" />
-                  <USkeleton class="size-7 rounded-lg" />
-                </div>
-              </div>
-            </div>
-          </div>
-          <div class="hidden grid-cols-2 gap-3 md:grid lg:grid-cols-3 xl:grid-cols-3 2xl:grid-cols-4">
-            <PosCatalogCard v-for="i in 8" :key="`mgrid-${i}`" loading />
-          </div>
+        <div v-if="isCatalogLoading"
+          class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-3 2xl:grid-cols-4">
+          <PosCatalogCard v-for="i in 8" :key="`mgrid-${i}`" loading />
         </div>
 
         <div v-else-if="filteredCatalog.length">
-          <div class="-mx-2 space-y-1 sm:mx-0 md:hidden">
-            <div v-for="item in filteredCatalog" :key="item.id" role="button" tabindex="0"
-              :class="[mobileListCardClass, 'px-4 py-3 sm:rounded-lg']" @click="incrementCatalogItem(item.id)"
-              @keydown.enter.prevent="incrementCatalogItem(item.id)"
-              @keydown.space.prevent="incrementCatalogItem(item.id)">
-              <div class="flex min-w-0 items-start justify-between gap-3">
-                <div class="min-w-0">
-                  <div class="flex min-w-0 flex-wrap items-center gap-2">
-                    <p class="min-w-0 wrap-break-word text-sm font-medium text-highlighted">{{ item.label }}</p>
-                    <UBadge v-if="isRangeItem(item.id)" color="warning" variant="subtle" size="xs">กำหนดราคา</UBadge>
-                    <UBadge v-else-if="getCatalogQuantity(item.id) > 0" color="primary" variant="subtle" size="xs">
-                      {{ getCatalogQuantity(item.id) }} ชิ้น
-                    </UBadge>
-                  </div>
-                  <p class="mt-0.5 wrap-break-word text-xs text-muted">{{ getCatalogDescription(item) }}</p>
-                </div>
-
-                <p class="shrink-0 text-sm font-semibold text-highlighted">
-                  {{ item.priceMin != null && item.priceMax != null && item.priceMin !== item.priceMax
-                    ? `฿${item.priceMin.toLocaleString()}–${item.priceMax.toLocaleString()}`
-                    : formatCurrency(item.price) }}
-                </p>
-              </div>
-
-              <div class="mt-3 flex items-center justify-between gap-3">
-                <span class="text-xs text-muted">
-                  {{ getCatalogQuantity(item.id) > 0 ? "เลือกแล้ว" : "แตะเพื่อเพิ่ม" }}
-                </span>
-                <div class="flex items-center gap-1" @click.stop>
-                  <UButton v-if="getCatalogQuantity(item.id) > 0 && !isRangeItem(item.id)" icon="i-lucide-minus"
-                    color="neutral" variant="outline" size="xs" aria-label="ลดจำนวน"
-                    @click="decrementCatalogItem(item.id)" />
-                  <UButton icon="i-lucide-plus" color="neutral" variant="outline" size="xs" aria-label="เพิ่มรายการ"
-                    @click="incrementCatalogItem(item.id)" />
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div class="hidden grid-cols-2 gap-3 md:grid lg:grid-cols-3 xl:grid-cols-3 2xl:grid-cols-4">
+          <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-3 2xl:grid-cols-4">
             <PosCatalogCard v-for="item in filteredCatalog" :key="item.id" :title="item.label"
               :description="getCatalogDescription(item)" badge-label="ราคาหน้าร้าน" badge-color="primary" :price-label="item.priceMin != null && item.priceMax != null && item.priceMin !== item.priceMax
                 ? `฿${item.priceMin.toLocaleString()}–${item.priceMax.toLocaleString()}`
