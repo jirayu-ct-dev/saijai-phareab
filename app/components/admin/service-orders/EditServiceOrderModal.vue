@@ -298,7 +298,6 @@ const creditAvailable = computed(() => Math.max(0, Number(selectedMemberEntitlem
 const packageAllocation = computed(() => allocatePackageCredits(
   formLineItems.value,
   form.memberEntitlementId ? creditAvailable.value : 0,
-  selectedMemberEntitlement.value?.serviceId ?? null,
 ));
 const creditUsedPreview = computed(() => packageAllocation.value.creditUsed);
 const cashSubtotal = computed(() => form.memberEntitlementId ? packageAllocation.value.cashSubtotal : subtotalAmount.value);
@@ -852,11 +851,9 @@ const handleSubmit = async () => {
                       creditUsedPreview }}
                       เครดิต
                       <span v-if="form.memberEntitlementId && cashQuantity > 0">
-                        | นอกบริการหรือเครดิตไม่พอ {{ cashQuantity }} ชิ้น ({{ formatCurrency(cashSubtotal) }})
+                        | เครดิตไม่พอ {{ cashQuantity }} ชิ้น ({{ formatCurrency(cashSubtotal) }})
                       </span>
                     </p>
-                    <p v-if="selectedMemberEntitlement?.serviceName" class="text-xs text-muted">ใช้กับบริการ {{
-                      selectedMemberEntitlement.serviceName }}</p>
                     <p v-if="selectedMemberEntitlement?.startAt && selectedMemberEntitlement?.endAt"
                       class="text-xs text-muted">
                       ช่วงสิทธิ์ {{ formatEntitlementDate(selectedMemberEntitlement.startAt) }}–{{

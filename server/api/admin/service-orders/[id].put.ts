@@ -314,7 +314,6 @@ export default defineEventHandler(async (event) => {
           select: {
             id: true,
             creditRemaining: true,
-            product: { select: { serviceId: true } },
           },
         });
 
@@ -326,7 +325,6 @@ export default defineEventHandler(async (event) => {
         const allocation = allocatePackageCredits(
           orderItems.map((item) => ({ ...item, serviceId: item.price.storefrontService?.id ?? null })),
           creditAvailable,
-          entitlement.product?.serviceId ?? null,
         );
         allocatedItems = allocation.items;
         creditUsed = allocation.creditUsed;
