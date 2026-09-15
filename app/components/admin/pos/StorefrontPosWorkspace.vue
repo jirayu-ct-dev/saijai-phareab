@@ -438,7 +438,6 @@ const creditAvailable = computed(() => Math.max(0, Number(selectedMemberEntitlem
 const packageAllocation = computed(() => allocatePackageCredits(
   cartItems.value,
   form.memberEntitlementId ? creditAvailable.value : 0,
-  selectedMemberEntitlement.value?.serviceId ?? null,
 ));
 const creditUsedPreview = computed(() => packageAllocation.value.creditUsed);
 const cashSubtotal = computed(() => form.memberEntitlementId ? packageAllocation.value.cashSubtotal : subtotalAmount.value);
@@ -1039,12 +1038,10 @@ const useDuplicateCustomer = async () => {
                       <p class="text-xs text-muted">
                         เครดิตคงเหลือ {{ selectedMemberEntitlement?.creditRemaining ?? 0 }} | ใช้ {{ creditUsedPreview
                         }} เครดิต
-                        <span v-if="form.memberEntitlementId && cashQuantity > 0">| นอกบริการหรือเครดิตไม่พอ {{
+                        <span v-if="form.memberEntitlementId && cashQuantity > 0">| เครดิตไม่พอ {{
                           cashQuantity }} ชิ้น
                           ({{ formatCurrency(cashSubtotal) }})</span>
                       </p>
-                      <p v-if="selectedMemberEntitlement?.serviceName" class="text-xs text-muted">ใช้กับบริการ {{
-                        selectedMemberEntitlement.serviceName }}</p>
                       <p v-if="selectedMemberEntitlement" class="text-xs text-muted">
                         ช่วงสิทธิ์ {{ formatEntitlementDate(selectedMemberEntitlement.startAt) }}–{{
                           formatEntitlementDate(selectedMemberEntitlement.endAt) }}

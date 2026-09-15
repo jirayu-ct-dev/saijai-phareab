@@ -1,7 +1,6 @@
 export type PackageCreditLine = {
   quantity: number;
   unitPrice: number;
-  serviceId: string | null;
 };
 
 export type AllocatedPackageCreditLine<T extends PackageCreditLine> = T & {
@@ -12,7 +11,6 @@ export type AllocatedPackageCreditLine<T extends PackageCreditLine> = T & {
 export const allocatePackageCredits = <T extends PackageCreditLine>(
   items: T[],
   availableCredits: number,
-  eligibleServiceId: string | null,
 ): {
   items: Array<AllocatedPackageCreditLine<T>>;
   creditUsed: number;
@@ -22,10 +20,7 @@ export const allocatePackageCredits = <T extends PackageCreditLine>(
   let remainingCredits = Math.max(0, Math.floor(availableCredits));
 
   const allocatedItems = items.map((item) => {
-    const serviceMatches = eligibleServiceId === null || item.serviceId === eligibleServiceId;
-    const creditQuantity = serviceMatches
-      ? Math.min(Math.max(0, Math.floor(item.quantity)), remainingCredits)
-      : 0;
+    const creditQuantity = Math.min(Math.max(0, Math.floor(item.quantity)), remainingCredits);
     remainingCredits -= creditQuantity;
 
     return {
