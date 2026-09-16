@@ -23,6 +23,7 @@ RICHMENU_DATABASE_URL=...
 ```
 
 สำหรับ branch `exam-v1` ต้องใช้ token และ LIFF ของ exam channel เดียวกันเท่านั้น ห้ามใช้ LIFF ของ main (`2008353043-Z6ED4BLd`) หรือฐานข้อมูล main; ห้าม commit ไฟล์ env เหล่านี้
+`RICHMENU_LINE_ACCESS_TOKEN` ต้องเป็น token ของ LINE channel เดียวกับ `RICHMENU_LIFF_ID`; `RICHMENU_DATABASE_URL` ใช้เฉพาะกรณีต้องการ sync ผู้ใช้ของฐานนั้น
 
 สคริปต์จะไม่ reuse เมนูเดิมถ้า action/LIFF ID เปลี่ยน เพราะ LINE Messaging API ไม่มี endpoint สำหรับแก้ metadata ของ Rich Menu เดิม แต่จะสร้างเมนูชุดใหม่แล้วตั้ง default/link ใหม่ให้แทน
 
