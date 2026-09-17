@@ -978,7 +978,7 @@ const handleSubmit = async () => {
                       </div>
                     </div>
                     <div class="flex shrink-0 items-center gap-0.5">
-                      <UInputNumber :model-value="item.quantity" :step="1" size="xs" class="w-20"
+                      <UInputNumber :model-value="item.quantity" :min="0" :step="1" orientation="horizontal" size="xs" class="w-24"
                         @update:model-value="setItemQuantity(item.key, $event)" />
                       <template v-if="isEditRangeItem(item.storefrontPriceId)">
                         <UInput :model-value="item.unitPrice ?? item.unitPrice" type="number" size="xs" class="w-20"
