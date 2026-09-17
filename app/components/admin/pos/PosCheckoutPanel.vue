@@ -23,6 +23,8 @@ const props = defineProps<{
   note: string;
   totalLabel: string;
   totalValue: string;
+  totalValueClass?: string;
+  totalSubValue?: string;
   totalMeta: string;
   submitLabel: string;
   isSubmitting?: boolean;
@@ -30,6 +32,7 @@ const props = defineProps<{
   uploadedSlipUrl?: string | null;
   uploadedSlipLabel?: string | null;
   hidePaymentFields?: boolean;
+  packageNotice?: string;
   flat?: boolean;
   sectionClass?: string;
 }>();
@@ -274,15 +277,20 @@ const panelSectionClass = computed(() =>
         v-if="props.hidePaymentFields"
         :class="[panelSectionClass, 'text-sm']"
       >
-        <p class="font-medium text-success">ใช้สิทธิ์แพ็กเกจรายเดือน</p>
-        <p class="text-muted">ไม่ต้องชำระเงินเพิ่ม ระบบจะตัดเครดิตให้อัตโนมัติ</p>
+        <p :class="['font-medium', props.totalValueClass?.includes('error') ? 'text-error' : 'text-success']">
+          {{ props.totalValueClass?.includes('error') ? 'ใช้สิทธิ์แพ็กเกจรายเดือน (เครดิตติดลบ)' : 'ใช้สิทธิ์แพ็กเกจรายเดือน' }}
+        </p>
+        <p class="text-muted">
+          {{ props.packageNotice || (props.totalValueClass?.includes('error') ? 'เครดิตคงเหลือไม่พอ ระบบจะบันทึกเป็นยอดติดลบและหักอัตโนมัติเมื่อซื้อแพ็กเกจใหม่' : 'ไม่ต้องชำระเงินเพิ่ม ระบบจะตัดเครดิตให้อัตโนมัติ') }}
+        </p>
       </div>
 
       <div :class="[panelSectionClass, 'text-default']">
         <div class="flex items-center justify-between gap-3">
           <div>
             <p class="text-sm/5 text-muted">{{ props.totalLabel }}</p>
-            <p class="text-3xl font-semibold text-highlighted">{{ props.totalValue }}</p>
+            <p :class="['text-3xl font-semibold', props.totalValueClass || 'text-highlighted']">{{ props.totalValue }}</p>
+            <p v-if="props.totalSubValue" class="mt-1 text-xs text-muted">{{ props.totalSubValue }}</p>
           </div>
           <div class="text-right text-sm text-muted">
             <p>{{ props.totalMeta }}</p>

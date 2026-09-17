@@ -7,15 +7,27 @@ describe("package credits", () => {
     { id: "wash-shirt", serviceId: "wash", quantity: 2, unitPrice: 40 },
   ];
 
-  it("uses available credits across services in item order", () => {
-    const result = allocatePackageCredits(items, 4);
+  it("covers all items with credit when a package is selected, allowing overdraft", () => {
+    const result = allocatePackageCredits(items, 4, true);
 
-    expect(result.creditUsed).toBe(4);
-    expect(result.cashQuantity).toBe(1);
-    expect(result.cashSubtotal).toBe(40);
+    expect(result.creditUsed).toBe(5);
+    expect(result.cashQuantity).toBe(0);
+    expect(result.cashSubtotal).toBe(0);
     expect(result.items.map((item) => [item.id, item.creditQuantity, item.cashQuantity])).toEqual([
       ["iron-shirt", 3, 0],
-      ["wash-shirt", 1, 1],
+      ["wash-shirt", 2, 0],
+    ]);
+  });
+
+  it("charges cash for all items when no package is selected", () => {
+    const result = allocatePackageCredits(items, 0, false);
+
+    expect(result.creditUsed).toBe(0);
+    expect(result.cashQuantity).toBe(5);
+    expect(result.cashSubtotal).toBe(140);
+    expect(result.items.map((item) => [item.id, item.creditQuantity, item.cashQuantity])).toEqual([
+      ["iron-shirt", 0, 3],
+      ["wash-shirt", 0, 2],
     ]);
   });
 });

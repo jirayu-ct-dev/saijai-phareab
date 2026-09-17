@@ -288,10 +288,11 @@ export default defineEventHandler(async (event) => {
         }
       }
 
-      const creditAvailable = memberEntitlement ? Math.max(0, Number(memberEntitlement.creditRemaining ?? 0)) : 0;
+      const creditAvailable = memberEntitlement ? Number(memberEntitlement.creditRemaining ?? 0) : 0;
       const allocation = allocatePackageCredits(
         orderItems.map((item) => ({ ...item, serviceId: item.price.storefrontService?.id ?? null })),
         creditAvailable,
+        Boolean(memberEntitlement),
       );
       const allocatedItems: AllocatedItem[] = allocation.items;
       const creditUsed = allocation.creditUsed;
@@ -315,8 +316,8 @@ export default defineEventHandler(async (event) => {
         const { count } = await tx.memberEntitlement.updateMany({
           where: {
             id: memberEntitlement.id,
+            deletedAt: null,
             ...(history ? backdatedEntitlementWhere(receivedAt) : activeEntitlementGuard),
-            creditRemaining: { gte: creditUsed },
           },
           data: {
             creditRemaining: {
@@ -326,7 +327,7 @@ export default defineEventHandler(async (event) => {
         });
 
         if (count === 0) {
-          throw createError({ statusCode: 409, statusMessage: "เครดิตไม่พอ กรุณาลองใหม่" });
+          throw createError({ statusCode: 409, statusMessage: "ไม่พบสิทธิ์แพ็กเกจที่เลือก กรุณาลองใหม่" });
         }
       }
 

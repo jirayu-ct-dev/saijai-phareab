@@ -81,7 +81,7 @@ describe("editing an order's monthly package", () => {
       }),
     }));
     expect(db.memberEntitlement.updateMany).toHaveBeenCalledWith(expect.objectContaining({
-      where: expect.objectContaining({ id: "entitlement", creditRemaining: { gte: 2 } }),
+      where: expect.objectContaining({ id: "entitlement" }),
     }));
     expect(db.serviceOrder.updateMany).toHaveBeenCalledWith(expect.objectContaining({
       data: expect.objectContaining({ memberEntitlementId: "entitlement", creditUsed: 2 }),

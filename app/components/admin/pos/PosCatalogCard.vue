@@ -1,5 +1,5 @@
 <script setup lang="ts">
-defineProps<{
+const props = defineProps<{
   title?: string;
   description?: string | null;
   badgeLabel?: string;
@@ -11,6 +11,7 @@ defineProps<{
   isRange?: boolean;
   toneClass?: string;
   loading?: boolean;
+  decrementDisabled?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -23,6 +24,16 @@ const defaultSelectedToneClass = {
   primary: "border-primary/30 bg-primary/5 hover:bg-primary/[0.08] dark:border-primary/25 dark:bg-elevated/65 dark:hover:bg-elevated/75",
   warning: "border-warning/30 bg-warning/[0.06] hover:bg-warning/[0.09] dark:border-warning/25 dark:bg-elevated/65 dark:hover:bg-elevated/75",
   info: "border-info/30 bg-info/5 hover:bg-info/[0.08] dark:border-info/25 dark:bg-elevated/65 dark:hover:bg-elevated/75",
+};
+
+const handleCardClick = () => {
+  emit("increment");
+};
+
+const handleBottomRowClick = (e: MouseEvent) => {
+  if ((props.quantity ?? 0) > 0) {
+    e.stopPropagation();
+  }
 };
 </script>
 
@@ -52,10 +63,10 @@ const defaultSelectedToneClass = {
     tabindex="0"
     title="คลิกเพื่อเพิ่ม | คลิกขวาเพื่อลด"
     :class="[
-      'flex min-h-32 cursor-pointer flex-col justify-between gap-3 border p-3 transition-[background-color,border-color] duration-200 sm:rounded-lg',
+      'flex min-h-32 select-none cursor-pointer flex-col justify-between gap-3 border p-3 transition-[background-color,border-color] duration-200 sm:rounded-lg',
       toneClass || (selected ? defaultSelectedToneClass[badgeColor || 'primary'] : 'border-default/30 bg-default hover:border-default/45 dark:border-default/20 dark:bg-elevated/55 dark:hover:bg-elevated/70')
     ]"
-    @click="emit('increment')"
+    @click="handleCardClick"
     @contextmenu.prevent="emit('decrement')"
     @keydown.enter.prevent="emit('increment')"
     @keydown.space.prevent="emit('increment')"
@@ -66,19 +77,43 @@ const defaultSelectedToneClass = {
       <UBadge :color="badgeColor" variant="subtle" size="xs" class="mt-0.5">{{ badgeLabel }}</UBadge>
     </div>
 
-    <div class="flex items-end justify-between gap-3 border-t border-default/15 pt-2.5 dark:border-default/10">
+    <div
+      class="flex items-end justify-between gap-2 border-t border-default/15 pt-2.5 dark:border-default/10"
+      @click="handleBottomRowClick"
+    >
       <div class="min-w-0">
         <p class="text-sm font-semibold text-highlighted">{{ priceLabel }}</p>
         <p v-if="metaLabel" class="truncate text-xs text-muted">{{ metaLabel }}</p>
       </div>
 
-      <div v-if="(quantity ?? 0) > 0 && !isRange" class="shrink-0" @click.stop @contextmenu.stop>
-        <UInputNumber
-          :model-value="quantity"
-          :step="1"
+      <div
+        v-if="(quantity ?? 0) > 0 && !isRange"
+        class="flex items-center gap-0.5 shrink-0 rounded-lg border border-default/40 bg-default/90 p-0.5 shadow-2xs dark:border-default/20 dark:bg-elevated/80"
+        @click.stop
+        @pointerdown.stop
+        @touchstart.stop
+      >
+        <UButton
+          :icon="quantity === 1 ? 'i-lucide-trash-2' : 'i-lucide-minus'"
+          :color="quantity === 1 ? 'error' : 'neutral'"
+          variant="ghost"
           size="xs"
-          class="w-20"
-          @update:model-value="emit('change', Math.max(0, Number.isFinite($event) ? Math.floor($event) : 0))"
+          class="size-7 justify-center p-0 active:scale-90 touch-manipulation"
+          :disabled="decrementDisabled"
+          aria-label="ลดจำนวน"
+          @click.stop.prevent="emit('decrement')"
+        />
+        <span class="min-w-5 px-1 text-center text-xs font-semibold tabular-nums text-highlighted select-none">
+          {{ quantity }}
+        </span>
+        <UButton
+          icon="i-lucide-plus"
+          color="primary"
+          variant="subtle"
+          size="xs"
+          class="size-7 justify-center p-0 active:scale-90 touch-manipulation"
+          aria-label="เพิ่มจำนวน"
+          @click.stop.prevent="emit('increment')"
         />
       </div>
       <UBadge v-else-if="(quantity ?? 0) > 0 && isRange" color="primary" variant="subtle" size="xs" class="shrink-0">

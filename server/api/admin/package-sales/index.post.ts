@@ -9,6 +9,7 @@ import { notifyReceipt } from "~~/server/utils/notify";
 import { syncLineRichMenuForUser } from "~~/server/utils/line-richmenu";
 import { backdatedSaleSchema } from "~~/shared/utils/backdatedOrder";
 import { createOfflineCustomer, isCustomerUniqueConflict, resolveOfflineCustomerConflict } from "~~/server/utils/customerAccount";
+import { settleNegativeEntitlements } from "~~/server/utils/serviceOrderCredits";
 
 type CreatePackageSaleBody = {
   customerId: string;
@@ -198,7 +199,7 @@ export default defineEventHandler(async (event) => {
 
       for (const saleItem of createdSaleItems) {
         for (let count = 0; count < saleItem.qty; count += 1) {
-          await tx.memberEntitlement.create({
+          const createdEnt = await tx.memberEntitlement.create({
             data: {
               customerId: paymentUserId,
               sourceSaleItemId: saleItem.id,
@@ -206,6 +207,10 @@ export default defineEventHandler(async (event) => {
               ...buildEntitlementState(saleItem.product.validityDays, saleItem.product.credits, isPaid, soldAt),
             },
           });
+
+          if (isPaid && saleItem.product.packageType === "MAIN") {
+            await settleNegativeEntitlements(tx, paymentUserId, createdEnt.id);
+          }
         }
       }
 

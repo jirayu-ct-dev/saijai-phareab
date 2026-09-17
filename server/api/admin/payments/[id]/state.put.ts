@@ -10,6 +10,7 @@ import {
   paymentMethods,
   paymentStatuses,
 } from "~~/server/utils/paymentStateTransition";
+import { settleNegativeEntitlements } from "~~/server/utils/serviceOrderCredits";
 import type { PaymentMethod, PaymentStatus } from "~~/shared/types/enums";
 
 type UpdatePaymentStateBody = {
@@ -64,7 +65,7 @@ export default defineEventHandler(async (event) => {
                   id: true,
                   status: true,
                   creditInitial: true,
-                  product: { select: { credits: true, validityDays: true } },
+                  product: { select: { packageType: true, credits: true, validityDays: true } },
                   serviceOrders: { where: { deletedAt: null }, select: { id: true }, take: 1 },
                   serviceOrderAddonUsages: {
                     where: {
@@ -172,6 +173,10 @@ export default defineEventHandler(async (event) => {
               creditRemaining: entitlement.product.credits ?? entitlement.creditInitial ?? 0,
             },
           });
+
+          if (existing.packageSale?.customerId && entitlement.product.packageType === "MAIN") {
+            await settleNegativeEntitlements(tx, existing.packageSale.customerId, entitlement.id);
+          }
         }
       }
     });

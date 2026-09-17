@@ -89,7 +89,7 @@ describe("recording a missed laundry order", () => {
     body.backdated = { receivedAt: "2026-09-01T09:00", status: "RECEIVED" };
     await submit();
     expect(db.memberEntitlement.findFirst).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ customerId: "customer", status: { in: ["ACTIVE", "EXPIRED"] }, AND: expect.arrayContaining([{ OR: [{ endAt: null }, { endAt: { gte: new Date("2026-09-01T02:00Z") } }] }]) }) }));
-    expect(db.memberEntitlement.updateMany).toHaveBeenCalledWith({ where: expect.objectContaining({ id: "entitlement", creditRemaining: { gte: 2 } }), data: { creditRemaining: { decrement: 2 } } });
+    expect(db.memberEntitlement.updateMany).toHaveBeenCalledWith({ where: expect.objectContaining({ id: "entitlement" }), data: { creditRemaining: { decrement: 2 } } });
     expect(db.paymentRecord.create).toHaveBeenCalledWith({ data: expect.objectContaining({ amount: 0, status: "PAID", paidAt: new Date("2026-09-01T02:00Z") }) });
   });
 
