@@ -88,32 +88,20 @@ const handleBottomRowClick = (e: MouseEvent) => {
 
       <div
         v-if="(quantity ?? 0) > 0 && !isRange"
-        class="flex items-center gap-0.5 shrink-0 rounded-lg border border-default/40 bg-default/90 p-0.5 shadow-2xs dark:border-default/20 dark:bg-elevated/80"
+        class="shrink-0"
         @click.stop
         @pointerdown.stop
         @touchstart.stop
       >
-        <UButton
-          :icon="quantity === 1 ? 'i-lucide-trash-2' : 'i-lucide-minus'"
-          :color="quantity === 1 ? 'error' : 'neutral'"
-          variant="ghost"
+        <UInputNumber
+          :model-value="quantity"
+          :min="0"
+          :step="1"
+          orientation="horizontal"
           size="xs"
-          class="size-7 justify-center p-0 active:scale-90 touch-manipulation"
-          :disabled="decrementDisabled"
-          aria-label="ลดจำนวน"
-          @click.stop.prevent="emit('decrement')"
-        />
-        <span class="min-w-5 px-1 text-center text-xs font-semibold tabular-nums text-highlighted select-none">
-          {{ quantity }}
-        </span>
-        <UButton
-          icon="i-lucide-plus"
-          color="primary"
-          variant="subtle"
-          size="xs"
-          class="size-7 justify-center p-0 active:scale-90 touch-manipulation"
-          aria-label="เพิ่มจำนวน"
-          @click.stop.prevent="emit('increment')"
+          class="w-24"
+          :decrement-disabled="decrementDisabled"
+          @update:model-value="emit('change', Math.max(0, Number.isFinite($event) ? Math.floor($event) : 0))"
         />
       </div>
       <UBadge v-else-if="(quantity ?? 0) > 0 && isRange" color="primary" variant="subtle" size="xs" class="shrink-0">
