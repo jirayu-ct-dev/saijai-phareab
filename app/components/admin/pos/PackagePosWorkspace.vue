@@ -545,7 +545,7 @@ const handleSubmit = async () => {
                       </p>
                     </div>
                     <div class="flex shrink-0 items-center gap-1.5">
-                      <UInputNumber :model-value="item.quantity" :min="0" :step="1" size="xs" class="w-20"
+                      <UInputNumber :model-value="item.quantity" :min="0" :step="1" orientation="horizontal" size="xs" class="w-24"
                         @update:model-value="setItemQuantity(item.key, Number.isFinite($event) ? $event : 0)" />
                       <span class="w-16 text-right text-xs font-medium text-muted">
                         {{ formatCurrency(item.totalPrice) }}

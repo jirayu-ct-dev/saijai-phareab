@@ -1146,7 +1146,7 @@ const useDuplicateCustomer = async () => {
                           </span>
                         </div>
                         <div class="mt-1 flex items-center gap-1" @click.stop>
-                          <UInputNumber :model-value="item.quantity" :min="0" :step="1" size="xs" class="w-20"
+                          <UInputNumber :model-value="item.quantity" :min="0" :step="1" orientation="horizontal" size="xs" class="w-24"
                             @update:model-value="setItemQuantity(item.key, $event)" />
                         </div>
                       </div>
