@@ -321,10 +321,11 @@ export default defineEventHandler(async (event) => {
           throw createError({ statusCode: 404, statusMessage: "ไม่พบสิทธิ์แพ็กเกจรายเดือนที่เลือก หรือช่วงสิทธิ์ไม่ครอบคลุมวันรับผ้าของรายการนี้" });
         }
 
-        const creditAvailable = Math.max(0, Number(entitlement.creditRemaining ?? 0));
+        const creditAvailable = Number(entitlement.creditRemaining ?? 0);
         const allocation = allocatePackageCredits(
           orderItems.map((item) => ({ ...item, serviceId: item.price.storefrontService?.id ?? null })),
           creditAvailable,
+          true,
         );
         allocatedItems = allocation.items;
         creditUsed = allocation.creditUsed;
@@ -338,7 +339,7 @@ export default defineEventHandler(async (event) => {
           const { count } = await tx.memberEntitlement.updateMany({
             where: {
               id: entitlement.id,
-              creditRemaining: { gte: creditUsed },
+              deletedAt: null,
               ...backdatedEntitlementWhere(existing.receivedAt),
             },
             data: {
@@ -349,7 +350,7 @@ export default defineEventHandler(async (event) => {
           });
 
           if (count === 0) {
-            throw createError({ statusCode: 409, statusMessage: "เครดิตไม่พอ กรุณาลองใหม่" });
+            throw createError({ statusCode: 409, statusMessage: "ไม่พบสิทธิ์แพ็กเกจที่เลือก กรุณาลองใหม่" });
           }
         }
 

@@ -213,10 +213,14 @@ const formatEntitlementDate = (value: string | null) => {
   const bkk = new Date(date.getTime() + BANGKOK_OFFSET_MS);
   return `${String(bkk.getUTCDate()).padStart(2, "0")}/${String(bkk.getUTCMonth() + 1).padStart(2, "0")}/${bkk.getUTCFullYear()}`;
 };
-const memberEntitlementPickerItems = computed(() => memberEntitlementOptions.value.map((option) => ({
-  label: `${option.productName} · ${formatEntitlementDate(option.startAt)}–${formatEntitlementDate(option.endAt)} · เครดิตคงเหลือ ${option.creditRemaining ?? 0}`,
-  value: option.id,
-})));
+const memberEntitlementPickerItems = computed(() => memberEntitlementOptions.value.map((option) => {
+  const rem = Number(option.creditRemaining ?? 0);
+  const statusSuffix = rem < 0 ? ' (ติดลบ)' : rem === 0 ? ' (หมดแล้ว)' : '';
+  return {
+    label: `${option.productName} · ${formatEntitlementDate(option.startAt)}–${formatEntitlementDate(option.endAt)} · เครดิตคงเหลือ ${rem}${statusSuffix}`,
+    value: option.id,
+  };
+}));
 const memberEntitlementPickerValue = computed({
   get: () => form.memberEntitlementId ?? undefined,
   set: (value: string | undefined) => { form.memberEntitlementId = value ?? null; },
@@ -434,10 +438,11 @@ const clearDueDate = () => {
   dueTime.value = "00:00";
 };
 
-const creditAvailable = computed(() => Math.max(0, Number(selectedMemberEntitlement.value?.creditRemaining ?? 0)));
+const creditAvailable = computed(() => Number(selectedMemberEntitlement.value?.creditRemaining ?? 0));
 const packageAllocation = computed(() => allocatePackageCredits(
   cartItems.value,
-  form.memberEntitlementId ? creditAvailable.value : 0,
+  creditAvailable.value,
+  Boolean(form.memberEntitlementId),
 ));
 const creditUsedPreview = computed(() => packageAllocation.value.creditUsed);
 const cashSubtotal = computed(() => form.memberEntitlementId ? packageAllocation.value.cashSubtotal : subtotalAmount.value);
@@ -459,6 +464,47 @@ const vatPreview = computed(() => computeVatPreview(beforeVatAmount.value));
 const totalAmount = computed(() => vatPreview.value.totalAmount);
 
 const isMemberWithZeroTotal = computed(() => Boolean(form.memberEntitlementId) && totalAmount.value === 0);
+const creditShortfall = computed(() => {
+  if (!form.memberEntitlementId || !selectedMemberEntitlement.value) return 0;
+  const rem = Number(selectedMemberEntitlement.value.creditRemaining ?? 0);
+  const available = Math.max(0, rem);
+  return Math.max(0, creditUsedPreview.value - available);
+});
+const isNegativeCreditPreview = computed(() => creditShortfall.value > 0);
+const posTotalValue = computed(() => {
+  if (isMemberWithZeroTotal.value) {
+    return isNegativeCreditPreview.value
+      ? `-${creditShortfall.value} เครดิต`
+      : `${creditUsedPreview.value} เครดิต`;
+  }
+  return formatCurrency(totalAmount.value);
+});
+const posTotalValueClass = computed(() => {
+  if (isMemberWithZeroTotal.value) {
+    return isNegativeCreditPreview.value ? "text-error" : "text-success";
+  }
+  return "text-highlighted";
+});
+const posTotalSubValue = computed(() => {
+  if (!isMemberWithZeroTotal.value) return "";
+  const rem = Number(selectedMemberEntitlement.value?.creditRemaining ?? 0);
+  if (isNegativeCreditPreview.value) {
+    if (rem > 0) {
+      return `ใช้ ${creditUsedPreview.value} เครดิต (เดิมมี ${rem} เครดิต)`;
+    }
+    const nextBalance = rem - creditUsedPreview.value;
+    return `ใช้ ${creditUsedPreview.value} เครดิต (ยอดคงเหลือจะเป็น ${nextBalance} เครดิต)`;
+  }
+  const nextBalance = rem - creditUsedPreview.value;
+  return `ใช้ ${creditUsedPreview.value} เครดิต (คงเหลือหลังหัก ${nextBalance} เครดิต)`;
+});
+const posPackageNotice = computed(() => {
+  if (!isMemberWithZeroTotal.value) return "";
+  if (isNegativeCreditPreview.value) {
+    return `เครดิตคงเหลือไม่พอ ระบบจะบันทึกเป็นยอดติดลบ ${creditShortfall.value} เครดิต และหักอัตโนมัติเมื่อซื้อแพ็กเกจใหม่`;
+  }
+  return "ไม่ต้องชำระเงินเพิ่ม ระบบจะตัดเครดิตให้อัตโนมัติ";
+});
 const selectedAddonEntitlements = computed(() => form.addonEntitlements.filter((item) => {
   const addon = activeAddonEntitlements.value.find((entry) => entry.id === item.entitlementId);
   return Boolean(addon?.isDelivery) || item.credits > 0;
@@ -717,7 +763,7 @@ watch(
     // Keep an explicit pick as long as it still covers the receive date;
     // re-default only when the current selection is no longer offered.
     if (form.memberEntitlementId && memberEntitlementOptions.value.some((option) => option.id === form.memberEntitlementId)) return;
-    form.memberEntitlementId = (entitlement.creditRemaining ?? 0) > 0 ? entitlement.id : null;
+    form.memberEntitlementId = entitlement.id;
   },
   { immediate: true },
 );
@@ -942,7 +988,8 @@ const useDuplicateCustomer = async () => {
           :customer-id="form.customerId" :customer-options="customerOptions" :customer-loading="isCustomersLoading"
           allow-new-customer :customer-mode="form.customerMode" :new-customer-name="form.newCustomerName"
           :new-customer-phone="form.newCustomerPhone" :new-customer-email="form.newCustomerEmail" :note="form.note"
-          total-label="ยอดรวมสุทธิ" :total-value="formatCurrency(totalAmount)"
+          total-label="ยอดรวมสุทธิ" :total-value="posTotalValue" :total-value-class="posTotalValueClass"
+          :total-sub-value="posTotalSubValue" :package-notice="posPackageNotice"
           :total-meta="`${cartItems.length} รายการ | ${totalQuantity} ชิ้น`"
           :submit-label="backdatedEnabled ? 'บันทึกรับผ้าย้อนหลัง' : 'บันทึกรับผ้า'" :is-submitting="isSubmitting"
           :slip-file="slipFile" :uploaded-slip-url="uploadedSlip?.secureUrl || uploadedSlip?.url"
@@ -1036,11 +1083,14 @@ const useDuplicateCustomer = async () => {
                       <p class="truncate text-sm font-medium text-success">{{ selectedMemberEntitlement?.productName }}
                       </p>
                       <p class="text-xs text-muted">
-                        เครดิตคงเหลือ {{ selectedMemberEntitlement?.creditRemaining ?? 0 }} | ใช้ {{ creditUsedPreview
-                        }} เครดิต
-                        <span v-if="form.memberEntitlementId && cashQuantity > 0">| เครดิตไม่พอ {{
-                          cashQuantity }} ชิ้น
-                          ({{ formatCurrency(cashSubtotal) }})</span>
+                        เครดิตคงเหลือ
+                        <span :class="Number(selectedMemberEntitlement?.creditRemaining ?? 0) < 0 ? 'text-error font-medium' : ''">
+                          {{ selectedMemberEntitlement?.creditRemaining ?? 0 }}
+                        </span>
+                        | ใช้ {{ creditUsedPreview }} เครดิต
+                        <span v-if="form.memberEntitlementId && (Number(selectedMemberEntitlement?.creditRemaining ?? 0) - creditUsedPreview < 0)" class="text-error font-medium">
+                          | ยอดหลังหักติดลบ {{ Number(selectedMemberEntitlement?.creditRemaining ?? 0) - creditUsedPreview }} เครดิต
+                        </span>
                       </p>
                       <p v-if="selectedMemberEntitlement" class="text-xs text-muted">
                         ช่วงสิทธิ์ {{ formatEntitlementDate(selectedMemberEntitlement.startAt) }}–{{
@@ -1052,8 +1102,9 @@ const useDuplicateCustomer = async () => {
                     <USwitch :model-value="Boolean(form.memberEntitlementId)" color="success" size="sm"
                       @update:model-value="form.memberEntitlementId = $event ? selectedMemberEntitlement?.id ?? null : null" />
                   </div>
-                  <USelect v-if="backdatedEnabled && memberEntitlementOptions.length > 1"
+                  <USelect v-if="memberEntitlementOptions.length > 1"
                     v-model="memberEntitlementPickerValue" :items="memberEntitlementPickerItems" value-key="value"
+                    :disabled="!form.memberEntitlementId"
                     size="xs" class="mt-2 w-full" aria-label="เลือกแพ็กเกจที่ใช้" />
                 </div>
 

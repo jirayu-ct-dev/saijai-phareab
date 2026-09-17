@@ -173,18 +173,51 @@ const columns: TableColumn<MyServiceOrder>[] = [
       const total = Number(order.totalAmount ?? 0);
       const used = order.creditUsed ?? 0;
       const initial = entitlement?.creditInitial ?? 0;
+      const remaining = (entitlement as any)?.orderCreditRemaining ?? entitlement?.creditRemaining ?? 0;
+      const isNegative = Boolean((entitlement as any)?.isOrderNegative);
+      const isSettled = Boolean((entitlement as any)?.isSettled);
       const isMemberZero = Boolean(entitlement) && total === 0;
 
+      const shortfall = (entitlement as any)?.orderCreditShortfall || used;
+
       if (isMemberZero) {
-        return h("div", { class: "space-y-0.5 text-right" }, [
-          h("p", { class: "text-sm font-medium text-success" }, "ใช้เครดิต"),
-          h("p", { class: "text-xs text-muted" }, `${used} / ${initial} เครดิต`),
+        return h("div", { class: "space-y-1 text-right" }, [
+          h(
+            "p",
+            { class: isNegative ? "text-sm font-medium text-error" : isSettled ? "text-sm font-medium text-info" : "text-sm font-medium text-success" },
+            isNegative ? `-${shortfall} เครดิต` : `${used} เครดิต`
+          ),
+          isSettled
+            ? h("div", { class: "flex justify-end" }, [
+                h(UBadge, { color: "info", variant: "subtle", size: "xs" }, () => "หักจากแพ็กใหม่แล้ว"),
+              ])
+            : h(
+                "p",
+                {
+                  class: isNegative
+                    ? "text-xs font-medium text-error"
+                    : "text-xs text-muted",
+                },
+                isNegative
+                  ? `ใช้ ${used} เหลือ ${remaining}`
+                  : `${remaining} / ${initial} เครดิต`
+              ),
         ]);
       }
 
-      return h("div", { class: "space-y-0.5 text-right" }, [
+      return h("div", { class: "space-y-1 text-right" }, [
         h("p", { class: "text-sm font-medium text-highlighted" }, formatCurrency(total)),
-        entitlement ? h("p", { class: "text-xs text-success" }, `ใช้ ${used} เครดิต`) : null,
+        entitlement
+          ? (isSettled
+              ? h("div", { class: "flex justify-end" }, [
+                  h(UBadge, { color: "info", variant: "subtle", size: "xs" }, () => "หักจากแพ็กใหม่แล้ว"),
+                ])
+              : h(
+                  "p",
+                  { class: isNegative ? "text-xs font-medium text-error" : "text-xs text-success" },
+                  isNegative ? `-${shortfall} เครดิต (ใช้ ${used} เหลือ ${remaining})` : `${used} เครดิต (${remaining}/${initial})`
+                ))
+          : null,
       ]);
     },
   },
@@ -342,8 +375,21 @@ const columns: TableColumn<MyServiceOrder>[] = [
                             {{ orderStatusLabels[order.status as ServiceOrderStatus] }}
                           </UBadge>
                           <template v-if="order.memberEntitlement && Number(order.totalAmount ?? 0) === 0">
-                            <span class="text-[13px] font-semibold leading-none text-success">ใช้เครดิต</span>
-                            <span class="text-[10px] text-muted">{{ order.creditUsed ?? 0 }} เครดิต</span>
+                            <span :class="(order.memberEntitlement as any).isOrderNegative ? 'text-[13px] font-semibold leading-none text-error' : (order.memberEntitlement as any).isSettled ? 'text-[13px] font-semibold leading-none text-info' : 'text-[13px] font-semibold leading-none text-success'">
+                              {{ (order.memberEntitlement as any).isOrderNegative ? `-${(((order.memberEntitlement as any).orderCreditShortfall || order.creditUsed) ?? 0)} เครดิต` : `${order.creditUsed ?? 0} เครดิต` }}
+                            </span>
+                            <UBadge v-if="(order.memberEntitlement as any).isSettled" color="info" variant="subtle" size="xs">
+                              หักจากแพ็กใหม่แล้ว
+                            </UBadge>
+                            <span v-else :class="['text-[10px]', (order.memberEntitlement as any).isOrderNegative ? 'text-error font-medium' : 'text-muted']">
+                              {{ (order.memberEntitlement as any).isOrderNegative ? `ใช้ ${order.creditUsed ?? 0} เหลือ ${(order.memberEntitlement as any).orderCreditRemaining ?? order.memberEntitlement.creditRemaining ?? 0}` : `${(order.memberEntitlement as any).orderCreditRemaining ?? order.memberEntitlement.creditRemaining ?? 0} / ${order.memberEntitlement.creditInitial ?? 0} เครดิต` }}
+                            </span>
+                          </template>
+                          <template v-else-if="order.memberEntitlement">
+                            <span class="text-[13px] font-semibold leading-none tabular-nums text-primary">{{ formatCurrency(Number(order.totalAmount ?? 0)) }}</span>
+                            <UBadge v-if="(order.memberEntitlement as any).isSettled" color="info" variant="subtle" size="xs">
+                              หักจากแพ็กใหม่แล้ว
+                            </UBadge>
                           </template>
                           <span v-else class="text-[13px] font-semibold leading-none tabular-nums text-primary">{{ formatCurrency(Number(order.totalAmount ?? 0)) }}</span>
                         </div>

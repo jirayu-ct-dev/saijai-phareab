@@ -45,6 +45,9 @@ const packageState = (endAt: string | null, initial: number | null, remaining: n
   if (isDelivery) {
     return { label: 'บริการรับ-ส่ง', color: 'success' as const }
   }
+  if (Number(remaining ?? 0) < 0) {
+    return { label: 'เครดิตติดลบ', color: 'error' as const }
+  }
   if (credits.left === 0) {
     return { label: 'เครดิตหมด', color: 'error' as const }
   }
@@ -147,7 +150,7 @@ const packageState = (endAt: string | null, initial: number | null, remaining: n
           <div class="flex items-end justify-between gap-3">
             <span class="text-sm text-muted">เครดิตคงเหลือ</span>
             <p class="shrink-0 text-right text-highlighted">
-              <span class="text-2xl font-bold tabular-nums">{{ creditMeta(ent.creditInitial, ent.creditRemaining).left }}</span>
+              <span class="text-2xl font-bold tabular-nums" :class="Number(ent.creditRemaining ?? 0) < 0 ? 'text-error' : ''">{{ ent.creditRemaining ?? 0 }}</span>
               <span class="ml-1 text-sm text-muted">/ {{ creditMeta(ent.creditInitial, ent.creditRemaining).total }} ครั้ง</span>
             </p>
           </div>

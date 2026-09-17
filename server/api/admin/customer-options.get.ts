@@ -51,10 +51,10 @@ export default defineEventHandler(async (event) => {
         memberEntitlements: {
           where: {
             deletedAt: null,
-            status: historicalDate ? { in: ["ACTIVE", "EXPIRED"] } : "ACTIVE",
             ...(historicalDate
               ? backdatedEntitlementWhere(historicalDate)
               : { OR: [{ endAt: null }, { endAt: { gte: new Date() } }] }),
+            status: "ACTIVE",
           },
           orderBy: [
             { product: { packageType: "asc" } },
@@ -89,8 +89,26 @@ export default defineEventHandler(async (event) => {
     });
 
     return users.map((user) => {
-      const activeMemberEntitlement = user.memberEntitlements.find((entitlement) => entitlement.product.packageType === "MAIN") ?? null;
+      const mainEntitlements = user.memberEntitlements.filter((entitlement) => entitlement.product.packageType === "MAIN");
       const activeAddonEntitlements = user.memberEntitlements.filter((entitlement) => entitlement.product.packageType === "ADDON");
+
+      const sortedMainEntitlements = [...mainEntitlements].sort((a, b) => {
+        const aHasCredit = (a.creditRemaining ?? 0) > 0 ? 1 : 0;
+        const bHasCredit = (b.creditRemaining ?? 0) > 0 ? 1 : 0;
+        if (aHasCredit !== bHasCredit) return bHasCredit - aHasCredit;
+
+        if (aHasCredit) {
+          const aEnd = a.endAt ? new Date(a.endAt).getTime() : Infinity;
+          const bEnd = b.endAt ? new Date(b.endAt).getTime() : Infinity;
+          return aEnd - bEnd;
+        }
+
+        const aEnd = a.endAt ? new Date(a.endAt).getTime() : 0;
+        const bEnd = b.endAt ? new Date(b.endAt).getTime() : 0;
+        return bEnd - aEnd;
+      });
+
+      const activeMemberEntitlement = sortedMainEntitlements[0] ?? null;
 
       return {
         id: user.id,
@@ -100,8 +118,7 @@ export default defineEventHandler(async (event) => {
         phoneNumber: user.phoneNumber,
         image: user.image,
         customerAccountStatus: user.customerAccountStatus,
-        memberEntitlementOptions: user.memberEntitlements
-          .filter((entitlement) => entitlement.product.packageType === "MAIN")
+        memberEntitlementOptions: sortedMainEntitlements
           .map((entitlement) => ({
             id: entitlement.id,
             productId: entitlement.product.id,
