@@ -1,5 +1,6 @@
 import { requireUser } from "~~/server/utils/auth";
 import { prisma } from "~~/server/utils/prisma";
+import { computeOrderCreditSnapshots } from "~~/server/utils/serviceOrderCredits";
 
 const toNumber = (value: unknown) => Number(value ?? 0);
 
@@ -87,6 +88,14 @@ export default defineEventHandler(async (event) => {
           },
           take: 1,
         },
+        memberEntitlement: {
+          select: {
+            id: true,
+            creditInitial: true,
+            creditRemaining: true,
+            product: { select: { name: true } },
+          },
+        },
       },
     });
 
@@ -98,6 +107,9 @@ export default defineEventHandler(async (event) => {
     const hangerCharge = (row.hangerCharge ?? null) as
       | { count?: number; providedCount?: number; pricePerUnit?: number; total?: number }
       | null;
+
+    const snapshots = await computeOrderCreditSnapshots([row]);
+    const snapshot = snapshots.get(row.id);
 
     return {
       id: row.id,
@@ -133,6 +145,18 @@ export default defineEventHandler(async (event) => {
           }
         : null,
       employee: row.employee,
+      memberEntitlement: row.memberEntitlement
+        ? {
+            id: row.memberEntitlement.id,
+            creditInitial: row.memberEntitlement.creditInitial,
+            creditRemaining: row.memberEntitlement.creditRemaining,
+            orderCreditRemaining: snapshot?.orderCreditRemaining ?? row.memberEntitlement.creditRemaining,
+            isOrderNegative: snapshot?.isOrderNegative ?? false,
+            isSettled: snapshot?.isSettled ?? false,
+            orderCreditShortfall: snapshot?.orderCreditShortfall ?? 0,
+            productName: row.memberEntitlement.product?.name ?? null,
+          }
+        : null,
       items: row.serviceOrderItems.map((item) => ({
         id: item.id,
         label: item.weightKg != null

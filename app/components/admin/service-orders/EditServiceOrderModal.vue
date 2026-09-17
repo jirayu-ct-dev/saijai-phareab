@@ -294,10 +294,11 @@ const sanitizedDiscountAmount = computed(() => {
   if (!Number.isFinite(raw) || raw <= 0) return 0;
   return Math.min(raw, subtotalAmount.value);
 });
-const creditAvailable = computed(() => Math.max(0, Number(selectedMemberEntitlement.value?.creditRemaining ?? 0)));
+const creditAvailable = computed(() => Number(selectedMemberEntitlement.value?.creditRemaining ?? 0));
 const packageAllocation = computed(() => allocatePackageCredits(
   formLineItems.value,
-  form.memberEntitlementId ? creditAvailable.value : 0,
+  creditAvailable.value,
+  Boolean(form.memberEntitlementId),
 ));
 const creditUsedPreview = computed(() => packageAllocation.value.creditUsed);
 const cashSubtotal = computed(() => form.memberEntitlementId ? packageAllocation.value.cashSubtotal : subtotalAmount.value);
@@ -847,11 +848,13 @@ const handleSubmit = async () => {
                     <p class="font-medium text-success">{{ selectedMemberEntitlement?.productName ??
                       activeMemberEntitlement?.productName }}</p>
                     <p class="text-xs text-muted">
-                      เครดิตคงเหลือ {{ selectedMemberEntitlement?.creditRemaining ?? 0 }} | ใช้งานครั้งนี้ {{
-                      creditUsedPreview }}
-                      เครดิต
-                      <span v-if="form.memberEntitlementId && cashQuantity > 0">
-                        | เครดิตไม่พอ {{ cashQuantity }} ชิ้น ({{ formatCurrency(cashSubtotal) }})
+                      เครดิตคงเหลือ
+                      <span :class="Number(selectedMemberEntitlement?.creditRemaining ?? 0) < 0 ? 'text-error font-medium' : ''">
+                        {{ selectedMemberEntitlement?.creditRemaining ?? 0 }}
+                      </span>
+                      | ใช้งานครั้งนี้ {{ creditUsedPreview }} เครดิต
+                      <span v-if="form.memberEntitlementId && (Number(selectedMemberEntitlement?.creditRemaining ?? 0) - creditUsedPreview < 0)" class="text-error font-medium">
+                        | ยอดหลังหักติดลบ {{ Number(selectedMemberEntitlement?.creditRemaining ?? 0) - creditUsedPreview }} เครดิต
                       </span>
                     </p>
                     <p v-if="selectedMemberEntitlement?.startAt && selectedMemberEntitlement?.endAt"

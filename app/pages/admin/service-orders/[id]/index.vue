@@ -40,6 +40,10 @@ type ServiceOrderDetailResponse = {
     status: string;
     creditInitial: number | null;
     creditRemaining: number | null;
+    orderCreditRemaining?: number | null;
+    isOrderNegative?: boolean;
+    isSettled?: boolean;
+    orderCreditShortfall?: number;
     activatedAt: string | null;
     endAt: string | null;
     product: { id: string; name: string; packageType: string; credits: number | null; validityDays: number | null };
@@ -269,17 +273,35 @@ const totalRows = computed<InfoRow[]>(() => {
   }
 
   if (order.value.memberEntitlement) {
+    const isNegative = Boolean(order.value.memberEntitlement.isOrderNegative);
+    const isSettled = Boolean(order.value.memberEntitlement.isSettled);
+    const used = order.value.creditUsed ?? 0;
+    const shortfall = order.value.memberEntitlement.orderCreditShortfall || used;
+    const remaining = order.value.memberEntitlement.orderCreditRemaining ?? order.value.memberEntitlement.creditRemaining ?? 0;
+    const initial = order.value.memberEntitlement.creditInitial ?? 0;
     rows.push({
       label: "ใช้เครดิตรายเดือน",
-      value: `${order.value.creditUsed ?? 0} เครดิต`,
-      valueClass: "font-medium text-success",
+      value: isNegative
+        ? `ใช้ ${used} เครดิต (ติดลบ ${shortfall} · เหลือ ${remaining})`
+        : isSettled
+          ? `${used} เครดิต (หักจากแพ็กใหม่แล้ว)`
+          : `${used} เครดิต (คงเหลือ ${remaining} / ${initial} เครดิต)`,
+      valueClass: isNegative ? "font-medium text-error" : isSettled ? "font-medium text-info" : "font-medium text-success",
     });
   }
 
+  const isOrderNegative = Boolean(order.value.memberEntitlement?.isOrderNegative);
+  const isOrderSettled = Boolean(order.value.memberEntitlement?.isSettled);
+  const orderCreditUsed = order.value.creditUsed ?? 0;
+  const orderShortfall = order.value.memberEntitlement?.orderCreditShortfall || orderCreditUsed;
   rows.push({
     label: "ยอดรวมสุทธิ",
-    value: isMemberZero.value ? "ใช้สิทธิ์แพ็กเกจ" : formatCurrency(order.value.totalAmount || 0),
-    valueClass: isMemberZero.value ? "font-semibold text-success" : "font-semibold text-primary",
+    value: isMemberZero.value
+      ? (isOrderNegative ? `-${orderShortfall} เครดิต` : isOrderSettled ? `${orderCreditUsed} เครดิต (หักจากแพ็กใหม่แล้ว)` : `${orderCreditUsed} เครดิต`)
+      : formatCurrency(order.value.totalAmount || 0),
+    valueClass: isMemberZero.value
+      ? (isOrderNegative ? "font-semibold text-error" : isOrderSettled ? "font-semibold text-info" : "font-semibold text-success")
+      : "font-semibold text-primary",
     dividerBefore: true,
   });
 
@@ -301,7 +323,9 @@ const memberPackageName = computed(() => {
 
 const remainingCreditLabel = computed(() => {
   if (order.value?.memberEntitlement?.creditRemaining == null) return "-";
-  return `${order.value.memberEntitlement.creditRemaining} เครดิต`;
+  const remaining = order.value.memberEntitlement.creditRemaining;
+  if (remaining < 0) return `ติดลบ ${Math.abs(remaining)} เครดิต`;
+  return `${remaining} เครดิต`;
 });
 const usedCreditLabel = computed(() => {
   if (order.value?.creditUsed == null) return "-";
@@ -508,11 +532,16 @@ const getItemPhotos = (item: ServiceOrderDetailItem) =>
                 <div class="flex h-full min-w-0 items-start justify-between gap-3">
                   <div class="min-w-0 space-y-1">
                     <p class="text-xs text-muted">ยอดรวมสุทธิ</p>
-                    <p :class="['truncate text-lg font-semibold', isMemberZero ? 'text-success' : 'text-primary']">
-                      {{ isMemberZero ? "ใช้สิทธิ์แพ็กเกจ" : formatCurrency(order.totalAmount || 0) }}
-                    </p>
+                    <div class="flex flex-wrap items-center gap-1.5">
+                      <p :class="['truncate text-lg font-semibold', isMemberZero ? (order.memberEntitlement?.isOrderNegative ? 'text-error' : order.memberEntitlement?.isSettled ? 'text-info' : 'text-success') : 'text-primary']">
+                        {{ isMemberZero ? (order.memberEntitlement?.isOrderNegative ? `-${((order.memberEntitlement.orderCreditShortfall || order.creditUsed) ?? 0)} เครดิต` : `${order.creditUsed ?? 0} เครดิต`) : formatCurrency(order.totalAmount || 0) }}
+                      </p>
+                      <UBadge v-if="order.memberEntitlement?.isSettled" color="info" variant="subtle" size="xs">
+                        หักจากแพ็กใหม่แล้ว
+                      </UBadge>
+                    </div>
                     <p class="line-clamp-2 text-xs text-muted">
-                      {{ hasMemberEntitlement ? "งานนี้ใช้ร่วมกับแพ็กเกจสมาชิก" : "รวมค่าไม้แขวนและส่วนลดแล้ว" }}
+                      {{ hasMemberEntitlement ? (order.memberEntitlement?.isSettled ? "ใช้สิทธิ์แพ็กเกจ (หักกลบยอดติดลบด้วยแพ็กเกจใหม่เรียบร้อยแล้ว)" : order.memberEntitlement?.isOrderNegative ? `ใช้ ${order.creditUsed ?? 0} เหลือ ${order.memberEntitlement?.orderCreditRemaining ?? order.memberEntitlement?.creditRemaining ?? 0}` : `ใช้สิทธิ์แพ็กเกจ (คงเหลือ ${order.memberEntitlement?.orderCreditRemaining ?? order.memberEntitlement?.creditRemaining ?? 0} / ${order.memberEntitlement?.creditInitial ?? 0} เครดิต)`) : "รวมค่าไม้แขวนและส่วนลดแล้ว" }}
                     </p>
                   </div>
                   <div class="flex size-9 shrink-0 items-center justify-center rounded-lg bg-success/10 text-success">
@@ -541,7 +570,10 @@ const getItemPhotos = (item: ServiceOrderDetailItem) =>
                   <div class="min-w-0 space-y-1">
                     <p class="text-xs text-muted">แพ็กเกจสมาชิก</p>
                     <p class="truncate text-lg font-semibold text-highlighted">{{ memberPackageName }}</p>
-                    <p class="text-xs text-muted">ใช้ {{ usedCreditLabel }} · คงเหลือ {{ remainingCreditLabel }}</p>
+                    <p class="text-xs text-muted">
+                      ใช้ {{ usedCreditLabel }} · คงเหลือ <span :class="Number(order?.memberEntitlement?.creditRemaining ?? 0) < 0 ? 'font-medium text-error' : ''">{{ remainingCreditLabel }}</span>
+                      <span v-if="order?.memberEntitlement?.isSettled" class="ml-1 font-medium text-info">(หักจากแพ็กใหม่แล้ว)</span>
+                    </p>
                   </div>
                   <div class="flex size-9 shrink-0 items-center justify-center rounded-lg bg-success/10 text-success">
                     <UIcon name="i-lucide-ticket-check" class="size-4" />

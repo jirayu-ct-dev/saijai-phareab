@@ -1,5 +1,6 @@
 import { requireUser } from "~~/server/utils/auth";
 import { prisma } from "~~/server/utils/prisma";
+import { computeOrderCreditSnapshots } from "~~/server/utils/serviceOrderCredits";
 import { z } from "zod";
 
 const toNumber = (value: unknown) => Number(value ?? 0);
@@ -49,7 +50,7 @@ export default defineEventHandler(async (event) => {
             select: { id: true, status: true, paidAt: true, method: true }
           },
           memberEntitlement: {
-            select: { id: true, creditInitial: true }
+            select: { id: true, creditInitial: true, creditRemaining: true }
           },
           customer: {
             select: { id: true, name: true, email: true, phoneNumber: true, image: true }
@@ -59,8 +60,12 @@ export default defineEventHandler(async (event) => {
       prisma.serviceOrder.count({ where })
     ]);
 
+    const snapshots = await computeOrderCreditSnapshots(rows);
+
     const data = rows.map(row => {
       const payment = row.payments[0] ?? null;
+      const snapshot = snapshots.get(row.id);
+
       return {
         id: row.id,
         orderNo: row.orderNo,
@@ -82,7 +87,17 @@ export default defineEventHandler(async (event) => {
           paidAt: payment.paidAt?.toISOString() ?? null,
           method: payment.method
         } : null,
-        memberEntitlement: row.memberEntitlement,
+        memberEntitlement: row.memberEntitlement
+          ? {
+              id: row.memberEntitlement.id,
+              creditInitial: row.memberEntitlement.creditInitial,
+              creditRemaining: row.memberEntitlement.creditRemaining,
+              orderCreditRemaining: snapshot?.orderCreditRemaining ?? row.memberEntitlement.creditRemaining,
+              isOrderNegative: snapshot?.isOrderNegative ?? false,
+              isSettled: snapshot?.isSettled ?? false,
+              orderCreditShortfall: snapshot?.orderCreditShortfall ?? 0,
+            }
+          : null,
         customer: row.customer,
         itemCount: row.serviceOrderItems.length,
       };

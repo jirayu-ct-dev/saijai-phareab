@@ -1,6 +1,7 @@
 import { requireRole } from "~~/server/utils/auth";
 import { prisma } from "~~/server/utils/prisma";
 import { isInternalCustomerEmail } from "~~/server/utils/customerAccount";
+import { computeOrderCreditSnapshots } from "~~/server/utils/serviceOrderCredits";
 
 const toNumber = (value: unknown) => Number(value ?? 0);
 
@@ -137,11 +138,14 @@ export default defineEventHandler(async (event) => {
       take: 1000,
     });
 
+    const snapshots = await computeOrderCreditSnapshots(rows);
+
     return rows.map((row) => {
       const payment = row.payments[0] ?? null;
       const hangerCharge = (row.hangerCharge ?? null) as
         | { count?: number; providedCount?: number; pricePerUnit?: number; total?: number }
         | null;
+      const snapshot = snapshots.get(row.id);
 
       return {
         id: row.id,
@@ -188,6 +192,10 @@ export default defineEventHandler(async (event) => {
               status: row.memberEntitlement.status,
               creditInitial: row.memberEntitlement.creditInitial,
               creditRemaining: row.memberEntitlement.creditRemaining,
+              orderCreditRemaining: snapshot?.orderCreditRemaining ?? row.memberEntitlement.creditRemaining,
+              isOrderNegative: snapshot?.isOrderNegative ?? false,
+              isSettled: snapshot?.isSettled ?? false,
+              orderCreditShortfall: snapshot?.orderCreditShortfall ?? 0,
               endAt: row.memberEntitlement.endAt?.toISOString() ?? null,
               product: row.memberEntitlement.product,
             }

@@ -5,7 +5,7 @@ import { parseBangkokDateTime } from "~~/shared/utils/pickup";
 
 const schema = z.object({
   status: z.enum(["PENDING", "ACTIVE", "SUSPENDED", "EXPIRED", "CANCELLED"]).optional(),
-  creditRemaining: z.number().int().min(0).nullish(),
+  creditRemaining: z.number().int().nullish(),
   creditInitial: z.number().int().min(0).nullish(),
   startAt: z.string().nullish(),
   endAt: z.string().nullish(),

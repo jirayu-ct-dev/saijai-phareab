@@ -87,6 +87,10 @@ export type AdminServiceOrder = {
     status: string;
     creditInitial: number | null;
     creditRemaining: number | null;
+    orderCreditRemaining?: number | null;
+    isOrderNegative?: boolean;
+    isSettled?: boolean;
+    orderCreditShortfall?: number;
     endAt: string | null;
     product: {
       id: string;

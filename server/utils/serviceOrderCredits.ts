@@ -1,5 +1,6 @@
 import type { DeductOn } from "~~/shared/types/enums";
 import type { Prisma } from "~~/app/generated/prisma/client";
+import { prisma } from "~~/server/utils/prisma";
 import { backdatedEntitlementWhere } from "~~/server/utils/backdatedEntitlement";
 
 type TxClient = Prisma.TransactionClient;
@@ -252,3 +253,181 @@ export const voidPendingAddonUsageRecords = async (tx: TxClient, serviceOrderId:
     data: { refundedAt: new Date() },
   });
 };
+
+export const settleNegativeEntitlements = async (
+  tx: TxClient,
+  customerId: string,
+  newEntitlementId: string,
+) => {
+  if (typeof tx.memberEntitlement?.findFirst !== "function" || typeof tx.memberEntitlement?.findMany !== "function") {
+    return;
+  }
+
+  const newEntitlement = await tx.memberEntitlement.findFirst({
+    where: {
+      id: newEntitlementId,
+      customerId,
+      deletedAt: null,
+      status: "ACTIVE",
+      creditRemaining: { gt: 0 },
+    },
+    select: { id: true, creditRemaining: true },
+  });
+
+  if (!newEntitlement || !newEntitlement.creditRemaining || newEntitlement.creditRemaining <= 0) {
+    return;
+  }
+
+  // Find other MAIN entitlements belonging to this customer with negative creditRemaining
+  const negativeEntitlements = await tx.memberEntitlement.findMany({
+    where: {
+      id: { not: newEntitlementId },
+      customerId,
+      deletedAt: null,
+      creditRemaining: { lt: 0 },
+      product: { packageType: "MAIN" },
+    },
+    orderBy: { createdAt: "asc" },
+    select: { id: true, creditRemaining: true },
+  });
+
+  if (negativeEntitlements.length === 0) {
+    return;
+  }
+
+  let availableCredits = newEntitlement.creditRemaining;
+
+  for (const debtEnt of negativeEntitlements) {
+    if (availableCredits <= 0) break;
+    const debt = Math.abs(debtEnt.creditRemaining ?? 0);
+    const settleAmount = Math.min(debt, availableCredits);
+
+    await tx.memberEntitlement.update({
+      where: { id: debtEnt.id },
+      data: { creditRemaining: { increment: settleAmount } },
+    });
+
+    availableCredits -= settleAmount;
+  }
+
+  const totalSettled = newEntitlement.creditRemaining - availableCredits;
+  if (totalSettled > 0) {
+    await tx.memberEntitlement.update({
+      where: { id: newEntitlementId },
+      data: { creditRemaining: availableCredits },
+    });
+  }
+};
+
+export type OrderCreditSnapshot = {
+  orderCreditRemaining: number;
+  isOrderNegative: boolean;
+  isSettled: boolean;
+  orderCreditShortfall: number;
+};
+
+export const computeOrderCreditSnapshots = async (
+  orders: Array<{
+    id: string;
+    memberEntitlementId: string | null;
+  }>,
+  dbClient?: {
+    serviceOrder: {
+      findMany: (args: any) => Promise<any[]>;
+    };
+    memberEntitlement: {
+      findMany: (args: any) => Promise<any[]>;
+    };
+  }
+): Promise<Map<string, OrderCreditSnapshot>> => {
+  const result = new Map<string, OrderCreditSnapshot>();
+  const client = dbClient || prisma;
+  const entitlementIds = [...new Set(orders.map((o) => o.memberEntitlementId).filter(Boolean))] as string[];
+  if (entitlementIds.length === 0) return result;
+
+  const [entitlements, allOrders] = await Promise.all([
+    client.memberEntitlement.findMany({
+      where: { id: { in: entitlementIds } },
+      select: { id: true, creditInitial: true, creditRemaining: true },
+    }),
+    client.serviceOrder.findMany({
+      where: {
+        memberEntitlementId: { in: entitlementIds },
+        deletedAt: null,
+      },
+      select: {
+        id: true,
+        memberEntitlementId: true,
+        creditUsed: true,
+        receivedAt: true,
+        createdAt: true,
+      },
+      orderBy: [
+        { receivedAt: "asc" },
+        { createdAt: "asc" },
+      ],
+    }),
+  ]);
+
+  const entMap = new Map(entitlements.map((e: any) => [e.id, e]));
+  const ordersGrouped = new Map<string, typeof allOrders>();
+
+  for (const ord of allOrders) {
+    if (!ord.memberEntitlementId) continue;
+    const list = ordersGrouped.get(ord.memberEntitlementId) ?? [];
+    list.push(ord);
+    ordersGrouped.set(ord.memberEntitlementId, list);
+  }
+
+  for (const entId of entitlementIds) {
+    const ent = entMap.get(entId);
+    const entOrders = ordersGrouped.get(entId) ?? [];
+    const totalCreditsUsed = entOrders.reduce((sum: number, o: any) => sum + (o.creditUsed ?? 0), 0);
+    const creditInitial = Number(ent?.creditInitial ?? 0);
+    const currentRemaining = Number(ent?.creditRemaining ?? 0);
+
+    // If this entitlement had its negative balance settled by purchasing a new package,
+    // currentRemaining was increased (towards or to 0).
+    const totalSettledIntoThis = Math.max(0, currentRemaining - (creditInitial - totalCreditsUsed));
+
+    // If this entitlement itself started with fewer credits (used to settle older debt):
+    const settledPaidAtStart = Math.max(0, creditInitial - currentRemaining - totalCreditsUsed);
+
+    let runningRaw = creditInitial - settledPaidAtStart;
+
+    for (const ord of entOrders) {
+      const used = Number(ord.creditUsed ?? 0);
+      const balanceBefore = runningRaw;
+      runningRaw -= used;
+
+      const wasOverdrafted = used > 0 && runningRaw < 0;
+      let isSettled = false;
+      let isOrderNegative = false;
+      let orderCreditShortfall = 0;
+
+      if (wasOverdrafted) {
+        const availableBefore = Math.max(0, balanceBefore);
+        orderCreditShortfall = Math.max(0, used - availableBefore);
+
+        const overdraftAmount = Math.abs(runningRaw);
+        if (totalSettledIntoThis >= overdraftAmount) {
+          isSettled = true;
+          isOrderNegative = false;
+        } else {
+          isSettled = false;
+          isOrderNegative = true;
+        }
+      }
+
+      result.set(ord.id, {
+        orderCreditRemaining: runningRaw,
+        isOrderNegative,
+        isSettled,
+        orderCreditShortfall,
+      });
+    }
+  }
+
+  return result;
+};
+

@@ -11,3 +11,4 @@ export const backdatedEntitlementWhere = (receivedAt: Date): Prisma.MemberEntitl
     { OR: [{ activatedAt: null }, { activatedAt: { lte: receivedAt } }] },
   ],
 });
+
