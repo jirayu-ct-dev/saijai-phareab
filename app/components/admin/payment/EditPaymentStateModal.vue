@@ -145,13 +145,8 @@ const submit = async () => {
           </UFormField>
         </div>
 
-        <UIPhotoUpload v-if="form.status === 'PAID'" label="หลักฐานการชำระเงิน"
-          description="แนบรูปสลิป/หลักฐาน (ไม่บังคับ - JPEG / PNG / WebP)" :photos="slipPhotos" :max="1"
+        <UIPhotoUpload v-if="form.status === 'PAID'" label="หลักฐานการชำระเงิน" :photos="slipPhotos" :max="1"
           :disabled="isSaving || isUploading" confirm-remove @update:photos="onSlipPhotosUpdate" />
-
-        <p v-if="form.status === 'PAID'" class="text-xs text-muted">
-          เมื่อบันทึกเป็นชำระแล้ว ระบบจะออกเลขใบเสร็จให้หากยังไม่มี
-        </p>
       </div>
     </template>
 
