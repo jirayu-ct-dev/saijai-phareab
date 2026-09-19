@@ -12,10 +12,23 @@ export default defineEventHandler(async (event) => {
         const packages = await prisma.packageProduct.findMany({
             where: { deletedAt: null },
             orderBy: { createdAt: 'desc' },
-            include: { service: { select: { id: true, name: true } } },
+            include: {
+                service: {
+                    select: {
+                        id: true,
+                        name: true,
+                        includedItems: { select: { storefrontItemId: true } },
+                    },
+                },
+            },
         })
 
-        return packages.map((pkg) => ({ ...pkg, price: Number(pkg.price) }))
+        return packages.map((pkg) => ({
+            ...pkg,
+            price: Number(pkg.price),
+            includedItemIds: pkg.service?.includedItems.map((item) => item.storefrontItemId) ?? [],
+            service: pkg.service ? { id: pkg.service.id, name: pkg.service.name } : null,
+        }))
     } catch (error) {
         console.error('[GET /api/admin/packages]', error)
         throw createError({

@@ -16,10 +16,13 @@ type PackageService = {
   id: string;
   name: string;
   description?: string | null;
+  includedItemIds: string[];
 };
 
 type PricingServicesResponse = {
   services: PackageService[];
+  items: Array<{ id: string; name: string; categoryId?: string | null }>;
+  categories: Array<{ id: string; name: string }>;
 };
 
 definePageMeta({
@@ -76,11 +79,45 @@ const togglingPublicPackageId = ref<string | null>(null);
 const isServiceModalOpen = ref(false);
 const isSavingService = ref(false);
 const editingService = ref<PackageService | null>(null);
-const serviceForm = ref({ name: "", description: "" });
+const serviceForm = ref({ name: "", description: "", includedItemIds: [] as string[] });
+const serviceItemSearch = ref("");
+const serviceItemCategoryId = ref("all");
+const serviceCategoryOptions = computed(() => [
+  { label: "ทุกประเภท", value: "all" },
+  ...(pricingServicesResponse.value?.categories ?? []).map((category) => ({
+    label: category.name,
+    value: category.id,
+  })),
+]);
+const serviceCatalogItems = computed(() => {
+  const response = pricingServicesResponse.value;
+  if (!response) return [];
+  const categories = new Map(response.categories.map((category) => [category.id, category.name]));
+  return response.items.map((item) => ({
+    id: item.id,
+    name: item.name,
+    categoryId: item.categoryId ?? null,
+    categoryName: item.categoryId ? categories.get(item.categoryId) ?? null : null,
+  }));
+});
+const filteredServiceCatalogItems = computed(() => {
+  const keyword = serviceItemSearch.value.trim().toLowerCase();
+  return serviceCatalogItems.value.filter((item) => {
+    const matchesCategory = serviceItemCategoryId.value === "all"
+      || item.categoryId === serviceItemCategoryId.value;
+    const matchesKeyword = !keyword
+      || [item.name, item.categoryName ?? ""].join(" ").toLowerCase().includes(keyword);
+    return matchesCategory && matchesKeyword;
+  });
+});
+const allServiceItemsSelected = computed(() => filteredServiceCatalogItems.value.length > 0
+  && filteredServiceCatalogItems.value.every((item) => serviceForm.value.includedItemIds.includes(item.id)));
 
 const resetServiceForm = () => {
   editingService.value = null;
-  serviceForm.value = { name: "", description: "" };
+  serviceForm.value = { name: "", description: "", includedItemIds: [] };
+  serviceItemSearch.value = "";
+  serviceItemCategoryId.value = "all";
 };
 
 const openServiceModal = () => {
@@ -93,6 +130,7 @@ const openEditService = (service: PackageService) => {
   serviceForm.value = {
     name: service.name,
     description: service.description ?? "",
+    includedItemIds: [...(service.includedItemIds ?? [])],
   };
 };
 
@@ -104,12 +142,17 @@ const saveService = async () => {
     notify.validationError("กรุณากรอกชื่อบริการ");
     return;
   }
+  if (!serviceForm.value.includedItemIds.length) {
+    notify.validationError("กรุณาเลือกรายการผ้าอย่างน้อย 1 รายการ");
+    return;
+  }
 
   isSavingService.value = true;
   try {
     const body = {
       name,
       description: serviceForm.value.description.trim() || undefined,
+      includedItemIds: serviceForm.value.includedItemIds,
     };
 
     if (editingService.value) {
@@ -138,6 +181,22 @@ const saveService = async () => {
   } finally {
     isSavingService.value = false;
   }
+};
+
+const setServiceItem = (itemId: string, selected: boolean | "indeterminate") => {
+  const next = new Set(serviceForm.value.includedItemIds);
+  if (selected === true) next.add(itemId);
+  else next.delete(itemId);
+  serviceForm.value.includedItemIds = [...next];
+};
+
+const toggleAllServiceItems = () => {
+  const next = new Set(serviceForm.value.includedItemIds);
+  for (const item of filteredServiceCatalogItems.value) {
+    if (allServiceItemsSelected.value) next.delete(item.id);
+    else next.add(item.id);
+  }
+  serviceForm.value.includedItemIds = [...next];
 };
 
 const openCreateModal = () => {
@@ -287,9 +346,9 @@ const closeBulkDeleteModal = (): void => {
 
     <UModal v-model:open="isServiceModalOpen" title="เพิ่ม / แก้ไขบริการ"
       description="จัดการบริการสำหรับกำหนดให้แพ็กเกจหลัก" :dismissible="!isSavingService"
-      :ui="{ content: 'max-w-3xl' }">
+      :ui="{ content: 'max-w-6xl' }">
       <template #body>
-        <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <div class="grid grid-cols-1 gap-3 lg:grid-cols-[minmax(14rem,0.7fr)_minmax(0,2fr)]">
           <div
             class="-mx-2 space-y-2 border border-default/30 bg-default p-4 dark:border-default/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg">
             <p class="text-xs font-semibold uppercase tracking-wide text-muted">รายการบริการ</p>
@@ -329,9 +388,43 @@ const closeBulkDeleteModal = (): void => {
             <UFormField label="คำอธิบาย">
               <UInput v-model="serviceForm.description" class="w-full" placeholder="ไม่บังคับ" />
             </UFormField>
+            <UFormField label="รายการผ้าที่ใช้บริการนี้" required>
+              <div class="rounded-lg border border-default/40">
+                <div class="grid gap-2 border-b border-default/40 p-3 sm:grid-cols-[minmax(0,1fr)_13rem]">
+                  <UInput v-model="serviceItemSearch" icon="i-lucide-search" placeholder="ค้นหารายการผ้า"
+                    class="w-full" />
+                  <USelect v-model="serviceItemCategoryId" :items="serviceCategoryOptions" value-key="value"
+                    label-key="label" icon="i-lucide-list-filter" aria-label="กรองตามประเภทผ้า" class="w-full" />
+                </div>
+                <div class="flex flex-wrap items-center justify-between gap-2 border-b border-default/40 px-3 py-2">
+                  <span class="text-xs text-muted">
+                    แสดง {{ filteredServiceCatalogItems.length }} รายการ · เลือกแล้ว
+                    {{ serviceForm.includedItemIds.length }} รายการ
+                  </span>
+                  <UButton :label="allServiceItemsSelected ? 'ยกเลิกที่แสดง' : 'เลือกทั้งหมดที่แสดง'" color="neutral"
+                    variant="outline" size="xs" type="button" :disabled="!filteredServiceCatalogItems.length"
+                    @click="toggleAllServiceItems" />
+                </div>
+                <div class="grid max-h-[min(28rem,50vh)] grid-cols-1 gap-1 overflow-y-auto p-2 xl:grid-cols-2">
+                  <label v-for="item in filteredServiceCatalogItems" :key="item.id"
+                    class="flex min-w-0 cursor-pointer items-start gap-2 rounded-md p-2.5 hover:bg-elevated/60">
+                    <UCheckbox :model-value="serviceForm.includedItemIds.includes(item.id)"
+                      :aria-label="`เลือก ${item.name}`" @update:model-value="setServiceItem(item.id, $event)" />
+                    <span class="min-w-0">
+                      <span class="block truncate text-sm font-medium text-highlighted">{{ item.name }}</span>
+                      <span v-if="item.categoryName" class="block truncate text-xs text-muted">{{ item.categoryName }}</span>
+                    </span>
+                  </label>
+                  <p v-if="!filteredServiceCatalogItems.length"
+                    class="p-6 text-center text-sm text-muted xl:col-span-2">
+                    {{ serviceCatalogItems.length ? "ไม่พบรายการผ้าที่ค้นหา" : "ยังไม่มีรายการผ้าในระบบ" }}
+                  </p>
+                </div>
+              </div>
+            </UFormField>
             <div class="flex gap-2">
               <UButton v-if="editingService" label="ยกเลิก" color="neutral" variant="ghost" size="sm"
-                :disabled="isSavingService" @click="resetServiceForm" />
+                type="button" :disabled="isSavingService" @click="resetServiceForm" />
               <UButton type="submit" :label="editingService ? 'บันทึกการแก้ไข' : 'เพิ่มบริการ'"
                 :icon="editingService ? 'i-lucide-check' : 'i-lucide-plus'" color="primary" size="sm"
                 :loading="isSavingService" :disabled="isSavingService" />

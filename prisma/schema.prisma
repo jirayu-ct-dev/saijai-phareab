@@ -247,6 +247,18 @@ model PackageProduct {
   @@map("package_product")
 }
 
+model ServiceIncludedItem {
+  storefrontServiceId String
+  storefrontItemId    String
+  storefrontService StorefrontService @relation(fields: [storefrontServiceId], references: [id], onDelete: Cascade)
+  storefrontItem    StorefrontItem    @relation(fields: [storefrontItemId], references: [id], onDelete: Cascade)
+  createdAt         DateTime          @default(now())
+
+  @@id([storefrontServiceId, storefrontItemId])
+  @@index([storefrontItemId])
+  @@map("service_included_item")
+}
+
 model PackageSale {
   id             String    @id @default(cuid())
   customerId     String
@@ -352,6 +364,7 @@ model StorefrontService {
 
   storefrontPrices StorefrontPrice[]
   packageProducts  PackageProduct[]
+  includedItems    ServiceIncludedItem[]
 
   @@map("storefront_service")
 }
@@ -370,6 +383,7 @@ model StorefrontItem {
   deletedBy   User?               @relation("StorefrontItemDeletedBy", fields: [deletedById], references: [id])
 
   storefrontPrices StorefrontPrice[]
+  serviceIncludes  ServiceIncludedItem[]
 
   @@map("storefront_item")
 }

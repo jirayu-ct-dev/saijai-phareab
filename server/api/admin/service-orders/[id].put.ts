@@ -10,6 +10,7 @@ import { canTransitionServiceOrderStatus, isServiceOrderStatus, resolveServiceOr
 import { parseBangkokDateTime } from "~~/shared/utils/pickup";
 import { backdatedEntitlementWhere } from "~~/server/utils/backdatedEntitlement";
 import { allocatePackageCredits } from "~~/shared/utils/packageService";
+import { isPackageCatalogItemAllowed } from "~~/shared/utils/packageCatalog";
 
 type UpdateServiceOrderBody = {
   customerId?: string | null;
@@ -314,11 +315,34 @@ export default defineEventHandler(async (event) => {
           select: {
             id: true,
             creditRemaining: true,
+            product: {
+              select: {
+                serviceId: true,
+                service: {
+                  select: { includedItems: { select: { storefrontItemId: true } } },
+                },
+              },
+            },
           },
         });
 
         if (!entitlement) {
           throw createError({ statusCode: 404, statusMessage: "ไม่พบสิทธิ์แพ็กเกจรายเดือนที่เลือก หรือช่วงสิทธิ์ไม่ครอบคลุมวันรับผ้าของรายการนี้" });
+        }
+
+        const rule = {
+          serviceId: entitlement.product.serviceId,
+          includedItemIds: entitlement.product.service?.includedItems.map((item) => item.storefrontItemId) ?? [],
+        };
+        const invalidItem = orderItems.find((item) => !isPackageCatalogItemAllowed(rule, {
+          serviceId: item.price.storefrontService.id,
+          itemId: item.price.storefrontItem.id,
+        }));
+        if (invalidItem) {
+          throw createError({
+            statusCode: 400,
+            statusMessage: `รายการ "${invalidItem.price.storefrontItem.name}" ไม่อยู่ในแพ็กเกจที่เลือก`,
+          });
         }
 
         const creditAvailable = Number(entitlement.creditRemaining ?? 0);
