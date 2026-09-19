@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import type { PaymentMethod, PaymentStatus, ServiceOrderStatus } from "~~/shared/types/enums";
-import { orderStatusColors, orderStatusLabels } from "~~/shared/config/orderConfig";
 import { paymentMethodLabels, paymentStatusColors, paymentStatusLabels } from "~~/shared/config/paymentConfig";
 import { formatCurrency, formatDateTime } from "~~/shared/utils/format";
 import type { AdminServiceOrder } from "~~/app/composables/useAdminServiceOrders";
@@ -9,7 +8,6 @@ import EditPaymentStateModal from "~~/app/components/admin/payment/EditPaymentSt
 import EditServiceOrderModal from "~~/app/components/admin/service-orders/EditServiceOrderModal.vue";
 import EditServiceOrderStatusModal from "~~/app/components/admin/service-orders/EditServiceOrderStatusModal.vue";
 
-type BadgeColor = "success" | "info" | "error" | "neutral" | "primary" | "secondary" | "warning";
 type InfoRow = { label: string; value: string; valueClass?: string; dividerBefore?: boolean };
 
 type ServiceOrderDetailResponse = {
@@ -160,8 +158,6 @@ const hydrated = ref(false);
 onMounted(() => { hydrated.value = true; });
 const isLoading = computed(() => pending.value || status.value === "idle");
 const showSkeleton = computed(() => !hydrated.value || isLoading.value);
-const orderStatusBadgeColors = orderStatusColors as Record<ServiceOrderStatus, BadgeColor>;
-
 const orderNoText = computed(() => order.value?.orderNo || order.value?.id || "");
 const copiedOrderNo = ref(false);
 const copyOrderNo = async () => {
@@ -225,7 +221,6 @@ const orderRows = computed<InfoRow[]>(() => {
   const deliveredAt = order.value.completedAt ?? order.value.payments[0]?.paidAt ?? null;
   const rows: InfoRow[] = [
     { label: "เลขรับผ้า", value: order.value.orderNo || order.value.id, valueClass: "font-mono text-xs" },
-    { label: "สถานะงาน", value: orderStatusLabels[order.value.status] },
     { label: "วันที่รับงาน", value: formatDateTime(order.value.receivedAt) },
     isCompleted
       ? { label: "วันที่ส่งผ้า", value: deliveredAt ? formatDateTime(deliveredAt) : "-" }
@@ -499,21 +494,7 @@ const getItemPhotos = (item: ServiceOrderDetailItem) =>
 
           <div v-else class="space-y-3">
             <section class="-mx-2 grid grid-cols-2 gap-2 sm:mx-0 sm:gap-3 xl:grid-cols-4">
-              <div
-                class="min-h-28 bg-default p-3! dark:bg-elevated/55 sm:rounded-lg sm:border sm:border-default/30 sm:dark:border-default/20">
-                <div class="flex h-full min-w-0 items-start justify-between gap-3">
-                  <div class="min-w-0 space-y-1.5">
-                    <p class="text-xs text-muted">สถานะล่าสุด</p>
-                    <UBadge :color="orderStatusBadgeColors[order.status]" variant="subtle" size="lg">
-                      {{ orderStatusLabels[order.status] }}
-                    </UBadge>
-                    <p class="truncate text-xs text-muted">อัปเดต {{ formatDateTime(order.updatedAt) }}</p>
-                  </div>
-                  <div class="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                    <UIcon name="i-lucide-activity" class="size-4" />
-                  </div>
-                </div>
-              </div>
+              <ServiceOrderStatusStepper :status="order.status" class="col-span-2 xl:col-span-4" />
               <div
                 class="min-h-28 bg-default p-3! dark:bg-elevated/55 sm:rounded-lg sm:border sm:border-default/30 sm:dark:border-default/20">
                 <div class="flex h-full min-w-0 items-start justify-between gap-3">

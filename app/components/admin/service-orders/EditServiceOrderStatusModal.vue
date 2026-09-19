@@ -1,12 +1,17 @@
 <script setup lang="ts">
 import type { ServiceOrderStatus } from "~~/shared/types/enums";
-import { orderStatusColors, orderStatusLabels } from "~~/shared/config/orderConfig";
+import { orderStatusLabels } from "~~/shared/config/orderConfig";
 import type { AdminServiceOrder } from "~~/app/composables/useAdminServiceOrders";
 
-type BadgeColor = "success" | "error" | "info" | "primary" | "secondary" | "warning" | "neutral";
+const serviceOrderStatuses: ServiceOrderStatus[] = ["RECEIVED", "PROCESSING", "DELIVERING", "COMPLETED"];
 
-const orderStatusBadgeColors = orderStatusColors as Record<ServiceOrderStatus, BadgeColor>;
-const serviceOrderStatuses: ServiceOrderStatus[] = ["RECEIVED", "PROCESSING", "DELIVERING", "COMPLETED", "CANCELLED"];
+const statusStepperIcons: Record<ServiceOrderStatus, string> = {
+  RECEIVED: "i-lucide-package-check",
+  PROCESSING: "i-lucide-washing-machine",
+  DELIVERING: "i-lucide-truck",
+  COMPLETED: "i-lucide-circle-check",
+  CANCELLED: "i-lucide-ban",
+};
 
 const props = defineProps<{
   order: Pick<AdminServiceOrder, "id" | "orderNo" | "status" | "customer"> | null;
@@ -34,6 +39,13 @@ const selectableStatuses = computed(() => {
   return new Set<ServiceOrderStatus>(serviceOrderStatuses.filter((status) => status !== "RECEIVED" || status === props.order?.status));
 });
 
+const stepperItems = computed(() => serviceOrderStatuses.map((status) => ({
+  value: status,
+  title: orderStatusLabels[status],
+  icon: statusStepperIcons[status],
+  disabled: !selectableStatuses.value.has(status),
+})));
+
 watch([open, () => props.order], ([isOpen]) => {
   if (isOpen && props.order) selectedStatus.value = props.order.status;
 }, { immediate: true });
@@ -49,20 +61,6 @@ const handleSubmit = async (status: ServiceOrderStatus) => {
   cancelConfirmOpen.value = false;
   open.value = false;
   emit("updated");
-};
-
-const selectStatus = (status: ServiceOrderStatus) => {
-  if (!props.order || isSubmitting.value) return;
-  if (selectableStatuses.value.has(status)) {
-    selectedStatus.value = status;
-    return;
-  }
-
-  if (props.order.status === "CANCELLED") {
-    notify.info("รายการนี้ถูกยกเลิกแล้ว จึงไม่สามารถเปลี่ยนสถานะได้");
-    return;
-  }
-  notify.info("ไม่สามารถย้อนสถานะกลับเป็นรับผ้าได้");
 };
 
 const submitSelectedStatus = () => {
@@ -95,24 +93,23 @@ const confirmCancellation = () => {
           <p class="mt-1 font-mono text-xs text-muted">{{ order.orderNo || order.id }}</p>
         </div>
 
-        <UFormField label="เลือกสถานะผ้า">
-          <div class="grid grid-cols-2 gap-2">
-            <UButton v-for="status in serviceOrderStatuses" :key="status" :label="orderStatusLabels[status]"
-              :color="selectedStatus === status ? orderStatusBadgeColors[status] : 'neutral'"
-              :variant="selectedStatus === status ? 'solid' : 'outline'" block
-              :class="{ 'opacity-60': !selectableStatuses.has(status) }" :disabled="isSubmitting"
-              @click="selectStatus(status)" />
-          </div>
-          <p class="mt-1 text-xs text-muted">เปลี่ยนหรือย้อนสถานะได้ ยกเว้นย้อนกลับเป็นรับผ้า</p>
+        <UFormField label="ขั้นตอนการดูแลผ้า">
+          <UStepper v-if="order.status !== 'CANCELLED'" v-model="selectedStatus" :items="stepperItems"
+            :linear="false" orientation="horizontal" :disabled="isSubmitting" class="w-full" />
+          <p v-if="order.status === 'CANCELLED'" class="text-xs text-error">รายการนี้ถูกยกเลิกแล้ว จึงไม่สามารถเปลี่ยนสถานะได้</p>
         </UFormField>
       </div>
     </template>
 
     <template #footer>
-      <div class="flex w-full items-center justify-end gap-2">
-        <UButton label="ปิด" color="neutral" variant="outline" :disabled="isSubmitting" @click="closeModal" />
-        <UButton label="บันทึก" color="primary" icon="i-lucide-save" :loading="isSubmitting"
-          :disabled="!order" @click="submitSelectedStatus" />
+      <div class="flex w-full items-center justify-between gap-2">
+        <UButton v-if="order && order.status !== 'CANCELLED'" label="ยกเลิกรายการ" color="error" variant="ghost"
+          icon="i-lucide-ban" :disabled="isSubmitting" @click="cancelConfirmOpen = true" />
+        <div class="ml-auto flex items-center gap-2">
+          <UButton label="ปิด" color="neutral" variant="outline" :disabled="isSubmitting" @click="closeModal" />
+          <UButton label="บันทึก" color="primary" icon="i-lucide-save" :loading="isSubmitting"
+            :disabled="!order" @click="submitSelectedStatus" />
+        </div>
       </div>
     </template>
   </UModal>
