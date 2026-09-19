@@ -8,6 +8,7 @@ import {
   mockItemsData,
   mockPricesData,
   mockPackagesData,
+  mockServiceIncludedItemsData,
 } from "../shared/data/mockPricing.ts";
 import { normalizeThaiPhoneNumber } from "../shared/utils/phone.ts";
 
@@ -138,6 +139,13 @@ async function main() {
       create: { storefrontServiceId: price.storefrontServiceId, storefrontItemId: price.storefrontItemId, price: price.price, priceMin: price.priceMin ?? null, priceMax: price.priceMax ?? null },
     });
   }
+  for (const includedItem of mockServiceIncludedItemsData) {
+    await prisma.serviceIncludedItem.upsert({
+      where: { storefrontServiceId_storefrontItemId: includedItem },
+      update: {},
+      create: includedItem,
+    });
+  }
 
   // ═══════════════════════════════════════════
   // 4. PACKAGES
@@ -149,8 +157,8 @@ async function main() {
     pkgIds[p.name] = p.id;
     await prisma.packageProduct.upsert({
       where: { id: p.id },
-      update: { name: p.name, description: p.description, packageType: p.packageType as any, isDelivery: p.isDelivery, deductOn: p.deductOn as any, price: p.price, credits: p.credits, validityDays: p.validityDays },
-      create: { id: p.id, name: p.name, description: p.description, packageType: p.packageType as any, isDelivery: p.isDelivery, deductOn: p.deductOn as any, price: p.price, credits: p.credits, validityDays: p.validityDays },
+      update: { name: p.name, description: p.description, packageType: p.packageType as any, isDelivery: p.isDelivery, deductOn: p.deductOn as any, price: p.price, credits: p.credits, validityDays: p.validityDays, serviceId: p.serviceId },
+      create: { id: p.id, name: p.name, description: p.description, packageType: p.packageType as any, isDelivery: p.isDelivery, deductOn: p.deductOn as any, price: p.price, credits: p.credits, validityDays: p.validityDays, serviceId: p.serviceId },
     });
   }
 
@@ -268,11 +276,16 @@ async function main() {
     });
   }
 
-  // Order 2: ซักแห้ง (PROCESSING)
+  // Order 2: ใช้เครดิตแพ็กเกจ M กับผ้าที่อยู่ในบริการซัก อบ รีด (PROCESSING)
   const order2Id = "seed-order-002";
   await prisma.serviceOrder.upsert({
     where: { id: order2Id },
-    update: {},
+    update: {
+      memberEntitlementId: ent1Id,
+      creditUsed: 3,
+      subtotalAmount: baht(85),
+      totalAmount: baht(85),
+    },
     create: {
       id: order2Id,
       orderNo: "ORD-20250701-002",
@@ -280,29 +293,41 @@ async function main() {
       employeeId: USERS.employee,
       status: "PROCESSING",
       memberEntitlementId: ent1Id,
-      creditUsed: 0,
-      subtotalAmount: baht(380),
-      totalAmount: baht(380),
+      creditUsed: 3,
+      subtotalAmount: baht(85),
+      totalAmount: baht(85),
       receivedAt: daysAgo(3),
       dueAt: daysAgo(1),
     },
   });
 
   const order2Items = [
-    { id: "seed-oi-004", storefrontItemId: "cmojuey0j0002iwmtcx2lnjle", storefrontServiceId: "cmojubuag0000iwmthga44tve", qty: 1, price: 180 },
-    { id: "seed-oi-005", storefrontItemId: "cmojug8rz0006iwmtkziug9fu", storefrontServiceId: "cmojubuag0000iwmthga44tve", qty: 1, price: 120 },
+    { id: "seed-oi-004", storefrontItemId: "i4", storefrontServiceId: "s1", qty: 1, price: 25 },
+    { id: "seed-oi-005", storefrontItemId: "i11", storefrontServiceId: "s1", qty: 2, price: 30 },
   ];
   for (const oi of order2Items) {
+    const storefrontPriceId = (await prisma.storefrontPrice.findUniqueOrThrow({
+      where: {
+        storefrontServiceId_storefrontItemId: {
+          storefrontServiceId: oi.storefrontServiceId,
+          storefrontItemId: oi.storefrontItemId,
+        },
+      },
+    })).id;
+    const itemData = {
+      storefrontPriceId,
+      quantity: oi.qty,
+      unitPrice: baht(oi.price),
+      totalPrice: baht(oi.price * oi.qty),
+    };
+
     await prisma.serviceOrderItem.upsert({
       where: { id: oi.id },
-      update: {},
+      update: itemData,
       create: {
         id: oi.id,
         serviceOrderId: order2Id,
-        storefrontPriceId: (await prisma.storefrontPrice.findUniqueOrThrow({ where: { storefrontServiceId_storefrontItemId: { storefrontServiceId: oi.storefrontServiceId, storefrontItemId: oi.storefrontItemId } } })).id,
-        quantity: oi.qty,
-        unitPrice: baht(oi.price),
-        totalPrice: baht(oi.price * oi.qty),
+        ...itemData,
       },
     });
   }

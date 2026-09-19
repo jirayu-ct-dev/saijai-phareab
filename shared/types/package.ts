@@ -28,6 +28,7 @@ export interface PackageProduct extends Timestamps, SoftDeletable {
     id: string;
     name: string;
   } | null;
+  includedItemIds?: string[];
 
   memberEntitlements?: MemberEntitlement[];
 }

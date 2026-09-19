@@ -8,6 +8,7 @@ export type PosMemberEntitlementOption = {
   endAt: string | null;
   serviceId: string | null;
   serviceName: string | null;
+  includedItemIds: string[];
 };
 
 export type PosCustomerOption = {

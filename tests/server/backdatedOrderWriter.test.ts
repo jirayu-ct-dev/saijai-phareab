@@ -35,12 +35,22 @@ beforeEach(() => {
   vi.stubGlobal("createError", (input: unknown) => input);
   body = { customerId: "customer", items: [{ storefrontPriceId: "price", quantity: 2 }], backdated: { receivedAt: "2026-09-01T09:00", status: "COMPLETED", completedAt: "2026-09-03T17:00", payment: { paidAt: "2026-09-02T10:00", method: "CASH" } } };
   db.$transaction.mockImplementation(async (operation) => operation(db));
-  db.storefrontPrice.findMany.mockResolvedValue([{ id: "price", price: 20 }]);
+  db.storefrontPrice.findMany.mockResolvedValue([{
+    id: "price",
+    price: 20,
+    storefrontService: { id: "service", name: "ซักรีด" },
+    storefrontItem: { id: "shirt", name: "เสื้อเชิ้ต" },
+  }]);
   db.user.findFirst.mockResolvedValue({ id: "customer" });
   db.serviceOrder.create.mockImplementation(async ({ data }) => ({ ...data, id: "order" }));
   db.serviceOrderItem.create.mockResolvedValue({ id: "item" });
   db.paymentRecord.create.mockImplementation(async ({ data }) => ({ ...data, id: "payment" }));
-  db.memberEntitlement.findFirst.mockResolvedValue({ id: "entitlement", customerId: "customer", creditRemaining: 5 });
+  db.memberEntitlement.findFirst.mockResolvedValue({
+    id: "entitlement",
+    customerId: "customer",
+    creditRemaining: 5,
+    product: { serviceId: "service", service: { includedItems: [{ storefrontItemId: "shirt" }] } },
+  });
   db.memberEntitlement.updateMany.mockResolvedValue({ count: 1 });
   numbers.order.mockResolvedValue("ORD-1");
   numbers.quotation.mockResolvedValue("QT-1");
@@ -99,6 +109,20 @@ describe("recording a missed laundry order", () => {
     await expect(submit()).rejects.toMatchObject({ statusCode: 409 });
     expect(db.serviceOrder.create).not.toHaveBeenCalled();
     expect(db.paymentRecord.create).not.toHaveBeenCalled();
+  });
+
+  it("rejects clothing that is not included in the package service", async () => {
+    body.memberEntitlementId = "entitlement";
+    db.memberEntitlement.findFirst.mockResolvedValue({
+      id: "entitlement",
+      customerId: "customer",
+      creditRemaining: 5,
+      product: { serviceId: "service", service: { includedItems: [{ storefrontItemId: "pants" }] } },
+    });
+
+    await expect(submit()).rejects.toMatchObject({ statusCode: 400 });
+    expect(db.memberEntitlement.updateMany).not.toHaveBeenCalled();
+    expect(db.serviceOrder.create).not.toHaveBeenCalled();
   });
 
   it("rejects a package whose validity window does not cover the recorded receive date", async () => {

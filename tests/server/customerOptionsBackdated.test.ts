@@ -77,7 +77,7 @@ describe("POS customer-options endpoint", () => {
             creditRemaining: 0,
             startAt: new Date("2026-08-01"),
             endAt: new Date("2026-08-31"),
-            product: { id: "prod-1", name: "Old Package", packageType: "MAIN", serviceId: "srv-1", service: { name: "Wash" } },
+            product: { id: "prod-1", name: "Old Package", packageType: "MAIN", serviceId: "srv-1", service: { name: "Wash", includedItems: [{ storefrontItemId: "shirt" }] } },
           },
           {
             id: "ent-with-credit",
@@ -85,7 +85,7 @@ describe("POS customer-options endpoint", () => {
             creditRemaining: 40,
             startAt: new Date("2026-09-01"),
             endAt: new Date("2026-09-30"),
-            product: { id: "prod-2", name: "New Package", packageType: "MAIN", serviceId: "srv-1", service: { name: "Wash" } },
+            product: { id: "prod-2", name: "New Package", packageType: "MAIN", serviceId: "srv-1", service: { name: "Wash", includedItems: [{ storefrontItemId: "shirt" }] } },
           },
         ],
       },

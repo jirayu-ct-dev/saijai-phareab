@@ -7,6 +7,7 @@ import {
   mockItemsData,
   mockPricesData,
   mockPackagesData,
+  mockServiceIncludedItemsData,
 } from "../shared/data/mockPricing.ts";
 
 config();
@@ -99,6 +100,17 @@ async function main() {
     });
   }
 
+  console.log("Seeding package service item rules...");
+  for (const includedItem of mockServiceIncludedItemsData) {
+    await prisma.serviceIncludedItem.upsert({
+      where: {
+        storefrontServiceId_storefrontItemId: includedItem,
+      },
+      update: {},
+      create: includedItem,
+    });
+  }
+
   console.log("Seeding packages...");
   for (const pkg of mockPackagesData) {
     await prisma.packageProduct.upsert({
@@ -112,6 +124,7 @@ async function main() {
         price: pkg.price,
         credits: pkg.credits,
         validityDays: pkg.validityDays,
+        serviceId: pkg.serviceId,
       },
       create: {
         id: pkg.id,
@@ -123,6 +136,7 @@ async function main() {
         price: pkg.price,
         credits: pkg.credits,
         validityDays: pkg.validityDays,
+        serviceId: pkg.serviceId,
       },
     });
   }
