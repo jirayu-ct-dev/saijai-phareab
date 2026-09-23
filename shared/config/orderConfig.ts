@@ -2,7 +2,7 @@ import type { OrderStatus, OrderType } from '../types/enums'
 
 export const orderStatusLabels: Record<OrderStatus, string> = {
     RECEIVED: 'รับผ้า',
-    PROCESSING: 'ดำเนินการ',
+    PROCESSING: 'กำลังซัก/รีด',
     DELIVERING: 'กำลังส่ง/รอรับ',
     COMPLETED: 'เสร็จสิ้น',
     CANCELLED: 'ยกเลิก',

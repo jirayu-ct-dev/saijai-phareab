@@ -75,7 +75,12 @@ export default defineEventHandler(async (event) => {
                 deductOn: true,
                 isDelivery: true,
                 serviceId: true,
-                service: { select: { name: true } },
+                service: {
+                  select: {
+                    name: true,
+                    includedItems: { select: { storefrontItemId: true } },
+                  },
+                },
               },
             },
           },
@@ -129,6 +134,7 @@ export default defineEventHandler(async (event) => {
             endAt: entitlement.endAt?.toISOString() ?? null,
             serviceId: entitlement.product.serviceId,
             serviceName: entitlement.product.service?.name ?? null,
+            includedItemIds: entitlement.product.service?.includedItems.map((item) => item.storefrontItemId) ?? [],
           })),
         activeMemberEntitlement: activeMemberEntitlement
           ? {
@@ -141,6 +147,7 @@ export default defineEventHandler(async (event) => {
               endAt: activeMemberEntitlement.endAt?.toISOString() ?? null,
               serviceId: activeMemberEntitlement.product.serviceId,
               serviceName: activeMemberEntitlement.product.service?.name ?? null,
+              includedItemIds: activeMemberEntitlement.product.service?.includedItems.map((item) => item.storefrontItemId) ?? [],
             }
           : null,
         addonEntitlements: activeAddonEntitlements.map((entitlement) => ({

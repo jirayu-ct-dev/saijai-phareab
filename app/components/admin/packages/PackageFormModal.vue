@@ -11,6 +11,7 @@ const props = defineProps<{
   services?: Array<{
     id: string;
     name: string;
+    includedItemIds?: string[];
   }>;
   servicesLoading?: boolean;
 }>();
@@ -104,6 +105,11 @@ const validate = () => {
   }
   if (state.packageType === "MAIN" && !state.serviceId) {
     nextErrors.serviceId = "กรุณาเลือกบริการของแพ็กเกจ";
+  } else if (
+    state.packageType === "MAIN"
+    && !(props.services?.find((service) => service.id === state.serviceId)?.includedItemIds?.length)
+  ) {
+    nextErrors.serviceId = "บริการนี้ยังไม่มีรายการผ้า กรุณาแก้ไขบริการก่อน";
   }
   if (!hasUsablePackageCredits(usageSettings)) {
     nextErrors.credits = "กรุณากรอกเครดิตเป็นจำนวนเต็มอย่างน้อย 1 เครดิต";

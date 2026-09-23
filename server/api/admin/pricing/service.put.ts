@@ -1,21 +1,39 @@
 import { z } from 'zod'
 import { prisma } from "~~/server/utils/prisma";
 import { requireRole } from "~~/server/utils/auth";
+import { validateServiceIncludedItemIds } from "~~/server/utils/serviceIncludedItems";
 
 const schema = z.object({
   id: z.string().min(1),
   name: z.string().min(1),
-  description: z.string().optional()
+  description: z.string().optional(),
+  includedItemIds: z.array(z.string().min(1)).max(500).optional(),
 })
 
 export default defineEventHandler(async (event) => {
   await requireRole(event, ['ADMIN'])
   const body = await readValidatedBody(event, schema.parse)
 
-  const service = await prisma.storefrontService.update({
-    where: { id: body.id },
-    data: { name: body.name.trim(), description: body.description?.trim() || null }
+  const includedItemIds = body.includedItemIds === undefined
+    ? null
+    : await validateServiceIncludedItemIds(prisma, body.includedItemIds)
+  const service = await prisma.$transaction(async (tx) => {
+    if (includedItemIds) {
+      await tx.serviceIncludedItem.deleteMany({ where: { storefrontServiceId: body.id } })
+    }
+    return tx.storefrontService.update({
+      where: { id: body.id },
+      data: {
+        name: body.name.trim(),
+        description: body.description?.trim() || null,
+        includedItems: includedItemIds?.length
+          ? { createMany: { data: includedItemIds.map((storefrontItemId) => ({ storefrontItemId })) } }
+          : undefined,
+      },
+      include: { includedItems: { select: { storefrontItemId: true } } },
+    })
   })
 
-  return service
+  const { includedItems, ...result } = service
+  return { ...result, includedItemIds: includedItems.map((item) => item.storefrontItemId) }
 })

@@ -54,13 +54,22 @@ beforeEach(() => {
     payments: [{ id: "payment", slipImage: null, slipImageId: null, userId: "customer", amount: 20, paidAt: null, metadata: {} }],
   });
   db.user.findFirst.mockResolvedValue({ id: "customer" });
-  db.storefrontPrice.findMany.mockResolvedValue([{ id: "price", price: 20 }]);
+  db.storefrontPrice.findMany.mockResolvedValue([{
+    id: "price",
+    price: 20,
+    storefrontService: { id: "service", name: "ซักรีด" },
+    storefrontItem: { id: "shirt", name: "เสื้อเชิ้ต" },
+  }]);
   db.serviceOrder.updateMany.mockResolvedValue({ count: 1 });
   db.serviceOrderItem.findMany.mockResolvedValue([]);
   db.serviceOrderItem.create.mockResolvedValue({ id: "item" });
   db.paymentRecord.update.mockResolvedValue({});
   db.paymentAuditLog.create.mockResolvedValue({});
-  db.memberEntitlement.findFirst.mockResolvedValue({ id: "entitlement", creditRemaining: 5 });
+  db.memberEntitlement.findFirst.mockResolvedValue({
+    id: "entitlement",
+    creditRemaining: 5,
+    product: { serviceId: "service", service: { includedItems: [{ storefrontItemId: "shirt" }] } },
+  });
   db.memberEntitlement.updateMany.mockResolvedValue({ count: 1 });
   numbers.payment.mockResolvedValue("PAY-1");
 });

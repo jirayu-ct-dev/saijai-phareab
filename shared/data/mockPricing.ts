@@ -6,8 +6,8 @@ export const servicesIdMap = {
 }
 
 export const mockServicesData = [
-    { id: servicesIdMap.wash_iron, name: 'ซัก-รีด' },
-    { id: servicesIdMap.wash_fold, name: 'ซัก-พับ' },
+    { id: servicesIdMap.wash_iron, name: 'ซัก อบ รีด' },
+    { id: servicesIdMap.wash_fold, name: 'ซัก อบ พับ' },
     { id: servicesIdMap.iron, name: 'รีด' },
     { id: servicesIdMap.dry_clean, name: 'ซักแห้ง' },
 ]
@@ -173,6 +173,19 @@ export const mockPricesData: Array<{
     { storefrontItemId: 'cmojugr9z0008iwmtmzuou7f1', storefrontServiceId: 'cmojubuag0000iwmthga44tve', price: 100 },
 ]
 
+// รายการผ้าที่อนุญาตให้ใช้เครดิตแพ็กเกจตามบริการ
+// S และ M ใช้บริการซัก อบ รีดร่วมกัน จึงได้รายการผ้าชุดเดียวกันโดยอัตโนมัติ
+export const mockServiceIncludedItemsData = [
+    ...['i1', 'i3', 'i4', 'i5', 'i9', 'i11', 'i12'].map(storefrontItemId => ({
+        storefrontServiceId: servicesIdMap.wash_iron,
+        storefrontItemId,
+    })),
+    ...['i1', 'i3', 'i4', 'i5', 'i11', 'i12'].map(storefrontItemId => ({
+        storefrontServiceId: servicesIdMap.iron,
+        storefrontItemId,
+    })),
+]
+
 export const mockPackagesData: Array<{
     id: string
     name: string
@@ -183,6 +196,7 @@ export const mockPackagesData: Array<{
     price: number
     credits: number | null
     validityDays: number | null
+    serviceId: string | null
 }> = [
     {
         id: 'cmopg27370008pkmt4296tnki',
@@ -194,38 +208,42 @@ export const mockPackagesData: Array<{
         price: 300,
         credits: null,
         validityDays: 30,
+        serviceId: null,
     },
     {
         id: 'cmopg0krl0007pkmt3pf25bij',
         name: 'S',
-        description: null,
+        description: 'ซัก อบ รีด เฉพาะเสื้อผ้าชิ้นที่กำหนดในบริการ',
         packageType: 'MAIN',
         isDelivery: false,
         deductOn: 'CREATED',
         price: 850,
         credits: 50,
         validityDays: 30,
+        serviceId: servicesIdMap.wash_iron,
     },
     {
         id: 'cmopg051y0006pkmtjoiqmj3e',
         name: 'M',
-        description: null,
+        description: 'ซัก อบ รีด ใช้รายการผ้าร่วมกับแพ็กเกจ S',
         packageType: 'MAIN',
         isDelivery: false,
         deductOn: 'CREATED',
         price: 1290,
         credits: 90,
         validityDays: 30,
+        serviceId: servicesIdMap.wash_iron,
     },
     {
         id: 'cmopfz9jb0005pkmtchxlff6t',
         name: 'L',
-        description: null,
+        description: 'รีดเฉพาะเสื้อผ้าชิ้นที่กำหนดในบริการ',
         packageType: 'MAIN',
         isDelivery: false,
         deductOn: 'CREATED',
         price: 1690,
         credits: 150,
         validityDays: 30,
+        serviceId: servicesIdMap.iron,
     },
 ]

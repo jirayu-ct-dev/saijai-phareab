@@ -1,4 +1,4 @@
-import { uploadImageBufferToCloudinary } from "~~/server/utils/cloudinary";
+import { getCloudinaryFolder, uploadImageBufferToCloudinary } from "~~/server/utils/cloudinary";
 import { validateImageUpload } from "~~/server/utils/imageUpload";
 import { requireUser } from "~~/server/utils/auth";
 import { createRateLimiter } from "~~/server/utils/rateLimit";
@@ -27,7 +27,7 @@ export default defineEventHandler(async (event) => {
 
   try {
     const uploaded = await uploadImageBufferToCloudinary(file.data, {
-      folder: "saijai-phareab/avatars",
+      folder: getCloudinaryFolder("avatars"),
       publicId: `avatar-${actor.id}-${Date.now()}`,
       resourceType: "image",
     });

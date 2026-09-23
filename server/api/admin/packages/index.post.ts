@@ -37,9 +37,10 @@ export default defineEventHandler(async (event) => {
     if (serviceId) {
         const service = await prisma.storefrontService.findFirst({
             where: { id: serviceId, deletedAt: null, isActive: true },
-            select: { id: true },
+            select: { id: true, includedItems: { select: { storefrontItemId: true }, take: 1 } },
         })
         if (!service) throw createError({ statusCode: 404, statusMessage: 'ไม่พบบริการที่เลือก' })
+        if (!service.includedItems.length) throw createError({ statusCode: 400, statusMessage: 'บริการนี้ยังไม่มีรายการผ้า' })
     }
 
     try {

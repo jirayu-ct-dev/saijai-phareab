@@ -56,7 +56,6 @@ export const useUser = () => {
       return false;
     }
   };
-
   const redirectByRole = async (role?: string) => {
     if (user.value?.isActive === false && (role === "ADMIN" || role === "EMPLOYEE")) {
       return navigateTo("/me");

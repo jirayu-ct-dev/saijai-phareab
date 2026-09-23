@@ -493,32 +493,27 @@ const columns = computed<TableColumn<PricingTableRow>[]>(() => {
     </UModal>
 
     <template v-if="isSkeleton">
-      <div class="-mx-2 space-y-1 sm:mx-0 md:hidden">
+      <div class="-mx-2 space-y-1.5 sm:mx-0 md:hidden">
         <div
           v-for="i in 5"
           :key="`pr-mob-sk-${i}`"
-          class="overflow-hidden border border-default/30 bg-default transition-[background-color,border-color] duration-200 hover:border-default/45 hover:bg-default dark:border-default/20 dark:bg-elevated/55 dark:hover:bg-elevated/70"
+          class="space-y-2 rounded-lg border border-default/30 bg-default p-2.5 dark:border-default/20 dark:bg-elevated/55"
         >
-          <div class="flex items-center gap-2 p-2">
-            <USkeleton class="size-4 rounded-lg shrink-0" />
-            <USkeleton class="size-4 rounded-lg shrink-0" />
+          <div class="flex items-start gap-2">
+            <USkeleton class="mt-0.5 size-4 shrink-0 rounded" />
             <div class="min-w-0 flex-1 space-y-1.5">
-              <div class="flex items-start justify-between gap-2">
-                <div class="min-w-0 flex-1 space-y-1">
-                  <USkeleton class="h-3.5 w-36 rounded-lg" />
-                  <USkeleton class="h-2.5 w-28 rounded-lg" />
-                </div>
-                <USkeleton class="h-4 w-16 rounded-full" />
-              </div>
-              <div class="flex flex-wrap gap-2">
-                <USkeleton class="h-2.5 w-20 rounded-lg" />
-                <USkeleton class="h-2.5 w-20 rounded-lg" />
-                <USkeleton class="h-2.5 w-20 rounded-lg" />
-              </div>
-              <div class="flex items-center justify-end gap-1">
-                <USkeleton class="size-5 rounded-lg" />
-                <USkeleton class="size-5 rounded-lg" />
-              </div>
+              <USkeleton class="h-4 w-40 max-w-full rounded-lg" />
+              <USkeleton class="h-4 w-28 max-w-full rounded-lg" />
+            </div>
+            <div class="flex gap-1">
+              <USkeleton class="size-8 rounded-lg" />
+              <USkeleton class="size-8 rounded-lg" />
+            </div>
+          </div>
+          <div class="ml-6 grid grid-cols-2 gap-x-3 border-t border-default/40 pt-1">
+            <div v-for="j in 4" :key="j" class="flex flex-col gap-1 border-b border-default/30 py-1.5">
+              <USkeleton class="h-3 w-16 max-w-full rounded-lg" />
+              <USkeleton class="h-3 w-12 rounded-lg" />
             </div>
           </div>
         </div>
@@ -541,52 +536,47 @@ const columns = computed<TableColumn<PricingTableRow>[]>(() => {
         <p>{{ search ? 'ไม่พบรายการที่ค้นหา' : 'ยังไม่มีรายการ' }}</p>
       </div>
 
-      <div v-else class="-mx-2 space-y-1 sm:mx-0">
+      <div v-else class="-mx-2 space-y-1.5 sm:mx-0">
         <div
           v-for="(item, index) in tableData"
           :key="item.id"
-          class="overflow-hidden border border-default/30 bg-default transition-[background-color,border-color] duration-200 hover:border-default/45 hover:bg-default dark:border-default/20 dark:bg-elevated/55 dark:hover:bg-elevated/70"
+          class="rounded-lg border border-default/30 bg-default p-2.5 dark:border-default/20 dark:bg-elevated/55"
         >
-          <div class="flex items-center gap-2 p-2">
+          <div class="flex items-start gap-2">
             <UCheckbox
               :model-value="isMobileRowSelected(Number(index))"
-              aria-label="เลือกแถว"
-              class="shrink-0"
+              :aria-label="`เลือกรายการ ${item.name}`"
+              class="mt-0.5 shrink-0"
               @update:model-value="setMobileRowSelected(index, $event)"
             />
-            <UIcon name="i-lucide-shirt" class="size-4 shrink-0 text-primary opacity-70" />
-
             <div class="min-w-0 flex-1">
-              <div class="flex min-w-0 items-start justify-between gap-2">
+              <div class="flex items-start gap-2">
                 <div class="min-w-0 flex-1">
-                  <p class="truncate text-sm font-medium text-highlighted">{{ item.name }}</p>
-                  <p class="truncate text-[11px] text-muted">{{ item.description || 'ไม่มีหมายเหตุ' }}</p>
+                  <p class="break-words text-sm font-semibold leading-5 text-highlighted">{{ item.name }}</p>
+                  <div class="mt-1 flex min-w-0 items-center gap-2">
+                    <UBadge variant="subtle" color="primary" size="xs" class="shrink-0">
+                      {{ item.categoryName }}
+                    </UBadge>
+                    <p v-if="item.description" class="truncate text-[11px] text-muted">{{ item.description }}</p>
+                  </div>
                 </div>
-                <UBadge variant="subtle" color="primary" size="xs" class="shrink-0">
-                  {{ item.categoryName }}
-                </UBadge>
+                <div class="flex shrink-0 gap-1">
+                  <UButton icon="i-lucide-pencil" size="sm" color="neutral" variant="ghost" :aria-label="`แก้ไข ${item.name}`" @click="openEditItem(item)" />
+                  <UButton icon="i-lucide-trash-2" size="sm" color="error" variant="ghost" :aria-label="`ลบ ${item.name}`" @click="openDeleteItem(item)" />
+                </div>
               </div>
 
-              <div class="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-muted">
-                <span
+              <div v-if="visibleServices.length" class="ml-6 mt-2 grid gap-x-3 border-t border-default/40 pt-1" :class="visibleServices.length === 1 ? 'grid-cols-1' : 'grid-cols-2'">
+                <div
                   v-for="service in visibleServices"
                   :key="service.id"
+                  class="flex min-w-0 flex-col items-start gap-0.5 border-b border-default/30 py-1.5"
                 >
-                  {{ service.name }}:
+                  <span class="min-w-0 truncate text-[11px] text-muted">{{ service.name }}</span>
                   <span
-                    class="font-medium"
+                    class="text-xs font-semibold tabular-nums"
                     :class="formatPriceText(item, service) === '-' ? 'text-muted' : 'text-primary'"
                   >{{ formatPriceText(item, service) }}</span>
-                </span>
-              </div>
-
-              <div class="mt-1 flex items-center justify-between gap-2">
-                <div class="min-w-0 truncate text-[11px] text-muted">
-                  {{ item.categoryName }}
-                </div>
-                <div class="flex shrink-0 items-center justify-end gap-1">
-                  <UButton icon="i-lucide-pencil" size="xs" color="neutral" variant="ghost" aria-label="แก้ไขรายการ" @click="openEditItem(item)" />
-                  <UButton icon="i-lucide-trash-2" size="xs" color="error" variant="ghost" aria-label="ลบรายการ" @click="openDeleteItem(item)" />
                 </div>
               </div>
             </div>
@@ -702,7 +692,7 @@ const columns = computed<TableColumn<PricingTableRow>[]>(() => {
                 class="w-full"
                 placeholder="ราคา"
               />
-              <div v-else class="grid grid-cols-3 items-end gap-2">
+              <div v-else class="grid grid-cols-1 items-end gap-2 sm:grid-cols-3">
                 <UFormField label="ต่ำสุด">
                   <UInput v-model.number="activeItemPricesMin[service.id]" type="number" class="w-full" placeholder="0" @update:model-value="activeItemPrices[service.id] = activeItemPricesMin[service.id]" />
                 </UFormField>

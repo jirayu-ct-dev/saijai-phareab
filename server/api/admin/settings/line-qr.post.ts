@@ -1,4 +1,4 @@
-import { uploadImageBufferToCloudinary } from "~~/server/utils/cloudinary";
+import { getCloudinaryFolder, uploadImageBufferToCloudinary } from "~~/server/utils/cloudinary";
 import { validateImageUpload } from "~~/server/utils/imageUpload";
 import { requireRole } from "~~/server/utils/auth";
 
@@ -18,7 +18,7 @@ export default defineEventHandler(async (event) => {
 
   try {
     const uploaded = await uploadImageBufferToCloudinary(file.data, {
-      folder: "saijai-phareab/shop-line-qr",
+      folder: getCloudinaryFolder("shop-line-qr"),
       publicId: `line-qr-${Date.now()}`,
       resourceType: "image",
     });

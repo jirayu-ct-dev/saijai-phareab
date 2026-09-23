@@ -11,6 +11,7 @@ import { formatCurrency } from "~~/shared/utils/format";
 import { backdatedOrderSchema, type BackdatedOrderInput } from "~~/shared/utils/backdatedOrder";
 import { computePickupForDay, parseBangkokDateTime } from "~~/shared/utils/pickup";
 import { allocatePackageCredits } from "~~/shared/utils/packageService";
+import { isPackageCatalogItemAllowed } from "~~/shared/utils/packageCatalog";
 
 const dashboardCardClass =
   "-mx-2 border border-default/30 bg-default p-4 dark:border-default/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg";
@@ -203,9 +204,11 @@ const activeMemberEntitlement = computed(() => selectedCustomer.value?.activeMem
 const activeAddonEntitlements = computed(() => selectedCustomer.value?.addonEntitlements ?? []);
 const memberEntitlementOptions = computed(() => selectedCustomer.value?.memberEntitlementOptions ?? []);
 const selectedMemberEntitlement = computed(() =>
-  memberEntitlementOptions.value.find((option) => option.id === form.memberEntitlementId) ?? activeMemberEntitlement.value
+  form.memberEntitlementId
+    ? memberEntitlementOptions.value.find((option) => option.id === form.memberEntitlementId) ?? null
+    : null
 );
-const canUseMemberPackage = computed(() => form.customerMode === "existing" && Boolean(selectedMemberEntitlement.value));
+const canUseMemberPackage = computed(() => form.customerMode === "existing" && Boolean(activeMemberEntitlement.value));
 const formatEntitlementDate = (value: string | null) => {
   if (!value) return "?";
   const date = new Date(value);
@@ -223,7 +226,7 @@ const memberEntitlementPickerItems = computed(() => memberEntitlementOptions.val
 }));
 const memberEntitlementPickerValue = computed({
   get: () => form.memberEntitlementId ?? undefined,
-  set: (value: string | undefined) => { form.memberEntitlementId = value ?? null; },
+  set: (value: string | undefined) => { setMemberEntitlement(value ?? null); },
 });
 const entitlementCalendarDate = (value: string | null) => {
   if (!value) return null;
@@ -262,8 +265,9 @@ const canUseAddonPackages = computed(() => form.customerMode === "existing" && a
 const filteredCatalog = computed(() => {
   const keyword = searchQuery.value.trim().toLowerCase();
   return (items.value ?? []).filter((item) => {
+    if (selectedMemberEntitlement.value && !isPackageCatalogItemAllowed(selectedMemberEntitlement.value, item)) return false;
     if (categoryFilter.value !== "all" && item.categoryId !== categoryFilter.value) return false;
-    if (serviceFilter.value !== "all" && item.serviceId !== serviceFilter.value) return false;
+    if (!selectedMemberEntitlement.value && serviceFilter.value !== "all" && item.serviceId !== serviceFilter.value) return false;
     if (!keyword) return true;
     return [item.label, item.categoryName ?? "", item.serviceName, item.itemName].join(" ").toLowerCase().includes(keyword);
   });
@@ -315,6 +319,27 @@ const uploadedPhotoIds = ref(new Map<string, string>()); // photoKey → imageId
 
 const selectedItemMap = computed(() => new Map(form.items.map((item) => [item.storefrontPriceId, item])));
 const selectedAddonCreditMap = computed(() => new Map(form.addonEntitlements.map((item) => [item.entitlementId, item.credits])));
+const cartSupportsEntitlement = (entitlement: typeof activeMemberEntitlement.value) => Boolean(
+  entitlement && form.items.every((item) => {
+    const catalog = catalogMap.value.get(item.storefrontPriceId);
+    return catalog ? isPackageCatalogItemAllowed(entitlement, catalog) : false;
+  }),
+);
+const setMemberEntitlement = (entitlementId: string | null) => {
+  if (!entitlementId) {
+    form.memberEntitlementId = null;
+    serviceFilter.value = "all";
+    return;
+  }
+  const entitlement = memberEntitlementOptions.value.find((option) => option.id === entitlementId) ?? null;
+  if (!entitlement || !cartSupportsEntitlement(entitlement)) {
+    notify.validationError("มีรายการผ้านอกแพ็กเกจ กรุณานำรายการนั้นออกก่อนเปิดใช้แพ็กเกจ");
+    form.memberEntitlementId = null;
+    return;
+  }
+  form.memberEntitlementId = entitlement.id;
+  serviceFilter.value = entitlement.serviceId ?? "all";
+};
 const hasSelectedDeliveryAddon = computed(() => activeAddonEntitlements.value.some(
   (addon) => addon.isDelivery && selectedAddonCreditMap.value.has(addon.id),
 ));
@@ -763,7 +788,8 @@ watch(
     // Keep an explicit pick as long as it still covers the receive date;
     // re-default only when the current selection is no longer offered.
     if (form.memberEntitlementId && memberEntitlementOptions.value.some((option) => option.id === form.memberEntitlementId)) return;
-    form.memberEntitlementId = entitlement.id;
+    form.memberEntitlementId = cartSupportsEntitlement(entitlement) ? entitlement.id : null;
+    serviceFilter.value = form.memberEntitlementId ? entitlement.serviceId ?? "all" : "all";
   },
   { immediate: true },
 );
@@ -944,7 +970,7 @@ const useDuplicateCustomer = async () => {
             <USelect v-model="categoryFilter" :items="categoryOptions" value-key="value"
               class="min-w-0 md:w-40 lg:w-44" />
             <USelect v-model="serviceFilter" :items="serviceOptions" value-key="value"
-              class="min-w-0 md:w-40 lg:w-44" />
+              :disabled="Boolean(form.memberEntitlementId)" class="min-w-0 md:w-40 lg:w-44" />
           </div>
         </div>
 
@@ -1077,12 +1103,12 @@ const useDuplicateCustomer = async () => {
               </div>
 
               <div class="space-y-2">
-                <div v-if="canUseMemberPackage" class="border-l-2 border-success pl-3">
+                <div v-if="canUseMemberPackage" :class="['border-l-2 pl-3', form.memberEntitlementId ? 'border-success' : 'border-default']">
                   <div class="flex items-start justify-between gap-3">
                     <div class="min-w-0">
-                      <p class="truncate text-sm font-medium text-success">{{ selectedMemberEntitlement?.productName }}
+                      <p :class="['truncate text-sm font-medium', form.memberEntitlementId ? 'text-success' : 'text-highlighted']">{{ selectedMemberEntitlement?.productName ?? activeMemberEntitlement?.productName }}
                       </p>
-                      <p class="text-xs text-muted">
+                      <p v-if="form.memberEntitlementId" class="text-xs text-muted">
                         เครดิตคงเหลือ
                         <span :class="Number(selectedMemberEntitlement?.creditRemaining ?? 0) < 0 ? 'text-error font-medium' : ''">
                           {{ selectedMemberEntitlement?.creditRemaining ?? 0 }}
@@ -1096,11 +1122,13 @@ const useDuplicateCustomer = async () => {
                         ช่วงสิทธิ์ {{ formatEntitlementDate(selectedMemberEntitlement.startAt) }}–{{
                           formatEntitlementDate(selectedMemberEntitlement.endAt) }}
                       </p>
+                      <p v-else class="text-xs text-muted">ไม่ได้ใช้แพ็กเกจ · คิดราคาปกติ</p>
                       <p v-if="entitlementWindowError" class="text-xs font-medium text-error">{{ entitlementWindowError
                       }}</p>
                     </div>
                     <USwitch :model-value="Boolean(form.memberEntitlementId)" color="success" size="sm"
-                      @update:model-value="form.memberEntitlementId = $event ? selectedMemberEntitlement?.id ?? null : null" />
+                      aria-label="ใช้แพ็กเกจรายเดือน"
+                      @update:model-value="setMemberEntitlement($event ? activeMemberEntitlement?.id ?? null : null)" />
                   </div>
                   <USelect v-if="memberEntitlementOptions.length > 1"
                     v-model="memberEntitlementPickerValue" :items="memberEntitlementPickerItems" value-key="value"

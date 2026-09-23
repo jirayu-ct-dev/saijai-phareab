@@ -394,7 +394,7 @@ const closeManageModal = (): void => {
                 </div>
                 <UInput v-if="!newItemRangeEnabled[service.id]" v-model.number="newItemPrices[service.id]" type="number"
                   class="w-full" placeholder="ราคา" />
-                <div v-else class="grid grid-cols-3 items-end gap-2">
+                <div v-else class="grid grid-cols-1 items-end gap-2 sm:grid-cols-3">
                   <UFormField label="ต่ำสุด">
                     <UInput v-model.number="newItemPricesMin[service.id]" type="number" class="w-full" placeholder="0"
                       @update:model-value="newItemPrices[service.id] = newItemPricesMin[service.id]" />

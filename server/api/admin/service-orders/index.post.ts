@@ -15,6 +15,7 @@ import { parseBangkokDateTime } from "~~/shared/utils/pickup";
 import { backdatedOrderSchema } from "~~/shared/utils/backdatedOrder";
 import { backdatedEntitlementWhere } from "~~/server/utils/backdatedEntitlement";
 import { allocatePackageCredits } from "~~/shared/utils/packageService";
+import { isPackageCatalogItemAllowed } from "~~/shared/utils/packageCatalog";
 
 type CreateServiceOrderBody = {
   backdated?: unknown;
@@ -260,6 +261,10 @@ export default defineEventHandler(async (event) => {
         id: string;
         customerId: string;
         creditRemaining: number | null;
+        product: {
+          serviceId: string | null;
+          service: null | { includedItems: Array<{ storefrontItemId: string }> };
+        };
       };
 
       if (requestedEntitlementId) {
@@ -275,6 +280,14 @@ export default defineEventHandler(async (event) => {
             id: true,
             customerId: true,
             creditRemaining: true,
+            product: {
+              select: {
+                serviceId: true,
+                service: {
+                  select: { includedItems: { select: { storefrontItemId: true } } },
+                },
+              },
+            },
           },
         });
 
@@ -284,6 +297,23 @@ export default defineEventHandler(async (event) => {
             statusMessage: history
               ? "แพ็กเกจที่เลือกไม่ครอบคลุมวันรับผ้าที่ระบุ หรือไม่ใช่สิทธิ์ของลูกค้านี้"
               : "ไม่พบสิทธิ์แพ็กเกจรายเดือนที่เลือก",
+          });
+        }
+      }
+
+      if (memberEntitlement) {
+        const rule = {
+          serviceId: memberEntitlement.product.serviceId,
+          includedItemIds: memberEntitlement.product.service?.includedItems.map((item) => item.storefrontItemId) ?? [],
+        };
+        const invalidItem = orderItems.find((item) => !isPackageCatalogItemAllowed(rule, {
+          serviceId: item.price.storefrontService.id,
+          itemId: item.price.storefrontItem.id,
+        }));
+        if (invalidItem) {
+          throw createError({
+            statusCode: 400,
+            statusMessage: `รายการ "${invalidItem.price.storefrontItem.name}" ไม่อยู่ในแพ็กเกจที่เลือก`,
           });
         }
       }

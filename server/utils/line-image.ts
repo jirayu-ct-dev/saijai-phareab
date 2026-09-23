@@ -1,9 +1,9 @@
-import { uploadImageBufferToCloudinary } from "~~/server/utils/cloudinary";
+import { getCloudinaryFolder, uploadImageBufferToCloudinary } from "~~/server/utils/cloudinary";
 import { prisma } from "~~/server/utils/prisma";
 import type { LineMessageContentResponse } from "~~/server/utils/line-messaging";
 
 const LINE_PROVIDER_ID = "line";
-const LINE_WEBHOOK_IMAGE_FOLDER = "saijai-phareab/line-webhook";
+const LINE_WEBHOOK_IMAGE_FOLDER = "line-webhook";
 
 export type UploadedLineImage = {
   assetId: string | null;
@@ -35,7 +35,7 @@ export const uploadLineImage = async (
   image: LineMessageContentResponse,
 ): Promise<UploadedLineImage> => {
   return uploadImageBufferToCloudinary(image.buffer, {
-    folder: LINE_WEBHOOK_IMAGE_FOLDER,
+    folder: getCloudinaryFolder(LINE_WEBHOOK_IMAGE_FOLDER),
     publicId: messageId,
     resourceType: "image",
   });
