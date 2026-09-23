@@ -363,30 +363,27 @@ const columns: TableColumn<Package>[] = [
     </div>
 
     <template v-if="showSkeleton">
-      <div class="-mx-2 space-y-1 sm:mx-0 md:hidden">
+      <div class="-mx-2 space-y-2 sm:mx-0 md:hidden">
         <div
           v-for="i in 5"
           :key="`pk-mob-sk-${i}`"
-          class="overflow-hidden border border-default/30 bg-default transition-[background-color,border-color] duration-200 hover:border-default/45 hover:bg-default dark:border-default/20 dark:bg-elevated/55 dark:hover:bg-elevated/70"
+          class="rounded-xl border border-default/30 bg-default p-3 dark:border-default/20 dark:bg-elevated/55"
         >
-          <div class="flex items-center gap-2 p-2">
-            <USkeleton class="size-4 rounded-lg shrink-0" />
-            <USkeleton class="size-9 rounded-lg shrink-0" />
-            <div class="min-w-0 flex-1 space-y-1.5">
-              <div class="flex items-start justify-between gap-2">
-                <div class="min-w-0 flex-1 space-y-1">
-                  <USkeleton class="h-3.5 w-40 rounded-lg" />
-                  <USkeleton class="h-2.5 w-32 rounded-lg" />
-                </div>
-                <USkeleton class="h-4 w-14 rounded-full" />
+          <div class="flex items-start gap-2">
+            <USkeleton class="mt-1 size-4 shrink-0 rounded" />
+            <div class="min-w-0 flex-1 space-y-2">
+              <div class="flex items-center justify-between gap-3">
+                <USkeleton class="h-4 w-36 rounded" />
+                <USkeleton class="h-4 w-16 rounded" />
               </div>
-              <div class="flex flex-wrap gap-2">
-                <USkeleton class="h-2.5 w-20 rounded-lg" />
-                <USkeleton class="h-2.5 w-16 rounded-lg" />
+              <div class="flex gap-2">
+                <USkeleton class="h-4 w-20 rounded-full" />
+                <USkeleton class="h-4 w-16 rounded-full" />
               </div>
-              <div class="flex items-center justify-end gap-1">
-                <USkeleton class="size-5 rounded-lg" />
-                <USkeleton class="size-5 rounded-lg" />
+              <div class="grid grid-cols-3 gap-2 border-t border-default/30 pt-2">
+                <USkeleton class="h-8 rounded" />
+                <USkeleton class="h-8 rounded" />
+                <USkeleton class="h-8 rounded" />
               </div>
             </div>
           </div>
@@ -413,59 +410,87 @@ const columns: TableColumn<Package>[] = [
         </p>
       </div>
 
-      <div v-else class="-mx-2 space-y-1 sm:mx-0">
+      <div v-else class="-mx-2 space-y-2 sm:mx-0">
         <div
           v-for="(pkg, index) in paginatedPackages"
           :key="pkg.id"
-          class="overflow-hidden border border-default/30 bg-default transition-[background-color,border-color] duration-200 hover:border-default/45 hover:bg-default dark:border-default/20 dark:bg-elevated/55 dark:hover:bg-elevated/70"
+          class="rounded-xl border border-default/30 bg-default p-3 transition-colors hover:border-default/45 dark:border-default/20 dark:bg-elevated/55"
         >
-          <div class="flex items-center gap-2 p-2">
+          <div class="flex items-start gap-2">
             <UCheckbox
               :model-value="isMobileRowSelected(index)"
               aria-label="เลือกแพ็กเกจ"
-              class="shrink-0"
+              class="mt-1 shrink-0"
               @update:model-value="setMobileRowSelected(index, $event)"
             />
-            <div
-              class="flex size-9 shrink-0 items-center justify-center rounded-lg"
-              :class="pkg.packageType === 'MAIN' ? 'bg-primary/10' : 'bg-info/10'"
-            >
-              <UIcon
-                :name="pkg.packageType === 'MAIN' ? 'i-lucide-package' : 'i-lucide-puzzle'"
-                :class="pkg.packageType === 'MAIN' ? 'size-5 text-primary' : 'size-5 text-info'"
-              />
-            </div>
 
             <div class="min-w-0 flex-1">
-              <div class="flex min-w-0 items-start justify-between gap-2">
+              <div class="flex min-w-0 items-start justify-between gap-3">
                 <div class="min-w-0 flex-1">
-                  <p class="truncate text-sm font-medium text-highlighted">{{ pkg.name }}</p>
-                  <p class="truncate text-[11px] text-muted">{{ pkg.description || "ไม่มีคำอธิบาย" }}</p>
+                  <p class="line-clamp-2 text-sm font-semibold leading-snug text-highlighted">{{ pkg.name }}</p>
+                  <p v-if="pkg.description" class="mt-0.5 line-clamp-1 text-xs text-muted">{{ pkg.description }}</p>
                 </div>
+                <span
+                  class="shrink-0 pt-0.5 text-sm font-semibold leading-none"
+                  :class="Number(pkg.price) === 0 ? 'text-success' : 'text-primary'"
+                >
+                  {{ getPackagePriceLabel(pkg) }}
+                </span>
+              </div>
 
-                <div class="flex shrink-0 flex-col items-end gap-1">
-                  <UBadge
-                    :color="pkg.isActive ? packageActiveConfig.active.color : packageActiveConfig.inactive.color"
-                    variant="subtle"
-                    size="xs"
-                  >
-                    {{ pkg.isActive ? packageActiveConfig.active.label : packageActiveConfig.inactive.label }}
-                  </UBadge>
-                  <span
-                    class="text-sm font-semibold leading-none"
-                    :class="Number(pkg.price) === 0 ? 'text-success' : 'text-primary'"
-                  >
-                    {{ getPackagePriceLabel(pkg) }}
-                  </span>
+              <div class="mt-2 flex flex-wrap items-center gap-1.5">
+                <UBadge :color="packageTypeColors[pkg.packageType]" variant="subtle" size="xs">
+                  {{ packageTypeLabels[pkg.packageType] }}
+                </UBadge>
+                <UBadge
+                  :color="pkg.isActive ? packageActiveConfig.active.color : packageActiveConfig.inactive.color"
+                  variant="subtle"
+                  size="xs"
+                >
+                  {{ pkg.isActive ? packageActiveConfig.active.label : packageActiveConfig.inactive.label }}
+                </UBadge>
+              </div>
+
+              <div
+                v-if="pkg.packageType === 'MAIN'"
+                class="mt-3 grid grid-cols-3 gap-x-2 border-t border-default/40 pt-2.5 text-[11px] dark:border-default/25"
+              >
+                <div class="min-w-0">
+                  <p class="text-muted">เครดิต</p>
+                  <p class="truncate font-medium text-highlighted">{{ pkg.isDelivery ? "ไม่ใช้" : formatCredits(pkg.credits) }}</p>
+                </div>
+                <div class="min-w-0">
+                  <p class="text-muted">เวลา</p>
+                  <p class="truncate font-medium text-highlighted">{{ formatDays(pkg.validityDays) }}</p>
+                </div>
+                <div class="min-w-0">
+                  <p class="text-muted">บริการ</p>
+                  <p class="truncate font-medium text-highlighted">{{ pkg.service?.name || "—" }}</p>
+                </div>
+              </div>
+              <div
+                v-else
+                class="mt-3 grid grid-cols-2 gap-x-3 gap-y-2 border-t border-default/40 pt-2.5 text-xs dark:border-default/25"
+              >
+                <div class="min-w-0">
+                  <p class="text-muted">{{ pkg.isDelivery ? "รูปแบบ" : "เครดิต" }}</p>
+                  <p class="truncate font-medium text-highlighted">
+                    {{ pkg.isDelivery ? "รับ-ส่ง ไม่ใช้เครดิต" : formatCredits(pkg.credits) }}
+                  </p>
+                </div>
+                <div class="min-w-0">
+                  <p class="text-muted">อายุแพ็กเกจ</p>
+                  <p class="truncate font-medium text-highlighted">{{ formatDays(pkg.validityDays) }}</p>
+                </div>
+                <div v-if="pkg.service" class="col-span-2 min-w-0">
+                  <p class="text-muted">บริการ</p>
+                  <p class="truncate font-medium text-highlighted">{{ pkg.service.name }}</p>
                 </div>
               </div>
 
-              <div class="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-muted">
-                <span>{{ packageTypeLabels[pkg.packageType] }}</span>
-                <span>{{ pkg.isDelivery ? "ไม่ใช้เครดิต" : formatCredits(pkg.credits) }}</span>
-                <span>{{ formatDays(pkg.validityDays) }}</span>
-                <span v-if="pkg.service">บริการ: {{ pkg.service.name }}</span>
-                <span class="inline-flex items-center gap-1.5">
+              <div class="mt-2.5 flex items-center justify-between gap-2">
+                <div class="inline-flex min-w-0 items-center gap-2 text-xs text-muted">
+                  <span>หน้าลูกค้า</span>
                   <USwitch
                     :model-value="pkg.isPublic"
                     size="xs"
@@ -477,19 +502,13 @@ const columns: TableColumn<Package>[] = [
                   <UIcon
                     v-if="togglingPublicPackageId === pkg.id"
                     name="i-lucide-loader-2"
-                    class="size-3 animate-spin"
+                    class="size-3 shrink-0 animate-spin"
                   />
-                  <span v-else>{{ pkg.isPublic ? "แสดงหน้าลูกค้า" : "ซ่อนหน้าลูกค้า" }}</span>
-                </span>
-              </div>
-
-              <div class="mt-1 flex items-center justify-between gap-2">
-                <div class="min-w-0 truncate text-[11px] text-muted">
-                  สร้าง {{ formatDateTime(pkg.createdAt) }}
+                  <span v-else class="font-medium text-highlighted">{{ pkg.isPublic ? "แสดง" : "ซ่อน" }}</span>
                 </div>
-                <div class="flex shrink-0 items-center justify-end gap-1">
-                  <UButton icon="i-lucide-pencil" size="xs" color="neutral" variant="ghost" aria-label="แก้ไขแพ็กเกจ" @click="emit('edit', pkg)" />
-                  <UButton icon="i-lucide-trash-2" size="xs" color="error" variant="ghost" aria-label="ลบแพ็กเกจ" @click="emit('delete', pkg)" />
+                <div class="flex shrink-0 items-center gap-1">
+                  <UButton icon="i-lucide-pencil" size="sm" color="neutral" variant="ghost" aria-label="แก้ไขแพ็กเกจ" @click="emit('edit', pkg)" />
+                  <UButton icon="i-lucide-trash-2" size="sm" color="error" variant="ghost" aria-label="ลบแพ็กเกจ" @click="emit('delete', pkg)" />
                 </div>
               </div>
             </div>
