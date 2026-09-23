@@ -6,17 +6,33 @@ type BadgeColor = "success" | "info" | "error" | "neutral" | "primary" | "second
 
 const props = defineProps<{
   status: ServiceOrderStatus;
+  interactive?: boolean;
+  loading?: boolean;
+}>();
+
+const emit = defineEmits<{
+  change: [status: ServiceOrderStatus];
 }>();
 
 const statusBadgeColors = orderStatusColors as Record<ServiceOrderStatus, BadgeColor>;
-const steps = [
+const stepDefinitions = [
   { value: "RECEIVED", title: orderStatusLabels.RECEIVED, icon: "i-lucide-package-check" },
   { value: "PROCESSING", title: orderStatusLabels.PROCESSING, icon: "i-lucide-washing-machine" },
   { value: "DELIVERING", title: orderStatusLabels.DELIVERING, icon: "i-lucide-truck" },
   { value: "COMPLETED", title: orderStatusLabels.COMPLETED, icon: "i-lucide-circle-check" },
 ] satisfies Array<{ value: ServiceOrderStatus; title: string; icon: string }>;
 
+const steps = computed(() => stepDefinitions.map((step) => ({
+  ...step,
+  disabled: props.interactive && step.value === "RECEIVED" && props.status !== "RECEIVED",
+})));
+
 const isCancelled = computed(() => props.status === "CANCELLED");
+const handleStatusChange = (value: string | number | undefined) => {
+  const status = stepDefinitions.find((step) => step.value === value)?.value;
+  if (!status || !props.interactive || props.loading || status === props.status) return;
+  emit("change", status);
+};
 </script>
 
 <template>
@@ -24,15 +40,18 @@ const isCancelled = computed(() => props.status === "CANCELLED");
     <div class="flex flex-wrap items-start justify-between gap-2">
       <div>
         <p class="text-sm font-semibold text-highlighted">ขั้นตอนการดูแลผ้า</p>
-        <p class="mt-0.5 text-xs text-muted">ติดตามสถานะล่าสุดของรายการนี้</p>
+        <p class="mt-0.5 text-xs text-muted">
+          {{ interactive ? "เลือกขั้นตอนเพื่ออัปเดตสถานะ" : "ติดตามสถานะล่าสุดของรายการนี้" }}
+        </p>
       </div>
       <UBadge :color="statusBadgeColors[status]" variant="subtle" size="sm">
         {{ orderStatusLabels[status] }}
       </UBadge>
     </div>
 
-    <UStepper v-if="!isCancelled" :model-value="status" :items="steps" :linear="false" :disabled="true"
-      orientation="horizontal" size="sm" />
+    <UStepper v-if="!isCancelled" :model-value="status" :items="steps" :linear="false"
+      :disabled="!interactive || loading" orientation="horizontal" size="sm"
+      @update:model-value="handleStatusChange" />
 
     <div v-else class="flex items-center gap-2 rounded-md border border-error/30 bg-error/5 px-3 py-2 text-sm text-error">
       <UIcon name="i-lucide-ban" class="size-4 shrink-0" />

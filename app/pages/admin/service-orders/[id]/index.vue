@@ -7,6 +7,7 @@ import ImagePreviewModal from "~~/app/components/UI/ImagePreviewModal.vue";
 import EditPaymentStateModal from "~~/app/components/admin/payment/EditPaymentStateModal.vue";
 import EditServiceOrderModal from "~~/app/components/admin/service-orders/EditServiceOrderModal.vue";
 import EditServiceOrderStatusModal from "~~/app/components/admin/service-orders/EditServiceOrderStatusModal.vue";
+import ServiceOrderStatusStepper from "~~/app/components/service-orders/ServiceOrderStatusStepper.vue";
 
 type InfoRow = { label: string; value: string; valueClass?: string; dividerBefore?: boolean };
 
@@ -118,6 +119,20 @@ const { data, pending, status, refresh, error } = useFetch<ServiceOrderDetailRes
     lazy: true,
   },
 );
+const { updateServiceOrderStatus } = useAdminServiceOrders({ fetchList: false, refreshAfterMutation: false });
+const isStatusUpdating = ref(false);
+
+const updateStatusFromStepper = async (nextStatus: ServiceOrderStatus) => {
+  if (!order.value || isStatusUpdating.value || nextStatus === order.value.status) return;
+
+  isStatusUpdating.value = true;
+  try {
+    const updated = await updateServiceOrderStatus(order.value.id, { status: nextStatus });
+    if (updated) await refresh();
+  } finally {
+    isStatusUpdating.value = false;
+  }
+};
 
 const order = computed(() => data.value ?? null);
 const orderForEdit = computed<AdminServiceOrder | null>(() => {
@@ -493,8 +508,9 @@ const getItemPhotos = (item: ServiceOrderDetailItem) =>
           </div>
 
           <div v-else class="space-y-3">
-            <section class="-mx-2 grid grid-cols-2 gap-2 sm:mx-0 sm:gap-3 xl:grid-cols-4">
-              <ServiceOrderStatusStepper :status="order.status" class="col-span-2 xl:col-span-4" />
+            <section class="-mx-2 grid grid-cols-1 gap-2 sm:mx-0 sm:grid-cols-3 sm:gap-3">
+              <ServiceOrderStatusStepper :status="order.status" :loading="isStatusUpdating" interactive
+                class="sm:col-span-3" @change="updateStatusFromStepper" />
               <div
                 class="min-h-28 bg-default p-3! dark:bg-elevated/55 sm:rounded-lg sm:border sm:border-default/30 sm:dark:border-default/20">
                 <div class="flex h-full min-w-0 items-start justify-between gap-3">
@@ -546,7 +562,7 @@ const getItemPhotos = (item: ServiceOrderDetailItem) =>
                 </div>
               </div>
               <div v-if="hasMemberEntitlement"
-                class="col-span-2 min-h-28 bg-default p-3! dark:bg-elevated/55 sm:rounded-lg sm:border sm:border-default/30 sm:dark:border-default/20 xl:col-span-4">
+                class="min-h-28 bg-default p-3! dark:bg-elevated/55 sm:col-span-3 sm:rounded-lg sm:border sm:border-default/30 sm:dark:border-default/20">
                 <div class="flex min-w-0 items-start justify-between gap-3">
                   <div class="min-w-0 space-y-1">
                     <p class="text-xs text-muted">แพ็กเกจสมาชิก</p>

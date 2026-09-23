@@ -79,6 +79,10 @@ const submitSelectedStatus = () => {
 const confirmCancellation = () => {
   void handleSubmit("CANCELLED");
 };
+
+const openCancellationConfirm = (): void => {
+  cancelConfirmOpen.value = true;
+};
 </script>
 
 <template>
@@ -94,9 +98,10 @@ const confirmCancellation = () => {
         </div>
 
         <UFormField label="ขั้นตอนการดูแลผ้า">
-          <UStepper v-if="order.status !== 'CANCELLED'" v-model="selectedStatus" :items="stepperItems"
-            :linear="false" orientation="horizontal" :disabled="isSubmitting" class="w-full" />
-          <p v-if="order.status === 'CANCELLED'" class="text-xs text-error">รายการนี้ถูกยกเลิกแล้ว จึงไม่สามารถเปลี่ยนสถานะได้</p>
+          <UStepper v-if="order.status !== 'CANCELLED'" v-model="selectedStatus" :items="stepperItems" :linear="false"
+            orientation="horizontal" :disabled="isSubmitting" class="w-full" />
+          <p v-if="order.status === 'CANCELLED'" class="text-xs text-error">รายการนี้ถูกยกเลิกแล้ว
+            จึงไม่สามารถเปลี่ยนสถานะได้</p>
         </UFormField>
       </div>
     </template>
@@ -104,19 +109,19 @@ const confirmCancellation = () => {
     <template #footer>
       <div class="flex w-full items-center justify-between gap-2">
         <UButton v-if="order && order.status !== 'CANCELLED'" label="ยกเลิกรายการ" color="error" variant="ghost"
-          icon="i-lucide-ban" :disabled="isSubmitting" @click="cancelConfirmOpen = true" />
+          icon="i-lucide-ban" :disabled="isSubmitting" @click="openCancellationConfirm" />
         <div class="ml-auto flex items-center gap-2">
           <UButton label="ปิด" color="neutral" variant="outline" :disabled="isSubmitting" @click="closeModal" />
-          <UButton label="บันทึก" color="primary" icon="i-lucide-save" :loading="isSubmitting"
-            :disabled="!order" @click="submitSelectedStatus" />
+          <UButton label="บันทึก" color="primary" icon="i-lucide-save" :loading="isSubmitting" :disabled="!order"
+            @click="submitSelectedStatus" />
         </div>
       </div>
     </template>
   </UModal>
 
   <UIConfirmModal v-model:open="cancelConfirmOpen" title="ยกเลิกออเดอร์" description="ยืนยันการยกเลิกรายการรับผ้า"
-    icon="i-lucide-ban" icon-color="error" confirm-label="ยืนยันยกเลิก" confirm-color="error"
-    :loading="isSubmitting" @confirm="confirmCancellation">
+    icon="i-lucide-ban" icon-color="error" confirm-label="ยืนยันยกเลิก" confirm-color="error" :loading="isSubmitting"
+    @confirm="confirmCancellation">
     <template #message>
       ต้องการยกเลิกออเดอร์
       <strong class="text-highlighted">{{ order?.orderNo || order?.customer.name || "นี้" }}</strong>

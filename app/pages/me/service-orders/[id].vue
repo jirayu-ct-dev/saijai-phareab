@@ -3,6 +3,7 @@ import type { PaymentMethod, PaymentStatus, ServiceOrderStatus } from "~~/shared
 import { paymentMethodLabels, paymentStatusColors, paymentStatusLabels } from "~~/shared/config/paymentConfig";
 import { formatCurrency, formatDateTime } from "~~/shared/utils/format";
 import ImagePreviewModal from "~~/app/components/UI/ImagePreviewModal.vue";
+import ServiceOrderStatusStepper from "~~/app/components/service-orders/ServiceOrderStatusStepper.vue";
 
 type InfoRow = { label: string; value: string; valueClass?: string; dividerBefore?: boolean };
 
@@ -340,8 +341,8 @@ const getItemPhotos = (item: MyServiceOrderItem) => item.photos ?? [];
         </div>
 
         <div v-else class="space-y-3">
-          <section class="-mx-2 grid grid-cols-2 gap-2 sm:mx-0 sm:gap-3 xl:grid-cols-4">
-            <ServiceOrderStatusStepper :status="order.status" class="col-span-2 xl:col-span-4" />
+          <section class="-mx-2 grid grid-cols-1 gap-2 sm:mx-0 sm:grid-cols-3 sm:gap-3">
+            <ServiceOrderStatusStepper :status="order.status" class="sm:col-span-3" />
             <div class="min-h-28 bg-default p-3! dark:bg-elevated/55 sm:rounded-lg sm:border sm:border-default/30 sm:dark:border-default/20">
               <div class="flex h-full min-w-0 items-start justify-between gap-3">
                 <div class="min-w-0 space-y-1">
@@ -389,7 +390,7 @@ const getItemPhotos = (item: MyServiceOrderItem) => item.photos ?? [];
                 </div>
               </div>
             </div>
-            <div v-if="hasMemberEntitlement" class="col-span-2 min-h-28 bg-default p-3! dark:bg-elevated/55 sm:rounded-lg sm:border sm:border-default/30 sm:dark:border-default/20 xl:col-span-4">
+            <div v-if="hasMemberEntitlement" class="min-h-28 bg-default p-3! dark:bg-elevated/55 sm:col-span-3 sm:rounded-lg sm:border sm:border-default/30 sm:dark:border-default/20">
               <div class="flex min-w-0 items-start justify-between gap-3">
                 <div class="min-w-0 space-y-1">
                   <p class="text-xs text-muted">แพ็กเกจสมาชิก</p>
