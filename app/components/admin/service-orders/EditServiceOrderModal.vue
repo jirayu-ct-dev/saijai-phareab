@@ -917,13 +917,13 @@ const handleSubmit = async () => {
                       <div class="min-w-0">
                         <div class="flex min-w-0 items-center gap-2">
                           <p class="truncate font-medium text-highlighted">{{ item.name || item.email || 'ไม่ระบุชื่อ'
-                            }}</p>
+                          }}</p>
                           <UBadge v-if="item.customerAccountStatus === 'OFFLINE'" label="ยังไม่เปิดใช้งาน"
                             color="warning" variant="subtle" size="xs" />
                         </div>
                         <p class="truncate text-xs text-muted">
                           {{ item.phoneNumber || "ไม่ระบุเบอร์" }}<template v-if="item.email"> | {{ item.email
-                            }}</template>
+                          }}</template>
                         </p>
                       </div>
                     </div>
@@ -942,12 +942,16 @@ const handleSubmit = async () => {
                       activeMemberEntitlement?.productName }}</p>
                     <p class="text-xs text-muted">
                       เครดิตคงเหลือ
-                      <span :class="Number(selectedMemberEntitlement?.creditRemaining ?? 0) < 0 ? 'text-error font-medium' : ''">
+                      <span
+                        :class="Number(selectedMemberEntitlement?.creditRemaining ?? 0) < 0 ? 'text-error font-medium' : ''">
                         {{ selectedMemberEntitlement?.creditRemaining ?? 0 }}
                       </span>
                       | ใช้งานครั้งนี้ {{ creditUsedPreview }} เครดิต
-                      <span v-if="form.memberEntitlementId && (Number(selectedMemberEntitlement?.creditRemaining ?? 0) - creditUsedPreview < 0)" class="text-error font-medium">
-                        | ยอดหลังหักติดลบ {{ Number(selectedMemberEntitlement?.creditRemaining ?? 0) - creditUsedPreview }} เครดิต
+                      <span
+                        v-if="form.memberEntitlementId && (Number(selectedMemberEntitlement?.creditRemaining ?? 0) - creditUsedPreview < 0)"
+                        class="text-error font-medium">
+                        | ยอดหลังหักติดลบ {{ Number(selectedMemberEntitlement?.creditRemaining ?? 0) - creditUsedPreview
+                        }} เครดิต
                       </span>
                     </p>
                     <p v-if="selectedMemberEntitlement?.startAt && selectedMemberEntitlement?.endAt"
@@ -957,13 +961,11 @@ const handleSubmit = async () => {
                     </p>
                   </div>
                   <USwitch :model-value="Boolean(form.memberEntitlementId)" color="success" size="sm"
-                    aria-label="ใช้แพ็กเกจรายเดือน"
-                    @update:model-value="setMemberPackageEnabled($event)" />
+                    aria-label="ใช้แพ็กเกจรายเดือน" @update:model-value="setMemberPackageEnabled($event)" />
                 </div>
               </div>
 
-              <div v-if="activeAddonEntitlements.length"
-                class="space-y-2 md:col-span-2">
+              <div v-if="activeAddonEntitlements.length" class="space-y-2 md:col-span-2">
                 <div v-for="addon in activeAddonEntitlements" :key="addon.id"
                   class="flex items-center justify-between gap-3 border-l-2 border-success pl-3">
                   <div class="min-w-0">
@@ -1044,18 +1046,18 @@ const handleSubmit = async () => {
               </div>
               <UDropdownMenu :items="catalogDropdownItems" :content="{ align: 'end' }"
                 :ui="{ content: 'max-h-80 overflow-y-auto' }">
-                <UButton :label="form.memberEntitlementId && !isAddingExtras ? 'เพิ่มผ้าในแพ็กเกจ' : 'เพิ่มรายการผ้า'" icon="i-lucide-plus" color="neutral" variant="outline"
-                  :loading="isCatalogLoading" />
+                <UButton :label="form.memberEntitlementId && !isAddingExtras ? 'เพิ่มผ้าในแพ็กเกจ' : 'เพิ่มรายการผ้า'"
+                  icon="i-lucide-plus" color="neutral" variant="outline" :loading="isCatalogLoading" />
               </UDropdownMenu>
             </div>
 
             <div v-if="form.memberEntitlementId" class="mt-3 flex flex-wrap gap-2">
               <UButton label="ผ้าในแพ็กเกจ" icon="i-lucide-package-check" size="xs"
                 :variant="isAddingExtras ? 'outline' : 'solid'" :color="isAddingExtras ? 'neutral' : 'success'"
-                @click="isAddingExtras = false" />
+                @click="() => { isAddingExtras = false; }" />
               <UButton label="เพิ่มผ้าอื่น · คิดเงินเริ่มต้น" icon="i-lucide-plus" size="xs"
                 :variant="isAddingExtras ? 'solid' : 'outline'" :color="isAddingExtras ? 'primary' : 'neutral'"
-                @click="isAddingExtras = true" />
+                @click="() => { isAddingExtras = true; }" />
             </div>
 
             <div class="mt-3 space-y-1">
@@ -1067,7 +1069,7 @@ const handleSubmit = async () => {
                       <div class="flex items-center justify-end">
                         <span class="w-16 shrink-0 text-right text-xs font-medium text-muted">
                           {{ form.washFoldMode ? "ชั่งกิโล" : (item.isPackageIncluded ? `${item.quantity} เครดิต` :
-                          item.isChargeable ? formatCurrency(item.totalPrice) : "ไม่คิดเงิน") }}
+                            item.isChargeable ? formatCurrency(item.totalPrice) : "ไม่คิดเงิน") }}
                         </span>
                         <UButton :icon="expandedItems.has(item.key) ? 'i-lucide-chevron-up' : 'i-lucide-chevron-down'"
                           color="neutral" variant="ghost" size="xs" @click="toggleItemExpand(item.key)" />
@@ -1076,9 +1078,10 @@ const handleSubmit = async () => {
                       </div>
                     </div>
                     <div class="flex shrink-0 items-center gap-0.5">
-                      <UInputNumber :model-value="item.quantity" :min="0" :step="1" orientation="horizontal" size="xs" class="w-24"
-                        @update:model-value="setItemQuantity(item.key, $event)" />
-                      <template v-if="item.type === 'STOREFRONT' && item.storefrontPriceId && isEditRangeItem(item.storefrontPriceId)">
+                      <UInputNumber :model-value="item.quantity" :min="0" :step="1" orientation="horizontal" size="xs"
+                        class="w-24" @update:model-value="setItemQuantity(item.key, $event)" />
+                      <template
+                        v-if="item.type === 'STOREFRONT' && item.storefrontPriceId && isEditRangeItem(item.storefrontPriceId)">
                         <UInput :model-value="item.unitPrice ?? item.unitPrice" type="number" size="xs" class="w-20"
                           :placeholder="`฿${catalogMap.get(item.storefrontPriceId)?.priceMin ?? ''}–${catalogMap.get(item.storefrontPriceId)?.priceMax ?? ''}`"
                           @update:model-value="updateItemUnitPrice(item.key, Number($event))" />
@@ -1092,7 +1095,8 @@ const handleSubmit = async () => {
                   <p class="text-sm font-medium text-highlighted">{{ item.label }}</p>
                   <div v-if="form.memberEntitlementId && !item.isPackageIncluded"
                     class="flex items-center justify-between gap-3 rounded-md bg-elevated/40 px-2 py-1.5">
-                    <span class="text-xs text-muted">{{ item.isChargeable ? 'รายการนอกแพ็กเกจ · คิดเงิน' : 'รายการนอกแพ็กเกจ · ไม่คิดเงิน' }}</span>
+                    <span class="text-xs text-muted">{{ item.isChargeable ? 'รายการนอกแพ็กเกจ · คิดเงิน' :
+                      'รายการนอกแพ็กเกจ ·ไม่คิดเงิน' }}</span>
                     <USwitch :model-value="item.isChargeable" size="sm" aria-label="คิดเงินรายการนอกแพ็กเกจ"
                       @update:model-value="updateItemChargeable(item.key, $event)" />
                   </div>
