@@ -114,6 +114,7 @@ export default defineEventHandler(async (event) => {
           },
           serviceOrderItems: {
             include: {
+              storefrontItem: { select: { id: true, name: true } },
               storefrontPrice: {
                 include: {
                   storefrontService: {
@@ -198,6 +199,7 @@ export default defineEventHandler(async (event) => {
     unitPrice: toNumber(item.unitPrice),
     totalPrice: toNumber(item.totalPrice),
     isPackageIncluded: item.isPackageIncluded,
+    isChargeable: item.isChargeable,
     notes: item.notes,
     storefrontPriceId: item.storefrontPriceId,
     service: item.storefrontPrice
@@ -211,10 +213,10 @@ export default defineEventHandler(async (event) => {
           id: item.storefrontPrice.storefrontItem.id,
           name: item.storefrontPrice.storefrontItem.name,
         }
-      : null,
+      : item.storefrontItem ? { id: item.storefrontItem.id, name: item.storefrontItem.name } : null,
     label: item.storefrontPrice
       ? `${item.storefrontPrice.storefrontService.name} ${item.storefrontPrice.storefrontItem.name}`.trim()
-      : "",
+      : item.storefrontItem?.name ?? "",
     image: item.photos[0]?.image
       ? { id: item.photos[0].image.id, url: item.photos[0].image.url, secureUrl: item.photos[0].image.secureUrl }
       : null,

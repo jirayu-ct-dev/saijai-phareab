@@ -79,6 +79,7 @@ export type ReceiptPayload = {
       totalPrice: number;
       notes: string | null;
       isPackageIncluded: boolean;
+      isChargeable: boolean;
       isWashFold?: boolean;
       weightKg?: number | null;
     }>;

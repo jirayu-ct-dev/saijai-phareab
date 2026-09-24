@@ -7,8 +7,8 @@ export type PosPackageProduct = {
   price: number;
   credits: number | null;
   validityDays: number | null;
-  serviceId: string | null;
-  serviceName: string | null;
+  packageServiceId: string | null;
+  packageServiceName: string | null;
 };
 
 export const usePackageCatalog = () => {

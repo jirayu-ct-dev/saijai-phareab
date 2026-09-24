@@ -89,6 +89,7 @@ type PaymentDetailResponse = {
       totalPrice: number;
       notes: string | null;
       isPackageIncluded: boolean;
+      isChargeable: boolean;
       isWashFold?: boolean;
       weightKg?: number | null;
       image: { id: string; url: string | null; secureUrl: string | null } | null;
@@ -265,11 +266,17 @@ const detailItems = computed<DetailItem[]>(() => {
     title: item.name,
     metaLabel: item.serviceName,
     notes: item.notes,
-    unitPriceLabel: item.isWashFold ? null : formatCurrency(item.unitPrice),
+    unitPriceLabel: item.isWashFold || item.isPackageIncluded || !item.isChargeable ? null : formatCurrency(item.unitPrice),
     quantityLabel: `${item.quantity} ชิ้น`,
-    totalLabel: item.isPackageIncluded ? `${item.quantity} เครดิต` : formatCurrency(item.totalPrice),
-    badgeLabel: item.isPackageIncluded ? "รวมในแพ็กเกจ" : null,
-    badgeColor: item.isPackageIncluded ? "success" : undefined,
+    totalLabel: item.isPackageIncluded ? `${item.quantity} เครดิต` : item.isChargeable ? formatCurrency(item.totalPrice) : "ไม่คิดเงิน",
+    badgeLabel: item.isPackageIncluded
+      ? "รวมในแพ็กเกจ"
+      : !item.isChargeable
+        ? "นอกแพ็กเกจ · ไม่คิดเงิน"
+        : payment.value?.serviceOrder?.memberEntitlement
+          ? "นอกแพ็กเกจ · คิดเงิน"
+          : null,
+    badgeColor: item.isPackageIncluded ? "success" : item.isChargeable ? "primary" : undefined,
     photos: (item.photos.length
       ? item.photos
       : (item.image ? [{ id: item.image.id, isDamaged: false, url: item.image.url, secureUrl: item.image.secureUrl }] : [])

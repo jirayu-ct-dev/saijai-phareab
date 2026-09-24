@@ -2,7 +2,7 @@
 import ThermalHeader from "~~/app/components/thermal/ThermalHeader.vue";
 import ThermalTitle from "~~/app/components/thermal/ThermalTitle.vue";
 import ThermalInfoRows from "~~/app/components/thermal/ThermalInfoRows.vue";
-import { formatCurrency, formatDateTime } from "~~/shared/utils/format";
+import { formatCurrency, formatDate, formatDateTime } from "~~/shared/utils/format";
 import type { ReceiptPayload } from "~~/shared/types/receipt";
 
 type ShopSettingLike = {
@@ -27,6 +27,8 @@ type ReceiptLineItem = {
   subtitle: string | null;
   isWashFold?: boolean;
   weightKg?: number | null;
+  isPackageIncluded?: boolean;
+  isChargeable?: boolean;
 };
 
 const props = defineProps<{
@@ -60,9 +62,17 @@ const lines = computed<ReceiptLineItem[]>(() => {
       quantity: item.quantity,
       unitPrice: item.unitPrice,
       totalPrice: item.totalPrice,
-      subtitle: null,
+      subtitle: item.isPackageIncluded
+        ? "รวมในแพ็กเกจ"
+        : item.isChargeable === false
+          ? "นอกแพ็กเกจ · ไม่คิดเงิน"
+          : props.data.serviceOrder?.memberEntitlement
+            ? "นอกแพ็กเกจ · คิดเงิน"
+            : null,
       isWashFold: item.isWashFold,
       weightKg: item.weightKg,
+      isPackageIncluded: item.isPackageIncluded,
+      isChargeable: item.isChargeable,
     })) ?? []
   );
 });
@@ -81,6 +91,8 @@ const noteText = computed(
 );
 const memberEntitlement = computed(() => props.data.serviceOrder?.memberEntitlement ?? null);
 const isMemberOrder = computed(() => Boolean(memberEntitlement.value));
+const usageHistory = computed(() => props.data.serviceOrder?.usageHistory ?? []);
+const totalUsedCredits = computed(() => usageHistory.value.reduce((sum, row) => sum + row.quantity, 0));
 const addonUsages = computed(() => props.data.serviceOrder?.addonUsages ?? []);
 
 const infoRows = computed(() => {
@@ -137,11 +149,11 @@ const infoRows = computed(() => {
               <p v-if="item.subtitle" class="item-name mt-0.5 text-[18px] text-neutral-600">{{ item.subtitle }}</p>
             </div>
             <p class="text-right whitespace-nowrap">
-              {{ item.isWashFold ? "—" : (isMemberOrder && item.unitPrice === 0 ? "-" : formatCurrency(item.unitPrice)) }}
+              {{ item.isWashFold || item.isPackageIncluded || item.isChargeable === false ? "—" : formatCurrency(item.unitPrice) }}
             </p>
             <p class="text-right whitespace-nowrap">x{{ item.quantity }}</p>
             <p class="text-right whitespace-nowrap">
-              {{ item.isWashFold ? "ชั่งกิโล" : (isMemberOrder && item.totalPrice === 0 ? `${item.quantity} เครดิต` : formatCurrency(item.totalPrice)) }}
+              {{ item.isWashFold ? "ชั่งกิโล" : item.isPackageIncluded ? `${item.quantity} เครดิต` : item.isChargeable === false ? "ไม่คิดเงิน" : formatCurrency(item.totalPrice) }}
             </p>
           </div>
         </div>
@@ -202,6 +214,47 @@ const infoRows = computed(() => {
         <div v-for="usage in addonUsages" :key="usage.id" class="summary-row">
           <span class="wrap-break-word">{{ usage.productName }}</span>
           <span>{{ usage.isDelivery ? 'ใช้บริการ' : `${usage.credits} เครดิต` }}</span>
+        </div>
+      </section>
+    </template>
+
+    <template v-if="isMemberOrder && memberEntitlement">
+      <div class="thermal-rule mt-4" />
+      <section class="mt-3">
+        <p class="text-center text-[26px] font-bold">สรุปการใช้บริการ</p>
+        <div class="thermal-dash mt-2" />
+        <div class="usage-header mt-2 text-[22px] font-bold">
+          <p class="text-left whitespace-nowrap">ครั้งที่</p>
+          <p class="min-w-0 text-left">วันที่ใช้บริการ</p>
+          <p class="text-right whitespace-nowrap">จำนวน(ชิ้น)</p>
+        </div>
+        <div class="thermal-dash mt-1" />
+        <div class="mt-2 space-y-1">
+          <div v-for="row in usageHistory" :key="row.orderId" class="usage-row text-[22px]">
+            <p class="text-left whitespace-nowrap">
+              {{ row.sessionIndex }}<span v-if="row.isCurrent">*</span>
+            </p>
+            <p class="min-w-0 truncate">{{ formatDate(row.receivedAt) }}</p>
+            <p class="text-right whitespace-nowrap">{{ row.quantity }}</p>
+          </div>
+        </div>
+        <div class="thermal-dash mt-2" />
+        <div class="usage-row mt-1 text-[22px] font-semibold">
+          <p />
+          <p class="text-left">รวม</p>
+          <p class="text-right">{{ totalUsedCredits }}</p>
+        </div>
+        <div class="usage-row mt-1 text-[22px] font-semibold">
+          <p />
+          <p class="text-left">คงเหลือ(เครดิต)</p>
+          <p class="text-right">
+            {{ memberEntitlement.creditRemaining }}/{{ memberEntitlement.creditInitial }}
+          </p>
+        </div>
+        <div v-if="memberEntitlement.endAt" class="usage-row mt-1 text-[22px]">
+          <p />
+          <p class="text-left">หมดอายุ</p>
+          <p class="text-right whitespace-nowrap">{{ formatDate(memberEntitlement.endAt) }}</p>
         </div>
       </section>
     </template>
@@ -271,5 +324,13 @@ const infoRows = computed(() => {
 .summary-row + .summary-row { margin-top: 2px; }
 .summary-row > span:first-child { white-space: nowrap; }
 .summary-row > span:last-child { min-width: 0; text-align: right; white-space: nowrap; }
+.usage-header,
+.usage-row {
+  display: grid;
+  grid-template-columns: 80px minmax(0, 1fr) 150px;
+  align-items: start;
+  gap: 10px;
+  padding-block: 3px;
+}
 .grand-total-row { line-height: 1.35; }
 </style>

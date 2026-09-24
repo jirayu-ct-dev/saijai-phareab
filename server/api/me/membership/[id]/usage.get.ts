@@ -33,7 +33,7 @@ export default defineEventHandler(async (event) => {
             memberEntitlementId: entitlementId,
             OR: [{ credits: { gt: 0 } }, { isDelivery: true }],
             refundedAt: null,
-            serviceOrder: { deletedAt: null },
+            serviceOrder: { deletedAt: null, status: { not: "CANCELLED" } },
           },
           select: {
             id: true,
@@ -65,6 +65,7 @@ export default defineEventHandler(async (event) => {
           where: {
             memberEntitlementId: entitlementId,
             deletedAt: null,
+            status: { not: "CANCELLED" },
           },
           select: {
             id: true,
@@ -73,7 +74,7 @@ export default defineEventHandler(async (event) => {
             creditUsed: true,
             status: true,
             _count: {
-              select: { serviceOrderItems: { where: { deletedAt: null } } }
+              select: { serviceOrderItems: { where: { deletedAt: null, isPackageIncluded: true } } }
             }
           },
           orderBy: { receivedAt: 'desc' }

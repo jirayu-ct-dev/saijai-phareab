@@ -47,8 +47,14 @@ export default defineEventHandler(async (event) => {
               validityDays: true,
               deductOn: true,
               isDelivery: true,
-              serviceId: true,
-              service: { select: { id: true, name: true } },
+              packageServiceId: true,
+              packageService: {
+                select: {
+                  id: true,
+                  name: true,
+                  includedItems: { select: { storefrontItemId: true, storefrontItem: { select: { id: true, name: true } } } },
+                },
+              },
             },
           },
         },
@@ -116,6 +122,7 @@ export default defineEventHandler(async (event) => {
               },
             },
           },
+          storefrontItem: { select: { id: true, name: true } },
         },
       },
       image: {
@@ -162,8 +169,8 @@ export default defineEventHandler(async (event) => {
               validityDays: true,
               deductOn: true,
               isDelivery: true,
-              serviceId: true,
-              service: { select: { id: true, name: true } },
+              packageServiceId: true,
+              packageService: { select: { id: true, name: true } },
             },
           },
         },
@@ -264,12 +271,14 @@ export default defineEventHandler(async (event) => {
     items: serviceOrder.serviceOrderItems.map((item) => ({
       id: item.id,
       storefrontPriceId: item.storefrontPriceId,
+      storefrontItemId: item.storefrontItemId,
       serviceId: item.storefrontPrice?.storefrontService.id ?? null,
       quantity: item.quantity,
       unitPrice: toNumber(item.unitPrice),
       totalPrice: toNumber(item.totalPrice),
       notes: item.notes,
       isPackageIncluded: item.isPackageIncluded,
+      isChargeable: item.isChargeable,
       image: item.photos[0]?.image
         ? {
             id: item.photos[0].image.id,
@@ -288,12 +297,16 @@ export default defineEventHandler(async (event) => {
       service: item.storefrontPrice
         ? { id: item.storefrontPrice.storefrontService.id, name: item.storefrontPrice.storefrontService.name }
         : null,
-      item: item.storefrontPrice
+      item: item.storefrontItem
+        ? { id: item.storefrontItem.id, name: item.storefrontItem.name }
+        : item.storefrontPrice
         ? { id: item.storefrontPrice.storefrontItem.id, name: item.storefrontPrice.storefrontItem.name }
         : null,
       label: item.weightKg != null
         ? (item.weightLabel || "ซัก-พับ ชั่งกิโล")
-        : `${item.storefrontPrice?.storefrontService.name ?? ""} ${item.storefrontPrice?.storefrontItem.name ?? ""}`.trim(),
+        : item.storefrontPrice
+          ? `${item.storefrontPrice.storefrontService.name} ${item.storefrontPrice.storefrontItem.name}`.trim()
+          : item.storefrontItem?.name ?? "รายการผ้า",
       weightKg: item.weightKg != null ? toNumber(item.weightKg) : null,
       weightLabel: item.weightLabel ?? null,
     })),

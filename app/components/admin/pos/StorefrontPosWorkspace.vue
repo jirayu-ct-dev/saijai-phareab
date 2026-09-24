@@ -11,7 +11,6 @@ import { formatCurrency } from "~~/shared/utils/format";
 import { backdatedOrderSchema, type BackdatedOrderInput } from "~~/shared/utils/backdatedOrder";
 import { computePickupForDay, parseBangkokDateTime } from "~~/shared/utils/pickup";
 import { allocatePackageCredits } from "~~/shared/utils/packageService";
-import { isPackageCatalogItemAllowed } from "~~/shared/utils/packageCatalog";
 
 const dashboardCardClass =
   "-mx-2 border border-default/30 bg-default p-4 dark:border-default/20 dark:bg-elevated/55 sm:mx-0 sm:rounded-lg";
@@ -23,7 +22,10 @@ const checkoutSectionClass = "border-b border-default/40 pb-4";
 
 type FormItemState = {
   key: string;
-  storefrontPriceId: string;
+  type: "PACKAGE" | "STOREFRONT";
+  storefrontItemId: string;
+  storefrontPriceId: string | null;
+  isChargeable: boolean;
   unitPrice?: number;
   quantity: number;
   notes: string;
@@ -115,6 +117,7 @@ const { uploadSlip } = useAdminPayments({ fetchList: false, refreshAfterMutation
 const searchQuery = ref("");
 const categoryFilter = ref<"all" | string>("all");
 const serviceFilter = ref<"all" | string>("all");
+const isAddingExtras = ref(false);
 
 const catalogMap = computed(() => new Map((items.value ?? []).map((item) => [item.id, item])));
 
@@ -264,10 +267,25 @@ const canUseAddonPackages = computed(() => form.customerMode === "existing" && a
 
 const filteredCatalog = computed(() => {
   const keyword = searchQuery.value.trim().toLowerCase();
-  return (items.value ?? []).filter((item) => {
-    if (selectedMemberEntitlement.value && !isPackageCatalogItemAllowed(selectedMemberEntitlement.value, item)) return false;
+  const packageItems = selectedMemberEntitlement.value && !isAddingExtras.value
+    ? selectedMemberEntitlement.value.includedItems.map((item) => ({
+        id: item.id,
+        itemId: item.id,
+        label: item.name,
+        itemName: item.name,
+        categoryId: item.categoryId,
+        categoryName: item.categoryName,
+        serviceName: selectedMemberEntitlement.value?.packageServiceName ?? "รายการในแพ็กเกจ",
+        serviceId: "package",
+        price: 0,
+        priceMin: null,
+        priceMax: null,
+        type: "PACKAGE" as const,
+      }))
+    : (items.value ?? []).map((item) => ({ ...item, type: "STOREFRONT" as const }));
+  return packageItems.filter((item) => {
     if (categoryFilter.value !== "all" && item.categoryId !== categoryFilter.value) return false;
-    if (!selectedMemberEntitlement.value && serviceFilter.value !== "all" && item.serviceId !== serviceFilter.value) return false;
+    if (item.type === "STOREFRONT" && serviceFilter.value !== "all" && item.serviceId !== serviceFilter.value) return false;
     if (!keyword) return true;
     return [item.label, item.categoryName ?? "", item.serviceName, item.itemName].join(" ").toLowerCase().includes(keyword);
   });
@@ -317,28 +335,33 @@ const uploadedOrderImage = ref<AdminServiceOrderImage | null>(null);
 const uploadedPhotoIds = ref(new Map<string, string>()); // photoKey → imageId
 
 
-const selectedItemMap = computed(() => new Map(form.items.map((item) => [item.storefrontPriceId, item])));
+const itemLookupKey = (type: FormItemState["type"], id: string) => `${type}:${id}`;
+const selectedItemMap = computed(() => new Map(form.items.map((item) => [
+  itemLookupKey(item.type, item.type === "PACKAGE" ? item.storefrontItemId : item.storefrontPriceId ?? ""),
+  item,
+])));
 const selectedAddonCreditMap = computed(() => new Map(form.addonEntitlements.map((item) => [item.entitlementId, item.credits])));
-const cartSupportsEntitlement = (entitlement: typeof activeMemberEntitlement.value) => Boolean(
-  entitlement && form.items.every((item) => {
-    const catalog = catalogMap.value.get(item.storefrontPriceId);
-    return catalog ? isPackageCatalogItemAllowed(entitlement, catalog) : false;
-  }),
-);
 const setMemberEntitlement = (entitlementId: string | null) => {
   if (!entitlementId) {
     form.memberEntitlementId = null;
     serviceFilter.value = "all";
+    isAddingExtras.value = false;
+    const packageRows = form.items.filter((item) => item.type === "PACKAGE").length;
+    form.items = form.items.filter((item) => item.type !== "PACKAGE");
+    if (packageRows) notify.info("นำรายการที่รวมในแพ็กเกจออกแล้ว กรุณาเลือกบริการหน้าร้านหากต้องการเพิ่มรายการเดิม");
     return;
   }
   const entitlement = memberEntitlementOptions.value.find((option) => option.id === entitlementId) ?? null;
-  if (!entitlement || !cartSupportsEntitlement(entitlement)) {
-    notify.validationError("มีรายการผ้านอกแพ็กเกจ กรุณานำรายการนั้นออกก่อนเปิดใช้แพ็กเกจ");
-    form.memberEntitlementId = null;
-    return;
-  }
+  if (!entitlement) return;
+  const includedIds = new Set(entitlement.includedItemIds);
+  form.items = form.items.flatMap((item) => {
+    if (item.type === "PACKAGE") return includedIds.has(item.storefrontItemId) ? [item] : [];
+    if (!includedIds.has(item.storefrontItemId)) return [item];
+    return [{ ...item, type: "PACKAGE", storefrontPriceId: null, isChargeable: false }];
+  });
   form.memberEntitlementId = entitlement.id;
-  serviceFilter.value = entitlement.serviceId ?? "all";
+  serviceFilter.value = "all";
+  isAddingExtras.value = false;
 };
 const hasSelectedDeliveryAddon = computed(() => activeAddonEntitlements.value.some(
   (addon) => addon.isDelivery && selectedAddonCreditMap.value.has(addon.id),
@@ -347,17 +370,27 @@ const hasSelectedDeliveryAddon = computed(() => activeAddonEntitlements.value.so
 const cartItems = computed(() =>
   form.items
     .map((item) => {
-      const catalog = catalogMap.value.get(item.storefrontPriceId);
-      if (!catalog) return null;
-      const unitPrice = item.unitPrice ?? catalog.price;
+      const catalog = item.type === "STOREFRONT" && item.storefrontPriceId
+        ? catalogMap.value.get(item.storefrontPriceId)
+        : null;
+      const packageClothing = selectedMemberEntitlement.value?.includedItems.find((entry) => entry.id === item.storefrontItemId);
+      const label = item.type === "PACKAGE"
+        ? packageClothing?.name ?? item.storefrontItemId
+        : catalog?.label ?? item.storefrontItemId;
+      if (item.type === "STOREFRONT" && !catalog) return null;
+      const unitPrice = item.type === "PACKAGE" ? 0 : item.unitPrice ?? catalog!.price;
       return {
         key: item.key,
+        type: item.type,
+        storefrontItemId: item.storefrontItemId,
         storefrontPriceId: item.storefrontPriceId,
-        serviceId: catalog.serviceId,
-        label: catalog.label,
+        serviceId: catalog?.serviceId ?? null,
+        label,
         quantity: item.quantity,
         unitPrice,
-        totalPrice: unitPrice * item.quantity,
+        totalPrice: item.type === "PACKAGE" || !item.isChargeable ? 0 : unitPrice * item.quantity,
+        isPackageIncluded: item.type === "PACKAGE",
+        isChargeable: item.type === "PACKAGE" ? false : item.isChargeable,
         notes: item.notes,
         photos: item.photos,
       };
@@ -400,7 +433,7 @@ const hangerCharge = computed(() =>
 
 watch(() => form.washFoldMode, (enabled) => {
   if (enabled) {
-    form.memberEntitlementId = null;
+    setMemberEntitlement(null);
     form.missingHangerCount = 0;
     form.hangerCount = 0;
   } else {
@@ -470,8 +503,8 @@ const packageAllocation = computed(() => allocatePackageCredits(
   Boolean(form.memberEntitlementId),
 ));
 const creditUsedPreview = computed(() => packageAllocation.value.creditUsed);
-const cashSubtotal = computed(() => form.memberEntitlementId ? packageAllocation.value.cashSubtotal : subtotalAmount.value);
-const cashQuantity = computed(() => form.memberEntitlementId ? packageAllocation.value.cashQuantity : totalQuantity.value);
+const cashSubtotal = computed(() => form.washFoldMode ? washFoldSubtotal.value : packageAllocation.value.cashSubtotal);
+const cashQuantity = computed(() => packageAllocation.value.cashQuantity);
 
 const sanitizedCashDiscount = computed(() => {
   if (!form.memberEntitlementId) return sanitizedDiscountAmount.value;
@@ -480,15 +513,13 @@ const sanitizedCashDiscount = computed(() => {
   return Math.min(raw, cashSubtotal.value);
 });
 
-const beforeVatAmount = computed(() => (
-  form.memberEntitlementId
-    ? cashSubtotal.value - sanitizedCashDiscount.value + hangerCharge.value.total
-    : subtotalAmount.value - sanitizedDiscountAmount.value + hangerCharge.value.total
-));
+const beforeVatAmount = computed(() => cashSubtotal.value - sanitizedCashDiscount.value + hangerCharge.value.total);
 const vatPreview = computed(() => computeVatPreview(beforeVatAmount.value));
 const totalAmount = computed(() => vatPreview.value.totalAmount);
 
-const isMemberWithZeroTotal = computed(() => Boolean(form.memberEntitlementId) && totalAmount.value === 0);
+const isZeroTotal = computed(() => (form.washFoldMode
+  ? Number(form.washFoldWeightKg || 0) > 0
+  : cartItems.value.length > 0) && totalAmount.value === 0);
 const creditShortfall = computed(() => {
   if (!form.memberEntitlementId || !selectedMemberEntitlement.value) return 0;
   const rem = Number(selectedMemberEntitlement.value.creditRemaining ?? 0);
@@ -497,7 +528,8 @@ const creditShortfall = computed(() => {
 });
 const isNegativeCreditPreview = computed(() => creditShortfall.value > 0);
 const posTotalValue = computed(() => {
-  if (isMemberWithZeroTotal.value) {
+  if (isZeroTotal.value && form.memberEntitlementId) {
+    if (creditUsedPreview.value === 0) return "ไม่ต้องชำระ";
     return isNegativeCreditPreview.value
       ? `-${creditShortfall.value} เครดิต`
       : `${creditUsedPreview.value} เครดิต`;
@@ -505,13 +537,14 @@ const posTotalValue = computed(() => {
   return formatCurrency(totalAmount.value);
 });
 const posTotalValueClass = computed(() => {
-  if (isMemberWithZeroTotal.value) {
+  if (isZeroTotal.value && form.memberEntitlementId) {
     return isNegativeCreditPreview.value ? "text-error" : "text-success";
   }
   return "text-highlighted";
 });
 const posTotalSubValue = computed(() => {
-  if (!isMemberWithZeroTotal.value) return "";
+  if (!isZeroTotal.value || !form.memberEntitlementId) return "";
+  if (creditUsedPreview.value === 0) return "รายการที่เพิ่มไม่คิดเงิน และไม่มีการตัดเครดิต";
   const rem = Number(selectedMemberEntitlement.value?.creditRemaining ?? 0);
   if (isNegativeCreditPreview.value) {
     if (rem > 0) {
@@ -524,7 +557,8 @@ const posTotalSubValue = computed(() => {
   return `ใช้ ${creditUsedPreview.value} เครดิต (คงเหลือหลังหัก ${nextBalance} เครดิต)`;
 });
 const posPackageNotice = computed(() => {
-  if (!isMemberWithZeroTotal.value) return "";
+  if (!isZeroTotal.value || !form.memberEntitlementId) return "";
+  if (creditUsedPreview.value === 0) return "รายการที่เพิ่มไม่คิดเงิน และไม่มีการตัดเครดิต";
   if (isNegativeCreditPreview.value) {
     return `เครดิตคงเหลือไม่พอ ระบบจะบันทึกเป็นยอดติดลบ ${creditShortfall.value} เครดิต และหักอัตโนมัติเมื่อซื้อแพ็กเกจใหม่`;
   }
@@ -540,10 +574,8 @@ const normalizedItems = computed(() =>
     const readyPhotos = item.photos.filter((p) => uploadedPhotoIds.value.has(p.key));
     const firstPhoto = readyPhotos[0];
     const formItem = form.items.find((i) => i.key === item.key);
-    return {
-      storefrontPriceId: item.storefrontPriceId,
+    const common = {
       quantity: item.quantity,
-      unitPrice: formItem?.unitPrice ?? null,
       imageId: firstPhoto ? (uploadedPhotoIds.value.get(firstPhoto.key) ?? null) : null,
       notes: item.notes.trim() || null,
       photos: readyPhotos.map((photo, index) => ({
@@ -552,6 +584,15 @@ const normalizedItems = computed(() =>
         sortOrder: index,
       })),
     };
+    return item.type === "PACKAGE"
+      ? { type: "PACKAGE" as const, storefrontItemId: item.storefrontItemId, ...common }
+      : {
+          type: "STOREFRONT" as const,
+          storefrontPriceId: item.storefrontPriceId as string,
+          isChargeable: item.isChargeable,
+          unitPrice: formItem?.unitPrice ?? null,
+          ...common,
+        };
   }),
 );
 
@@ -578,12 +619,15 @@ const confirmPriceInput = () => {
   const storefrontPriceId = priceInputCatalogId.value;
   // Find existing row with same priceId and same unitPrice
   const existingRow = form.items.find(
-    (i) => i.storefrontPriceId === storefrontPriceId && (i.unitPrice ?? catalogMap.value.get(storefrontPriceId)?.price) === price
+    (i) => i.type === "STOREFRONT" && i.storefrontPriceId === storefrontPriceId && (i.unitPrice ?? catalogMap.value.get(storefrontPriceId)?.price) === price
   );
   if (existingRow) {
     existingRow.quantity += 1;
   } else {
-    form.items.push({ key: createItemKey(), storefrontPriceId, unitPrice: price, quantity: 1, notes: "", photos: [] });
+    form.items.push({
+      key: createItemKey(), type: "STOREFRONT", storefrontItemId: catalogMap.value.get(storefrontPriceId)!.itemId,
+      storefrontPriceId, isChargeable: true, unitPrice: price, quantity: 1, notes: "", photos: [],
+    });
   }
   priceInputModal.value = false;
 };
@@ -593,21 +637,27 @@ const isRangeItem = (storefrontPriceId: string) => {
   return c?.priceMin != null && c?.priceMax != null && c.priceMin !== c.priceMax;
 };
 
-const incrementCatalogItem = (storefrontPriceId: string) => {
-  if (isRangeItem(storefrontPriceId)) { openPriceInput(storefrontPriceId); return; }
-  const existing = selectedItemMap.value.get(storefrontPriceId);
+const incrementCatalogItem = (id: string, type: FormItemState["type"]) => {
+  if (type === "STOREFRONT" && isRangeItem(id)) { openPriceInput(id); return; }
+  const existing = selectedItemMap.value.get(itemLookupKey(type, id));
   if (existing) { existing.quantity += 1; return; }
+  const catalog = type === "STOREFRONT" ? catalogMap.value.get(id) : null;
+  const packageItem = type === "PACKAGE" ? selectedMemberEntitlement.value?.includedItems.find((item) => item.id === id) : null;
+  if (!catalog && !packageItem) return;
   form.items.push({
     key: createItemKey(),
-    storefrontPriceId,
+    type,
+    storefrontItemId: catalog?.itemId ?? packageItem!.id,
+    storefrontPriceId: catalog?.id ?? null,
+    isChargeable: type === "STOREFRONT",
     quantity: 1,
     notes: "",
     photos: [],
   });
 };
 
-const decrementCatalogItem = (storefrontPriceId: string) => {
-  const existing = selectedItemMap.value.get(storefrontPriceId);
+const decrementCatalogItem = (id: string, type: FormItemState["type"]) => {
+  const existing = selectedItemMap.value.get(itemLookupKey(type, id));
   if (!existing) return;
   if (existing.quantity <= 1) {
     form.items = form.items.filter((e) => e.key !== existing.key);
@@ -619,9 +669,9 @@ const decrementCatalogItem = (storefrontPriceId: string) => {
   existing.quantity -= 1;
 };
 
-const setCatalogItemQuantity = (storefrontPriceId: string, qty: number) => {
+const setCatalogItemQuantity = (id: string, type: FormItemState["type"], qty: number) => {
   const value = Math.max(0, Math.floor(qty));
-  const existing = selectedItemMap.value.get(storefrontPriceId);
+  const existing = selectedItemMap.value.get(itemLookupKey(type, id));
   if (value === 0) {
     if (existing) {
       form.items = form.items.filter((e) => e.key !== existing.key);
@@ -634,14 +684,26 @@ const setCatalogItemQuantity = (storefrontPriceId: string, qty: number) => {
   if (existing) {
     existing.quantity = value;
   } else {
-    form.items.push({ key: createItemKey(), storefrontPriceId, quantity: value, notes: "", photos: [] });
+    const catalog = type === "STOREFRONT" ? catalogMap.value.get(id) : null;
+    const packageItem = type === "PACKAGE" ? selectedMemberEntitlement.value?.includedItems.find((item) => item.id === id) : null;
+    if (!catalog && !packageItem) return;
+    form.items.push({
+      key: createItemKey(), type, storefrontItemId: catalog?.itemId ?? packageItem!.id,
+      storefrontPriceId: catalog?.id ?? null, isChargeable: type === "STOREFRONT",
+      quantity: value, notes: "", photos: [],
+    });
   }
 };
 
-const getCatalogQuantity = (storefrontPriceId: string) =>
+const getCatalogQuantity = (id: string, type: FormItemState["type"]) =>
   form.items
-    .filter((item) => item.storefrontPriceId === storefrontPriceId)
+    .filter((item) => item.type === type && (type === "PACKAGE" ? item.storefrontItemId === id : item.storefrontPriceId === id))
     .reduce((sum, item) => sum + item.quantity, 0);
+
+const setItemChargeable = (key: string, value: boolean) => {
+  const item = form.items.find((entry) => entry.key === key);
+  if (item?.type === "STOREFRONT") item.isChargeable = value;
+};
 
 const getCatalogDescription = (item: { categoryName?: string | null; serviceName: string }) =>
   item.categoryName ? `${item.categoryName} | ${item.serviceName}` : item.serviceName;
@@ -730,6 +792,7 @@ const resetForm = () => {
   historicalMethod.value = "CASH";
   historicalError.value = "";
   Object.assign(form, createEmptyForm());
+  isAddingExtras.value = false;
   dueDate.value = null;
   dueTime.value = "00:00";
   resetSlip();
@@ -784,12 +847,14 @@ const uploadOrderImagesIfNeeded = async () => {
 watch(
   [() => form.customerMode, activeMemberEntitlement],
   ([customerMode, entitlement]) => {
-    if (customerMode !== "existing" || !entitlement) { form.memberEntitlementId = null; return; }
+    if (customerMode !== "existing" || !entitlement) {
+      if (form.memberEntitlementId) setMemberEntitlement(null);
+      return;
+    }
     // Keep an explicit pick as long as it still covers the receive date;
     // re-default only when the current selection is no longer offered.
     if (form.memberEntitlementId && memberEntitlementOptions.value.some((option) => option.id === form.memberEntitlementId)) return;
-    form.memberEntitlementId = cartSupportsEntitlement(entitlement) ? entitlement.id : null;
-    serviceFilter.value = form.memberEntitlementId ? entitlement.serviceId ?? "all" : "all";
+    setMemberEntitlement(entitlement.id);
   },
   { immediate: true },
 );
@@ -816,7 +881,7 @@ const handleSubmit = async () => {
     receivedAt: historicalReceivedAt.value,
     status: historicalStatus.value,
     ...(historicalStatus.value === "COMPLETED" ? { completedAt: historicalReceivedAt.value } : {}),
-    ...(historicalPaid.value && !isMemberWithZeroTotal.value ? { payment: { paidAt: historicalPaidAt.value, method: historicalMethod.value } } : {}),
+    ...(historicalPaid.value && !isZeroTotal.value ? { payment: { paidAt: historicalPaidAt.value, method: historicalMethod.value } } : {}),
   } : undefined;
   if (backdated) {
     const validation = backdatedOrderSchema().safeParse(backdated);
@@ -873,7 +938,7 @@ const handleSubmit = async () => {
         ? sanitizedDiscountAmount.value
         : (form.memberEntitlementId ? sanitizedCashDiscount.value : sanitizedDiscountAmount.value),
       note: form.note.trim() || null,
-      slipImageId: isMemberWithZeroTotal.value ? null : form.slipImageId,
+      slipImageId: isZeroTotal.value ? null : form.slipImageId,
     });
 
     if (result) {
@@ -883,7 +948,7 @@ const handleSubmit = async () => {
         orderNo: result.orderNo,
         activationToken: result.activationToken,
         saleType: "STOREFRONT",
-        paid: Boolean(backdated?.payment) || isMemberWithZeroTotal.value,
+        paid: Boolean(backdated?.payment) || isZeroTotal.value,
         title: backdated ? "บันทึกรายการรับผ้าย้อนหลังสำเร็จ" : "บันทึกรายการรับผ้าสำเร็จ",
       });
       resetForm();
@@ -936,7 +1001,7 @@ const useDuplicateCustomer = async () => {
           <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <div class="min-w-0">
               <p class="text-base font-semibold text-highlighted">เลือกบริการ</p>
-              <p class="mt-0.5 text-sm text-muted">ค้นหาแล้วแตะบริการ ผ้าที่เลือกจะไปอยู่ในตะกร้าด้านขวา</p>
+              <p class="mt-0.5 text-sm text-muted">{{ form.memberEntitlementId && !isAddingExtras ? "เลือกเฉพาะรายการผ้าที่รวมในแพ็กเกจ" : "ค้นหาแล้วแตะบริการ ผ้าที่เลือกจะไปอยู่ในตะกร้าด้านขวา" }}</p>
             </div>
 
             <div class="min-w-0 lg:shrink-0">
@@ -970,8 +1035,15 @@ const useDuplicateCustomer = async () => {
             <USelect v-model="categoryFilter" :items="categoryOptions" value-key="value"
               class="min-w-0 md:w-40 lg:w-44" />
             <USelect v-model="serviceFilter" :items="serviceOptions" value-key="value"
-              :disabled="Boolean(form.memberEntitlementId)" class="min-w-0 md:w-40 lg:w-44" />
+              :disabled="Boolean(form.memberEntitlementId) && !isAddingExtras" class="min-w-0 md:w-40 lg:w-44" />
           </div>
+        </div>
+
+        <div v-if="form.memberEntitlementId" class="flex gap-2">
+          <UButton label="รายการในแพ็กเกจ" icon="i-lucide-package-check" color="success"
+            :variant="isAddingExtras ? 'outline' : 'solid'" size="sm" @click="isAddingExtras = false" />
+          <UButton label="เพิ่มรายการอื่น" icon="i-lucide-plus" color="primary"
+            :variant="isAddingExtras ? 'solid' : 'outline'" size="sm" @click="isAddingExtras = true" />
         </div>
 
         <div v-if="isCatalogLoading"
@@ -981,12 +1053,16 @@ const useDuplicateCustomer = async () => {
 
         <div v-else-if="filteredCatalog.length">
           <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-3 2xl:grid-cols-4">
-            <PosCatalogCard v-for="item in filteredCatalog" :key="item.id" :title="item.label"
-              :description="getCatalogDescription(item)" badge-label="ราคาหน้าร้าน" badge-color="primary" :price-label="item.priceMin != null && item.priceMax != null && item.priceMin !== item.priceMax
+            <PosCatalogCard v-for="item in filteredCatalog" :key="`${item.type}:${item.id}`" :title="item.label"
+              :description="getCatalogDescription(item)" :price-label="item.type === 'PACKAGE' ? 'ใช้ 1 เครดิต' : item.priceMin != null && item.priceMax != null && item.priceMin !== item.priceMax
                 ? `฿${item.priceMin.toLocaleString()}–${item.priceMax.toLocaleString()}`
-                : formatCurrency(item.price)" :is-range="isRangeItem(item.id)" :quantity="getCatalogQuantity(item.id)"
-              :selected="getCatalogQuantity(item.id) > 0" @increment="incrementCatalogItem(item.id)"
-              @decrement="decrementCatalogItem(item.id)" @change="setCatalogItemQuantity(item.id, $event)" />
+                : formatCurrency(item.price)" :badge-label="item.type === 'PACKAGE' ? 'รวมในแพ็กเกจ' : 'ราคาหน้าร้าน'"
+              :badge-color="item.type === 'PACKAGE' ? 'info' : 'primary'"
+              :is-range="item.type === 'STOREFRONT' && isRangeItem(item.id)"
+              :quantity="getCatalogQuantity(item.id, item.type)"
+              :selected="getCatalogQuantity(item.id, item.type) > 0" @increment="incrementCatalogItem(item.id, item.type)"
+              @decrement="decrementCatalogItem(item.id, item.type)"
+              @change="setCatalogItemQuantity(item.id, item.type, $event)" />
           </div>
         </div>
 
@@ -1020,7 +1096,7 @@ const useDuplicateCustomer = async () => {
           :submit-label="backdatedEnabled ? 'บันทึกรับผ้าย้อนหลัง' : 'บันทึกรับผ้า'" :is-submitting="isSubmitting"
           :slip-file="slipFile" :uploaded-slip-url="uploadedSlip?.secureUrl || uploadedSlip?.url"
           :uploaded-slip-label="uploadedSlip?.secureUrl || uploadedSlip?.url || null"
-          :hide-payment-fields="isMemberWithZeroTotal" @update:customer-id="form.customerId = $event"
+          :hide-payment-fields="isZeroTotal" @update:customer-id="form.customerId = $event"
           @update:customer-mode="form.customerMode = $event" @update:new-customer-name="form.newCustomerName = $event"
           @update:new-customer-phone="form.newCustomerPhone = $event"
           @update:new-customer-email="form.newCustomerEmail = $event" @search-customer="setCustomerSearch"
@@ -1047,7 +1123,7 @@ const useDuplicateCustomer = async () => {
               <UFormField label="สถานะปัจจุบัน" required>
                 <USelect v-model="historicalStatus" :items="historicalStatusOptions" value-key="value" class="w-full" />
               </UFormField>
-              <template v-if="!isMemberWithZeroTotal">
+              <template v-if="!isZeroTotal">
                 <UFormField label="สถานะการชำระเงิน" required>
                   <div class="grid grid-cols-2 gap-2">
                     <UButton v-for="option in historicalPaymentStatusOptions" :key="option.value" :label="option.label"
@@ -1169,8 +1245,8 @@ const useDuplicateCustomer = async () => {
                         <div class="flex min-w-0 items-start gap-2">
                           <p class="min-w-0 flex-1 truncate text-sm text-highlighted">{{ item.label }}</p>
                           <span class="shrink-0 text-right text-xs font-medium text-muted">
-                            {{ form.washFoldMode ? "ชั่งกิโล" : (form.memberEntitlementId ? `${item.quantity} เครดิต` :
-                              formatCurrency(item.totalPrice)) }}
+                            {{ form.washFoldMode ? "ชั่งกิโล" : item.isPackageIncluded ? `${item.quantity} เครดิต` :
+                              item.isChargeable ? formatCurrency(item.totalPrice) : "ไม่คิดเงิน" }}
                           </span>
                         </div>
                         <div class="mt-1 flex items-center gap-1" @click.stop>
@@ -1188,6 +1264,14 @@ const useDuplicateCustomer = async () => {
                     </div>
 
                     <div v-if="expandedItems.has(item.key)" class="mt-2 space-y-2 border-l-2 border-default pl-3">
+                      <div v-if="form.memberEntitlementId && !item.isPackageIncluded"
+                        class="flex items-center justify-between gap-3 rounded-md bg-elevated/40 px-2.5 py-2"
+                        @click.stop>
+                        <span class="text-xs text-muted">{{ item.isChargeable ? "คิดเงินตามราคาหน้าร้าน" : "เพิ่มรายการแต่ไม่คิดเงิน" }}</span>
+                        <USwitch :model-value="item.isChargeable" size="sm" color="primary"
+                          :aria-label="item.isChargeable ? 'ไม่คิดเงินรายการนี้' : 'คิดเงินรายการนี้'"
+                          @update:model-value="setItemChargeable(item.key, $event)" />
+                      </div>
                       <UTextarea :model-value="item.notes" :rows="2" class="w-full"
                         placeholder="บันทึกตำหนิหรือรายละเอียดผ้าชิ้นนี้"
                         @update:model-value="updateItemNotes(item.key, String($event || ''))" />
@@ -1259,7 +1343,7 @@ const useDuplicateCustomer = async () => {
           </template>
 
           <template #discount>
-            <div v-if="!isMemberWithZeroTotal" class="space-y-3 text-sm">
+            <div v-if="!isZeroTotal" class="space-y-3 text-sm">
               <p class="text-sm font-semibold text-highlighted">สรุปค่าใช้จ่าย</p>
               <div class="flex items-center justify-between gap-3">
                 <span class="text-muted">ค่าบริการ</span>

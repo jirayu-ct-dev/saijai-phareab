@@ -78,7 +78,7 @@ type PaymentDetailResponse = {
     memberEntitlement: { product: { name: string } } | null;
     hangerCharge: { count: number; providedCount?: number; total: number } | null;
     addonUsages: Array<{ id: string; productName: string; credits: number; isDelivery?: boolean; deductOn: "CREATED" | "COMPLETED"; deductedAt: string | null; refundedAt: string | null }>;
-    items: Array<{ id: string; label: string; quantity: number; unitPrice: number; totalPrice: number; notes: string | null; isPackageIncluded: boolean; service: { name: string }; image: { id: string; url: string | null; secureUrl: string | null } | null; photos: Array<{ id: string; imageId: string; isDamaged: boolean; sortOrder: number; url: string | null; secureUrl: string | null }> }>;
+    items: Array<{ id: string; label: string; quantity: number; unitPrice: number; totalPrice: number; notes: string | null; isPackageIncluded: boolean; isChargeable: boolean; service: { name: string } | null; image: { id: string; url: string | null; secureUrl: string | null } | null; photos: Array<{ id: string; imageId: string; isDamaged: boolean; sortOrder: number; url: string | null; secureUrl: string | null }> }>;
   } | null;
 };
 
@@ -356,13 +356,19 @@ const detailItems = computed<DetailItem[]>(() => {
   return (payment.value.serviceOrder?.items || []).map<DetailItem>((item) => ({
     id: item.id,
     title: item.label,
-    metaLabel: item.service.name,
+    metaLabel: item.service?.name ?? null,
     notes: item.notes,
-    unitPriceLabel: formatCurrency(item.unitPrice),
+    unitPriceLabel: item.isPackageIncluded || !item.isChargeable ? null : formatCurrency(item.unitPrice),
     quantityLabel: `${item.quantity} ชิ้น`,
-    totalLabel: formatCurrency(item.totalPrice),
-    badgeLabel: item.isPackageIncluded ? "รวมในแพ็กเกจ" : null,
-    badgeColor: item.isPackageIncluded ? "success" : undefined,
+    totalLabel: item.isPackageIncluded ? `${item.quantity} เครดิต` : item.isChargeable ? formatCurrency(item.totalPrice) : "ไม่คิดเงิน",
+    badgeLabel: item.isPackageIncluded
+      ? "รวมในแพ็กเกจ"
+      : !item.isChargeable
+        ? "นอกแพ็กเกจ · ไม่คิดเงิน"
+        : payment.value?.serviceOrder?.memberEntitlement
+          ? "นอกแพ็กเกจ · คิดเงิน"
+          : null,
+    badgeColor: item.isPackageIncluded ? "success" : item.isChargeable ? "primary" : undefined,
     photos: (item.photos.length
       ? item.photos
       : (item.image ? [{ id: item.image.id, isDamaged: false, url: item.image.url, secureUrl: item.image.secureUrl }] : [])

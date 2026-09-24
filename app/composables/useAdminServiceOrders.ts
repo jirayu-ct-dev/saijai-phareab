@@ -14,7 +14,16 @@ export type CreateAdminServiceOrderBody = {
   orderImageId?: string | null;
   deliveryImageId?: string | null;
   items?: Array<{
+    type: "PACKAGE";
+    storefrontItemId: string;
+    quantity: number;
+    imageId?: string | null;
+    notes?: string | null;
+    photos?: Array<{ imageId: string; isDamaged: boolean; sortOrder?: number }>;
+  } | {
+    type: "STOREFRONT";
     storefrontPriceId: string;
+    isChargeable?: boolean;
     quantity: number;
     unitPrice?: number | null;
     imageId?: string | null;
@@ -98,8 +107,15 @@ export type AdminServiceOrder = {
       packageType: string;
       credits: number | null;
       validityDays: number | null;
-      serviceId: string | null;
-      service: { id: string; name: string } | null;
+      packageServiceId: string | null;
+      packageService: {
+        id: string;
+        name: string;
+        includedItems?: Array<{
+          storefrontItemId: string;
+          storefrontItem: { id: string; name: string };
+        }>;
+      } | null;
     };
   } | null;
   activeEntitlements?: Array<{
@@ -116,8 +132,8 @@ export type AdminServiceOrder = {
       validityDays: number | null;
       deductOn?: "CREATED" | "COMPLETED";
       isDelivery?: boolean;
-      serviceId?: string | null;
-      service?: { id: string; name: string } | null;
+      packageServiceId?: string | null;
+      packageService?: { id: string; name: string } | null;
     };
   }>;
   hangerCharge: {
@@ -142,6 +158,7 @@ export type AdminServiceOrder = {
   items: Array<{
     id: string;
     storefrontPriceId: string | null;
+    storefrontItemId: string | null;
     serviceId?: string | null;
     label: string;
     quantity: number;
@@ -149,6 +166,7 @@ export type AdminServiceOrder = {
     totalPrice: number;
     notes: string | null;
     isPackageIncluded: boolean;
+    isChargeable: boolean;
     weightKg?: number | null;
     weightLabel?: string | null;
     image: {

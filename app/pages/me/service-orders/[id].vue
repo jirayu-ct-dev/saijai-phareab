@@ -40,6 +40,7 @@ type MyServiceOrderDetail = {
     totalPrice: number;
     notes: string | null;
     isPackageIncluded: boolean;
+    isChargeable: boolean;
     photos: Array<{
       id: string;
       imageId: string;
@@ -592,17 +593,24 @@ const getItemPhotos = (item: MyServiceOrderItem) => item.photos ?? [];
                             <UBadge v-if="item.isPackageIncluded" color="success" variant="subtle" size="xs">
                               รวมในแพ็กเกจ
                             </UBadge>
+                            <UBadge v-else-if="order.memberEntitlement && item.isChargeable" color="primary" variant="subtle" size="xs">
+                              นอกแพ็กเกจ · คิดเงิน
+                            </UBadge>
+                            <UBadge v-else-if="!item.isChargeable" color="neutral" variant="subtle" size="xs">
+                              นอกแพ็กเกจ · ไม่คิดเงิน
+                            </UBadge>
                           </div>
                           <div class="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-muted">
                             <span>{{ item.quantity }} ชิ้น</span>
-                            <span>{{ item.isPackageIncluded ? "-" : formatCurrency(item.unitPrice) }}</span>
+                            <span>{{ item.isPackageIncluded || !item.isChargeable ? "-" : formatCurrency(item.unitPrice) }}</span>
                           </div>
                         </div>
                         <div class="shrink-0 text-right">
                           <p v-if="item.isPackageIncluded" class="text-sm font-semibold leading-none text-success">
                             {{ item.quantity }} เครดิต
                           </p>
-                          <p v-else class="text-[13px] font-semibold leading-none tabular-nums text-primary">{{ formatCurrency(item.totalPrice) }}</p>
+                          <p v-else-if="item.isChargeable" class="text-[13px] font-semibold leading-none tabular-nums text-primary">{{ formatCurrency(item.totalPrice) }}</p>
+                          <p v-else class="text-[13px] font-semibold leading-none text-muted">ไม่คิดเงิน</p>
                           <p v-if="getItemPhotos(item).length > 1" class="mt-1 text-[10px] text-muted">รูป {{ getItemPhotos(item).length }}</p>
                         </div>
                       </div>
@@ -665,11 +673,17 @@ const getItemPhotos = (item: MyServiceOrderItem) => item.photos ?? [];
                           <UBadge v-if="item.isPackageIncluded" color="success" variant="subtle" size="xs">
                             รวมในแพ็กเกจ
                           </UBadge>
+                          <UBadge v-else-if="order.memberEntitlement && item.isChargeable" color="primary" variant="subtle" size="xs">
+                            นอกแพ็กเกจ · คิดเงิน
+                          </UBadge>
+                          <UBadge v-else-if="!item.isChargeable" color="neutral" variant="subtle" size="xs">
+                            นอกแพ็กเกจ · ไม่คิดเงิน
+                          </UBadge>
                         </div>
                         <p v-if="item.notes" class="mt-1 wrap-break-word text-xs text-muted whitespace-pre-line">{{ item.notes }}</p>
                       </td>
                       <td class="border-b border-default px-3 py-2 text-right text-muted dark:border-default/25">
-                        {{ item.isPackageIncluded ? "-" : formatCurrency(item.unitPrice) }}
+                        {{ item.isPackageIncluded || !item.isChargeable ? "-" : formatCurrency(item.unitPrice) }}
                       </td>
                       <td class="border-b border-default px-3 py-2 text-right text-muted dark:border-default/25">{{ item.quantity }} ชิ้น</td>
                       <td class="border-b border-default px-3 py-2 text-right dark:border-default/25">
@@ -677,7 +691,8 @@ const getItemPhotos = (item: MyServiceOrderItem) => item.photos ?? [];
                           v-if="item.isPackageIncluded"
                           class="font-semibold text-success"
                         >{{ item.quantity }} เครดิต</span>
-                        <span v-else class="font-semibold text-highlighted">{{ formatCurrency(item.totalPrice) }}</span>
+                        <span v-else-if="item.isChargeable" class="font-semibold text-highlighted">{{ formatCurrency(item.totalPrice) }}</span>
+                        <span v-else class="font-semibold text-muted">ไม่คิดเงิน</span>
                       </td>
                     </tr>
                   </tbody>

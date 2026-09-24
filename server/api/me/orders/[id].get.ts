@@ -77,6 +77,7 @@ export default defineEventHandler(async (event) => {
                 },
               },
             },
+            storefrontItem: { select: { id: true, name: true } },
           },
         },
         payments: {
@@ -161,12 +162,13 @@ export default defineEventHandler(async (event) => {
         id: item.id,
         label: item.weightKg != null
           ? (item.weightLabel || "ซัก-พับ ชั่งกิโล")
-          : `${item.storefrontPrice?.storefrontService.name ?? ""} ${item.storefrontPrice?.storefrontItem.name ?? ""}`.trim(),
+          : `${item.storefrontPrice?.storefrontService.name ?? ""} ${item.storefrontPrice?.storefrontItem.name ?? item.storefrontItem?.name ?? ""}`.trim(),
         quantity: item.quantity,
         unitPrice: toNumber(item.unitPrice),
         totalPrice: toNumber(item.totalPrice),
         notes: item.notes,
         isPackageIncluded: item.isPackageIncluded,
+        isChargeable: item.isChargeable,
         photos: item.photos.map((photo) => ({
           id: photo.id,
           imageId: photo.imageId,

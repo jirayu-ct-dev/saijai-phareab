@@ -11,7 +11,7 @@ const packageProductFields = {
   validityDays: z.number().int().positive().nullable().optional(),
   isActive: z.boolean().optional(),
   isPublic: z.boolean().optional(),
-  serviceId: z.string().trim().min(1).nullable().optional(),
+  packageServiceId: z.string().trim().min(1).nullable().optional(),
 };
 
 export const createPackageProductSchema = z.object({

@@ -19,8 +19,8 @@ export default defineEventHandler(async (event) => {
         price: true,
         credits: true,
         validityDays: true,
-        serviceId: true,
-        service: { select: { name: true } },
+        packageServiceId: true,
+        packageService: { select: { name: true } },
       },
       orderBy: [
         { packageType: "asc" },
@@ -37,8 +37,8 @@ export default defineEventHandler(async (event) => {
       price: Number(product.price),
       credits: product.credits,
       validityDays: product.validityDays,
-      serviceId: product.serviceId,
-      serviceName: product.service?.name ?? null,
+      packageServiceId: product.packageServiceId,
+      packageServiceName: product.packageService?.name ?? null,
     }));
   } catch (error) {
     console.error("[GET /api/admin/package-catalog]", error);

@@ -13,14 +13,16 @@ const adminDashboardCardClass = "rounded-md border border-default/30 bg-default 
 
 type FormItemState = {
   key: string;
-  storefrontPriceId: string;
+  type: "PACKAGE" | "STOREFRONT";
+  storefrontItemId?: string;
+  storefrontPriceId?: string;
+  isChargeable: boolean;
   unitPrice?: number;
   quantity: number;
   notes: string;
   photos: OrderItemPhoto[];
   fallbackLabel?: string;
   fallbackUnitPrice?: number;
-  fallbackServiceId?: string | null;
 };
 type CatalogMenuItem = { label: string; icon: string; onSelect: () => void; description?: string };
 type CustomerOption = {
@@ -38,8 +40,10 @@ type CustomerOption = {
     creditRemaining: number | null;
     startAt: string | null;
     endAt: string | null;
-    serviceId: string | null;
-    serviceName: string | null;
+    packageServiceId: string | null;
+    packageServiceName: string | null;
+    includedItemIds: string[];
+    includedItems: Array<{ id: string; name: string; categoryId: string | null; categoryName: string | null }>;
   } | null;
   memberEntitlementOptions?: Array<{
     id: string;
@@ -48,8 +52,10 @@ type CustomerOption = {
     creditRemaining: number | null;
     startAt: string | null;
     endAt: string | null;
-    serviceId: string | null;
-    serviceName: string | null;
+    packageServiceId: string | null;
+    packageServiceName: string | null;
+    includedItemIds: string[];
+    includedItems: Array<{ id: string; name: string; categoryId: string | null; categoryName: string | null }>;
   }>;
   addonEntitlements?: Array<{
     id: string;
@@ -135,6 +141,7 @@ const createEmptyForm = () => ({
 const form = reactive(createEmptyForm());
 const formItems = ref<FormItemState[]>([]);
 const expandedItems = ref<Set<string>>(new Set());
+const isAddingExtras = ref(false);
 const dueDate = shallowRef<CalendarDate | null>(null);
 const dueTime = ref("00:00");
 
@@ -164,8 +171,15 @@ const currentOrderCustomer = computed<CustomerOption | null>(() => {
         creditRemaining: props.order.memberEntitlement.creditRemaining,
         startAt: null,
         endAt: props.order.memberEntitlement.endAt,
-        serviceId: props.order.memberEntitlement.product.serviceId,
-        serviceName: props.order.memberEntitlement.product.service?.name ?? null,
+        packageServiceId: props.order.memberEntitlement.product.packageServiceId,
+        packageServiceName: props.order.memberEntitlement.product.packageService?.name ?? null,
+        includedItemIds: props.order.memberEntitlement.product.packageService?.includedItems?.map((item) => item.storefrontItemId) ?? [],
+        includedItems: props.order.memberEntitlement.product.packageService?.includedItems?.map((item) => ({
+          id: item.storefrontItem.id,
+          name: item.storefrontItem.name,
+          categoryId: null,
+          categoryName: null,
+        })) ?? [],
       }
       : null,
     memberEntitlementOptions: props.order?.memberEntitlement
@@ -176,8 +190,15 @@ const currentOrderCustomer = computed<CustomerOption | null>(() => {
         creditRemaining: props.order.memberEntitlement.creditRemaining,
         startAt: null,
         endAt: props.order.memberEntitlement.endAt,
-        serviceId: props.order.memberEntitlement.product.serviceId,
-        serviceName: props.order.memberEntitlement.product.service?.name ?? null,
+        packageServiceId: props.order.memberEntitlement.product.packageServiceId,
+        packageServiceName: props.order.memberEntitlement.product.packageService?.name ?? null,
+        includedItemIds: props.order.memberEntitlement.product.packageService?.includedItems?.map((item) => item.storefrontItemId) ?? [],
+        includedItems: props.order.memberEntitlement.product.packageService?.includedItems?.map((item) => ({
+          id: item.storefrontItem.id,
+          name: item.storefrontItem.name,
+          categoryId: null,
+          categoryName: null,
+        })) ?? [],
       }]
       : [],
     addonEntitlements: [],
@@ -215,6 +236,31 @@ const selectedMemberEntitlement = computed(() => {
   if (!form.memberEntitlementId) return null;
   return (selectedCustomer.value?.memberEntitlementOptions ?? []).find((option) => option.id === form.memberEntitlementId) ?? activeMemberEntitlement.value;
 });
+const setMemberPackageEnabled = (enabled: boolean) => {
+  const entitlement = enabled ? activeMemberEntitlement.value : null;
+  form.memberEntitlementId = entitlement?.id ?? null;
+  isAddingExtras.value = false;
+  if (!entitlement) {
+    const removed = formItems.value.filter((item) => item.type === "PACKAGE").length;
+    formItems.value = formItems.value.filter((item) => item.type !== "PACKAGE");
+    if (removed) notify.info("นำรายการผ้าในแพ็กเกจออกแล้ว เนื่องจากปิดการใช้แพ็กเกจ");
+    return;
+  }
+  const includedIds = new Set(entitlement.includedItemIds);
+  formItems.value = formItems.value.map((item) => {
+    if (item.type !== "STOREFRONT" || !item.storefrontPriceId) return item;
+    const storefrontItemId = catalogMap.value.get(item.storefrontPriceId)?.itemId;
+    if (!storefrontItemId || !includedIds.has(storefrontItemId)) return item;
+    return {
+      ...item,
+      type: "PACKAGE" as const,
+      storefrontItemId,
+      storefrontPriceId: undefined,
+      unitPrice: 0,
+      isChargeable: false,
+    };
+  });
+};
 const formatEntitlementDate = (value: string | null) => {
   if (!value) return "?";
   const date = new Date(value);
@@ -252,18 +298,25 @@ const catalogMap = computed(() => new Map((catalogItems.value ?? []).map((item) 
 const formLineItems = computed(() =>
   formItems.value
     .map((item) => {
-      const catalog = catalogMap.value.get(item.storefrontPriceId);
-      const label = catalog?.label ?? item.fallbackLabel ?? "";
-      const unitPrice = item.unitPrice ?? catalog?.price ?? item.fallbackUnitPrice ?? 0;
+      const catalog = item.storefrontPriceId ? catalogMap.value.get(item.storefrontPriceId) : null;
+      const packageItem = selectedMemberEntitlement.value?.includedItems.find((entry) => entry.id === item.storefrontItemId);
+      const label = item.type === "PACKAGE"
+        ? packageItem?.name ?? item.fallbackLabel ?? ""
+        : catalog?.label ?? item.fallbackLabel ?? "";
+      const unitPrice = item.type === "PACKAGE" ? 0 : item.unitPrice ?? catalog?.price ?? item.fallbackUnitPrice ?? 0;
+      const totalPrice = item.type === "PACKAGE" || !item.isChargeable ? 0 : unitPrice * item.quantity;
       if (!label) return null;
       return {
         key: item.key,
+        type: item.type,
+        storefrontItemId: item.storefrontItemId,
         storefrontPriceId: item.storefrontPriceId,
-        serviceId: catalog?.serviceId ?? item.fallbackServiceId ?? null,
+        isPackageIncluded: item.type === "PACKAGE",
+        isChargeable: item.type === "STOREFRONT" && item.isChargeable,
         label,
         quantity: item.quantity,
         unitPrice,
-        totalPrice: unitPrice * item.quantity,
+        totalPrice,
         notes: item.notes,
         photos: item.photos,
       };
@@ -354,7 +407,7 @@ watch(editDeliveryImageFile, (file) => {
 });
 watch(() => form.washFoldMode, (enabled) => {
   if (enabled) {
-    form.memberEntitlementId = null;
+    setMemberPackageEnabled(false);
     form.missingHangerCount = 0;
     form.hangerCount = 0;
   } else {
@@ -432,7 +485,7 @@ const applyOrderToForm = () => {
   form.washFoldMode = isWashFoldOrder;
   form.washFoldWeightKg = isWashFoldOrder ? Number(order.weightKg ?? 0) : 0;
   form.washFoldNotes = "";
-  formItems.value = order.items.filter((it) => it.storefrontPriceId).map((item) => {
+  formItems.value = order.items.filter((item) => item.storefrontPriceId || item.storefrontItemId).map((item) => {
     const existingPhotos: OrderItemPhoto[] = (item.photos ?? []).map((photo) => ({
       key: createPhotoKey(),
       file: null,
@@ -449,20 +502,24 @@ const applyOrderToForm = () => {
         isDamaged: false,
       });
     }
-    const catalogEntry = catalogMap.value.get(item.storefrontPriceId as string);
+    const type = item.isPackageIncluded && item.storefrontItemId ? "PACKAGE" : "STOREFRONT";
+    const catalogEntry = item.storefrontPriceId ? catalogMap.value.get(item.storefrontPriceId) : null;
     const catalogPrice = catalogEntry?.price ?? null;
     return {
       key: createItemKey(),
-      storefrontPriceId: item.storefrontPriceId as string,
-      unitPrice: catalogPrice != null && item.unitPrice === catalogPrice ? undefined : item.unitPrice,
+      type,
+      storefrontItemId: item.storefrontItemId ?? undefined,
+      storefrontPriceId: item.storefrontPriceId ?? undefined,
+      isChargeable: item.isChargeable,
+      unitPrice: type === "PACKAGE" ? 0 : catalogPrice != null && item.unitPrice === catalogPrice ? undefined : item.unitPrice,
       quantity: item.quantity,
       notes: item.notes || "",
       photos: existingPhotos,
       fallbackLabel: item.label,
       fallbackUnitPrice: item.unitPrice,
-      fallbackServiceId: item.serviceId ?? null,
     };
   });
+  isAddingExtras.value = false;
   uploadedOrderImage.value = order.image;
   orderImageFile.value = null;
   uploadedEditDeliveryImage.value = order.deliveryImage;
@@ -550,6 +607,10 @@ const updateItemUnitPrice = (key: string, price: number) => {
   const target = formItems.value.find((item) => item.key === key);
   if (target) target.unitPrice = price;
 };
+const updateItemChargeable = (key: string, isChargeable: boolean) => {
+  const target = formItems.value.find((item) => item.key === key);
+  if (target?.type === "STOREFRONT") target.isChargeable = isChargeable;
+};
 const updateItemPhotos = (key: string, photos: OrderItemPhoto[]) => {
   const target = formItems.value.find((item) => item.key === key);
   if (target) target.photos = photos;
@@ -587,7 +648,7 @@ const confirmEditPriceInput = () => {
     existingRow.quantity += 1;
     formItems.value = [existingRow, ...formItems.value.filter((i) => i.key !== existingRow.key)];
   } else {
-    formItems.value = [{ key: createItemKey(), storefrontPriceId: priceId, unitPrice: price, quantity: 1, notes: "", photos: [] }, ...formItems.value];
+    formItems.value = [{ key: createItemKey(), type: "STOREFRONT", storefrontPriceId: priceId, isChargeable: true, unitPrice: price, quantity: 1, notes: "", photos: [] }, ...formItems.value];
   }
   editPriceInputOpen.value = false;
 };
@@ -596,21 +657,46 @@ const addCatalogItemToTop = (storefrontPriceId: string) => {
     openEditPriceInput(storefrontPriceId);
     return;
   }
-  const existing = formItems.value.find((item) => item.storefrontPriceId === storefrontPriceId);
+  const existing = formItems.value.find((item) => item.type === "STOREFRONT" && item.storefrontPriceId === storefrontPriceId);
   if (existing) {
     existing.quantity += 1;
     formItems.value = [existing, ...formItems.value.filter((item) => item.key !== existing.key)];
     return;
   }
-  formItems.value = [{ key: createItemKey(), storefrontPriceId, quantity: 1, notes: "", photos: [] }, ...formItems.value];
+  formItems.value = [{ key: createItemKey(), type: "STOREFRONT", storefrontPriceId, isChargeable: true, quantity: 1, notes: "", photos: [] }, ...formItems.value];
+};
+const addPackageItem = (storefrontItemId: string) => {
+  const existing = formItems.value.find((item) => item.type === "PACKAGE" && item.storefrontItemId === storefrontItemId);
+  if (existing) {
+    existing.quantity += 1;
+    formItems.value = [existing, ...formItems.value.filter((item) => item.key !== existing.key)];
+    return;
+  }
+  formItems.value = [{
+    key: createItemKey(),
+    type: "PACKAGE",
+    storefrontItemId,
+    isChargeable: false,
+    quantity: 1,
+    notes: "",
+    photos: [],
+  }, ...formItems.value];
 };
 const catalogDropdownItems = computed<CatalogMenuItem[][]>(() => {
-  const items = (catalogItems.value ?? []).map((item) => ({
-    label: item.label,
-    description: item.categoryName ? `${item.categoryName} | ${item.serviceName}` : item.serviceName,
-    icon: "i-lucide-plus",
-    onSelect: () => addCatalogItemToTop(item.id),
-  }));
+  const packageItems = selectedMemberEntitlement.value?.includedItems ?? [];
+  const items = form.memberEntitlementId && !isAddingExtras.value
+    ? packageItems.map((item) => ({
+      label: item.name,
+      description: item.categoryName || selectedMemberEntitlement.value?.packageServiceName || "รวมในแพ็กเกจ",
+      icon: "i-lucide-package-check",
+      onSelect: () => addPackageItem(item.id),
+    }))
+    : (catalogItems.value ?? []).map((item) => ({
+      label: item.label,
+      description: item.categoryName ? `${item.categoryName} | ${item.serviceName}` : item.serviceName,
+      icon: "i-lucide-plus",
+      onSelect: () => addCatalogItemToTop(item.id),
+    }));
   if (!items.length) return [[{ label: "ไม่พบบริการ", icon: "i-lucide-ban", onSelect: () => { } }]];
   return [items];
 });
@@ -728,10 +814,8 @@ const buildBody = async (): Promise<CreateAdminServiceOrderBody | null> => {
   const items = formItems.value
     .map((item) => {
       const readyPhotos = item.photos.filter((photo) => photo.uploadedImageId);
-      return {
-        storefrontPriceId: item.storefrontPriceId,
+      const common = {
         quantity: Number(item.quantity ?? 1),
-        unitPrice: item.unitPrice ?? null,
         imageId: readyPhotos[0]?.uploadedImageId ?? null,
         notes: item.notes.trim() || null,
         photos: readyPhotos.map((photo, index) => ({
@@ -740,8 +824,17 @@ const buildBody = async (): Promise<CreateAdminServiceOrderBody | null> => {
           sortOrder: index,
         })),
       };
+      return item.type === "PACKAGE"
+        ? { ...common, type: "PACKAGE" as const, storefrontItemId: item.storefrontItemId ?? "" }
+        : {
+          ...common,
+          type: "STOREFRONT" as const,
+          storefrontPriceId: item.storefrontPriceId ?? "",
+          isChargeable: item.isChargeable,
+          unitPrice: item.unitPrice ?? null,
+        };
     })
-    .filter((item) => item.storefrontPriceId);
+    .filter((item) => item.type === "PACKAGE" ? Boolean(item.storefrontItemId) : Boolean(item.storefrontPriceId));
 
   if (!form.washFoldMode && !items.length) {
     notify.validationError("กรุณาเลือกบริการอย่างน้อย 1 รายการ");
@@ -842,10 +935,10 @@ const handleSubmit = async () => {
               </UFormField>
 
               <div v-if="canUseMemberPackage"
-                class="rounded-md border border-default/35 bg-elevated/70 p-3 dark:border-default/25 dark:bg-elevated/45 md:col-span-2">
+                :class="['border-l-2 pl-3 md:col-span-2', form.memberEntitlementId ? 'border-success' : 'border-default']">
                 <div class="flex items-start justify-between gap-3">
                   <div class="min-w-0">
-                    <p class="font-medium text-success">{{ selectedMemberEntitlement?.productName ??
+                    <p class="truncate text-sm font-medium text-success">{{ selectedMemberEntitlement?.productName ??
                       activeMemberEntitlement?.productName }}</p>
                     <p class="text-xs text-muted">
                       เครดิตคงเหลือ
@@ -863,20 +956,16 @@ const handleSubmit = async () => {
                         formatEntitlementDate(selectedMemberEntitlement.endAt) }}
                     </p>
                   </div>
-                  <USwitch :model-value="Boolean(form.memberEntitlementId)" color="success"
-                    @update:model-value="form.memberEntitlementId = $event ? activeMemberEntitlement?.id ?? null : null" />
+                  <USwitch :model-value="Boolean(form.memberEntitlementId)" color="success" size="sm"
+                    aria-label="ใช้แพ็กเกจรายเดือน"
+                    @update:model-value="setMemberPackageEnabled($event)" />
                 </div>
               </div>
 
               <div v-if="activeAddonEntitlements.length"
-                class="space-y-3 rounded-md border border-default/35 bg-elevated/70 p-3 dark:border-default/25 dark:bg-elevated/45 md:col-span-2">
-                <div>
-                  <p class="font-medium text-highlighted">แพ็กเกจเสริมที่ใช้กับออเดอร์นี้</p>
-                  <p class="text-xs text-muted">บริการรับส่งเป็นสิทธิ์แสดงสถานะ ไม่หักเครดิต
-                    ส่วนแพ็กเกจเสริมอื่นเลือกจำนวนเครดิตตามปกติ</p>
-                </div>
+                class="space-y-2 md:col-span-2">
                 <div v-for="addon in activeAddonEntitlements" :key="addon.id"
-                  class="flex items-center justify-between gap-3">
+                  class="flex items-center justify-between gap-3 border-l-2 border-success pl-3">
                   <div class="min-w-0">
                     <p class="truncate text-sm text-highlighted">{{ addon.productName }}</p>
                     <p class="text-xs text-muted">
@@ -955,9 +1044,18 @@ const handleSubmit = async () => {
               </div>
               <UDropdownMenu :items="catalogDropdownItems" :content="{ align: 'end' }"
                 :ui="{ content: 'max-h-80 overflow-y-auto' }">
-                <UButton label="เพิ่มรายการ" icon="i-lucide-plus" color="neutral" variant="outline"
+                <UButton :label="form.memberEntitlementId && !isAddingExtras ? 'เพิ่มผ้าในแพ็กเกจ' : 'เพิ่มรายการผ้า'" icon="i-lucide-plus" color="neutral" variant="outline"
                   :loading="isCatalogLoading" />
               </UDropdownMenu>
+            </div>
+
+            <div v-if="form.memberEntitlementId" class="mt-3 flex flex-wrap gap-2">
+              <UButton label="ผ้าในแพ็กเกจ" icon="i-lucide-package-check" size="xs"
+                :variant="isAddingExtras ? 'outline' : 'solid'" :color="isAddingExtras ? 'neutral' : 'success'"
+                @click="isAddingExtras = false" />
+              <UButton label="เพิ่มผ้าอื่น · คิดเงินเริ่มต้น" icon="i-lucide-plus" size="xs"
+                :variant="isAddingExtras ? 'solid' : 'outline'" :color="isAddingExtras ? 'primary' : 'neutral'"
+                @click="isAddingExtras = true" />
             </div>
 
             <div class="mt-3 space-y-1">
@@ -968,8 +1066,8 @@ const handleSubmit = async () => {
                       <p class="min-w-0 flex-1 truncate text-sm text-highlighted">{{ item.label }}</p>
                       <div class="flex items-center justify-end">
                         <span class="w-16 shrink-0 text-right text-xs font-medium text-muted">
-                          {{ form.washFoldMode ? "ชั่งกิโล" : (form.memberEntitlementId ? `${item.quantity} เครดิต` :
-                          formatCurrency(item.totalPrice)) }}
+                          {{ form.washFoldMode ? "ชั่งกิโล" : (item.isPackageIncluded ? `${item.quantity} เครดิต` :
+                          item.isChargeable ? formatCurrency(item.totalPrice) : "ไม่คิดเงิน") }}
                         </span>
                         <UButton :icon="expandedItems.has(item.key) ? 'i-lucide-chevron-up' : 'i-lucide-chevron-down'"
                           color="neutral" variant="ghost" size="xs" @click="toggleItemExpand(item.key)" />
@@ -980,7 +1078,7 @@ const handleSubmit = async () => {
                     <div class="flex shrink-0 items-center gap-0.5">
                       <UInputNumber :model-value="item.quantity" :min="0" :step="1" orientation="horizontal" size="xs" class="w-24"
                         @update:model-value="setItemQuantity(item.key, $event)" />
-                      <template v-if="isEditRangeItem(item.storefrontPriceId)">
+                      <template v-if="item.type === 'STOREFRONT' && item.storefrontPriceId && isEditRangeItem(item.storefrontPriceId)">
                         <UInput :model-value="item.unitPrice ?? item.unitPrice" type="number" size="xs" class="w-20"
                           :placeholder="`฿${catalogMap.get(item.storefrontPriceId)?.priceMin ?? ''}–${catalogMap.get(item.storefrontPriceId)?.priceMax ?? ''}`"
                           @update:model-value="updateItemUnitPrice(item.key, Number($event))" />
@@ -992,6 +1090,12 @@ const handleSubmit = async () => {
                 <div v-if="expandedItems.has(item.key)"
                   class="mb-1 ml-1.5 space-y-2 border-l-2 border-default pl-3 pt-1">
                   <p class="text-sm font-medium text-highlighted">{{ item.label }}</p>
+                  <div v-if="form.memberEntitlementId && !item.isPackageIncluded"
+                    class="flex items-center justify-between gap-3 rounded-md bg-elevated/40 px-2 py-1.5">
+                    <span class="text-xs text-muted">{{ item.isChargeable ? 'รายการนอกแพ็กเกจ · คิดเงิน' : 'รายการนอกแพ็กเกจ · ไม่คิดเงิน' }}</span>
+                    <USwitch :model-value="item.isChargeable" size="sm" aria-label="คิดเงินรายการนอกแพ็กเกจ"
+                      @update:model-value="updateItemChargeable(item.key, $event)" />
+                  </div>
                   <UTextarea :model-value="item.notes" :rows="2" class="w-full"
                     placeholder="บันทึกตำหนิหรือรายละเอียดของผ้าชิ้นนี้"
                     @update:model-value="updateItemNotes(item.key, String($event || ''))" />
@@ -1021,11 +1125,11 @@ const handleSubmit = async () => {
                 <span class="font-medium text-highlighted">{{ formatCurrency(subtotalAmount) }}</span>
               </div>
               <div v-if="form.memberEntitlementId" class="flex items-center justify-between gap-3">
-                <span class="text-muted">ตัดเครดิตรายเดือน</span>
+                <span class="text-muted">ใช้เครดิตแพ็กเกจ</span>
                 <span class="font-medium text-success">{{ creditUsedPreview }} เครดิต</span>
               </div>
               <div v-if="form.memberEntitlementId && cashQuantity > 0" class="flex items-center justify-between gap-3">
-                <span class="text-muted">เครดิตไม่พอ ({{ cashQuantity }} ชิ้น)</span>
+                <span class="text-muted">ชำระเพิ่ม · รายการนอกแพ็กเกจ ({{ cashQuantity }} ชิ้น)</span>
                 <span class="font-medium text-highlighted">{{ formatCurrency(cashSubtotal) }}</span>
               </div>
               <div class="flex items-center justify-between gap-3">

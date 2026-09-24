@@ -180,6 +180,7 @@ export default defineEventHandler(async (event) => {
                 quantity: true,
                 totalPrice: true,
                 isPackageIncluded: true,
+                isChargeable: true,
                 storefrontPrice: {
                   select: {
                     storefrontItem: {
@@ -190,6 +191,7 @@ export default defineEventHandler(async (event) => {
                     },
                   },
                 },
+                storefrontItem: { select: { name: true } },
               },
             },
           },
@@ -341,9 +343,10 @@ export default defineEventHandler(async (event) => {
           quantity: item.quantity,
           totalPrice: Number(item.totalPrice),
           isPackageIncluded: item.isPackageIncluded,
+          isChargeable: item.isChargeable,
           label: item.storefrontPrice
             ? `${item.storefrontPrice.storefrontItem.name} / ${item.storefrontPrice.storefrontService.name}`
-            : "",
+            : item.storefrontItem?.name ?? "",
         })),
       })),
     };

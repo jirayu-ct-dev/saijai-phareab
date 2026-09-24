@@ -109,6 +109,7 @@ model User {
   uploadedImages        Image[]             @relation("ImageOwner")
 
   deletedPackageProducts        PackageProduct[]        @relation("PackageProductDeletedBy")
+  deletedPackageServices        PackageService[]        @relation("PackageServiceDeletedBy")
   deletedPackageSales           PackageSale[]           @relation("PackageSaleDeletedBy")
   deletedMemberEntitlements     MemberEntitlement[]     @relation("MemberEntitlementDeletedBy")
   deletedStorefrontServices     StorefrontService[]     @relation("StorefrontServiceDeletedBy")
@@ -234,6 +235,8 @@ model PackageProduct {
   isPublic     Boolean     @default(true)
   serviceId    String?
   service      StorefrontService? @relation(fields: [serviceId], references: [id], onDelete: SetNull)
+  packageServiceId String?
+  packageService PackageService? @relation(fields: [packageServiceId], references: [id], onDelete: Restrict)
   createdAt    DateTime    @default(now())
   updatedAt    DateTime    @updatedAt
   deletedAt    DateTime?
@@ -244,7 +247,37 @@ model PackageProduct {
   memberEntitlements MemberEntitlement[]
 
   @@index([serviceId])
+  @@index([packageServiceId])
   @@map("package_product")
+}
+
+model PackageService {
+  id          String    @id @default(cuid())
+  name        String
+  description String?
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+  deletedById String?
+  deletedBy   User?     @relation("PackageServiceDeletedBy", fields: [deletedById], references: [id])
+
+  packageProducts PackageProduct[]
+  includedItems   PackageServiceIncludedItem[]
+
+  @@map("package_service")
+}
+
+model PackageServiceIncludedItem {
+  packageServiceId String
+  storefrontItemId String
+  packageService   PackageService @relation(fields: [packageServiceId], references: [id], onDelete: Cascade)
+  storefrontItem   StorefrontItem @relation(fields: [storefrontItemId], references: [id], onDelete: Cascade)
+  createdAt        DateTime       @default(now())
+
+  @@id([packageServiceId, storefrontItemId])
+  @@index([storefrontItemId])
+  @@map("package_service_included_item")
 }
 
 model ServiceIncludedItem {
@@ -384,6 +417,8 @@ model StorefrontItem {
 
   storefrontPrices StorefrontPrice[]
   serviceIncludes  ServiceIncludedItem[]
+  packageIncludes  PackageServiceIncludedItem[]
+  serviceOrderItems ServiceOrderItem[]
 
   @@map("storefront_item")
 }
@@ -466,9 +501,12 @@ model ServiceOrderItem {
   serviceOrder      ServiceOrder     @relation(fields: [serviceOrderId], references: [id], onDelete: Cascade)
   storefrontPriceId String?
   storefrontPrice   StorefrontPrice? @relation(fields: [storefrontPriceId], references: [id])
+  storefrontItemId  String?
+  storefrontItem    StorefrontItem?  @relation(fields: [storefrontItemId], references: [id], onDelete: SetNull)
   weightKg          Decimal?
   weightLabel       String?
   isPackageIncluded Boolean          @default(false)
+  isChargeable      Boolean          @default(true)
   quantity          Int
   unitPrice         Decimal
   totalPrice        Decimal
@@ -483,6 +521,7 @@ model ServiceOrderItem {
 
   @@index([serviceOrderId])
   @@index([storefrontPriceId])
+  @@index([storefrontItemId])
   @@map("service_order_item")
 }
 

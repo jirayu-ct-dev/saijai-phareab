@@ -2,16 +2,17 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const db = vi.hoisted(() => ({
   storefrontPrice: { findMany: vi.fn() },
+  storefrontItem: { findMany: vi.fn() },
   user: { findFirst: vi.fn() },
   serviceOrder: { findFirst: vi.fn(), updateMany: vi.fn() },
   serviceOrderItem: { findMany: vi.fn(), create: vi.fn(), updateMany: vi.fn() },
   serviceOrderItemImage: { updateMany: vi.fn(), createMany: vi.fn() },
-  paymentRecord: { update: vi.fn(), create: vi.fn() },
+  paymentRecord: { findFirst: vi.fn(), update: vi.fn(), create: vi.fn() },
   paymentAuditLog: { create: vi.fn() },
   memberEntitlement: { findFirst: vi.fn(), updateMany: vi.fn() },
   $transaction: vi.fn(),
 }));
-const notifications = vi.hoisted(() => ({ notifyServiceOrderStatusChanged: vi.fn() }));
+const notifications = vi.hoisted(() => ({ notifyReceipt: vi.fn(), notifyServiceOrderStatusChanged: vi.fn() }));
 const numbers = vi.hoisted(() => ({ payment: vi.fn() }));
 vi.mock("~~/server/utils/prisma", () => ({ prisma: db }));
 vi.mock("~~/server/utils/auth", () => ({ requireRole: () => ({ id: "staff" }) }));
@@ -38,7 +39,7 @@ beforeEach(() => {
   body = {
     customerId: "customer",
     memberEntitlementId: "entitlement",
-    items: [{ storefrontPriceId: "price", quantity: 2 }],
+    items: [{ type: "PACKAGE", storefrontItemId: "shirt", quantity: 2 }],
     serviceOrderStatus: "RECEIVED",
   };
   db.$transaction.mockImplementation(async (operation) => operation(db));
@@ -51,24 +52,21 @@ beforeEach(() => {
     orderNo: "ORD-1",
     employeeId: "staff",
     completedAt: null,
-    payments: [{ id: "payment", slipImage: null, slipImageId: null, userId: "customer", amount: 20, paidAt: null, metadata: {} }],
+    payments: [{ id: "payment", slipImage: null, slipImageId: null, userId: "customer", amount: 0, paidAt: null, confirmedAt: null, confirmedById: null, receiptNo: "RC-1", status: "UNPAID", metadata: {} }],
   });
   db.user.findFirst.mockResolvedValue({ id: "customer" });
-  db.storefrontPrice.findMany.mockResolvedValue([{
-    id: "price",
-    price: 20,
-    storefrontService: { id: "service", name: "ซักรีด" },
-    storefrontItem: { id: "shirt", name: "เสื้อเชิ้ต" },
-  }]);
+  db.storefrontPrice.findMany.mockResolvedValue([]);
+  db.storefrontItem.findMany.mockImplementation(async ({ where }: { where: { id: { in: string[] } } }) => where.id.in.map((id) => ({ id, name: "เสื้อเชิ้ต" })));
   db.serviceOrder.updateMany.mockResolvedValue({ count: 1 });
   db.serviceOrderItem.findMany.mockResolvedValue([]);
   db.serviceOrderItem.create.mockResolvedValue({ id: "item" });
+  db.paymentRecord.findFirst.mockResolvedValue({ id: "payment" });
   db.paymentRecord.update.mockResolvedValue({});
   db.paymentAuditLog.create.mockResolvedValue({});
   db.memberEntitlement.findFirst.mockResolvedValue({
     id: "entitlement",
     creditRemaining: 5,
-    product: { serviceId: "service", service: { includedItems: [{ storefrontItemId: "shirt" }] } },
+    product: { packageServiceId: "package-service", packageService: { includedItems: [{ storefrontItemId: "shirt" }] } },
   });
   db.memberEntitlement.updateMany.mockResolvedValue({ count: 1 });
   numbers.payment.mockResolvedValue("PAY-1");
@@ -94,6 +92,9 @@ describe("editing an order's monthly package", () => {
     }));
     expect(db.serviceOrder.updateMany).toHaveBeenCalledWith(expect.objectContaining({
       data: expect.objectContaining({ memberEntitlementId: "entitlement", creditUsed: 2 }),
+    }));
+    expect(db.paymentRecord.update).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({ status: "PAID", receiptNo: "RC-1", amount: 0 }),
     }));
   });
 

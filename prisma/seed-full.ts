@@ -147,6 +147,24 @@ async function main() {
     });
   }
 
+  const packageServiceIds = [...new Set(mockPackagesData.map((pkg) => pkg.serviceId).filter((id): id is string => Boolean(id)))];
+  for (const serviceId of packageServiceIds) {
+    const service = mockServicesData.find((item) => item.id === serviceId);
+    const packageServiceId = `pkgsvc_${serviceId}`;
+    await prisma.packageService.upsert({
+      where: { id: packageServiceId },
+      update: { name: service?.name ?? serviceId, isActive: true },
+      create: { id: packageServiceId, name: service?.name ?? serviceId },
+    });
+    for (const includedItem of mockServiceIncludedItemsData.filter((item) => item.storefrontServiceId === serviceId)) {
+      await prisma.packageServiceIncludedItem.upsert({
+        where: { packageServiceId_storefrontItemId: { packageServiceId, storefrontItemId: includedItem.storefrontItemId } },
+        update: {},
+        create: { packageServiceId, storefrontItemId: includedItem.storefrontItemId },
+      });
+    }
+  }
+
   // ═══════════════════════════════════════════
   // 4. PACKAGES
   // ═══════════════════════════════════════════
@@ -157,8 +175,8 @@ async function main() {
     pkgIds[p.name] = p.id;
     await prisma.packageProduct.upsert({
       where: { id: p.id },
-      update: { name: p.name, description: p.description, packageType: p.packageType as any, isDelivery: p.isDelivery, deductOn: p.deductOn as any, price: p.price, credits: p.credits, validityDays: p.validityDays, serviceId: p.serviceId },
-      create: { id: p.id, name: p.name, description: p.description, packageType: p.packageType as any, isDelivery: p.isDelivery, deductOn: p.deductOn as any, price: p.price, credits: p.credits, validityDays: p.validityDays, serviceId: p.serviceId },
+      update: { name: p.name, description: p.description, packageType: p.packageType as any, isDelivery: p.isDelivery, deductOn: p.deductOn as any, price: p.price, credits: p.credits, validityDays: p.validityDays, serviceId: p.serviceId, packageServiceId: p.serviceId ? `pkgsvc_${p.serviceId}` : null },
+      create: { id: p.id, name: p.name, description: p.description, packageType: p.packageType as any, isDelivery: p.isDelivery, deductOn: p.deductOn as any, price: p.price, credits: p.credits, validityDays: p.validityDays, serviceId: p.serviceId, packageServiceId: p.serviceId ? `pkgsvc_${p.serviceId}` : null },
     });
   }
 

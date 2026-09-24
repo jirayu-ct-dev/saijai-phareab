@@ -16,7 +16,6 @@ export default defineEventHandler(async (event) => {
         const services = await prisma.storefrontService.findMany({
             where: { isActive: true, deletedAt: null },
             orderBy: { name: 'asc' },
-            include: { includedItems: { select: { storefrontItemId: true } } },
         })
 
         const prices = await prisma.storefrontPrice.findMany({
@@ -29,10 +28,7 @@ export default defineEventHandler(async (event) => {
 
         return {
             items,
-            services: services.map(({ includedItems, ...service }) => ({
-                ...service,
-                includedItemIds: includedItems.map((item) => item.storefrontItemId),
-            })),
+            services,
             prices,
             categories
         }

@@ -13,7 +13,7 @@ export default defineEventHandler(async (event) => {
             where: { deletedAt: null },
             orderBy: { createdAt: 'desc' },
             include: {
-                service: {
+                packageService: {
                     select: {
                         id: true,
                         name: true,
@@ -26,8 +26,8 @@ export default defineEventHandler(async (event) => {
         return packages.map((pkg) => ({
             ...pkg,
             price: Number(pkg.price),
-            includedItemIds: pkg.service?.includedItems.map((item) => item.storefrontItemId) ?? [],
-            service: pkg.service ? { id: pkg.service.id, name: pkg.service.name } : null,
+            includedItemIds: pkg.packageService?.includedItems.map((item) => item.storefrontItemId) ?? [],
+            packageService: pkg.packageService ? { id: pkg.packageService.id, name: pkg.packageService.name } : null,
         }))
     } catch (error) {
         console.error('[GET /api/admin/packages]', error)

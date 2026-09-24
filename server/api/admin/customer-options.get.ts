@@ -74,11 +74,16 @@ export default defineEventHandler(async (event) => {
                 packageType: true,
                 deductOn: true,
                 isDelivery: true,
-                serviceId: true,
-                service: {
+                packageServiceId: true,
+                packageService: {
                   select: {
                     name: true,
-                    includedItems: { select: { storefrontItemId: true } },
+                    includedItems: {
+                      select: {
+                        storefrontItemId: true,
+                        storefrontItem: { select: { id: true, name: true, category: { select: { id: true, name: true } } } },
+                      },
+                    },
                   },
                 },
               },
@@ -132,9 +137,15 @@ export default defineEventHandler(async (event) => {
             creditRemaining: entitlement.creditRemaining,
             startAt: entitlement.startAt?.toISOString() ?? null,
             endAt: entitlement.endAt?.toISOString() ?? null,
-            serviceId: entitlement.product.serviceId,
-            serviceName: entitlement.product.service?.name ?? null,
-            includedItemIds: entitlement.product.service?.includedItems.map((item) => item.storefrontItemId) ?? [],
+            packageServiceId: entitlement.product.packageServiceId,
+            packageServiceName: entitlement.product.packageService?.name ?? null,
+            includedItemIds: entitlement.product.packageService?.includedItems.map((item) => item.storefrontItemId) ?? [],
+            includedItems: entitlement.product.packageService?.includedItems.map((item) => ({
+              id: item.storefrontItem.id,
+              name: item.storefrontItem.name,
+              categoryId: item.storefrontItem.category?.id ?? null,
+              categoryName: item.storefrontItem.category?.name ?? null,
+            })) ?? [],
           })),
         activeMemberEntitlement: activeMemberEntitlement
           ? {
@@ -145,9 +156,15 @@ export default defineEventHandler(async (event) => {
               creditRemaining: activeMemberEntitlement.creditRemaining,
               startAt: activeMemberEntitlement.startAt?.toISOString() ?? null,
               endAt: activeMemberEntitlement.endAt?.toISOString() ?? null,
-              serviceId: activeMemberEntitlement.product.serviceId,
-              serviceName: activeMemberEntitlement.product.service?.name ?? null,
-              includedItemIds: activeMemberEntitlement.product.service?.includedItems.map((item) => item.storefrontItemId) ?? [],
+              packageServiceId: activeMemberEntitlement.product.packageServiceId,
+              packageServiceName: activeMemberEntitlement.product.packageService?.name ?? null,
+              includedItemIds: activeMemberEntitlement.product.packageService?.includedItems.map((item) => item.storefrontItemId) ?? [],
+              includedItems: activeMemberEntitlement.product.packageService?.includedItems.map((item) => ({
+                id: item.storefrontItem.id,
+                name: item.storefrontItem.name,
+                categoryId: item.storefrontItem.category?.id ?? null,
+                categoryName: item.storefrontItem.category?.name ?? null,
+              })) ?? [],
             }
           : null,
         addonEntitlements: activeAddonEntitlements.map((entitlement) => ({

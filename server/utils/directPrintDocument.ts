@@ -48,6 +48,8 @@ const directPaymentInclude = {
           totalPrice: true,
           notes: true,
           isPackageIncluded: true,
+          isChargeable: true,
+          storefrontItem: { select: { name: true } },
           storefrontPrice: {
             select: {
               storefrontService: { select: { name: true } },
@@ -102,6 +104,7 @@ export const loadDirectPrintDocument = async (
         where: {
           memberEntitlementId: payment.serviceOrder.memberEntitlementId,
           deletedAt: null,
+          status: { not: "CANCELLED" },
         },
         orderBy: { receivedAt: "asc" },
         select: {

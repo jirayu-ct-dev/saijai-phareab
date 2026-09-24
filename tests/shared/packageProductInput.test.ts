@@ -11,7 +11,7 @@ describe("package product request validation", () => {
       price: 500,
       credits: 30,
       validityDays: 30,
-      serviceId: "s3",
+      packageServiceId: "pkgsvc_s3",
     });
 
     expect(value).toMatchObject({
@@ -19,6 +19,7 @@ describe("package product request validation", () => {
       packageType: "MAIN",
       price: 500,
       validityDays: 30,
+      packageServiceId: "pkgsvc_s3",
     });
   });
 
@@ -37,5 +38,6 @@ describe("package product request validation", () => {
 
   it("rejects unknown fields instead of silently accepting them", () => {
     expect(updatePackageProductSchema.safeParse({ unexpected: true }).success).toBe(false);
+    expect(updatePackageProductSchema.safeParse({ serviceId: "storefront-service" }).success).toBe(false);
   });
 });

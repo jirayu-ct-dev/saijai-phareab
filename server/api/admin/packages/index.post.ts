@@ -20,23 +20,23 @@ export default defineEventHandler(async (event) => {
         throw createError({ statusCode: 400, statusMessage: 'กรุณากรอกราคาที่ถูกต้อง' })
     }
     const packageType = body.packageType ?? 'MAIN'
-    const serviceId = packageType === 'MAIN' ? body.serviceId?.trim() || null : null
+    const packageServiceId = packageType === 'MAIN' ? body.packageServiceId?.trim() || null : null
     const usageSettings = normalizePackageUsageSettings({
         packageType,
         isDelivery: body.isDelivery,
         credits: body.credits,
     })
 
-    if (packageType === 'MAIN' && !serviceId) {
+    if (packageType === 'MAIN' && !packageServiceId) {
         throw createError({ statusCode: 400, statusMessage: 'กรุณาเลือกบริการของแพ็กเกจหลัก' })
     }
     if (!hasUsablePackageCredits(usageSettings)) {
         throw createError({ statusCode: 400, statusMessage: 'กรุณากำหนดเครดิตอย่างน้อย 1 เครดิต' })
     }
 
-    if (serviceId) {
-        const service = await prisma.storefrontService.findFirst({
-            where: { id: serviceId, deletedAt: null, isActive: true },
+    if (packageServiceId) {
+        const service = await prisma.packageService.findFirst({
+            where: { id: packageServiceId, deletedAt: null, isActive: true },
             select: { id: true, includedItems: { select: { storefrontItemId: true }, take: 1 } },
         })
         if (!service) throw createError({ statusCode: 404, statusMessage: 'ไม่พบบริการที่เลือก' })
@@ -56,9 +56,9 @@ export default defineEventHandler(async (event) => {
                 validityDays: body.validityDays ?? 30,
                 isActive: body.isActive ?? true,
                 isPublic: body.isPublic ?? true,
-                serviceId,
+                packageServiceId,
             },
-            include: { service: { select: { id: true, name: true } } },
+            include: { packageService: { select: { id: true, name: true } } },
         })
 
         return pkg

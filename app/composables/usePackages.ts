@@ -15,7 +15,7 @@ export interface CreatePackageBody {
     validityDays?: number | null
     isActive?: boolean
     isPublic?: boolean
-    serviceId?: string | null
+    packageServiceId?: string | null
 }
 
 export interface UpdatePackageBody extends Partial<CreatePackageBody> {}

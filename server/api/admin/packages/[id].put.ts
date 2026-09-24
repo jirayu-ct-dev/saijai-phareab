@@ -25,12 +25,12 @@ export default defineEventHandler(async (event) => {
         isDelivery: body.isDelivery ?? existing.isDelivery,
         credits: body.credits !== undefined ? body.credits : existing.credits,
     })
-    const serviceId = packageType === 'MAIN'
-        ? body.serviceId !== undefined ? body.serviceId?.trim() || null : existing.serviceId
+    const packageServiceId = packageType === 'MAIN'
+        ? body.packageServiceId !== undefined ? body.packageServiceId?.trim() || null : existing.packageServiceId
         : null
 
-    const isEditingServiceAssignment = body.packageType !== undefined || body.serviceId !== undefined
-    if (packageType === 'MAIN' && isEditingServiceAssignment && !serviceId) {
+    const isEditingServiceAssignment = body.packageType !== undefined || body.packageServiceId !== undefined
+    if (packageType === 'MAIN' && isEditingServiceAssignment && !packageServiceId) {
         throw createError({ statusCode: 400, statusMessage: 'กรุณาเลือกบริการของแพ็กเกจหลัก' })
     }
     const isEditingUsageSettings = body.packageType !== undefined
@@ -40,9 +40,9 @@ export default defineEventHandler(async (event) => {
         throw createError({ statusCode: 400, statusMessage: 'กรุณากำหนดเครดิตอย่างน้อย 1 เครดิต' })
     }
 
-    if (serviceId) {
-        const service = await prisma.storefrontService.findFirst({
-            where: { id: serviceId, deletedAt: null, isActive: true },
+    if (packageServiceId) {
+        const service = await prisma.packageService.findFirst({
+            where: { id: packageServiceId, deletedAt: null, isActive: true },
             select: { id: true, includedItems: { select: { storefrontItemId: true }, take: 1 } },
         })
         if (!service) throw createError({ statusCode: 404, statusMessage: 'ไม่พบบริการที่เลือก' })
@@ -57,7 +57,7 @@ export default defineEventHandler(async (event) => {
                 ...(body.description !== undefined && { description: body.description }),
                 packageType,
                 isDelivery: usageSettings.isDelivery,
-                serviceId,
+                packageServiceId,
                 deductOn: usageSettings.deductOn,
                 ...(body.price !== undefined && { price: body.price }),
                 credits: usageSettings.credits,
@@ -65,7 +65,7 @@ export default defineEventHandler(async (event) => {
                 ...(body.isActive !== undefined && { isActive: body.isActive }),
                 ...(body.isPublic !== undefined && { isPublic: body.isPublic }),
             },
-            include: { service: { select: { id: true, name: true } } },
+            include: { packageService: { select: { id: true, name: true } } },
         })
 
         return updated

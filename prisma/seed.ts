@@ -111,6 +111,25 @@ async function main() {
     });
   }
 
+  console.log("Seeding independent package services...");
+  const packageServiceIds = [...new Set(mockPackagesData.map((pkg) => pkg.serviceId).filter((id): id is string => Boolean(id)))];
+  for (const serviceId of packageServiceIds) {
+    const service = mockServicesData.find((item) => item.id === serviceId);
+    const packageServiceId = `pkgsvc_${serviceId}`;
+    await prisma.packageService.upsert({
+      where: { id: packageServiceId },
+      update: { name: service?.name ?? serviceId, isActive: true },
+      create: { id: packageServiceId, name: service?.name ?? serviceId },
+    });
+    for (const includedItem of mockServiceIncludedItemsData.filter((item) => item.storefrontServiceId === serviceId)) {
+      await prisma.packageServiceIncludedItem.upsert({
+        where: { packageServiceId_storefrontItemId: { packageServiceId, storefrontItemId: includedItem.storefrontItemId } },
+        update: {},
+        create: { packageServiceId, storefrontItemId: includedItem.storefrontItemId },
+      });
+    }
+  }
+
   console.log("Seeding packages...");
   for (const pkg of mockPackagesData) {
     await prisma.packageProduct.upsert({
@@ -125,6 +144,7 @@ async function main() {
         credits: pkg.credits,
         validityDays: pkg.validityDays,
         serviceId: pkg.serviceId,
+        packageServiceId: pkg.serviceId ? `pkgsvc_${pkg.serviceId}` : null,
       },
       create: {
         id: pkg.id,
@@ -137,6 +157,7 @@ async function main() {
         credits: pkg.credits,
         validityDays: pkg.validityDays,
         serviceId: pkg.serviceId,
+        packageServiceId: pkg.serviceId ? `pkgsvc_${pkg.serviceId}` : null,
       },
     });
   }

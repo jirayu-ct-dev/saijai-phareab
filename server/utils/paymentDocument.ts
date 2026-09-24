@@ -40,6 +40,7 @@ export const buildPaymentDocumentPayload = async (paymentId: string) => {
                   storefrontItem: { select: { id: true, name: true } },
                 },
               },
+              storefrontItem: { select: { id: true, name: true } },
             },
             where: { deletedAt: null },
             orderBy: { createdAt: "asc" },
@@ -57,7 +58,7 @@ export const buildPaymentDocumentPayload = async (paymentId: string) => {
 
   const usageHistory = payment.serviceOrder?.memberEntitlementId
     ? await prisma.serviceOrder.findMany({
-        where: { memberEntitlementId: payment.serviceOrder.memberEntitlementId, deletedAt: null },
+        where: { memberEntitlementId: payment.serviceOrder.memberEntitlementId, deletedAt: null, status: { not: "CANCELLED" } },
         orderBy: { receivedAt: "asc" },
         select: {
           id: true,
@@ -83,12 +84,13 @@ export const buildPaymentDocumentPayload = async (paymentId: string) => {
   const isWashFoldOrder = payment.serviceOrder?.weightKg != null;
   const serviceItems = payment.serviceOrder?.serviceOrderItems.map((item) => ({
     id: item.id,
-    name: `${item.storefrontPrice?.storefrontService.name ?? ""} ${item.storefrontPrice?.storefrontItem.name ?? ""}`.trim(),
+    name: `${item.storefrontPrice?.storefrontService.name ?? ""} ${item.storefrontPrice?.storefrontItem.name ?? item.storefrontItem?.name ?? ""}`.trim(),
     quantity: item.quantity,
     unitPrice: toNumber(item.unitPrice),
     totalPrice: toNumber(item.totalPrice),
     notes: item.notes,
     isPackageIncluded: item.isPackageIncluded,
+    isChargeable: item.isChargeable,
     isWashFold: isWashFoldOrder,
     weightKg: null as number | null,
   })) ?? [];

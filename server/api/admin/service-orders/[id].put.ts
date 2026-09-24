@@ -1,9 +1,10 @@
 import type { ServiceOrderStatus } from "~~/shared/types/enums";
-import { notifyServiceOrderStatusChanged } from "~~/server/utils/notify";
+import { notifyReceipt, notifyServiceOrderStatusChanged } from "~~/server/utils/notify";
 import { getBusinessSetting } from "~~/server/utils/appSetting";
 import { computeVat } from "~~/server/utils/vat";
 import { requireRole } from "~~/server/utils/auth";
 import { createPaymentNo } from "~~/server/utils/paymentNo";
+import { createReceiptNo } from "~~/server/utils/receiptNo";
 import { prisma } from "~~/server/utils/prisma";
 import { createAddonUsageRecords, refundAddonUsages, voidPendingAddonUsageRecords } from "~~/server/utils/serviceOrderCredits";
 import { canTransitionServiceOrderStatus, isServiceOrderStatus, resolveServiceOrderCompletedAt } from "~~/server/utils/serviceOrderStatusTransition";
@@ -11,6 +12,21 @@ import { parseBangkokDateTime } from "~~/shared/utils/pickup";
 import { backdatedEntitlementWhere } from "~~/server/utils/backdatedEntitlement";
 import { allocatePackageCredits } from "~~/shared/utils/packageService";
 import { isPackageCatalogItemAllowed } from "~~/shared/utils/packageCatalog";
+import { z } from "zod";
+
+const orderItemInputSchema = z.discriminatedUnion("type", [
+  z.object({
+    type: z.literal("PACKAGE"), storefrontItemId: z.string().trim().min(1), quantity: z.number().int().min(1).max(1000),
+    imageId: z.string().trim().min(1).optional().nullable(), notes: z.string().trim().max(2000).optional().nullable(),
+    photos: z.array(z.object({ imageId: z.string().trim().min(1), isDamaged: z.boolean().optional(), sortOrder: z.number().int().optional() }).strict()).max(30).optional(),
+  }).strict(),
+  z.object({
+    type: z.literal("STOREFRONT"), storefrontPriceId: z.string().trim().min(1), quantity: z.number().int().min(1).max(1000),
+    unitPrice: z.number().finite().min(0).nullable().optional(), isChargeable: z.boolean().optional(),
+    imageId: z.string().trim().min(1).optional().nullable(), notes: z.string().trim().max(2000).optional().nullable(),
+    photos: z.array(z.object({ imageId: z.string().trim().min(1), isDamaged: z.boolean().optional(), sortOrder: z.number().int().optional() }).strict()).max(30).optional(),
+  }).strict(),
+]);
 
 type UpdateServiceOrderBody = {
   customerId?: string | null;
@@ -18,14 +34,7 @@ type UpdateServiceOrderBody = {
   addonEntitlements?: Array<{ entitlementId: string; credits: number }>;
   orderImageId?: string | null;
   deliveryImageId?: string | null;
-  items: Array<{
-    storefrontPriceId: string;
-    quantity: number;
-    unitPrice?: number | null;
-    imageId?: string | null;
-    notes?: string | null;
-    photos?: Array<{ imageId: string; isDamaged?: boolean; sortOrder?: number }>;
-  }>;
+  items: unknown[];
   washFold?: { weightKg: number; notes?: string | null } | null;
   hangerCount?: number;
   missingHangerCount?: number;
@@ -70,7 +79,11 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, statusMessage: "โหมดซัก-พับชั่งกิโลใช้แพ็กเกจรายเดือนไม่ได้" });
   }
 
-  const normalizedItems = body.items
+  const parsedItems = z.array(orderItemInputSchema).max(100).safeParse(body.items);
+  if (!parsedItems.success) {
+    throw createError({ statusCode: 400, statusMessage: "รายการผ้าไม่ถูกต้อง กรุณาตรวจสอบแล้วลองใหม่" });
+  }
+  const normalizedItems = parsedItems.data
     .map((item) => {
       const rawPhotos = Array.isArray(item.photos) ? item.photos : [];
       const parsedPhotos = rawPhotos
@@ -88,22 +101,11 @@ export default defineEventHandler(async (event) => {
           : [];
 
       return {
-        storefrontPriceId: item.storefrontPriceId,
-        quantity: Number(item.quantity ?? 1),
-        unitPriceOverride: item.unitPrice != null && Number.isFinite(Number(item.unitPrice)) ? Number(item.unitPrice) : null,
+        ...item,
         notes: item.notes?.trim() || null,
         photos,
       };
-    })
-    .filter((item) => item.storefrontPriceId);
-
-  if (normalizedItems.length === 0) {
-    throw createError({ statusCode: 400, statusMessage: "กรุณาเลือกบริการอย่างน้อย 1 รายการ" });
-  }
-
-  if (normalizedItems.some((item) => !Number.isInteger(item.quantity) || item.quantity < 1)) {
-    throw createError({ statusCode: 400, statusMessage: "จำนวนรายการต้องมากกว่า 0" });
-  }
+    });
 
   const hangerCount = body.hangerCount ?? 0;
   const missingHangerCount = body.missingHangerCount ?? 0;
@@ -153,6 +155,12 @@ export default defineEventHandler(async (event) => {
         statusMessage: "รายการนี้มีข้อมูลการชำระเงินหลายรายการ ระบบยังไม่รองรับการแก้ไขอัตโนมัติ",
       });
     }
+    if (existing.payments.some((payment) => payment.status === "PAID")) {
+      throw createError({
+        statusCode: 409,
+        statusMessage: "ออเดอร์ที่ชำระเงินแล้วแก้ไขยอด รายการ หรือแพ็กเกจผ่านหน้านี้ไม่ได้ กรุณาใช้ขั้นตอนปรับยอดที่มีประวัติการตรวจสอบ",
+      });
+    }
 
     const paymentUserId = customerId;
     const customer = await prisma.user.findFirst({
@@ -163,8 +171,9 @@ export default defineEventHandler(async (event) => {
       throw createError({ statusCode: 404, statusMessage: "ไม่พบลูกค้าที่เลือก" });
     }
 
-    const priceIds = [...new Set(normalizedItems.map((item) => item.storefrontPriceId))];
-    const storefrontPrices = await prisma.storefrontPrice.findMany({
+    const priceIds = [...new Set(normalizedItems.flatMap((item) => item.type === "STOREFRONT" ? [item.storefrontPriceId] : []))];
+    const packageItemIds = [...new Set(normalizedItems.flatMap((item) => item.type === "PACKAGE" ? [item.storefrontItemId] : []))];
+    const [storefrontPrices, packageItems] = await Promise.all([prisma.storefrontPrice.findMany({
       where: {
         id: { in: priceIds },
         deletedAt: null,
@@ -192,25 +201,50 @@ export default defineEventHandler(async (event) => {
           },
         },
       },
-    });
+    }), prisma.storefrontItem.findMany({
+      // Package entitlements own their inclusion list; storefront price/item
+      // deactivation must not invalidate an already-included garment.
+      where: { id: { in: packageItemIds } },
+      select: { id: true, name: true },
+    })]);
 
     if (storefrontPrices.length !== priceIds.length) {
       throw createError({ statusCode: 404, statusMessage: "มีรายการบริการบางรายการไม่ถูกต้องหรือถูกปิดใช้งาน" });
     }
+    if (packageItems.length !== packageItemIds.length) {
+      throw createError({ statusCode: 404, statusMessage: "มีรายการผ้าในแพ็กเกจบางรายการไม่ถูกต้องหรือถูกปิดใช้งาน" });
+    }
 
     const priceMap = new Map(storefrontPrices.map((item) => [item.id, item]));
+    const packageItemMap = new Map(packageItems.map((item) => [item.id, item]));
     const orderItems = normalizedItems.map((item) => {
-      const price = priceMap.get(item.storefrontPriceId);
-      if (!price) {
-        throw createError({ statusCode: 404, statusMessage: "ไม่พบบริการที่เลือก" });
+      if (item.type === "PACKAGE") {
+        const storefrontItem = packageItemMap.get(item.storefrontItemId);
+        if (!storefrontItem) throw createError({ statusCode: 404, statusMessage: "ไม่พบรายการผ้าในแพ็กเกจที่เลือก" });
+        return {
+          type: item.type, price: null, itemId: storefrontItem.id, itemName: storefrontItem.name,
+          quantity: item.quantity, unitPrice: 0, totalPrice: 0, isPackageIncluded: true, isChargeable: false,
+          notes: item.notes, photos: item.photos,
+        };
       }
 
-      const unitPrice = item.unitPriceOverride ?? Number(price.price);
+      const price = priceMap.get(item.storefrontPriceId);
+      if (!price) throw createError({ statusCode: 404, statusMessage: "ไม่พบบริการที่เลือก" });
+      const priceMin = price.priceMin == null ? null : Number(price.priceMin);
+      const priceMax = price.priceMax == null ? null : Number(price.priceMax);
+      const isRangePrice = priceMin != null && priceMax != null && priceMin !== priceMax;
+      if (isRangePrice && (item.unitPrice == null || item.unitPrice < priceMin || item.unitPrice > priceMax)) {
+        throw createError({ statusCode: 400, statusMessage: `ราคาของ "${price.storefrontItem.name}" ต้องอยู่ระหว่าง ${priceMin}–${priceMax} บาท` });
+      }
+      const unitPrice = isRangePrice ? item.unitPrice! : Number(price.price);
+      const isChargeable = item.isChargeable !== false;
       return {
-        price,
+        type: item.type, price, itemId: price.storefrontItem.id, itemName: price.storefrontItem.name,
         quantity: item.quantity,
         unitPrice,
-        totalPrice: unitPrice * item.quantity,
+        totalPrice: isChargeable ? unitPrice * item.quantity : 0,
+        isPackageIncluded: false,
+        isChargeable,
         notes: item.notes,
         photos: item.photos,
       };
@@ -256,12 +290,12 @@ export default defineEventHandler(async (event) => {
     const existingSlipImageId = existing.payments[0]?.slipImage?.id ?? null;
     const slipImageId = body.slipImageId !== undefined ? body.slipImageId : existingSlipImageId;
 
-    type AllocatedItem = (typeof orderItems)[number] & { cashQuantity: number; creditQuantity: number };
-    let allocatedItems: AllocatedItem[] = orderItems.map((item) => ({ ...item, creditQuantity: 0, cashQuantity: item.quantity }));
+    let allocation = allocatePackageCredits(orderItems, 0, false);
+    let allocatedItems = allocation.items;
     let creditUsed = 0;
     let subtotalAmount = washFoldInput
       ? washFoldSubtotal
-      : orderItems.reduce((sum, item) => sum + item.totalPrice, 0);
+      : allocation.cashSubtotal;
     let discountAmount = Math.min(Number(body.discountAmount ?? 0), subtotalAmount);
     let beforeVat = subtotalAmount - discountAmount + hangerCharge.total;
     let vat = computeVat({ amount: beforeVat, rate: business.vatRate, included: business.vatIncluded });
@@ -297,6 +331,9 @@ export default defineEventHandler(async (event) => {
       }
 
       let nextEntitlementId: string | null = null;
+      if (orderItems.some((item) => item.isPackageIncluded) && !requestedEntitlementId && serviceOrderStatus !== "CANCELLED") {
+        throw createError({ statusCode: 400, statusMessage: "ต้องเลือกแพ็กเกจเพื่อเพิ่มรายการผ้าที่รวมในแพ็กเกจ" });
+      }
 
       // A cancelled order holds no package credits — never re-deduct an
       // entitlement for it, or the stored creditUsed would trigger a second
@@ -317,8 +354,8 @@ export default defineEventHandler(async (event) => {
             creditRemaining: true,
             product: {
               select: {
-                serviceId: true,
-                service: {
+                packageServiceId: true,
+                packageService: {
                   select: { includedItems: { select: { storefrontItemId: true } } },
                 },
               },
@@ -330,30 +367,20 @@ export default defineEventHandler(async (event) => {
           throw createError({ statusCode: 404, statusMessage: "ไม่พบสิทธิ์แพ็กเกจรายเดือนที่เลือก หรือช่วงสิทธิ์ไม่ครอบคลุมวันรับผ้าของรายการนี้" });
         }
 
-        const rule = {
-          serviceId: entitlement.product.serviceId,
-          includedItemIds: entitlement.product.service?.includedItems.map((item) => item.storefrontItemId) ?? [],
-        };
-        const invalidItem = orderItems.find((item) => !isPackageCatalogItemAllowed(rule, {
-          serviceId: item.price.storefrontService.id,
-          itemId: item.price.storefrontItem.id,
-        }));
+        const rule = { includedItemIds: entitlement.product.packageService?.includedItems.map((item) => item.storefrontItemId) ?? [] };
+        const invalidItem = orderItems.find((item) => item.isPackageIncluded && !isPackageCatalogItemAllowed(rule, { itemId: item.itemId }));
         if (invalidItem) {
           throw createError({
             statusCode: 400,
-            statusMessage: `รายการ "${invalidItem.price.storefrontItem.name}" ไม่อยู่ในแพ็กเกจที่เลือก`,
+            statusMessage: `รายการ "${invalidItem.itemName}" ไม่อยู่ในแพ็กเกจที่เลือก`,
           });
         }
 
         const creditAvailable = Number(entitlement.creditRemaining ?? 0);
-        const allocation = allocatePackageCredits(
-          orderItems.map((item) => ({ ...item, serviceId: item.price.storefrontService?.id ?? null })),
-          creditAvailable,
-          true,
-        );
+        allocation = allocatePackageCredits(orderItems, creditAvailable, true);
         allocatedItems = allocation.items;
         creditUsed = allocation.creditUsed;
-        subtotalAmount = allocatedItems.reduce((sum, item) => sum + item.cashQuantity * item.unitPrice, 0);
+        subtotalAmount = allocation.cashSubtotal;
         discountAmount = Math.min(Number(body.discountAmount ?? 0), subtotalAmount);
         beforeVat = subtotalAmount - discountAmount + hangerCharge.total;
         vat = computeVat({ amount: beforeVat, rate: business.vatRate, included: business.vatIncluded });
@@ -518,48 +545,54 @@ export default defineEventHandler(async (event) => {
       });
 
       for (const item of allocatedItems) {
-        const rows: Array<{ qty: number; isPackage: boolean; totalPrice: number; attachPhotos: boolean }> = [];
-        if (item.creditQuantity > 0) rows.push({ qty: item.creditQuantity, isPackage: true, totalPrice: 0, attachPhotos: true });
-        if (item.cashQuantity > 0) rows.push({ qty: item.cashQuantity, isPackage: false, totalPrice: washFoldInput ? 0 : item.cashQuantity * item.unitPrice, attachPhotos: item.creditQuantity === 0 });
-        if (rows.length === 0) rows.push({ qty: item.quantity, isPackage: false, totalPrice: washFoldInput ? 0 : item.totalPrice, attachPhotos: true });
+        const createdItem = await tx.serviceOrderItem.create({
+          data: {
+            serviceOrderId: id,
+            storefrontPriceId: item.price?.id ?? null,
+            storefrontItemId: item.itemId,
+            isPackageIncluded: item.isPackageIncluded,
+            isChargeable: item.isChargeable,
+            quantity: item.quantity,
+            unitPrice: item.unitPrice,
+            totalPrice: washFoldInput ? 0 : item.totalPrice,
+            notes: item.notes,
+          },
+          select: { id: true },
+        });
 
-        for (const row of rows) {
-          const createdItem = await tx.serviceOrderItem.create({
-            data: {
-              serviceOrderId: id,
-              storefrontPriceId: item.price.id,
-              isPackageIncluded: row.isPackage,
-              quantity: row.qty,
-              unitPrice: item.unitPrice,
-              totalPrice: row.totalPrice,
-              notes: item.notes,
-            },
-            select: { id: true },
+        if (item.photos.length > 0) {
+          await tx.serviceOrderItemImage.createMany({
+            data: item.photos.map((photo, index) => ({
+              serviceOrderItemId: createdItem.id,
+              imageId: photo.imageId,
+              isDamaged: photo.isDamaged,
+              sortOrder: photo.sortOrder ?? index,
+            })),
           });
-
-          if (row.attachPhotos && item.photos.length > 0) {
-            await tx.serviceOrderItemImage.createMany({
-              data: item.photos.map((photo, index) => ({
-                serviceOrderItemId: createdItem.id,
-                imageId: photo.imageId,
-                isDamaged: photo.isDamaged,
-                sortOrder: photo.sortOrder ?? index,
-              })),
-            });
-          }
         }
       }
 
       if (existingPayment) {
+        const isZeroTotal = payableAmount === 0;
+        const settledAt = isZeroTotal ? existingPayment.paidAt ?? new Date() : existingPayment.paidAt;
+        const receiptNo = isZeroTotal
+          ? existingPayment.receiptNo ?? await createReceiptNo(settledAt!, tx)
+          : existingPayment.receiptNo;
         await tx.paymentRecord.update({
           where: { id: existingPayment.id },
           data: {
             userId: paymentUserId!,
             amount: payableAmount,
+            ...(isZeroTotal ? {
+              status: "PAID" as const,
+              receiptNo,
+              paidAt: settledAt,
+              confirmedAt: existingPayment.confirmedAt ?? settledAt,
+              confirmedById: existingPayment.confirmedById ?? actor.id,
+            } : {}),
             slipImageId: slipImageId ?? null,
             note: body.note?.trim() || null,
-            // Keep the existing paidAt (including null on unpaid payments) and
-            // preserve earlier metadata such as the backdated marker.
+            // Preserve earlier metadata such as the backdated marker.
             metadata: {
               ...(existingPayment && typeof existingPayment.metadata === "object" && existingPayment.metadata
                 ? existingPayment.metadata
@@ -587,27 +620,38 @@ export default defineEventHandler(async (event) => {
         await tx.paymentAuditLog.create({
           data: {
             paymentId: existingPayment.id,
-            action: "UPDATED",
+            action: isZeroTotal && existingPayment.status !== "PAID" ? "CONFIRMED" : "UPDATED",
             actorId: actor.id,
             beforeJson: {
               userId: existingPayment.userId,
               amount: Number(existingPayment.amount),
+              status: existingPayment.status,
+              receiptNo: existingPayment.receiptNo,
               slipImageId: existingPayment.slipImageId,
             },
             afterJson: {
               userId: paymentUserId,
               amount: payableAmount,
+              status: isZeroTotal ? "PAID" : existingPayment.status,
+              receiptNo,
               slipImageId: slipImageId ?? null,
             },
           },
         });
       } else {
+        const isZeroTotal = payableAmount === 0;
+        const settledAt = isZeroTotal ? new Date() : null;
         await tx.paymentRecord.create({
           data: {
             paymentNo: await createPaymentNo(),
             userId: paymentUserId!,
             serviceOrderId: id,
             amount: payableAmount,
+            status: isZeroTotal ? "PAID" : "UNPAID",
+            receiptNo: isZeroTotal ? await createReceiptNo(settledAt!, tx) : null,
+            paidAt: settledAt,
+            confirmedAt: settledAt,
+            confirmedById: isZeroTotal ? actor.id : null,
             slipImageId: slipImageId ?? null,
             note: body.note?.trim() || null,
             metadata: {
@@ -633,6 +677,20 @@ export default defineEventHandler(async (event) => {
         });
       }
     });
+
+    const paymentMetadata = existing.payments[0]?.metadata;
+    const isBackdatedOrder = Boolean(
+      paymentMetadata
+      && typeof paymentMetadata === "object"
+      && "backdated" in paymentMetadata,
+    );
+    if (payableAmount === 0 && !isBackdatedOrder) {
+      const freePayment = await prisma.paymentRecord.findFirst({
+        where: { serviceOrderId: id, deletedAt: null },
+        select: { id: true },
+      });
+      if (freePayment) void notifyReceipt({ paymentId: freePayment.id });
+    }
 
     if (existing.status !== serviceOrderStatus) {
       const notification = notifyServiceOrderStatusChanged({

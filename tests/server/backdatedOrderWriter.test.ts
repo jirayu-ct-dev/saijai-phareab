@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const db = vi.hoisted(() => ({
   storefrontPrice: { findMany: vi.fn() },
+  storefrontItem: { findMany: vi.fn() },
   user: { findFirst: vi.fn() },
   serviceOrder: { create: vi.fn(), update: vi.fn(), updateMany: vi.fn() },
   serviceOrderItem: { create: vi.fn() },
@@ -11,7 +12,7 @@ const db = vi.hoisted(() => ({
   memberEntitlement: { findFirst: vi.fn(), updateMany: vi.fn() },
   $transaction: vi.fn(),
 }));
-const notifications = vi.hoisted(() => ({ notifyQuotationCreated: vi.fn(), notifyServiceOrderCreated: vi.fn(), notifyServiceOrderStatusChanged: vi.fn() }));
+const notifications = vi.hoisted(() => ({ notifyQuotationCreated: vi.fn(), notifyReceipt: vi.fn(), notifyServiceOrderCreated: vi.fn(), notifyServiceOrderStatusChanged: vi.fn() }));
 const numbers = vi.hoisted(() => ({ order: vi.fn(), quotation: vi.fn(), receipt: vi.fn() }));
 vi.mock("~~/server/utils/prisma", () => ({ prisma: db }));
 vi.mock("~~/server/utils/auth", () => ({ requireRole: () => ({ id: "staff" }) }));
@@ -33,14 +34,15 @@ beforeEach(() => {
   vi.stubGlobal("defineEventHandler", (handler: unknown) => handler);
   vi.stubGlobal("readBody", async () => body);
   vi.stubGlobal("createError", (input: unknown) => input);
-  body = { customerId: "customer", items: [{ storefrontPriceId: "price", quantity: 2 }], backdated: { receivedAt: "2026-09-01T09:00", status: "COMPLETED", completedAt: "2026-09-03T17:00", payment: { paidAt: "2026-09-02T10:00", method: "CASH" } } };
+  body = { customerId: "customer", items: [{ type: "STOREFRONT", storefrontPriceId: "price", quantity: 2 }], backdated: { receivedAt: "2026-09-01T09:00", status: "COMPLETED", completedAt: "2026-09-03T17:00", payment: { paidAt: "2026-09-02T10:00", method: "CASH" } } };
   db.$transaction.mockImplementation(async (operation) => operation(db));
-  db.storefrontPrice.findMany.mockResolvedValue([{
+  db.storefrontPrice.findMany.mockImplementation(async ({ where }: { where: { id: { in: string[] } } }) => where.id.in.includes("price") ? [{
     id: "price",
     price: 20,
     storefrontService: { id: "service", name: "ซักรีด" },
     storefrontItem: { id: "shirt", name: "เสื้อเชิ้ต" },
-  }]);
+  }] : []);
+  db.storefrontItem.findMany.mockImplementation(async ({ where }: { where: { id: { in: string[] } } }) => where.id.in.map((id) => ({ id, name: "เสื้อเชิ้ต" })));
   db.user.findFirst.mockResolvedValue({ id: "customer" });
   db.serviceOrder.create.mockImplementation(async ({ data }) => ({ ...data, id: "order" }));
   db.serviceOrderItem.create.mockResolvedValue({ id: "item" });
@@ -49,7 +51,7 @@ beforeEach(() => {
     id: "entitlement",
     customerId: "customer",
     creditRemaining: 5,
-    product: { serviceId: "service", service: { includedItems: [{ storefrontItemId: "shirt" }] } },
+    product: { packageServiceId: "package-service", packageService: { includedItems: [{ storefrontItemId: "shirt" }] } },
   });
   db.memberEntitlement.updateMany.mockResolvedValue({ count: 1 });
   numbers.order.mockResolvedValue("ORD-1");
@@ -96,6 +98,7 @@ describe("recording a missed laundry order", () => {
 
   it("deducts historical package usage from the current balance with validity and race guards", async () => {
     body.memberEntitlementId = "entitlement";
+    body.items = [{ type: "PACKAGE", storefrontItemId: "shirt", quantity: 2 }];
     body.backdated = { receivedAt: "2026-09-01T09:00", status: "RECEIVED" };
     await submit();
     expect(db.memberEntitlement.findFirst).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ customerId: "customer", status: { in: ["ACTIVE", "EXPIRED"] }, AND: expect.arrayContaining([{ OR: [{ endAt: null }, { endAt: { gte: new Date("2026-09-01T02:00Z") } }] }]) }) }));
@@ -103,8 +106,22 @@ describe("recording a missed laundry order", () => {
     expect(db.paymentRecord.create).toHaveBeenCalledWith({ data: expect.objectContaining({ amount: 0, status: "PAID", paidAt: new Date("2026-09-01T02:00Z") }) });
   });
 
+  it("closes a zero-total package order and sends a receipt notification", async () => {
+    delete body.backdated;
+    body.memberEntitlementId = "entitlement";
+    body.items = [{ type: "PACKAGE", storefrontItemId: "shirt", quantity: 2 }];
+
+    await submit();
+
+    expect(db.paymentRecord.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({ amount: 0, status: "PAID", receiptNo: "RC-1", confirmedById: "staff" }),
+    });
+    expect(notifications.notifyReceipt).toHaveBeenCalledWith({ paymentId: "payment" });
+  });
+
   it("stops when another order consumes the credits before commit", async () => {
     body.memberEntitlementId = "entitlement";
+    body.items = [{ type: "PACKAGE", storefrontItemId: "shirt", quantity: 2 }];
     db.memberEntitlement.updateMany.mockResolvedValue({ count: 0 });
     await expect(submit()).rejects.toMatchObject({ statusCode: 409 });
     expect(db.serviceOrder.create).not.toHaveBeenCalled();
@@ -113,11 +130,12 @@ describe("recording a missed laundry order", () => {
 
   it("rejects clothing that is not included in the package service", async () => {
     body.memberEntitlementId = "entitlement";
+    body.items = [{ type: "PACKAGE", storefrontItemId: "shirt", quantity: 2 }];
     db.memberEntitlement.findFirst.mockResolvedValue({
       id: "entitlement",
       customerId: "customer",
       creditRemaining: 5,
-      product: { serviceId: "service", service: { includedItems: [{ storefrontItemId: "pants" }] } },
+      product: { packageServiceId: "package-service", packageService: { includedItems: [{ storefrontItemId: "pants" }] } },
     });
 
     await expect(submit()).rejects.toMatchObject({ statusCode: 400 });

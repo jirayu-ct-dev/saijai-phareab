@@ -3,12 +3,12 @@ import { allocatePackageCredits } from "../../shared/utils/packageService";
 
 describe("package credits", () => {
   const items = [
-    { id: "iron-shirt", serviceId: "iron", quantity: 3, unitPrice: 20 },
-    { id: "wash-shirt", serviceId: "wash", quantity: 2, unitPrice: 40 },
+    { id: "iron-shirt", quantity: 3, unitPrice: 20 },
+    { id: "wash-shirt", quantity: 2, unitPrice: 40 },
   ];
 
-  it("covers all items with credit when a package is selected, allowing overdraft", () => {
-    const result = allocatePackageCredits(items, 4, true);
+  it("uses credits only for package-included items, allowing overdraft", () => {
+    const result = allocatePackageCredits(items.map((item) => ({ ...item, isPackageIncluded: true })), 4, true);
 
     expect(result.creditUsed).toBe(5);
     expect(result.cashQuantity).toBe(0);
@@ -29,5 +29,32 @@ describe("package credits", () => {
       ["iron-shirt", 0, 3],
       ["wash-shirt", 0, 2],
     ]);
+  });
+
+  it("charges and counts only chargeable extras beside package-covered items", () => {
+    const result = allocatePackageCredits([
+      { id: "included", quantity: 2, unitPrice: 80, isPackageIncluded: true, isChargeable: false },
+      { id: "extra", quantity: 3, unitPrice: 25, isPackageIncluded: false, isChargeable: true },
+      { id: "waived", quantity: 1, unitPrice: 15, isPackageIncluded: false, isChargeable: false },
+    ], 1, true);
+
+    expect(result.creditUsed).toBe(2);
+    expect(result.cashQuantity).toBe(3);
+    expect(result.cashSubtotal).toBe(75);
+    expect(result.items.map((item) => [item.id, item.creditQuantity, item.cashQuantity])).toEqual([
+      ["included", 2, 0],
+      ["extra", 0, 3],
+      ["waived", 0, 0],
+    ]);
+  });
+
+  it("never consumes package credits for waived extras", () => {
+    const result = allocatePackageCredits([
+      { quantity: 2, unitPrice: 10, isPackageIncluded: false, isChargeable: false },
+    ], 5, true);
+
+    expect(result.creditUsed).toBe(0);
+    expect(result.cashQuantity).toBe(0);
+    expect(result.cashSubtotal).toBe(0);
   });
 });

@@ -45,8 +45,8 @@ export default defineEventHandler(async (event) => {
                 packageType: true,
                 credits: true,
                 validityDays: true,
-                serviceId: true,
-                service: { select: { id: true, name: true } },
+                packageServiceId: true,
+                packageService: { select: { id: true, name: true } },
               },
             },
           },
@@ -106,6 +106,7 @@ export default defineEventHandler(async (event) => {
                 },
               },
             },
+            storefrontItem: { select: { id: true, name: true } },
           },
         },
         payments: {
@@ -220,15 +221,19 @@ export default defineEventHandler(async (event) => {
         items: row.serviceOrderItems.map((item) => ({
           id: item.id,
           storefrontPriceId: item.storefrontPriceId,
+          storefrontItemId: item.storefrontItemId,
           serviceId: item.storefrontPrice?.storefrontService.id ?? null,
           label: item.weightKg != null
             ? (item.weightLabel || "ซัก-พับ ชั่งกิโล")
-            : `${item.storefrontPrice?.storefrontService.name ?? ""} ${item.storefrontPrice?.storefrontItem.name ?? ""}`.trim(),
+            : item.storefrontPrice
+              ? `${item.storefrontPrice.storefrontService.name} ${item.storefrontPrice.storefrontItem.name}`.trim()
+              : item.storefrontItem?.name ?? "รายการผ้า",
           quantity: item.quantity,
           unitPrice: toNumber(item.unitPrice),
           totalPrice: toNumber(item.totalPrice),
           notes: item.notes,
           isPackageIncluded: item.isPackageIncluded,
+          isChargeable: item.isChargeable,
           weightKg: item.weightKg != null ? toNumber(item.weightKg) : null,
           weightLabel: item.weightLabel ?? null,
           image: item.photos[0]?.image

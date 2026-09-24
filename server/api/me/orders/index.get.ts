@@ -40,7 +40,8 @@ export default defineEventHandler(async (event) => {
                   storefrontService: { select: { name: true } },
                   storefrontItem: { select: { name: true } }
                 }
-              }
+              },
+              storefrontItem: { select: { id: true, name: true } },
             }
           },
           payments: {
@@ -78,8 +79,11 @@ export default defineEventHandler(async (event) => {
         items: row.serviceOrderItems.map((item) => ({
           label: item.weightKg != null
             ? (item.weightLabel || "ซัก-พับ ชั่งกิโล")
-            : `${item.storefrontPrice?.storefrontService?.name ?? ""} ${item.storefrontPrice?.storefrontItem?.name ?? ""}`.trim(),
-          quantity: item.quantity
+            : `${item.storefrontPrice?.storefrontService?.name ?? ""} ${item.storefrontPrice?.storefrontItem?.name ?? item.storefrontItem?.name ?? ""}`.trim(),
+          quantity: item.quantity,
+          totalPrice: toNumber(item.totalPrice),
+          isPackageIncluded: item.isPackageIncluded,
+          isChargeable: item.isChargeable,
         })),
         payment: payment ? {
           id: payment.id,

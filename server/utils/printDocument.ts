@@ -260,6 +260,8 @@ export type PrintPaymentSource = {
       totalPrice: DecimalInput;
       notes: string | null;
       isPackageIncluded: boolean;
+      isChargeable: boolean;
+      storefrontItem: { name: string } | null;
       storefrontPrice: {
         storefrontService: { name: string } | null;
         storefrontItem: { name: string } | null;
@@ -326,14 +328,19 @@ export function buildPrintDocument(input: {
     const order = payment.serviceOrder;
     for (const item of order.serviceOrderItems ?? []) {
       const serviceName = item.storefrontPrice?.storefrontService?.name ?? "";
-      const itemName = item.storefrontPrice?.storefrontItem?.name ?? "";
+      const itemName = item.storefrontPrice?.storefrontItem?.name ?? item.storefrontItem?.name ?? "";
       const name = `${serviceName} ${itemName}`.trim() || "รายการบริการ";
+      const lineNote = item.isPackageIncluded
+        ? "รวมในแพ็กเกจ"
+        : item.isChargeable === false
+          ? "รายการนอกแพ็กเกจ · ไม่คิดเงิน"
+          : "รายการนอกแพ็กเกจ · คิดเงิน";
       items.push({
         name,
         quantity: item.quantity,
-        unitPriceMinor: decimalToMinorExact(item.unitPrice),
+        unitPriceMinor: item.isPackageIncluded || item.isChargeable === false ? 0 : decimalToMinorExact(item.unitPrice),
         totalPriceMinor: decimalToMinorExact(item.totalPrice),
-        note: item.notes ?? (item.isPackageIncluded ? "รวมในแพ็กเกจ" : null),
+        note: [lineNote, item.notes].filter(Boolean).join(" · "),
       });
     }
     // Wash-fold (kg) orders have no per-item rows: one exact synthetic line.

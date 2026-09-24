@@ -36,6 +36,9 @@ export default defineEventHandler(async (event) => {
             where: { deletedAt: null },
             select: {
               quantity: true,
+              isPackageIncluded: true,
+              isChargeable: true,
+              storefrontItem: { select: { name: true } },
               storefrontPrice: {
                 select: {
                   storefrontItem: { select: { name: true } },
@@ -52,14 +55,18 @@ export default defineEventHandler(async (event) => {
 
   const formatServiceOrderItems = (items: Array<{
     quantity: number;
+    isPackageIncluded: boolean;
+    isChargeable: boolean;
+    storefrontItem: { name: string } | null;
     storefrontPrice: { storefrontItem: { name: string }; storefrontService: { name: string } } | null;
   }>) =>
     items
       .map((item) => {
         const name = item.storefrontPrice
           ? `${item.storefrontPrice.storefrontItem.name} (${item.storefrontPrice.storefrontService.name})`
-          : "รายการไม่ระบุ";
-        return `${name} × ${item.quantity}`;
+          : item.storefrontItem?.name ?? "รายการไม่ระบุ";
+        const billing = item.isPackageIncluded ? "รวมในแพ็กเกจ" : item.isChargeable ? "คิดเงิน" : "ไม่คิดเงิน";
+        return `${name} × ${item.quantity} [${billing}]`;
       })
       .join(", ");
 

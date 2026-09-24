@@ -80,6 +80,7 @@ export default defineEventHandler(async (event) => {
           },
           serviceOrderItems: {
             include: {
+              storefrontItem: { select: { id: true, name: true } },
               storefrontPrice: {
                 include: {
                   storefrontService: {
@@ -129,6 +130,7 @@ export default defineEventHandler(async (event) => {
         where: {
           memberEntitlementId: payment.serviceOrder.memberEntitlementId,
           deletedAt: null,
+          status: { not: "CANCELLED" },
         },
         orderBy: { receivedAt: "asc" },
         select: {
@@ -157,13 +159,14 @@ export default defineEventHandler(async (event) => {
   const isWashFoldOrder = payment.serviceOrder?.weightKg != null;
   const serviceItems = payment.serviceOrder?.serviceOrderItems.map((item) => ({
     id: item.id,
-    name: `${item.storefrontPrice?.storefrontService.name ?? ""} ${item.storefrontPrice?.storefrontItem.name ?? ""}`.trim(),
+    name: `${item.storefrontPrice?.storefrontService.name ?? ""} ${item.storefrontPrice?.storefrontItem.name ?? item.storefrontItem?.name ?? ""}`.trim(),
     serviceName: item.storefrontPrice?.storefrontService.name ?? null,
     quantity: item.quantity,
     unitPrice: toNumber(item.unitPrice),
     totalPrice: toNumber(item.totalPrice),
     notes: item.notes,
     isPackageIncluded: item.isPackageIncluded,
+    isChargeable: item.isChargeable,
     isWashFold: isWashFoldOrder,
     weightKg: null as number | null,
     image: item.photos[0]?.image

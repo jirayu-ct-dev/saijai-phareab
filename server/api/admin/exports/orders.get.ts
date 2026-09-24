@@ -52,6 +52,9 @@ export default defineEventHandler(async (event) => {
         where: { deletedAt: null },
         select: {
           quantity: true,
+          isPackageIncluded: true,
+          isChargeable: true,
+          storefrontItem: { select: { name: true } },
           storefrontPrice: {
             select: {
               storefrontItem: { select: { name: true } },
@@ -73,8 +76,9 @@ export default defineEventHandler(async (event) => {
       .map((item) => {
         const name = item.storefrontPrice
           ? `${item.storefrontPrice.storefrontItem.name} (${item.storefrontPrice.storefrontService.name})`
-          : "รายการไม่ระบุ";
-        return `${name} × ${item.quantity}`;
+          : item.storefrontItem?.name ?? "รายการไม่ระบุ";
+        const billing = item.isPackageIncluded ? "รวมในแพ็กเกจ" : item.isChargeable ? "คิดเงิน" : "ไม่คิดเงิน";
+        return `${name} × ${item.quantity} [${billing}]`;
       })
       .join(", ");
     // วันที่ส่งจริง: completedAt ที่บันทึกตอนเข้าสถานะเสร็จสิ้น ถ้าไม่มี (งานเก่า) ใช้วันที่ชำระเงินแทน

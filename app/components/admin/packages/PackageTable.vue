@@ -87,7 +87,7 @@ const filteredPackages = computed<Package[]>(() => {
       (pkg) =>
         pkg.name.toLowerCase().includes(q) ||
         (pkg.description?.toLowerCase().includes(q) ?? false) ||
-        (pkg.service?.name.toLowerCase().includes(q) ?? false) ||
+        (pkg.packageService?.name.toLowerCase().includes(q) ?? false) ||
         pkg.id.toLowerCase().includes(q),
     );
   }
@@ -232,9 +232,9 @@ const columns: TableColumn<Package>[] = [
   },
   {
     id: "service",
-    accessorFn: (pkg) => pkg.service?.name ?? "",
+    accessorFn: (pkg) => pkg.packageService?.name ?? "",
     header: ({ column }) => sortableHeader("บริการ", column),
-    cell: ({ row }) => h("span", { class: "text-sm text-muted" }, row.original.service?.name ?? "—"),
+    cell: ({ row }) => h("span", { class: "text-sm text-muted" }, row.original.packageService?.name ?? "—"),
   },
   {
     accessorKey: "validityDays",
@@ -465,7 +465,7 @@ const columns: TableColumn<Package>[] = [
                 </div>
                 <div class="min-w-0">
                   <p class="text-muted">บริการ</p>
-                  <p class="truncate font-medium text-highlighted">{{ pkg.service?.name || "—" }}</p>
+                  <p class="truncate font-medium text-highlighted">{{ pkg.packageService?.name || "—" }}</p>
                 </div>
               </div>
               <div
@@ -482,9 +482,9 @@ const columns: TableColumn<Package>[] = [
                   <p class="text-muted">อายุแพ็กเกจ</p>
                   <p class="truncate font-medium text-highlighted">{{ formatDays(pkg.validityDays) }}</p>
                 </div>
-                <div v-if="pkg.service" class="col-span-2 min-w-0">
+                <div v-if="pkg.packageService" class="col-span-2 min-w-0">
                   <p class="text-muted">บริการ</p>
-                  <p class="truncate font-medium text-highlighted">{{ pkg.service.name }}</p>
+                  <p class="truncate font-medium text-highlighted">{{ pkg.packageService.name }}</p>
                 </div>
               </div>
 
@@ -593,9 +593,9 @@ const columns: TableColumn<Package>[] = [
                     </span>
                   </span>
                 </div>
-                <div v-if="row.original.service" class="flex items-center gap-2">
+                <div v-if="row.original.packageService" class="flex items-center gap-2">
                   <UIcon name="i-lucide-shirt" class="size-4 shrink-0 text-muted" />
-                  <span class="text-sm"><span class="text-muted">บริการ:</span> <span class="ml-1 font-medium text-highlighted">{{ row.original.service.name }}</span></span>
+                  <span class="text-sm"><span class="text-muted">บริการ:</span> <span class="ml-1 font-medium text-highlighted">{{ row.original.packageService.name }}</span></span>
                 </div>
                 <div class="flex items-center gap-2">
                   <UIcon name="i-lucide-eye" class="size-4 shrink-0 text-muted" />

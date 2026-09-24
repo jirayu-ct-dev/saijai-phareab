@@ -197,7 +197,13 @@ const kvRow = (label: string, value: string): FlexBox => ({
   ],
 });
 
-const itemRow = (name: string, qty: number, total: number, isPackage: boolean, isWashFold = false): FlexBox => ({
+const itemRow = (
+  name: string,
+  qty: number,
+  total: number,
+  billing: "PACKAGE" | "CHARGEABLE" | "WAIVED",
+  isWashFold = false,
+): FlexBox => ({
   type: "box",
   layout: "horizontal",
   spacing: "sm",
@@ -206,9 +212,9 @@ const itemRow = (name: string, qty: number, total: number, isPackage: boolean, i
     { type: "text", text: `x${qty}`, size: "sm", color: "#6B7280", flex: 1, align: "end" },
     {
       type: "text",
-      text: isWashFold ? "ชั่งกิโล" : (isPackage ? "ใช้แพ็กเกจ" : `฿${formatCurrency(total)}`),
+      text: isWashFold ? "ชั่งกิโล" : billing === "PACKAGE" ? "ใช้แพ็กเกจ" : billing === "WAIVED" ? "ไม่คิดเงิน" : `฿${formatCurrency(total)}`,
       size: "sm",
-      color: isWashFold ? "#F59E0B" : (isPackage ? "#16A34A" : "#111827"),
+      color: isWashFold ? "#F59E0B" : billing === "PACKAGE" ? "#16A34A" : billing === "WAIVED" ? "#6B7280" : "#111827",
       flex: 3,
       align: "end",
     },
@@ -377,6 +383,7 @@ const loadServiceOrderForNotify = async (id: string) =>
           unitPrice: true,
           totalPrice: true,
           isPackageIncluded: true,
+          isChargeable: true,
           notes: true,
           weightKg: true,
           weightLabel: true,
@@ -386,6 +393,7 @@ const loadServiceOrderForNotify = async (id: string) =>
               storefrontService: { select: { name: true } },
             },
           },
+          storefrontItem: { select: { name: true } },
           photos: {
             where: { deletedAt: null, isDamaged: true },
             orderBy: { sortOrder: "asc" },
@@ -479,15 +487,15 @@ const buildOrderBody = async (params: {
     rows.push(sectionHeading("รายการบริการ"));
     const isWashFoldMode = order.weightKg != null;
     for (const item of order.serviceOrderItems) {
-      if (item.storefrontPrice) {
-        const itemName = item.storefrontPrice.storefrontItem.name;
-        const serviceName = item.storefrontPrice.storefrontService.name;
+      if (item.storefrontPrice || item.storefrontItem) {
+        const itemName = item.storefrontPrice?.storefrontItem.name ?? item.storefrontItem?.name ?? "รายการ";
+        const serviceName = item.storefrontPrice?.storefrontService.name ?? "";
         rows.push(
           itemRow(
-            `${itemName} (${serviceName})`,
+            `${itemName}${serviceName ? ` (${serviceName})` : ""}`,
             item.quantity,
             Number(item.totalPrice),
-            isWashFoldMode ? false : item.isPackageIncluded,
+            item.isPackageIncluded ? "PACKAGE" : item.isChargeable ? "CHARGEABLE" : "WAIVED",
             isWashFoldMode,
           ),
         );
@@ -500,7 +508,7 @@ const buildOrderBody = async (params: {
           `ซัก-พับ ${Number(order.weightKg).toFixed(1)} กก. × ${formatCurrency(Number(order.washFoldPricePerKgSnapshot))}`,
           1,
           Number(order.subtotalAmount),
-          false,
+          "CHARGEABLE",
         ),
       );
     }
@@ -861,9 +869,12 @@ export const notifyReceipt = async (params: { paymentId: string }): Promise<void
                 quantity: true,
                 unitPrice: true,
                 totalPrice: true,
+                isPackageIncluded: true,
+                isChargeable: true,
                 storefrontPrice: {
                   select: { storefrontItem: { select: { name: true } } },
                 },
+                storefrontItem: { select: { name: true } },
               },
             },
           },
@@ -918,9 +929,12 @@ export const notifyReceipt = async (params: { paymentId: string }): Promise<void
       saleKind === "PACKAGE" ? "🎁 แพ็กเกจ" : saleKind === "STOREFRONT" ? "🧺 รายการซักรีด" : "🎉 ทั่วไป";
 
     const serviceOrderItems = (payment.serviceOrder?.serviceOrderItems ?? []).map((item) => ({
-      name: item.storefrontPrice?.storefrontItem?.name ?? "รายการ",
+      name: item.storefrontPrice?.storefrontItem?.name ?? item.storefrontItem?.name ?? "รายการ",
       qty: item.quantity,
       unitPrice: Number(item.unitPrice),
+      totalPrice: Number(item.totalPrice),
+      isPackageIncluded: item.isPackageIncluded,
+      isChargeable: item.isChargeable,
     }));
 
     const packageItems = (payment.packageSale?.items ?? []).map((item) => ({
@@ -960,7 +974,12 @@ export const notifyReceipt = async (params: { paymentId: string }): Promise<void
         body.push(divider());
         body.push(sectionHeading("รายการบริการ"));
         for (const item of serviceOrderItems) {
-          body.push(kvRow(item.name, `×${item.qty} — ฿${formatCurrency(item.unitPrice)}`));
+          const amountLabel = item.isPackageIncluded
+            ? "ใช้แพ็กเกจ"
+            : item.isChargeable
+              ? `฿${formatCurrency(item.totalPrice)}`
+              : "ไม่คิดเงิน";
+          body.push(kvRow(item.name, `×${item.qty} — ${amountLabel}`));
         }
         body.push(kvRow("ราคารวม", `฿${formatCurrency(subtotal)}`));
         const hanger = (serviceOrder?.hangerCharge ?? null) as { count?: number; providedCount?: number; total?: number } | null;
@@ -1015,6 +1034,14 @@ export const notifyReceipt = async (params: { paymentId: string }): Promise<void
       if (isServiceOrder) {
         body.push(kvRow("เลขรับผ้า", payment.serviceOrder?.orderNo || "-"));
         body.push(kvRow("รายการ", `${serviceOrderItems.length} รายการ`));
+        for (const item of serviceOrderItems) {
+          const amountLabel = item.isPackageIncluded
+            ? "ใช้แพ็กเกจ"
+            : item.isChargeable
+              ? `฿${formatCurrency(item.totalPrice)}`
+              : "ไม่คิดเงิน";
+          body.push(kvRow(item.name, `×${item.qty} — ${amountLabel}`));
+        }
       }
       if (isPackageSale && packageItems.length) {
         body.push(kvRow("แพ็กเกจ", packageItems.map((i) => i.name).join(", ")));
@@ -1085,7 +1112,6 @@ export const notifyQuotationCreated = async (params: { serviceOrderId: string })
       },
     });
     if (!order) return;
-    if (order.memberEntitlementId) return;
 
     const setting = await getNotificationSetting();
     const customerCanReceive = (setting as { notifyCustomerOnQuotation?: boolean }).notifyCustomerOnQuotation !== false;
@@ -1093,6 +1119,7 @@ export const notifyQuotationCreated = async (params: { serviceOrderId: string })
 
     const payment = order.payments[0];
     if (!payment || payment.status !== "UNPAID") return;
+    if (Number(payment.amount) <= 0) return;
 
     const shopName = await getShopName();
     const resolved = resolveOrderCustomer(order);

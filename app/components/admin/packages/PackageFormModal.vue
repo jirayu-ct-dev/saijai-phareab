@@ -28,7 +28,7 @@ interface FormState {
   price: number | null;
   credits: number | null;
   validityDays: number | null;
-  serviceId: string | undefined;
+  packageServiceId: string | undefined;
 }
 
 const defaultState = (): FormState => ({
@@ -38,7 +38,7 @@ const defaultState = (): FormState => ({
   price: null,
   credits: null,
   validityDays: 30,
-  serviceId: undefined,
+  packageServiceId: undefined,
 });
 
 const addonModeOptions = [
@@ -47,11 +47,11 @@ const addonModeOptions = [
 ];
 
 const state = reactive<FormState>(defaultState());
-const errors = ref<{ name?: string; price?: string; credits?: string; validityDays?: string; serviceId?: string }>({});
+const errors = ref<{ name?: string; price?: string; credits?: string; validityDays?: string; packageServiceId?: string }>({});
 const serviceOptions = computed(() => {
   const services = new Map<string, string>();
   for (const service of props.services ?? []) services.set(service.id, service.name);
-  if (props.editPackage?.service) services.set(props.editPackage.service.id, props.editPackage.service.name);
+  if (props.editPackage?.packageService) services.set(props.editPackage.packageService.id, props.editPackage.packageService.name);
   return Array.from(services, ([value, label]) => ({ value, label }));
 });
 
@@ -79,7 +79,7 @@ watch(
       state.price = Number(pkg.price);
       state.credits = pkg.credits ?? null;
       state.validityDays = pkg.validityDays ?? null;
-      state.serviceId = pkg.serviceId ?? undefined;
+      state.packageServiceId = pkg.packageServiceId ?? undefined;
       return;
     }
 
@@ -89,7 +89,7 @@ watch(
 );
 
 const validate = () => {
-  const nextErrors: { name?: string; price?: string; credits?: string; validityDays?: string; serviceId?: string } = {};
+  const nextErrors: { name?: string; price?: string; credits?: string; validityDays?: string; packageServiceId?: string } = {};
   const usageSettings = normalizePackageUsageSettings({
     packageType: state.packageType,
     isDelivery: state.addonMode === "DELIVERY",
@@ -103,13 +103,13 @@ const validate = () => {
   if (state.validityDays !== null && (!Number.isInteger(state.validityDays) || state.validityDays < 1)) {
     nextErrors.validityDays = "กรุณากรอกจำนวนวันเป็นจำนวนเต็มอย่างน้อย 1 วัน";
   }
-  if (state.packageType === "MAIN" && !state.serviceId) {
-    nextErrors.serviceId = "กรุณาเลือกบริการของแพ็กเกจ";
+  if (state.packageType === "MAIN" && !state.packageServiceId) {
+    nextErrors.packageServiceId = "กรุณาเลือกบริการของแพ็กเกจ";
   } else if (
     state.packageType === "MAIN"
-    && !(props.services?.find((service) => service.id === state.serviceId)?.includedItemIds?.length)
+    && !(props.services?.find((service) => service.id === state.packageServiceId)?.includedItemIds?.length)
   ) {
-    nextErrors.serviceId = "บริการนี้ยังไม่มีรายการผ้า กรุณาแก้ไขบริการก่อน";
+    nextErrors.packageServiceId = "บริการนี้ยังไม่มีรายการผ้า กรุณาแก้ไขบริการก่อน";
   }
   if (!hasUsablePackageCredits(usageSettings)) {
     nextErrors.credits = "กรุณากรอกเครดิตเป็นจำนวนเต็มอย่างน้อย 1 เครดิต";
@@ -137,7 +137,7 @@ const handleSubmit = async () => {
     price: state.price ?? 0,
     credits: usageSettings.credits,
     validityDays: state.validityDays,
-    serviceId: state.packageType === "MAIN" ? state.serviceId : null,
+    packageServiceId: state.packageType === "MAIN" ? state.packageServiceId : null,
   });
 };
 
@@ -181,16 +181,16 @@ const handleOpenChange = (value: boolean) => {
             v-if="state.packageType === 'MAIN'"
             label="บริการที่ใช้แพ็กเกจ"
             required
-            :error="errors.serviceId"
+            :error="errors.packageServiceId"
           >
             <USelect
-              v-model="state.serviceId"
+              v-model="state.packageServiceId"
               :items="serviceOptions"
               value-key="value"
               placeholder="เลือกบริการ"
               class="w-full"
               :loading="servicesLoading"
-              :color="errors.serviceId ? 'error' : undefined"
+              :color="errors.packageServiceId ? 'error' : undefined"
             />
           </UFormField>
 

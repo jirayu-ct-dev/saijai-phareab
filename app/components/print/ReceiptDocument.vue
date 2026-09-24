@@ -31,6 +31,8 @@ type ReceiptLineItem = {
   subtitle: string | null;
   isWashFold?: boolean;
   weightKg?: number | null;
+  isPackageIncluded?: boolean;
+  isChargeable?: boolean;
 };
 
 const props = defineProps<{
@@ -69,9 +71,17 @@ const receiptLines = computed<ReceiptLineItem[]>(() => {
       quantity: item.quantity,
       unitPrice: item.unitPrice,
       totalPrice: item.totalPrice,
-      subtitle: null,
+      subtitle: item.isPackageIncluded
+        ? "รวมในแพ็กเกจ"
+        : item.isChargeable === false
+          ? "นอกแพ็กเกจ · ไม่คิดเงิน"
+          : props.data.serviceOrder?.memberEntitlement
+            ? "นอกแพ็กเกจ · คิดเงิน"
+            : null,
       isWashFold: item.isWashFold || props.data.serviceOrder?.weightKg != null,
       weightKg: item.weightKg,
+      isPackageIncluded: item.isPackageIncluded,
+      isChargeable: item.isChargeable,
     })) ?? []
   );
 });
@@ -177,11 +187,11 @@ const infoRows = computed(() => {
               <p v-if="item.subtitle" class="item-name mt-0.5 text-[18px] text-neutral-600">{{ item.subtitle }}</p>
             </div>
             <p class="text-right whitespace-nowrap">
-              {{ item.isWashFold ? "—" : (isMemberOrder && item.unitPrice === 0 ? "-" : formatCurrency(item.unitPrice)) }}
+              {{ item.isWashFold || item.isPackageIncluded || item.isChargeable === false ? "—" : formatCurrency(item.unitPrice) }}
             </p>
             <p class="text-right whitespace-nowrap">x{{ item.quantity }}</p>
             <p class="text-right whitespace-nowrap">
-              {{ item.isWashFold ? "ชั่งกิโล" : (isMemberOrder && item.totalPrice === 0 ? `${item.quantity} เครดิต` : formatCurrency(item.totalPrice)) }}
+              {{ item.isWashFold ? "ชั่งกิโล" : item.isPackageIncluded ? `${item.quantity} เครดิต` : item.isChargeable === false ? "ไม่คิดเงิน" : formatCurrency(item.totalPrice) }}
             </p>
           </div>
         </div>

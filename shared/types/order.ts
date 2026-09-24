@@ -50,15 +50,18 @@ export interface ServiceOrder extends Timestamps, SoftDeletable {
 export interface ServiceOrderItem extends Timestamps, SoftDeletable {
   id: string;
   serviceOrderId: string;
-  storefrontPriceId: string;
+  storefrontPriceId: string | null;
+  storefrontItemId: string | null;
   isPackageIncluded: boolean;
+  isChargeable: boolean;
   quantity: number;
   unitPrice: number | string;
   totalPrice: number | string;
   notes: string | null;
 
   serviceOrder?: ServiceOrder;
-  storefrontPrice?: StorefrontPrice;
+  storefrontPrice?: StorefrontPrice | null;
+  storefrontItem?: { id: string; name: string } | null;
   photos?: Array<{
     id: string;
     imageId: string;

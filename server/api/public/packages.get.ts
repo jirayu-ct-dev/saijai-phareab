@@ -9,7 +9,7 @@ export default defineEventHandler(async () => {
         const packages = await prisma.packageProduct.findMany({
             where: { isActive: true, isPublic: true, deletedAt: null },
             orderBy: { price: 'asc' },
-            include: { service: { select: { id: true, name: true } } },
+            include: { packageService: { select: { id: true, name: true } } },
         })
 
         return packages.map((pkg) => ({
@@ -20,8 +20,8 @@ export default defineEventHandler(async () => {
             price: Number(pkg.price),
             credits: pkg.credits,
             validityDays: pkg.validityDays,
-            serviceId: pkg.serviceId,
-            serviceName: pkg.service?.name ?? null,
+            packageServiceId: pkg.packageServiceId,
+            packageServiceName: pkg.packageService?.name ?? null,
             features: [
                 pkg.isDelivery ? 'บริการรับ-ส่งแบบไม่ใช้เครดิต' : null,
                 pkg.credits ? `${pkg.credits} เครดิต` : null,

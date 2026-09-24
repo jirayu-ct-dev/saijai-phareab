@@ -23,8 +23,8 @@ export interface PackageProduct extends Timestamps, SoftDeletable {
   validityDays: number | null;
   isActive: boolean;
   isPublic: boolean;
-  serviceId: string | null;
-  service?: {
+  packageServiceId: string | null;
+  packageService?: {
     id: string;
     name: string;
   } | null;
