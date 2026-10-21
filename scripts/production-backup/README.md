@@ -32,9 +32,13 @@ Run from the repository root without printing environment values:
 scripts/production-backup/r2-backup.sh
 ```
 
-Schedule policy is an operator decision. If hourly backups are required, the
-scheduler—not the application—must invoke this command every hour and alert on
-non-zero exit status. Configure an R2 lifecycle rule as a retention backstop.
+The production VPS runs `saijai-db-backup.timer` daily at 19:00 UTC
+(02:00 Asia/Bangkok). It reads its secrets from the root-only
+`/etc/saijai-db-backup.env`; check the schedule with
+`systemctl list-timers saijai-db-backup.timer` and run logs with
+`journalctl -u saijai-db-backup.service`. Each successful run keeps the newest
+14 days in R2. The bucket also has an enabled 14-day lifecycle rule scoped to
+`saijai-production/` as a retention backstop if the VPS timer stops running.
 
 ## Restore drill
 

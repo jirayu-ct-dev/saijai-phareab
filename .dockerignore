@@ -16,6 +16,7 @@ node_modules
 # Environment (ใช้ env_file ใน docker-compose แทน)
 .env
 .env.*
+/secrets/
 
 # Git
 .git

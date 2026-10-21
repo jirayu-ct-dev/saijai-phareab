@@ -95,7 +95,8 @@ node "$R2_S3_MJS" put --endpoint "$R2_ENDPOINT" --bucket "$R2_BUCKET" \
 CUTOFF="$(date -u -v-${RETENTION_DAYS}d +%Y-%m-%dT%H:%M:%SZ 2>/dev/null \
   || date -u -d "$RETENTION_DAYS days ago" +%Y-%m-%dT%H:%M:%SZ)"
 EXPIRED="$(node "$R2_S3_MJS" list-old --endpoint "$R2_ENDPOINT" \
-  --bucket "$R2_BUCKET" --prefix "$PREFIX/" --cutoff "$CUTOFF")" || EXPIRED=""
+  --bucket "$R2_BUCKET" --prefix "$PREFIX/" --cutoff "$CUTOFF")" \
+  || fail "R2 retention listing failed" 1
 if [ -n "$EXPIRED" ]; then
   while IFS= read -r key; do
     [ -n "$key" ] || continue

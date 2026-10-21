@@ -51,6 +51,14 @@ logs
 !.agents/skills/xprinter-xp-c260m/**
 !.agents/skills/raspberry-pi-print-gateway/
 !.agents/skills/raspberry-pi-print-gateway/**
+!.agents/skills/saijai-production-backup/
+!.agents/skills/saijai-production-backup/**
+!.agents/skills/saijai-vps-operations/
+!.agents/skills/saijai-vps-operations/**
+
+# Production backup credentials remain local to this checkout.
+/secrets/
+/vps-user-pass.md
 .codex
 error.md
 flow.md
